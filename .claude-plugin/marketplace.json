@@ -28,6 +28,17 @@
       "skills": [
         "./skills/skill-creator"
       ]
+    },
+    {
+      "name": "prompt-optimizer",
+      "description": "撰写提示词、优化提示词、改写 Prompt、Prompt 优化。将模糊的想法转化为精确有效的 AI 提示词，支持 ChatGPT、Claude、Gemini、DeepSeek、豆包、智谱等多平台。",
+      "version": "1.0.0",
+      "source": "./",
+      "category": "productivity",
+      "strict": false,
+      "skills": [
+        "./skills/prompt-optimizer"
+      ]
     }
   ]
 }

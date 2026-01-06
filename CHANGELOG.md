@@ -5,6 +5,28 @@
 格式基于 [Keep a Changelog](https://keepachangelog.com/zh-CN/1.0.0/)，
 版本号遵循 [Semantic Versioning](https://semver.org/lang/zh-CN/)。
 
+## [1.3.0] - 2026-01-06
+
+### 新增
+
+- **prompt-optimizer** 技能：AI 提示词优化专家
+  - 支持 6 大平台语法级适配：Claude（XML）、ChatGPT（Markdown）、DeepSeek（CoT）、豆包、智谱 GLM、Gemini
+  - 迭代式优化流程：多轮执行 4D 方法论，自我评判达标后才交付
+  - 7 项自我评判清单：意图清晰、无歧义、信息完整、结构合理、平台适配、精简度、可执行
+  - 负面约束机制：禁止过度修饰、无端膨胀、道德说教、虚构信息等
+  - DeepSeek R1 特别适配：避免格式约束干扰思维链
+
+### 变更
+
+- **skill-creator 本地化**
+  - SKILL.md 重写为中文，加入 Testany 命名/结构约定和审核标准
+  - `init_skill.py` 默认输出路径改为 `skills/`
+  - 模板内容全部中文化
+- **marketplace.json 结构调整**
+  - 每个 skill 拆分为独立 plugin，方便用户浏览时看到描述
+
+---
+
 ## [1.2.0] - 2026-01-06
 
 ### 新增
