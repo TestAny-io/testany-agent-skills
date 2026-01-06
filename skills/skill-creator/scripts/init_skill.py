@@ -1,13 +1,13 @@
 #!/usr/bin/env python3
 """
-Skill Initializer - Creates a new skill from template
+Skill Initializer - 创建新 Skill 模板
 
 Usage:
-    init_skill.py <skill-name> --path <path>
+    init_skill.py <skill-name> [--path <path>]
 
 Examples:
-    init_skill.py my-new-skill --path skills/public
-    init_skill.py my-api-helper --path skills/private
+    init_skill.py my-new-skill                     # 默认输出到 skills/
+    init_skill.py my-new-skill --path skills/      # 显式指定路径
     init_skill.py custom-skill --path /custom/location
 """
 
@@ -17,172 +17,111 @@ from pathlib import Path
 
 SKILL_TEMPLATE = """---
 name: {skill_name}
-description: [TODO: Complete and informative explanation of what the skill does and when to use it. Include WHEN to use this skill - specific scenarios, file types, or tasks that trigger it.]
+description: [触发词1]、[触发词2]、[触发词3]。[功能描述，说明什么时候使用这个 skill]
 ---
 
 # {skill_title}
 
-## Overview
+[TODO: 1-2 句话说明这个 skill 的作用]
 
-[TODO: 1-2 sentences explaining what this skill enables]
+## 核心原则
 
-## Structuring This Skill
+[TODO: 列出 3-5 个核心原则]
 
-[TODO: Choose the structure that best fits this skill's purpose. Common patterns:
+## 工作流程
 
-**1. Workflow-Based** (best for sequential processes)
-- Works well when there are clear step-by-step procedures
-- Example: DOCX skill with "Workflow Decision Tree" → "Reading" → "Creating" → "Editing"
-- Structure: ## Overview → ## Workflow Decision Tree → ## Step 1 → ## Step 2...
+[TODO: 描述使用这个 skill 的工作流程]
 
-**2. Task-Based** (best for tool collections)
-- Works well when the skill offers different operations/capabilities
-- Example: PDF skill with "Quick Start" → "Merge PDFs" → "Split PDFs" → "Extract Text"
-- Structure: ## Overview → ## Quick Start → ## Task Category 1 → ## Task Category 2...
+## 使用示例
 
-**3. Reference/Guidelines** (best for standards or specifications)
-- Works well for brand guidelines, coding standards, or requirements
-- Example: Brand styling with "Brand Guidelines" → "Colors" → "Typography" → "Features"
-- Structure: ## Overview → ## Guidelines → ## Specifications → ## Usage...
+[TODO: 提供 1-2 个具体的使用示例]
 
-**4. Capabilities-Based** (best for integrated systems)
-- Works well when the skill provides multiple interrelated features
-- Example: Product Management with "Core Capabilities" → numbered capability list
-- Structure: ## Overview → ## Core Capabilities → ### 1. Feature → ### 2. Feature...
+## 资源目录
 
-Patterns can be mixed and matched as needed. Most skills combine patterns (e.g., start with task-based, add workflow for complex operations).
-
-Delete this entire "Structuring This Skill" section when done - it's just guidance.]
-
-## [TODO: Replace with the first main section based on chosen structure]
-
-[TODO: Add content here. See examples in existing skills:
-- Code samples for technical skills
-- Decision trees for complex workflows
-- Concrete examples with realistic user requests
-- References to scripts/templates/references as needed]
-
-## Resources
-
-This skill includes example resource directories that demonstrate how to organize different types of bundled resources:
-
-### scripts/
-Executable code (Python/Bash/etc.) that can be run directly to perform specific operations.
-
-**Examples from other skills:**
-- PDF skill: `fill_fillable_fields.py`, `extract_form_field_info.py` - utilities for PDF manipulation
-- DOCX skill: `document.py`, `utilities.py` - Python modules for document processing
-
-**Appropriate for:** Python scripts, shell scripts, or any executable code that performs automation, data processing, or specific operations.
-
-**Note:** Scripts may be executed without loading into context, but can still be read by Claude for patching or environment adjustments.
+本 skill 包含以下资源目录（按需使用，不需要的可删除）：
 
 ### references/
-Documentation and reference material intended to be loaded into context to inform Claude's process and thinking.
+供 Claude 参考的文档，会加载到 context。
+- 适合：详细的指南、API 文档、规范说明
 
-**Examples from other skills:**
-- Product management: `communication.md`, `context_building.md` - detailed workflow guides
-- BigQuery: API reference documentation and query examples
-- Finance: Schema documentation, company policies
-
-**Appropriate for:** In-depth documentation, API references, database schemas, comprehensive guides, or any detailed information that Claude should reference while working.
+### scripts/
+可执行脚本，直接运行完成特定操作。
+- 适合：验证工具、初始化脚本、自动化工具
 
 ### assets/
-Files not intended to be loaded into context, but rather used within the output Claude produces.
-
-**Examples from other skills:**
-- Brand styling: PowerPoint template files (.pptx), logo files
-- Frontend builder: HTML/React boilerplate project directories
-- Typography: Font files (.ttf, .woff2)
-
-**Appropriate for:** Templates, boilerplate code, document templates, images, icons, fonts, or any files meant to be copied or used in the final output.
+输出资源，不加载到 context，用于最终输出。
+- 适合：模板文件、图片、字体
 
 ---
 
-**Any unneeded directories can be deleted.** Not every skill requires all three types of resources.
+**Testany Skill 规范提醒：**
+- SKILL.md 必须 < 500 行
+- description 必须包含触发词
+- 使用中文撰写（技术术语可保留英文）
+- 必须包含使用示例
+- 验证：`scripts/quick_validate.py skills/{skill_name}`
 """
 
 EXAMPLE_SCRIPT = '''#!/usr/bin/env python3
 """
-Example helper script for {skill_name}
+{skill_name} 辅助脚本示例
 
-This is a placeholder script that can be executed directly.
-Replace with actual implementation or delete if not needed.
-
-Example real scripts from other skills:
-- pdf/scripts/fill_fillable_fields.py - Fills PDF form fields
-- pdf/scripts/convert_pdf_to_images.py - Converts PDF pages to images
+这是一个占位脚本，可直接执行。
+请替换为实际实现或删除此文件。
 """
 
 def main():
-    print("This is an example script for {skill_name}")
-    # TODO: Add actual script logic here
-    # This could be data processing, file conversion, API calls, etc.
+    print("这是 {skill_name} 的示例脚本")
+    # TODO: 在此添加实际逻辑
 
 if __name__ == "__main__":
     main()
 '''
 
-EXAMPLE_REFERENCE = """# Reference Documentation for {skill_title}
+EXAMPLE_REFERENCE = """# {skill_title} 参考文档
 
-This is a placeholder for detailed reference documentation.
-Replace with actual reference content or delete if not needed.
+这是参考文档的占位符。请替换为实际内容或删除此文件。
 
-Example real reference docs from other skills:
-- product-management/references/communication.md - Comprehensive guide for status updates
-- product-management/references/context_building.md - Deep-dive on gathering context
-- bigquery/references/ - API references and query examples
+## 何时使用参考文档
 
-## When Reference Docs Are Useful
+参考文档适合存放：
+- 详细的 API 文档
+- 复杂的工作流程指南
+- SKILL.md 放不下的详细信息
+- 特定场景才需要的内容
 
-Reference docs are ideal for:
-- Comprehensive API documentation
-- Detailed workflow guides
-- Complex multi-step processes
-- Information too lengthy for main SKILL.md
-- Content that's only needed for specific use cases
+## 结构建议
 
-## Structure Suggestions
+### 指南类文档
+- 概述
+- 前提条件
+- 步骤说明
+- 常见问题
+- 最佳实践
 
-### API Reference Example
-- Overview
-- Authentication
-- Endpoints with examples
-- Error codes
-- Rate limits
-
-### Workflow Guide Example
-- Prerequisites
-- Step-by-step instructions
-- Common patterns
-- Troubleshooting
-- Best practices
+### API 文档
+- 概述
+- 认证方式
+- 接口说明
+- 错误码
+- 使用示例
 """
 
-EXAMPLE_ASSET = """# Example Asset File
+EXAMPLE_ASSET = """# 资源文件示例
 
-This placeholder represents where asset files would be stored.
-Replace with actual asset files (templates, images, fonts, etc.) or delete if not needed.
+这是资源文件的占位符。请替换为实际资源文件或删除此文件。
 
-Asset files are NOT intended to be loaded into context, but rather used within
-the output Claude produces.
+资源文件**不会**加载到 context，而是用于 Claude 输出的最终产物。
 
-Example asset files from other skills:
-- Brand guidelines: logo.png, slides_template.pptx
-- Frontend builder: hello-world/ directory with HTML/React boilerplate
-- Typography: custom-font.ttf, font-family.woff2
-- Data: sample_data.csv, test_dataset.json
+## 常见资源类型
 
-## Common Asset Types
+- 模板：.pptx, .docx, 项目模板目录
+- 图片：.png, .jpg, .svg, .gif
+- 字体：.ttf, .otf, .woff, .woff2
+- 样板代码：项目目录、启动文件
+- 数据文件：.csv, .json, .xml, .yaml
 
-- Templates: .pptx, .docx, boilerplate directories
-- Images: .png, .jpg, .svg, .gif
-- Fonts: .ttf, .otf, .woff, .woff2
-- Boilerplate code: Project directories, starter files
-- Icons: .ico, .svg
-- Data files: .csv, .json, .xml, .yaml
-
-Note: This is a text placeholder. Actual assets can be any file type.
+注意：这是一个文本占位符，实际资源可以是任何文件类型。
 """
 
 
@@ -205,20 +144,20 @@ def init_skill(skill_name, path):
     # Determine skill directory path
     skill_dir = Path(path).resolve() / skill_name
 
-    # Check if directory already exists
+    # 检查目录是否已存在
     if skill_dir.exists():
-        print(f"❌ Error: Skill directory already exists: {skill_dir}")
+        print(f"❌ 错误：Skill 目录已存在: {skill_dir}")
         return None
 
-    # Create skill directory
+    # 创建 skill 目录
     try:
         skill_dir.mkdir(parents=True, exist_ok=False)
-        print(f"✅ Created skill directory: {skill_dir}")
+        print(f"✅ 创建 skill 目录: {skill_dir}")
     except Exception as e:
-        print(f"❌ Error creating directory: {e}")
+        print(f"❌ 创建目录失败: {e}")
         return None
 
-    # Create SKILL.md from template
+    # 从模板创建 SKILL.md
     skill_title = title_case_skill_name(skill_name)
     skill_content = SKILL_TEMPLATE.format(
         skill_name=skill_name,
@@ -228,67 +167,70 @@ def init_skill(skill_name, path):
     skill_md_path = skill_dir / 'SKILL.md'
     try:
         skill_md_path.write_text(skill_content)
-        print("✅ Created SKILL.md")
+        print("✅ 创建 SKILL.md")
     except Exception as e:
-        print(f"❌ Error creating SKILL.md: {e}")
+        print(f"❌ 创建 SKILL.md 失败: {e}")
         return None
 
-    # Create resource directories with example files
+    # 创建资源目录和示例文件
     try:
-        # Create scripts/ directory with example script
+        # 创建 scripts/ 目录
         scripts_dir = skill_dir / 'scripts'
         scripts_dir.mkdir(exist_ok=True)
         example_script = scripts_dir / 'example.py'
         example_script.write_text(EXAMPLE_SCRIPT.format(skill_name=skill_name))
         example_script.chmod(0o755)
-        print("✅ Created scripts/example.py")
+        print("✅ 创建 scripts/example.py")
 
-        # Create references/ directory with example reference doc
+        # 创建 references/ 目录
         references_dir = skill_dir / 'references'
         references_dir.mkdir(exist_ok=True)
-        example_reference = references_dir / 'api_reference.md'
+        example_reference = references_dir / 'example.md'
         example_reference.write_text(EXAMPLE_REFERENCE.format(skill_title=skill_title))
-        print("✅ Created references/api_reference.md")
+        print("✅ 创建 references/example.md")
 
-        # Create assets/ directory with example asset placeholder
+        # 创建 assets/ 目录
         assets_dir = skill_dir / 'assets'
         assets_dir.mkdir(exist_ok=True)
-        example_asset = assets_dir / 'example_asset.txt'
+        example_asset = assets_dir / 'example.txt'
         example_asset.write_text(EXAMPLE_ASSET)
-        print("✅ Created assets/example_asset.txt")
+        print("✅ 创建 assets/example.txt")
     except Exception as e:
-        print(f"❌ Error creating resource directories: {e}")
+        print(f"❌ 创建资源目录失败: {e}")
         return None
 
-    # Print next steps
-    print(f"\n✅ Skill '{skill_name}' initialized successfully at {skill_dir}")
-    print("\nNext steps:")
-    print("1. Edit SKILL.md to complete the TODO items and update the description")
-    print("2. Customize or delete the example files in scripts/, references/, and assets/")
-    print("3. Run the validator when ready to check the skill structure")
+    # 打印下一步操作
+    print(f"\n✅ Skill '{skill_name}' 初始化成功: {skill_dir}")
+    print("\n下一步：")
+    print("1. 编辑 SKILL.md，完成 TODO 项并更新 description")
+    print("2. 按需修改或删除 scripts/、references/、assets/ 中的示例文件")
+    print("3. 运行 quick_validate.py 验证 skill 结构")
 
     return skill_dir
 
 
 def main():
-    if len(sys.argv) < 4 or sys.argv[2] != '--path':
-        print("Usage: init_skill.py <skill-name> --path <path>")
-        print("\nSkill name requirements:")
-        print("  - Hyphen-case identifier (e.g., 'data-analyzer')")
-        print("  - Lowercase letters, digits, and hyphens only")
-        print("  - Max 40 characters")
-        print("  - Must match directory name exactly")
-        print("\nExamples:")
-        print("  init_skill.py my-new-skill --path skills/public")
-        print("  init_skill.py my-api-helper --path skills/private")
+    if len(sys.argv) < 2:
+        print("Usage: init_skill.py <skill-name> [--path <path>]")
+        print("\nSkill 命名规范：")
+        print("  - 英文，kebab-case（如 'data-analyzer'）")
+        print("  - 只能包含小写字母、数字、连字符")
+        print("  - 最多 40 个字符")
+        print("\n示例：")
+        print("  init_skill.py my-new-skill                     # 默认输出到 skills/")
+        print("  init_skill.py my-new-skill --path skills/      # 显式指定路径")
         print("  init_skill.py custom-skill --path /custom/location")
         sys.exit(1)
 
     skill_name = sys.argv[1]
-    path = sys.argv[3]
 
-    print(f"🚀 Initializing skill: {skill_name}")
-    print(f"   Location: {path}")
+    # 默认路径为 skills/
+    path = "skills/"
+    if len(sys.argv) >= 4 and sys.argv[2] == '--path':
+        path = sys.argv[3]
+
+    print(f"🚀 初始化 skill: {skill_name}")
+    print(f"   路径: {path}")
     print()
 
     result = init_skill(skill_name, path)
