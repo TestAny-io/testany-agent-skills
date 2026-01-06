@@ -1,0 +1,41 @@
+{
+  "$schema": "https://anthropic.com/claude-code/marketplace.schema.json",
+  "name": "testany-agent-skills",
+  "description": "Testany 公司的 Agent Skills 集合，提供产品研发流程中的各类专业技能",
+  "owner": {
+    "name": "Testany",
+    "email": "engineering@testany.io"
+  },
+  "plugins": [
+    {
+      "name": "testany-prd",
+      "description": "PRD 写作技能，帮助撰写高质量的产品需求文档。支持多种 PRD 类型：新功能（有UI/无UI）、第三方集成、功能重构、性能/安全优化",
+      "version": "1.2.0",
+      "author": {
+        "name": "Testany",
+        "email": "engineering@testany.io"
+      },
+      "source": "./",
+      "category": "productivity",
+      "strict": false,
+      "skills": [
+        "./skills/prd-writer"
+      ]
+    },
+    {
+      "name": "testany-skill-creator",
+      "description": "Skill 创建指南，帮助创建和优化 Claude Code Skills",
+      "version": "1.0.0",
+      "author": {
+        "name": "Testany",
+        "email": "engineering@testany.io"
+      },
+      "source": "./",
+      "category": "productivity",
+      "strict": false,
+      "skills": [
+        "./skills/skill-creator"
+      ]
+    }
+  ]
+}
