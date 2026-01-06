@@ -8,18 +8,24 @@
   },
   "plugins": [
     {
-      "name": "testany-skills",
-      "description": "Testany 技能集合，包含 PRD 写作、Skill 创建等专业技能",
+      "name": "prd-writer",
+      "description": "写 PRD、写产品需求文档、PRD 模板。帮助撰写高质量的产品需求文档，支持多种类型：新功能（有UI/无UI）、第三方集成、功能重构、性能/安全优化。",
       "version": "1.2.0",
-      "author": {
-        "name": "Testany",
-        "email": "engineering@testany.io"
-      },
       "source": "./",
       "category": "productivity",
       "strict": false,
       "skills": [
-        "./skills/prd-writer",
+        "./skills/prd-writer"
+      ]
+    },
+    {
+      "name": "skill-creator",
+      "description": "创建 Skill、写 Skill、Skill 模板。帮助创建和优化 Claude Code Skills，遵循 Testany 公司规范。",
+      "version": "1.2.0",
+      "source": "./",
+      "category": "productivity",
+      "strict": false,
+      "skills": [
         "./skills/skill-creator"
       ]
     }
