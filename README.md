@@ -22,7 +22,7 @@ Skills 是包含指令、脚本和资源的文件夹，Claude 可以动态加载
 ## 安装
 
 ```
-/plugin marketplace add testany/testany-agent-skills
+/plugin marketplace add TestAny-io/testany-agent-skills
 ```
 
 然后选择要安装的 plugin：
@@ -35,7 +35,7 @@ Skills 是包含指令、脚本和资源的文件夹，Claude 可以动态加载
 
 ```
 /plugin marketplace remove <plugin-name>
-/plugin marketplace add testany/testany-agent-skills
+/plugin marketplace add TestAny-io/testany-agent-skills
 ```
 
 # 包含的 Skills
