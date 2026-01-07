@@ -39,6 +39,17 @@
       "skills": [
         "./skills/prompt-optimizer"
       ]
+    },
+    {
+      "name": "hld-writer",
+      "description": "写 HLD、写技术设计文档、HLD 模板、技术方案设计。帮助撰写高质量的高层技术设计文档，承接 PRD 做技术决策。",
+      "version": "1.0.0",
+      "source": "./",
+      "category": "productivity",
+      "strict": false,
+      "skills": [
+        "./skills/hld-writer"
+      ]
     }
   ]
 }

@@ -43,6 +43,7 @@ Skills 是包含指令、脚本和资源的文件夹，Claude 可以动态加载
 | Skill | 描述 |
 |-------|------|
 | [prd-writer](./skills/prd-writer) | PRD 写作技能，支持多种类型：新功能、第三方集成、重构、优化 |
+| [hld-writer](./skills/hld-writer) | HLD 写作技能，承接 PRD 做技术决策，聚焦高成本/跨团队决策 |
 | [skill-creator](./skills/skill-creator) | Skill 创建指南，帮助创建和优化 Claude Code Skills |
 | [prompt-optimizer](./skills/prompt-optimizer) | AI 提示词优化专家，支持 Claude、ChatGPT、DeepSeek、豆包、智谱、Gemini 等多平台 |
 

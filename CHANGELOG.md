@@ -5,6 +5,19 @@
 格式基于 [Keep a Changelog](https://keepachangelog.com/zh-CN/1.0.0/)，
 版本号遵循 [Semantic Versioning](https://semver.org/lang/zh-CN/)。
 
+## [1.4.0] - 2026-01-07
+
+### 新增
+
+- **hld-writer** 技能：高层技术设计文档（HLD）写作助手
+  - 承接 PRD，解决 How（架构级）决策
+  - 聚焦高成本/跨团队/高风险决策，工程师仍可做局部选择
+  - 明确 HLD vs LLD 边界：HLD 给策略，LLD 给参数和实现
+  - 支持 5 种 HLD 类型：新功能（有UI/纯后端）、第三方集成、重构、优化
+  - 包含 5 个专业模板
+
+---
+
 ## [1.3.0] - 2026-01-06
 
 ### 新增
