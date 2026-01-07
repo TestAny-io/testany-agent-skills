@@ -10,12 +10,23 @@
     {
       "name": "prd-writer",
       "description": "写 PRD、写产品需求文档、PRD 模板。帮助撰写高质量的产品需求文档，支持多种类型：新功能（有UI/无UI）、第三方集成、功能重构、性能/安全优化。",
-      "version": "1.2.0",
+      "version": "1.5.2",
       "source": "./",
       "category": "productivity",
       "strict": false,
       "skills": [
         "./skills/prd-writer"
+      ]
+    },
+    {
+      "name": "prd-reviewer",
+      "description": "审查 PRD、PRD 评审、需求评审、检查 PRD 质量。作为 PRD 的"准出门禁"，从多角色视角全面审查，严格把关，迭代审查直到放行。",
+      "version": "1.0.0",
+      "source": "./",
+      "category": "productivity",
+      "strict": false,
+      "skills": [
+        "./skills/prd-reviewer"
       ]
     },
     {
@@ -43,7 +54,7 @@
     {
       "name": "hld-writer",
       "description": "写 HLD、写技术设计文档、HLD 模板、技术方案设计。帮助撰写高质量的高层技术设计文档，承接 PRD 做技术决策。",
-      "version": "1.4.2",
+      "version": "1.5.2",
       "source": "./",
       "category": "productivity",
       "strict": false,
