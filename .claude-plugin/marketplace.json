@@ -20,7 +20,7 @@
     },
     {
       "name": "prd-reviewer",
-      "description": "审查 PRD、PRD 评审、需求评审、检查 PRD 质量。作为 PRD 的"准出门禁"，从多角色视角全面审查，严格把关，迭代审查直到放行。",
+      "description": "审查 PRD、PRD 评审、需求评审、检查 PRD 质量。作为 PRD 的「准出门禁」，从多角色视角全面审查，严格把关，迭代审查直到放行。",
       "version": "1.0.0",
       "source": "./",
       "category": "productivity",
@@ -60,6 +60,17 @@
       "strict": false,
       "skills": [
         "./skills/hld-writer"
+      ]
+    },
+    {
+      "name": "media-writer",
+      "description": "自媒体文章写作、写公众号文章、写知乎回答、写小红书笔记、写 Medium 文章。专业的自媒体内容创作工作流，支持微信公众号、知乎、小红书、LinkedIn、Medium、Reddit 六大平台。",
+      "version": "1.0.0",
+      "source": "./",
+      "category": "productivity",
+      "strict": false,
+      "skills": [
+        "./skills/media-writer"
       ]
     }
   ]

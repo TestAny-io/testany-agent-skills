@@ -5,6 +5,22 @@
 格式基于 [Keep a Changelog](https://keepachangelog.com/zh-CN/1.0.0/)，
 版本号遵循 [Semantic Versioning](https://semver.org/lang/zh-CN/)。
 
+## [1.7.0] - 2026-01-07
+
+### 新增
+
+- **media-writer** 技能：专业的自媒体内容创作工作流
+  - 8 阶段工作流：选题（Topic Scout）→ 素材收集（Researcher）→ 角度分析（Strategist）→ 撰写草稿（Writers）→ 筛选候选稿（Selector）→ 三轮编辑（Editors）→ 配图方案（Illustrator）→ 归档（Archivist）
+  - 支持 6 大平台：微信公众号、知乎、小红书、LinkedIn、Medium、Reddit
+  - Orchestrator 模式：协调多 Agent 协作，确保流程完整性
+  - 5 条铁律确保工作流一致性：禁止自动跳阶段、用户满意≠批准继续、强制保存验证、前置检查、状态追踪
+  - 15 个专业 Agent Prompts（每个阶段/平台/编辑角色独立 prompt）
+  - 6 份平台写作指南
+  - 作者人设系统（写作风格、价值观、读者画像）
+  - 快捷命令：`/new`、`/research`、`/angles`、`/draft`、`/select`、`/review`、`/illustrate`、`/archive`、`/status`
+
+---
+
 ## [1.6.0] - 2026-01-07
 
 ### 新增
