@@ -206,12 +206,12 @@ description: 写 PRD、写产品需求文档、PRD 模板、新功能需求。�
 2. 规划文档大纲
 3. 确认章节结构（如需要）
 
-**参考文档路径**：
-- 新功能（有 UI）：`references/new-feature-ui.md`
-- 新功能（无 UI）：`references/new-feature-backend.md`
-- 第三方集成：`references/integration.md`
-- 功能重构：`references/refactoring.md`
-- 性能/安全优化：`references/optimization.md`
+**模板文档路径**：
+- 新功能（有 UI）：`assets/new-feature-ui.md`
+- 新功能（无 UI）：`assets/new-feature-backend.md`
+- 第三方集成：`assets/integration.md`
+- 功能重构：`assets/refactoring.md`
+- 性能/安全优化：`assets/optimization.md`
 
 ### 阶段三：内容撰写
 

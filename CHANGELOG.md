@@ -5,6 +5,60 @@
 格式基于 [Keep a Changelog](https://keepachangelog.com/zh-CN/1.0.0/)，
 版本号遵循 [Semantic Versioning](https://semver.org/lang/zh-CN/)。
 
+## [1.8.0] - 2026-01-08
+
+### 新增
+
+- **hld-reviewer** 技能：HLD 审查专家（模拟真实 Design Review 会议）
+  - 作为 HLD 的「准出门禁」，严格把关，迭代审查直到放行
+  - **三道门审查框架**：
+    - 第一道门：PRD↔HLD 一致性检查（P0 阻塞）— 检测漂移风险
+    - 第二道门：核心技术审查（Tech Lead + Senior Engineer 视角）
+    - 第三道门：风险驱动的角色增量审查（按需启用）
+  - **PRD→HLD 漂移检测**（最高优先级）：
+    - 需求遗漏检测（PRD 有，HLD 没有）
+    - 需求膨胀检测（HLD 有，PRD 没有）
+    - 需求曲解检测（语义偏离）
+    - 边界漂移检测（范围变更）
+  - **风险驱动的角色视角**：
+    - Security 视角（敏感数据/认证场景）
+    - DBA 视角（数据迁移/Schema 变更场景）
+    - SRE/Performance 视角（高并发/性能敏感场景）
+    - Architect 视角（跨团队/跨系统场景）
+    - QA 视角（复杂测试场景）
+  - **结构化输出**：Findings、Missing Info、Decision Gates、Optional Improvements
+  - 问题分级：P0 阻塞、P1 严重、P2 建议
+  - 输出审查报告和准出证书
+  - 详细参考文档：漂移检测指南、审查清单、角色视角要点
+
+### 变更
+
+- **hld-writer PRD:HLD 1:N 场景支持**
+  - 新增「PRD 拆分为多个 HLD」章节
+  - **拆分决策指引**：何时拆分（3+ 模块、多团队、分阶段等）、按什么维度拆
+  - **HLD 索引文档机制**：追踪所有 HLD 对 PRD 的覆盖情况，确保无遗漏
+  - **PRD 需求覆盖总表**：覆盖率必须 100%，未覆盖需求 → P0
+  - **跨 HLD 依赖声明**：依赖方 HLD、被依赖 HLD、接口契约位置
+  - **单个 HLD 需求映射表**：支持部分覆盖，明确标注「不在本 HLD 范围内的需求」
+
+- **hld-reviewer 1:N 场景审查支持**
+  - 第一道门新增「1:N 场景识别」检查项
+  - 索引文档不存在 → P0
+  - PRD 需求覆盖率 < 100% → P0
+  - 跨 HLD 依赖未声明 → P1
+  - 跨 HLD 接口无契约 → P1
+
+### 修复
+
+- **Skill 目录结构规范化**（符合 Claude Code 官方规范）
+  - `references/` 目录：仅放置指导思考的文档（被加载到上下文）
+  - `assets/` 目录：放置输出模板（不被加载到上下文）
+  - **prd-writer**: 5 个 PRD 模板从 `references/` 移至 `assets/`
+  - **hld-writer**: 5 个 HLD 模板从 `references/` 移至 `assets/`
+  - **media-writer**: 非标准目录 `templates/` 重命名为 `assets/`
+
+---
+
 ## [1.7.0] - 2026-01-07
 
 ### 新增
