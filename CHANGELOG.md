@@ -5,6 +5,29 @@
 格式基于 [Keep a Changelog](https://keepachangelog.com/zh-CN/1.0.0/)，
 版本号遵循 [Semantic Versioning](https://semver.org/lang/zh-CN/)。
 
+## [1.9.0] - 2026-01-08
+
+### 新增
+
+- **brd-interviewer** 技能：业务需求访谈专家（"麦肯锡级业务顾问的 AI 化"）
+  - 通过结构化选择题访谈，将 stakeholder 的一句话想法转化为 BRD
+  - **核心理念**：让 stakeholder 做选择题，而不是写作文
+  - **使用 `context: fork`**：访谈在隔离上下文中执行，不污染主对话
+  - **6 阶段访谈流程**：
+    - Phase 0: 意图捕获（一句话原始想法）
+    - Phase 1: 核心分类（目标类型、受影响人群、期望变化）
+    - Phase 2: 成功定义（指标、数据来源）
+    - Phase 3: 范围与约束（In/Out、约束条件、风险容忍度）
+    - Phase 4: 行业深挖（分支问题树，根据目标类型动态触发）
+    - Phase 5: 依赖与假设（依赖条件、假设确认、终止条件）
+    - Phase 6: 准出检查（门禁验证）
+  - **顾问人设**：Principal Business Consultant，具备假设驱动、结构化拆解、逼出取舍、行业洞察、风险预判能力
+  - **行业知识外挂**：支持 Fintech、Healthcare、B2B SaaS、零售电商、制造业
+  - **BRD→PRD 可追溯**：输出的 BRD 预留映射表，供 prd-writer 后续追踪
+  - **假设门禁**：假设数量 > 3 时阻塞，需补充访谈或调研
+
+---
+
 ## [1.8.0] - 2026-01-08
 
 ### 新增

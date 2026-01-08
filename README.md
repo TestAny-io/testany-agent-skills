@@ -42,6 +42,7 @@ Skills 是包含指令、脚本和资源的文件夹，Claude 可以动态加载
 
 | Skill | 描述 |
 |-------|------|
+| [brd-interviewer](./skills/brd-interviewer) | 业务需求访谈专家，通过选择题引导 stakeholder 输出结构化 BRD |
 | [prd-writer](./skills/prd-writer) | PRD 写作技能，支持多种类型：新功能、第三方集成、重构、优化 |
 | [prd-reviewer](./skills/prd-reviewer) | PRD 审查专家，作为「准出门禁」从多角色视角全面审查 |
 | [hld-writer](./skills/hld-writer) | HLD 写作技能，承接 PRD 做技术决策，支持 PRD:HLD 1:N 场景 |

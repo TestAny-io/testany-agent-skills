@@ -8,6 +8,17 @@
   },
   "plugins": [
     {
+      "name": "brd-interviewer",
+      "description": "业务需求访谈、梳理业务需求、写 BRD。通过结构化选择题访谈，将 stakeholder 的一句话想法转化为可追溯、可验证的业务需求文档。支持 Fintech、Healthcare、B2B SaaS、零售电商、制造业等行业。",
+      "version": "1.0.0",
+      "source": "./",
+      "category": "productivity",
+      "strict": false,
+      "skills": [
+        "./skills/brd-interviewer"
+      ]
+    },
+    {
       "name": "prd-writer",
       "description": "写 PRD、写产品需求文档、PRD 模板。帮助撰写高质量的产品需求文档，支持多种类型：新功能（有UI/无UI）、第三方集成、功能重构、性能/安全优化。",
       "version": "1.5.2",
