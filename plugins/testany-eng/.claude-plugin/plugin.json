@@ -1,0 +1,8 @@
+{
+  "name": "testany-eng",
+  "description": "Testany 研发流程工具集：BRD 访谈、PRD 撰写/审查/自动化、HLD 撰写/审查",
+  "author": {
+    "name": "Testany",
+    "email": "engineering@testany.io"
+  }
+}

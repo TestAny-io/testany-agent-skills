@@ -1,0 +1,8 @@
+{
+  "name": "testany-llm",
+  "description": "Testany AI/LLM 工具集：Skill 创建、Prompt 优化",
+  "author": {
+    "name": "Testany",
+    "email": "engineering@testany.io"
+  }
+}

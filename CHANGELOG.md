@@ -5,6 +5,50 @@
 格式基于 [Keep a Changelog](https://keepachangelog.com/zh-CN/1.0.0/)，
 版本号遵循 [Semantic Versioning](https://semver.org/lang/zh-CN/)。
 
+## [2.0.0] - 2026-01-09
+
+### 重大变更
+
+- **Plugin 架构重构**：从"每个 skill 一个 plugin"改为"按领域分组的 plugin"
+  - **testany-eng**：研发流程工具集（6 个 skills）
+  - **testany-llm**：AI/LLM 工具集（2 个 skills）
+  - **testany-mrkt**：营销内容工具集（1 个 skill）
+
+- **新增 Commands 支持**：所有 skills 现在都有对应的 command，支持 CLI `/` 补全
+  - `/testany-eng:brd-interviewer` - 业务需求访谈
+  - `/testany-eng:prd-writer` - 撰写 PRD
+  - `/testany-eng:prd-reviewer` - 审查 PRD
+  - `/testany-eng:prd-studio` - PRD 全自动工作室
+  - `/testany-eng:hld-writer` - 撰写 HLD
+  - `/testany-eng:hld-reviewer` - 审查 HLD
+  - `/testany-llm:skill-creator` - 创建 Skill
+  - `/testany-llm:prompt-optimizer` - 优化 Prompt
+  - `/testany-mrkt:media-writer` - 自媒体创作
+
+- **目录结构变更**：
+  ```
+  testany-agent-skills/
+  ├── plugins/
+  │   ├── testany-eng/      # 研发流程
+  │   │   ├── commands/     # CLI 命令
+  │   │   └── skills/       # 完整实现
+  │   ├── testany-llm/      # AI/LLM 工具
+  │   └── testany-mrkt/     # 营销内容
+  └── skills/               # 旧目录（保留兼容）
+  ```
+
+### 迁移指南
+
+用户需要重新安装 plugin：
+```
+/plugin marketplace remove testany-eng  # 或其他已安装的
+/plugin marketplace add TestAny-io/testany-agent-skills
+```
+
+然后选择需要的 plugin（testany-eng / testany-llm / testany-mrkt）。
+
+---
+
 ## [1.11.0] - 2026-01-09
 
 ### 新增

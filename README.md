@@ -9,13 +9,32 @@ Skills 是包含指令、脚本和资源的文件夹，Claude 可以动态加载
 
 # 关于本仓库
 
-本仓库包含 Testany 公司内部使用的 Agent Skills，覆盖产品研发流程中的各类专业场景。每个 skill 都是独立的文件夹，包含 `SKILL.md` 文件以及 Claude 所需的指令和元数据。
+本仓库包含 Testany 公司内部使用的 Agent Skills，覆盖产品研发流程中的各类专业场景。Skills 按领域分为三个 Plugin：
+
+| Plugin | 领域 | 命令 |
+|--------|------|------|
+| **testany-eng** | 研发流程 | `/testany-eng:brd-interviewer`, `/testany-eng:prd-writer`, `/testany-eng:prd-reviewer`, `/testany-eng:prd-studio`, `/testany-eng:hld-writer`, `/testany-eng:hld-reviewer` |
+| **testany-llm** | AI/LLM 工具 | `/testany-llm:skill-creator`, `/testany-llm:prompt-optimizer` |
+| **testany-mrkt** | 营销内容 | `/testany-mrkt:media-writer` |
 
 # 仓库结构
 
-- [./skills](./skills): 所有 Skills
-- [./spec](./spec): Agent Skills 规范文档
-- [./CHANGELOG.md](./CHANGELOG.md): 版本变更记录
+```
+testany-agent-skills/
+├── plugins/                    # 按领域分组的 Plugins
+│   ├── testany-eng/           # 研发流程工具集
+│   │   ├── commands/          # CLI 命令（/testany-eng:xxx）
+│   │   └── skills/            # 完整实现
+│   ├── testany-llm/           # AI/LLM 工具集
+│   │   ├── commands/
+│   │   └── skills/
+│   └── testany-mrkt/          # 营销内容工具集
+│       ├── commands/
+│       └── skills/
+├── skills/                     # 旧目录（保留兼容）
+├── spec/                       # Agent Skills 规范文档
+└── CHANGELOG.md               # 版本变更记录
+```
 
 # 在 Claude Code 中使用
 
@@ -28,29 +47,55 @@ Skills 是包含指令、脚本和资源的文件夹，Claude 可以动态加载
 然后选择要安装的 plugin：
 1. 选择 `Browse and install plugins`
 2. 选择 `testany-agent-skills`
-3. 选择需要的 plugin（如 `prd-writer`）
+3. 选择需要的 plugin：
+   - `testany-eng` - 研发流程（BRD/PRD/HLD）
+   - `testany-llm` - AI 工具（Skill/Prompt）
+   - `testany-mrkt` - 营销内容（自媒体）
 4. 选择 `Install now`
+
+## 使用
+
+安装后，可以通过 `/` 命令调用：
+
+```
+/testany-eng:prd-writer 写一个用户登录功能的 PRD
+/testany-eng:prd-reviewer ./docs/prd-login.md
+/testany-llm:prompt-optimizer 帮我优化这个提示词...
+/testany-mrkt:media-writer 写一篇关于 AI 的公众号文章
+```
 
 ## 更新
 
 ```
-/plugin marketplace remove <plugin-name>
+/plugin marketplace remove testany-eng
 /plugin marketplace add TestAny-io/testany-agent-skills
 ```
 
 # 包含的 Skills
 
-| Skill | 描述 |
-|-------|------|
-| [brd-interviewer](./skills/brd-interviewer) | 业务需求访谈专家，通过选择题引导 stakeholder 输出结构化 BRD |
-| [prd-writer](./skills/prd-writer) | PRD 写作技能，支持多种类型：新功能、第三方集成、重构、优化 |
-| [prd-reviewer](./skills/prd-reviewer) | PRD 审查专家，作为「准出门禁」从多角色视角全面审查 |
-| [prd-studio](./skills/prd-studio) | PRD 全自动工作室，自动完成写→审→改→审循环，无需人工干预 |
-| [hld-writer](./skills/hld-writer) | HLD 写作技能，承接 PRD 做技术决策，支持 PRD:HLD 1:N 场景 |
-| [hld-reviewer](./skills/hld-reviewer) | HLD 审查专家，模拟 Design Review 会议，重点检测 PRD→HLD 漂移 |
-| [media-writer](./skills/media-writer) | 自媒体内容创作工作流，支持公众号、知乎、小红书、LinkedIn、Medium、Reddit |
-| [skill-creator](./skills/skill-creator) | Skill 创建指南，帮助创建和优化 Claude Code Skills |
-| [prompt-optimizer](./skills/prompt-optimizer) | AI 提示词优化专家，支持 Claude、ChatGPT、DeepSeek、豆包、智谱、Gemini 等多平台 |
+## testany-eng（研发流程）
+
+| 命令 | 描述 |
+|------|------|
+| `/testany-eng:brd-interviewer` | 业务需求访谈专家，通过选择题引导 stakeholder 输出结构化 BRD |
+| `/testany-eng:prd-writer` | PRD 写作技能，支持多种类型：新功能、第三方集成、重构、优化 |
+| `/testany-eng:prd-reviewer` | PRD 审查专家，作为「准出门禁」从多角色视角全面审查 |
+| `/testany-eng:prd-studio` | PRD 全自动工作室，自动完成写→审→改→审循环，无需人工干预 |
+| `/testany-eng:hld-writer` | HLD 写作技能，承接 PRD 做技术决策，支持 PRD:HLD 1:N 场景 |
+| `/testany-eng:hld-reviewer` | HLD 审查专家，模拟 Design Review 会议，重点检测 PRD→HLD 漂移 |
+
+## testany-llm（AI/LLM 工具）
+
+| 命令 | 描述 |
+|------|------|
+| `/testany-llm:skill-creator` | Skill 创建指南，帮助创建和优化 Claude Code Skills |
+| `/testany-llm:prompt-optimizer` | AI 提示词优化专家，支持 Claude、ChatGPT、DeepSeek、豆包、智谱、Gemini 等多平台 |
+
+## testany-mrkt（营销内容）
+
+| 命令 | 描述 |
+|------|------|
+| `/testany-mrkt:media-writer` | 自媒体内容创作工作流，支持公众号、知乎、小红书、LinkedIn、Medium、Reddit |
 
 # 创建自定义 Skill
 
@@ -71,7 +116,7 @@ Frontmatter 只需要两个字段：
 - `name` - skill 的唯一标识符（小写，用连字符分隔）
 - `description` - 完整描述 skill 的功能和使用场景
 
-更多详情请参考 [spec/skill-authoring.md](./spec/skill-authoring.md) 或使用 `skill-creator` skill。
+更多详情请参考 [spec/skill-authoring.md](./spec/skill-authoring.md) 或使用 `/testany-llm:skill-creator`。
 
 # 许可证
 

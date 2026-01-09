@@ -8,103 +8,28 @@
   },
   "plugins": [
     {
-      "name": "brd-interviewer",
-      "description": "业务需求访谈、梳理业务需求、写 BRD。通过结构化选择题访谈，将 stakeholder 的一句话想法转化为可追溯、可验证的业务需求文档。支持 Fintech、Healthcare、B2B SaaS、零售电商、制造业等行业。",
+      "name": "testany-eng",
+      "description": "研发流程工具集：BRD 访谈、PRD 撰写/审查/自动化、HLD 撰写/审查。命令：/testany-eng:brd-interviewer, /testany-eng:prd-writer, /testany-eng:prd-reviewer, /testany-eng:prd-studio, /testany-eng:hld-writer, /testany-eng:hld-reviewer",
       "version": "1.0.0",
-      "source": "./",
+      "source": "./plugins/testany-eng",
       "category": "productivity",
-      "strict": false,
-      "skills": [
-        "./skills/brd-interviewer"
-      ]
+      "homepage": "https://github.com/TestAny-io/testany-agent-skills"
     },
     {
-      "name": "prd-writer",
-      "description": "写 PRD、写产品需求文档、PRD 模板。帮助撰写高质量的产品需求文档，支持多种类型：新功能（有UI/无UI）、第三方集成、功能重构、性能/安全优化。",
-      "version": "1.5.2",
-      "source": "./",
-      "category": "productivity",
-      "strict": false,
-      "skills": [
-        "./skills/prd-writer"
-      ]
-    },
-    {
-      "name": "prd-reviewer",
-      "description": "审查 PRD、PRD 评审、需求评审、检查 PRD 质量。作为 PRD 的「准出门禁」，从多角色视角全面审查，严格把关，迭代审查直到放行。",
+      "name": "testany-llm",
+      "description": "AI/LLM 工具集：Skill 创建、Prompt 优化。命令：/testany-llm:skill-creator, /testany-llm:prompt-optimizer",
       "version": "1.0.0",
-      "source": "./",
+      "source": "./plugins/testany-llm",
       "category": "productivity",
-      "strict": false,
-      "skills": [
-        "./skills/prd-reviewer"
-      ]
+      "homepage": "https://github.com/TestAny-io/testany-agent-skills"
     },
     {
-      "name": "prd-studio",
-      "description": "PRD 全自动工作室、自动写 PRD、PRD 全流程。自动完成「写 PRD → 审查 → 修改 → 再审」的完整循环，无需人工干预，通过隔离 subagent 避免上下文污染。",
+      "name": "testany-mrkt",
+      "description": "营销内容工具集：自媒体文章创作，支持公众号、知乎、小红书、LinkedIn、Medium、Reddit。命令：/testany-mrkt:media-writer",
       "version": "1.0.0",
-      "source": "./",
+      "source": "./plugins/testany-mrkt",
       "category": "productivity",
-      "strict": false,
-      "skills": [
-        "./skills/prd-studio"
-      ]
-    },
-    {
-      "name": "skill-creator",
-      "description": "创建 Skill、写 Skill、Skill 模板。帮助创建和优化 Claude Code Skills，遵循 Testany 公司规范。",
-      "version": "1.2.0",
-      "source": "./",
-      "category": "productivity",
-      "strict": false,
-      "skills": [
-        "./skills/skill-creator"
-      ]
-    },
-    {
-      "name": "prompt-optimizer",
-      "description": "撰写提示词、优化提示词、改写 Prompt、Prompt 优化。将模糊的想法转化为精确有效的 AI 提示词，支持 ChatGPT、Claude、Gemini、DeepSeek、豆包、智谱等多平台。",
-      "version": "1.0.0",
-      "source": "./",
-      "category": "productivity",
-      "strict": false,
-      "skills": [
-        "./skills/prompt-optimizer"
-      ]
-    },
-    {
-      "name": "hld-writer",
-      "description": "写 HLD、写技术设计文档、HLD 模板、技术方案设计。帮助撰写高质量的高层技术设计文档，承接 PRD 做技术决策。",
-      "version": "1.5.2",
-      "source": "./",
-      "category": "productivity",
-      "strict": false,
-      "skills": [
-        "./skills/hld-writer"
-      ]
-    },
-    {
-      "name": "hld-reviewer",
-      "description": "审查 HLD、HLD 评审、技术方案评审、Design Review。作为 HLD 的「准出门禁」，模拟真实 Design Review 会议，重点检测 PRD→HLD 漂移风险。",
-      "version": "1.0.0",
-      "source": "./",
-      "category": "productivity",
-      "strict": false,
-      "skills": [
-        "./skills/hld-reviewer"
-      ]
-    },
-    {
-      "name": "media-writer",
-      "description": "自媒体文章写作、写公众号文章、写知乎回答、写小红书笔记、写 Medium 文章。专业的自媒体内容创作工作流，支持微信公众号、知乎、小红书、LinkedIn、Medium、Reddit 六大平台。",
-      "version": "1.0.0",
-      "source": "./",
-      "category": "productivity",
-      "strict": false,
-      "skills": [
-        "./skills/media-writer"
-      ]
+      "homepage": "https://github.com/TestAny-io/testany-agent-skills"
     }
   ]
 }
