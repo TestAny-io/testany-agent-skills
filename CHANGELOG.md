@@ -5,6 +5,35 @@
 格式基于 [Keep a Changelog](https://keepachangelog.com/zh-CN/1.0.0/)，
 版本号遵循 [Semantic Versioning](https://semver.org/lang/zh-CN/)。
 
+## [1.10.0] - 2026-01-09
+
+### 新增
+
+- **prd-studio** 技能：PRD 全自动工作室
+  - 自动完成「写 PRD → 审查 → 修改 → 再审」的完整循环
+  - **核心理念**：无需人工干预，全自动流转
+  - **Orchestrator 模式**：复用 media-writer 验证的架构模式
+  - **隔离执行**：
+    - 每个阶段通过 Task tool 启动独立 subagent
+    - Writer/Reviewer/Fixer 各自在隔离上下文中执行
+    - 避免上下文污染，每轮审查都是"新鲜"视角
+  - **文件传递状态**：
+    - PRD 保存到 workflow/prd.md
+    - 审查报告保存到 workflow/review-report.md
+    - 状态跟踪保存到 workflow/status.md
+  - **复用现有资源**：
+    - Writer subagent 读取 prd-writer/SKILL.md 和模板
+    - Reviewer subagent 读取 prd-reviewer/SKILL.md 和审查清单
+  - **自动迭代**：
+    - 最多 3 轮修改，防止无限循环
+    - 准出条件：P0=0 且 P1<2
+    - 达到上限后输出遗留问题报告
+  - **完成输出**：
+    - 准出通过 → 准出证书
+    - 有遗留问题 → 遗留问题报告 + 人工处理建议
+
+---
+
 ## [1.9.0] - 2026-01-08
 
 ### 新增

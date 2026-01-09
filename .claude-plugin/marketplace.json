@@ -41,6 +41,17 @@
       ]
     },
     {
+      "name": "prd-studio",
+      "description": "PRD 全自动工作室、自动写 PRD、PRD 全流程。自动完成「写 PRD → 审查 → 修改 → 再审」的完整循环，无需人工干预，通过隔离 subagent 避免上下文污染。",
+      "version": "1.0.0",
+      "source": "./",
+      "category": "productivity",
+      "strict": false,
+      "skills": [
+        "./skills/prd-studio"
+      ]
+    },
+    {
       "name": "skill-creator",
       "description": "创建 Skill、写 Skill、Skill 模板。帮助创建和优化 Claude Code Skills，遵循 Testany 公司规范。",
       "version": "1.2.0",
