@@ -51,7 +51,7 @@ description: |
 │       ▼                                                         │
 │  ┌─────────────────────────────────────────┐                   │
 │  │  Phase 2: Writer Subagent (隔离)         │                   │
-│  │  - 读取 prd-writer/SKILL.md              │                   │
+│  │  - 读取 references/writer/guide.md       │                   │
 │  │  - 读取对应的 PRD 模板                   │                   │
 │  │  - 生成 PRD → workflow/prd.md            │                   │
 │  └─────────────────────────────────────────┘                   │
@@ -59,7 +59,7 @@ description: |
 │       ▼                                                         │
 │  ┌─────────────────────────────────────────┐                   │
 │  │  Phase 3: Reviewer Subagent (隔离)       │                   │
-│  │  - 读取 prd-reviewer/SKILL.md            │                   │
+│  │  - 读取 references/reviewer/guide.md     │                   │
 │  │  - 读取 workflow/prd.md                  │                   │
 │  │  - 审查 → workflow/review-report.md      │                   │
 │  └─────────────────────────────────────────┘                   │
@@ -163,16 +163,16 @@ Task:
     ## 第一步：读取写作指南
 
     读取以下文件，理解 PRD 写作规范：
-    - skills/prd-writer/SKILL.md
+    - skills/prd-studio/references/writer/guide.md
 
     ## 第二步：读取 PRD 模板
 
     根据 PRD 类型读取对应模板：
-    - 新功能（有 UI）→ skills/prd-writer/assets/new-feature-ui.md
-    - 新功能（无 UI）→ skills/prd-writer/assets/new-feature-backend.md
-    - 第三方集成 → skills/prd-writer/assets/integration.md
-    - 功能重构 → skills/prd-writer/assets/refactoring.md
-    - 性能/安全优化 → skills/prd-writer/assets/optimization.md
+    - 新功能（有 UI）→ skills/prd-studio/references/writer/new-feature-ui.md
+    - 新功能（无 UI）→ skills/prd-studio/references/writer/new-feature-backend.md
+    - 第三方集成 → skills/prd-studio/references/writer/integration.md
+    - 功能重构 → skills/prd-studio/references/writer/refactoring.md
+    - 性能/安全优化 → skills/prd-studio/references/writer/optimization.md
 
     ## 第三步：了解项目上下文
 
@@ -193,7 +193,7 @@ Task:
     将 PRD 保存到：workflow/prd.md
 
     **重要**：
-    - 遵循 prd-writer/SKILL.md 中的所有规范
+    - 遵循 references/writer/guide.md 中的所有规范
     - PRD 只描述 What 和 Why，不涉及 How
     - 成功指标必须可量化
     - 完成后输出："[WRITER-COMPLETE] PRD 已保存到 workflow/prd.md"
@@ -215,8 +215,8 @@ Task:
     ## 第一步：读取审查指南
 
     读取以下文件，理解审查规范：
-    - skills/prd-reviewer/SKILL.md
-    - skills/prd-reviewer/references/review-checklist.md
+    - skills/prd-studio/references/reviewer/guide.md
+    - skills/prd-studio/references/reviewer/review-checklist.md
 
     ## 第二步：读取待审查的 PRD
 
@@ -224,7 +224,7 @@ Task:
 
     ## 第三步：执行 8 维度审查
 
-    按照 prd-reviewer/SKILL.md 中的 8 大维度进行审查：
+    按照 references/reviewer/guide.md 中的 8 大维度进行审查：
     1. 结构完整性
     2. 业务逻辑（PM 视角）
     3. 需求清晰度（开发视角）
@@ -314,7 +314,7 @@ Task:
 
     ## 第三步：读取写作规范
 
-    读取 skills/prd-writer/SKILL.md，确保修改符合规范
+    读取 skills/prd-studio/references/writer/guide.md，确保修改符合规范
 
     ## 第四步：逐一修改问题
 
@@ -430,14 +430,14 @@ workflow/
 
 [Phase 2] Writer Subagent
   → 启动隔离 subagent
-  → 读取 prd-writer/SKILL.md
+  → 读取 references/writer/guide.md
   → 读取 new-feature-ui.md 模板
   → 生成 PRD → workflow/prd.md
   → [WRITER-COMPLETE]
 
 [Phase 3] Reviewer Subagent (第 1 轮)
   → 启动隔离 subagent
-  → 读取 prd-reviewer/SKILL.md
+  → 读取 references/reviewer/guide.md
   → 审查 workflow/prd.md
   → 发现 P0=1, P1=2
   → 保存 review-report.md
