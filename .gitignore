@@ -14,3 +14,10 @@ Thumbs.db
 # Temporary files
 *.tmp
 *.temp
+
+# Python
+__pycache__/
+*.pyc
+
+# Planning docs (internal)
+PLAN-*.md

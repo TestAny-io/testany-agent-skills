@@ -1,0 +1,15 @@
+# Media Writer Image Service Dependencies
+# Install: pip install -r requirements.txt
+
+# API Key 安全存储
+keyring>=24.0.0
+
+# HTTP 请求
+requests>=2.28.0
+
+# AI 图片生成
+google-genai>=1.0.0      # Nano Banana Pro (Google Gemini)
+dashscope>=1.0.0         # 通义万相 (阿里云)
+
+# 图片处理
+Pillow>=9.0.0
