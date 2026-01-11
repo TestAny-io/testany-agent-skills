@@ -62,6 +62,41 @@ description: 自媒体文章写作、写公众号文章、写知乎回答、写�
 "等待用户批准进入 Stage X+1" - status: in_progress
 ```
 
+### 规则 6：启动阶段前必须读取 Agent Prompt（强制）
+
+**每个 Stage 执行前，必须：**
+
+1. **使用 Read 工具**读取该 Stage 对应的 Prompt 文件
+2. **理解并遵循** Prompt 中的所有指令
+3. **不得跳过此步骤**，即使你"记得"内容
+
+**Prompt 文件路径：**
+
+| Stage | Prompt 文件 |
+|-------|-------------|
+| 1 | `references/prompts/01-topic-scout.md` |
+| 2 | `references/prompts/02-researcher.md` |
+| 3 | `references/prompts/03-strategist.md` |
+| 4 | `references/prompts/04-writer-{platform}.md` |
+| 5 | `references/prompts/05-selector.md` |
+| 6 | `references/prompts/06-logic-editor.md` → `06-style-editor.md` → `06-detail-editor.md` |
+| 7 | `references/prompts/07-illustrator.md` |
+| 8 | `references/prompts/08-archivist.md` |
+
+**执行模板：**
+```
+[Stage X 启动]
+1. 读取 Prompt: references/prompts/0X-xxx.md
+2. 确认已理解 Prompt 中的：
+   - 角色定位
+   - 执行步骤
+   - 输出规范
+   - 完成后流程
+3. 开始执行...
+```
+
+**违反后果**：不读取 Prompt 直接执行 = 工作流失控 = 必须重做
+
 ## 8 阶段工作流
 
 | Stage | Agent | 输入 | 输出 | 输出目录 |
@@ -81,8 +116,7 @@ description: 自媒体文章写作、写公众号文章、写知乎回答、写�
 
 **Agent**: Topic Scout
 **Prompt**: `references/prompts/01-topic-scout.md`
-
-执行前必须读取 Agent prompt。
+⚠️ **执行前必须用 Read 工具读取上述 Prompt 文件！**
 
 **输出文件**: `workflow/01-briefs/{topic}-{YYYYMMDD}-brief.md`
 
@@ -100,6 +134,7 @@ description: 自媒体文章写作、写公众号文章、写知乎回答、写�
 
 **Agent**: Researcher
 **Prompt**: `references/prompts/02-researcher.md`
+⚠️ **执行前必须用 Read 工具读取上述 Prompt 文件！**
 
 **输出文件**: `workflow/02-materials/{topic}-{YYYYMMDD}-materials.md`
 
@@ -107,6 +142,7 @@ description: 自媒体文章写作、写公众号文章、写知乎回答、写�
 
 **Agent**: Strategist
 **Prompt**: `references/prompts/03-strategist.md`
+⚠️ **执行前必须用 Read 工具读取上述 Prompt 文件！**
 
 **输出文件**: `workflow/03-angles/{topic}-{YYYYMMDD}-angles.md`
 
@@ -122,6 +158,8 @@ description: 自媒体文章写作、写公众号文章、写知乎回答、写�
 - LinkedIn: `references/prompts/04-writer-linkedin.md`
 - Medium: `references/prompts/04-writer-medium.md`
 - Reddit: `references/prompts/04-writer-reddit.md`
+
+⚠️ **执行前必须用 Read 工具读取对应平台的 Prompt 文件！**
 
 **输出文件**: `workflow/04-drafts/{platform}-{topic}-{YYYYMMDD}-draft.md`
 
@@ -157,6 +195,7 @@ Task 3: subagent_type="general-purpose"
 
 **Agent**: Selector
 **Prompt**: `references/prompts/05-selector.md`
+⚠️ **执行前必须用 Read 工具读取上述 Prompt 文件！**
 
 **输出文件**: `workflow/05-candidates/{platform}-{topic}-{YYYYMMDD}-candidate.md`
 
@@ -168,12 +207,15 @@ Task 3: subagent_type="general-purpose"
 2. 风格编辑: `references/prompts/06-style-editor.md`
 3. 细节编辑: `references/prompts/06-detail-editor.md`
 
+⚠️ **每轮编辑前必须用 Read 工具读取对应的 Prompt 文件！**
+
 **输出文件**: `workflow/06-finals/{platform}-{topic}-{YYYYMMDD}-final.md`
 
-### Stage 7：配图方案
+### Stage 7：图文混排
 
 **Agent**: Illustrator
 **Prompt**: `references/prompts/07-illustrator.md`
+⚠️ **执行前必须用 Read 工具读取上述 Prompt 文件！**
 
 **输出文件**: `workflow/07-illustrated/{platform}-{topic}-{YYYYMMDD}-illustrated.md`
 
@@ -181,6 +223,7 @@ Task 3: subagent_type="general-purpose"
 
 **Agent**: Archivist
 **Prompt**: `references/prompts/08-archivist.md`
+⚠️ **执行前必须用 Read 工具读取上述 Prompt 文件！**
 
 **输出目录**: `archive/{YYYY-MM}/{project}/`
 
@@ -217,19 +260,6 @@ Finals:      {platform}-{topic}-{YYYYMMDD}-final.md
 Illustrated: {platform}-{topic}-{YYYYMMDD}-illustrated.md
 ```
 
-## 快捷命令
-
-| 命令 | Stage | 说明 |
-|------|-------|------|
-| `/new` | 1 | 开始新文章工作流 |
-| `/research` | 2 | 收集素材 |
-| `/angles` | 3 | 分析写作角度 |
-| `/draft` | 4 | 撰写草稿 |
-| `/select` | 5 | 筛选候选稿 |
-| `/review` | 6 | 三轮编辑 |
-| `/illustrate` | 7 | 配图方案 |
-| `/archive` | 8 | 归档 |
-| `/status` | - | 查看当前工作流状态 |
 
 ## 质量要求
 
