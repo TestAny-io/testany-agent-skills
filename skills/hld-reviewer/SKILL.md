@@ -1,6 +1,6 @@
 ---
 name: hld-reviewer
-description: 审查 HLD、HLD 评审、技术方案评审、Design Review。作为 HLD 的「准出门禁」，模拟真实 Design Review 会议，从多角色视角审查技术方案，重点检测 PRD→HLD 漂移风险。
+description: 模拟真实 Design Review 会议，从多角色视角审查 HLD 技术方案，重点检测 PRD→HLD 漂移风险。适用于 HLD 完成后、进入实现阶段前的技术方案评审。
 ---
 
 # HLD Reviewer - 技术方案审查专家
@@ -99,6 +99,31 @@ description: 审查 HLD、HLD 评审、技术方案评审、Design Review。作�
 - 建议增加更多替代方案分析
 
 ## 工作流程
+
+### 执行进度清单
+
+**执行时使用此清单跟踪进度，完成后勾选：**
+
+```
+□ 阶段零：准备
+  □ 读取 HLD 文档
+  □ 读取关联 PRD 文档（验证状态）
+  □ 确认风险级别（AskUserQuestion）
+□ 阶段一：第一道门 - PRD↔HLD 一致性
+  □ 需求映射完整性检查
+  □ 漂移检测（遗漏/变形/越界/失焦）
+  □ 门一结论（无 P0 才继续）
+□ 阶段二：第二道门 - 核心技术审查
+  □ Tech Lead 视角
+  □ Senior Engineer 视角
+□ 阶段三：第三道门 - 角色增量审查
+  □ 按风险启用专业角色（Security/DBA/SRE/Architect/QA）
+□ 阶段四：输出审查报告
+  □ 汇总问题清单
+  □ 给出准出结论
+```
+
+---
 
 ### 阶段零：准备
 
