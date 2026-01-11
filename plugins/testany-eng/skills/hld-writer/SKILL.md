@@ -1,6 +1,6 @@
 ---
 name: hld-writer
-description: 写 HLD、写技术设计文档、HLD 模板、技术方案设计。帮助撰写高质量的高层技术设计文档（High Level Design），承接 PRD 做技术决策。
+description: 撰写高质量的高层技术设计文档（HLD），将 PRD 需求转化为技术架构决策、API 契约和数据设计。适用于 PRD 完成后需要进行系统架构设计、技术选型、或制定技术方案的场景。
 ---
 
 # HLD Writer
