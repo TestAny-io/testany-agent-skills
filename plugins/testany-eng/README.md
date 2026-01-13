@@ -31,13 +31,10 @@ flowchart TD
     I --> J
 
     J --> K[/api-writer/]
-    J --> L[/hld-writer/]
-
-    K --> M[📄 API Contract]
-    L --> N[/hld-reviewer/]
+    K --> L[📄 API Contract]
+    L --> M[/hld-writer/]
+    M --> N[/hld-reviewer/]
     N --> O[📄 HLD 准出]
-
-    M -.-> O
 ```
 
 ---
@@ -53,8 +50,8 @@ flowchart TD
 | 要写产品需求文档 | `/prd-writer` | 基于 BRD + Journey 撰写 PRD |
 | 想要全自动完成 PRD 写作+审查 | `/prd-studio` | 自动循环：写→审→改 |
 | PRD 写完了，需要独立评审 | `/prd-reviewer` | 多角色视角审查 |
-| 要定义跨团队的 API 契约 | `/api-writer` | 输出 OpenAPI/gRPC/Event 等契约 |
-| 要写高层技术设计方案 | `/hld-writer` | 基于 PRD 撰写 HLD |
+| PRD 准出了，要定义 API 契约 | `/api-writer` | 输出 OpenAPI/gRPC/Event 等契约 |
+| 有 PRD + API Contract，要写技术方案 | `/hld-writer` | 基于 PRD + 契约撰写 HLD |
 | HLD 写完了，需要技术评审 | `/hld-reviewer` | 检测 PRD→HLD 漂移 |
 
 ### 决策树
@@ -64,7 +61,8 @@ flowchart TD
     Start{你有什么？} --> A[只有想法/一句话]
     Start --> B[有 BRD]
     Start --> C[有 PRD]
-    Start --> D[有 HLD]
+    Start --> D[有 API Contract]
+    Start --> E[有 HLD]
 
     A --> A1[/brd-interviewer/]
 
@@ -75,12 +73,13 @@ flowchart TD
     B3 -->|全自动| B5[/prd-studio/]
     B4 --> B6[/prd-reviewer/]
 
-    C --> C1{要做什么？}
-    C1 -->|定义接口契约| C2[/api-writer/]
-    C1 -->|写技术方案| C3[/hld-writer/]
-    C3 --> C4[/hld-reviewer/]
+    C --> C1[/api-writer/]
+    C1 --> C2[📄 API Contract]
 
-    D --> D1[/hld-reviewer/]
+    D --> D1[/hld-writer/]
+    D1 --> D2[/hld-reviewer/]
+
+    E --> E1[/hld-reviewer/]
 ```
 
 ---
@@ -212,15 +211,16 @@ flowchart TD
 **特点**：
 - 聚焦高成本决策：技术选型、架构模式
 - 强制 PRD 需求映射
+- 基于 API Contract 作为接口唯一事实源
 - 复用 vs 新建决策
 - 不写实现代码
 
-**输入**：PRD 文件路径
+**输入**：PRD 路径 + API Contract 路径
 **输出**：HLD 文档
 
 **示例**：
 ```
-/hld-writer ./docs/PRD-用户认证.md
+/hld-writer ./docs/PRD-用户认证.md ./docs/API-Contract-用户认证.md
 ```
 
 ---
@@ -254,7 +254,7 @@ flowchart TD
 | BRD + Journey | prd-writer | PRD |
 | PRD | prd-reviewer | PRD（准出） |
 | PRD | api-writer | API Contract |
-| PRD | hld-writer | HLD |
+| PRD + API Contract | hld-writer | HLD |
 | HLD + PRD | hld-reviewer | HLD（准出） |
 
 ---
