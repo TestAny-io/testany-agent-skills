@@ -15,48 +15,29 @@ testany-eng 提供一套结构化的研发文档工具，覆盖从业务想法�
 
 ## 工作流程
 
-```
-┌─────────────────────────────────────────────────────────────────┐
-│                                                                 │
-│   💡 想法                                                        │
-│      │                                                          │
-│      ▼                                                          │
-│   ┌─────────────────┐                                           │
-│   │ brd-interviewer │  业务需求访谈                               │
-│   └────────┬────────┘                                           │
-│            ▼                                                    │
-│         📄 BRD                                                   │
-│            │                                                    │
-│            ▼                                                    │
-│   ┌─────────────────┐                                           │
-│   │  uc-interviewer │  用户旅程对齐                               │
-│   └────────┬────────┘                                           │
-│            ▼                                                    │
-│      📄 User Journey（已对齐）                                    │
-│            │                                                    │
-│            ▼                                                    │
-│   ┌─────────────────┐      ┌─────────────────┐                  │
-│   │   prd-writer    │ ───▶ │  prd-reviewer   │                  │
-│   └─────────────────┘      └────────┬────────┘                  │
-│            │                        │                           │
-│            │    ┌───────────────────┘                           │
-│            │    │ 或使用 prd-studio 全自动循环                    │
-│            ▼    ▼                                               │
-│         📄 PRD（准出）                                           │
-│            │                                                    │
-│            ├─────────────────┐                                  │
-│            ▼                 ▼                                  │
-│   ┌─────────────────┐  ┌─────────────────┐                      │
-│   │   api-writer    │  │   hld-writer    │                      │
-│   └────────┬────────┘  └────────┬────────┘                      │
-│            ▼                    ▼                               │
-│      📄 API Contract      ┌─────────────────┐                   │
-│            │              │  hld-reviewer   │                   │
-│            │              └────────┬────────┘                   │
-│            │                       ▼                            │
-│            └──────────────▶  📄 HLD（准出）                      │
-│                                                                 │
-└─────────────────────────────────────────────────────────────────┘
+```mermaid
+flowchart TD
+    A[💡 想法] --> B[/brd-interviewer/]
+    B --> C[📄 BRD]
+    C --> D[/uc-interviewer/]
+    D --> E[📄 User Journey]
+    E --> F{选择模式}
+
+    F -->|手动| G[/prd-writer/]
+    F -->|全自动| H[/prd-studio/]
+
+    G --> I[/prd-reviewer/]
+    H --> J[📄 PRD 准出]
+    I --> J
+
+    J --> K[/api-writer/]
+    J --> L[/hld-writer/]
+
+    K --> M[📄 API Contract]
+    L --> N[/hld-reviewer/]
+    N --> O[📄 HLD 准出]
+
+    M -.-> O
 ```
 
 ---
@@ -78,29 +59,28 @@ testany-eng 提供一套结构化的研发文档工具，覆盖从业务想法�
 
 ### 决策树
 
-```
-你有什么？
-│
-├─ 只有一个想法/老板的一句话
-│   └─▶ /brd-interviewer
-│
-├─ 有 BRD，但用户流程不清晰
-│   └─▶ /uc-interviewer
-│
-├─ 有 BRD（+ Journey），要写 PRD
-│   ├─ 想要人工参与每个环节
-│   │   └─▶ /prd-writer → /prd-reviewer
-│   └─ 想要全自动完成
-│       └─▶ /prd-studio
-│
-├─ 有 PRD，要定义接口契约
-│   └─▶ /api-writer
-│
-├─ 有 PRD，要写技术方案
-│   └─▶ /hld-writer → /hld-reviewer
-│
-└─ 有 HLD，需要评审
-    └─▶ /hld-reviewer
+```mermaid
+flowchart TD
+    Start{你有什么？} --> A[只有想法/一句话]
+    Start --> B[有 BRD]
+    Start --> C[有 PRD]
+    Start --> D[有 HLD]
+
+    A --> A1[/brd-interviewer/]
+
+    B --> B1{用户流程清晰吗？}
+    B1 -->|不清晰| B2[/uc-interviewer/]
+    B1 -->|清晰| B3{想要什么模式？}
+    B3 -->|手动参与| B4[/prd-writer/]
+    B3 -->|全自动| B5[/prd-studio/]
+    B4 --> B6[/prd-reviewer/]
+
+    C --> C1{要做什么？}
+    C1 -->|定义接口契约| C2[/api-writer/]
+    C1 -->|写技术方案| C3[/hld-writer/]
+    C3 --> C4[/hld-reviewer/]
+
+    D --> D1[/hld-reviewer/]
 ```
 
 ---
@@ -168,7 +148,7 @@ testany-eng 提供一套结构化的研发文档工具，覆盖从业务想法�
 
 ### prd-studio
 
-**用途**：全自动完成 PRD 写作 + 审查 + 修改循环
+**用途**：全自动完成 PRD 写作 + 审查 + 修改循环。适合对产品需求不甚明确且没有固定偏好的项目。工程化/产品化要求高的项目慎用！
 
 **特点**：
 - 隔离执行：Writer/Reviewer/Fixer 各自独立上下文
