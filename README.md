@@ -13,7 +13,7 @@ Skills 是包含指令、脚本和资源的文件夹，Claude 可以动态加载
 
 | Plugin | 领域 | 命令 |
 |--------|------|------|
-| **testany-eng** | 研发流程 | `/testany-eng:brd-interviewer`, `/testany-eng:prd-writer`, `/testany-eng:prd-reviewer`, `/testany-eng:prd-studio`, `/testany-eng:hld-writer`, `/testany-eng:hld-reviewer` |
+| **testany-eng** | 研发流程 | `/testany-eng:brd-interviewer`, `/testany-eng:uc-interviewer`, `/testany-eng:prd-writer`, `/testany-eng:prd-reviewer`, `/testany-eng:prd-studio`, `/testany-eng:api-writer`, `/testany-eng:hld-writer`, `/testany-eng:hld-reviewer` |
 | **testany-llm** | AI/LLM 工具 | `/testany-llm:skill-creator`, `/testany-llm:prompt-optimizer` |
 | **testany-mrkt** | 营销内容 | `/testany-mrkt:media-writer` |
 
@@ -31,8 +31,6 @@ testany-agent-skills/
 │   └── testany-mrkt/          # 营销内容工具集
 │       ├── commands/
 │       └── skills/
-├── skills/                     # 旧目录（保留兼容）
-├── spec/                       # Agent Skills 规范文档
 └── CHANGELOG.md               # 版本变更记录
 ```
 
@@ -78,10 +76,12 @@ testany-agent-skills/
 | 命令 | 描述 |
 |------|------|
 | `/testany-eng:brd-interviewer` | 业务需求访谈专家，通过选择题引导 stakeholder 输出结构化 BRD |
+| `/testany-eng:uc-interviewer` | 用户旅程访谈专家，在 BRD 和 PRD 之间建立对齐检查点 |
 | `/testany-eng:prd-writer` | PRD 写作技能，支持多种类型：新功能、第三方集成、重构、优化 |
 | `/testany-eng:prd-reviewer` | PRD 审查专家，作为「准出门禁」从多角色视角全面审查 |
 | `/testany-eng:prd-studio` | PRD 全自动工作室，自动完成写→审→改→审循环，无需人工干预 |
-| `/testany-eng:hld-writer` | HLD 写作技能，承接 PRD 做技术决策，支持 PRD:HLD 1:N 场景 |
+| `/testany-eng:api-writer` | API 契约撰写助手，支持 9 种协议，PRD→Contract 100% 覆盖检查 |
+| `/testany-eng:hld-writer` | HLD 写作技能，基于 PRD + API Contract 做技术决策 |
 | `/testany-eng:hld-reviewer` | HLD 审查专家，模拟 Design Review 会议，重点检测 PRD→HLD 漂移 |
 
 ## testany-llm（AI/LLM 工具）
@@ -116,7 +116,7 @@ Frontmatter 只需要两个字段：
 - `name` - skill 的唯一标识符（小写，用连字符分隔）
 - `description` - 完整描述 skill 的功能和使用场景
 
-更多详情请参考 [spec/skill-authoring.md](./spec/skill-authoring.md) 或使用 `/testany-llm:skill-creator`。
+更多详情请使用 `/testany-llm:skill-creator`，或参考 [skill-authoring.md](./plugins/testany-llm/skills/skill-creator/references/skill-authoring.md)。
 
 # 许可证
 

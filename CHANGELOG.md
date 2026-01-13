@@ -5,6 +5,58 @@
 格式基于 [Keep a Changelog](https://keepachangelog.com/zh-CN/1.0.0/)，
 版本号遵循 [Semantic Versioning](https://semver.org/lang/zh-CN/)。
 
+## [2.1.0] - 2026-01-13
+
+### 新增
+
+- **uc-interviewer**：用户旅程访谈专家
+  - 在 BRD 和 PRD 之间建立对齐检查点
+  - 逐条 Journey 深挖：主流程 → 替代路径 → 异常处理 → 边界情况
+  - 每个 Journey 用户确认后再进入下一个
+  - 输出结构化 User Journey 文档，可直接喂给 prd-writer
+
+- **api-writer**：API 契约撰写助手
+  - 支持 9 种协议：HTTP/GraphQL/gRPC/Event/WebSocket/Webhook/SDK/File/IPC
+  - 多协议时自动生成 Contract Index
+  - PRD → Contract 100% 覆盖检查
+  - 添加执行进度清单
+
+- **testany-eng README**：新增完整的 plugin 文档
+  - 工作流程图（Mermaid）
+  - 决策树：帮助用户选择合适的 skill
+  - 每个 skill 的详细说明
+
+### 变更
+
+- **工作流程调整**：`PRD → api-writer → API Contract → hld-writer → HLD`
+  - hld-writer 现在依赖 api-writer 的输出
+  - API Contract 是接口定义的唯一事实源
+
+- **hld-writer**：
+  - 新增核心原则："API Contract 是接口唯一事实源"
+  - 输入改为 PRD + API Contract（两者都必需）
+  - 接口部分改为引用 API Contract，不重新定义
+  - 新增契约一致性检查
+
+- **hld-reviewer**：
+  - 门一需求覆盖表新增「非已覆盖说明」列
+  - 明确填写规则：已覆盖填 `—`，其他状态必填说明
+  - 优化 description 格式
+  - 添加执行进度清单
+
+- **prd-writer**：
+  - 新增 User Journey 文档作为输入源
+  - 添加阶段 0.9：处理 uc-interviewer 输出
+  - Journey → PRD 映射规则
+
+### 目录结构变更
+
+- **删除** `/skills/` 根目录（按官方规范，skills 只放在 plugin 内）
+- **移动** `/spec/` → `/plugins/testany-llm/skills/skill-creator/references/`
+- 所有 skills 现在只存在于各自的 plugin 目录下
+
+---
+
 ## [2.0.0] - 2026-01-09
 
 ### 重大变更
