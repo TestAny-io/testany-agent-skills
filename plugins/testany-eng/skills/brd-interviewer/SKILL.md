@@ -10,7 +10,6 @@ description: |
   - "写 BRD"、"业务需求文档"
 
   核心价值：让 stakeholder 做选择题而不是写作文，通过专业顾问式引导挖掘真实需求。
-context: fork
 ---
 
 # BRD Interviewer - 业务需求访谈专家

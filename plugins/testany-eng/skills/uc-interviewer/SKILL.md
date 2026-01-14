@@ -9,7 +9,6 @@ description: |
   - "对齐一下 use case"、"确认用户操作流程"
 
   核心价值：在 BRD→PRD 之间建立对齐检查点，确保用户旅程符合用户预期，减少 PRD 阶段的返工。
-context: fork
 ---
 
 # UC Interviewer - 用户旅程访谈专家
@@ -31,6 +30,7 @@ context: fork
 4. **控制节奏**：每次最多 2-3 个问题
 5. **显式标记待定项**：不确定的内容标记为「待定」
 6. **守住边界**：只定义用户操作流程，不涉及技术实现
+7. **捕获跨 Journey 跳转**：每个步骤都要确认是否跳转/回退，并记录到 Journey Graph
 
 ---
 
@@ -48,11 +48,12 @@ context: fork
   □ 1.1 基于 BRD 列出潜在 journey 清单
   □ 1.2 用户确认哪些 journey 在范围内
   □ 1.3 确认 journey 优先级（P0/P1/P2）
+  □ 1.4 建立 Journey Graph 初稿（入口/出口/已知跳转）
 
 □ Phase 2: 逐条 Journey 深挖（每个 journey 重复）
   □ 2.1 Journey 基本信息（谁、做什么、为什么）
-  □ 2.2 主流程步骤（Happy Path）
-  □ 2.3 替代路径（Alternative Paths）
+  □ 2.2 步骤节点（Happy Path 作为默认路径）
+  □ 2.3 跳转/分支确认（含跨 Journey、回退/重试）
   □ 2.4 异常处理（Error Handling）
   □ 2.5 边界情况（Edge Cases）
   □ 2.6 用户确认本 journey ✓
@@ -61,6 +62,7 @@ context: fork
   □ 3.1 共享步骤识别
   □ 3.2 共享错误处理
   □ 3.3 优先级冲突检查
+  □ 3.4 Journey Graph 完整性检查
 
 □ Phase 4: 输出与衔接
   □ 4.1 生成 User Journey 文档
@@ -152,6 +154,10 @@ options:
     description: "有更好，没有也可以接受"
 ```
 
+#### 1.4 Journey Graph 初稿
+
+建立初始 Journey Graph（节点=Journey，边=跳转），记录已知入口/出口与跨 Journey 跳转。后续在 Phase 2 逐步补全。
+
 ---
 
 ### Phase 2: 逐条 Journey 深挖
@@ -169,13 +175,14 @@ options:
 - **谁**：执行这个操作的是哪类用户？
 - **做什么**：用户想要完成什么目标？
 - **为什么**：用户为什么需要这个功能？
-- **前置条件**：用户开始这个流程前需要什么？
+- **入口条件/来源**：用户从哪里进入这个旅程？
 - **结束状态**：流程完成后用户得到什么？
+- **主要出口/跳转点**：会离开到哪里（如有）？
 ```
 
-#### 2.2 主流程步骤（Happy Path）
+#### 2.2 步骤节点（Happy Path 作为默认路径）
 
-使用 AskUserQuestion 逐步确认主流程：
+使用 AskUserQuestion 逐步确认步骤节点：
 
 ```
 question: "[Journey] 的主流程第一步是什么？"
@@ -190,24 +197,29 @@ options:
     description: "[描述]"
 ```
 
-重复直到流程完成。每确认一步，展示当前已确认的流程。
-
-#### 2.3 替代路径（Alternative Paths）
+为步骤分配 Step ID（S1/S2/...）用于跳转表。每确认一步后，必须确认该步骤的流向，并记录为 Journey Graph 的边：
 
 ```
-question: "主流程之外，用户还有哪些替代方式完成这个目标？"
-header: "替代路径"
-multiSelect: true
+question: "[Journey] - [Step X] 完成后会进入哪里？"
+header: "步骤流向"
+multiSelect: false
 options:
-  - label: "[替代路径 1]"
-    description: "[描述]"
-  - label: "[替代路径 2]"
-    description: "[描述]"
-  - label: "暂无替代路径"
-    description: "只有主流程一种方式"
+  - label: "继续本 Journey 的下一步"
+    description: "线性前进；无下一步则标记为结束"
+  - label: "回退/重试（仍在本 Journey）"
+    description: "回到前一步或重试当前步骤"
+  - label: "跳转到已定义 Journey"
+    description: "跨 Journey 跳转（需指定目标 Journey）"
+  - label: "跳转到未定义 Journey（需创建）"
+    description: "新增 Journey，并回到 Phase 1 确认"
 ```
 
-对于选中的替代路径，简要确认关键差异步骤。
+如果选择“跳转到已定义 Journey”，用 AskUserQuestion 选择目标 Journey 与入口步骤。
+如果选择“跳转到未定义 Journey”，记录名称与目标，将该 Journey 加入待访谈清单，并回到 Phase 1.2 确认范围与优先级。
+
+#### 2.3 跳转/分支确认（Journey Graph）
+
+若同一步存在多条流向（分支/回退/跨 Journey），逐条记录为边，并补充触发条件与数据交接（如有）。若流程结束，To 记为 END。不再单独维护“替代路径”章节，统一用跳转关系表达。
 
 #### 2.4 异常处理（Error Handling）
 
@@ -267,17 +279,20 @@ options:
 **优先级**：P0/P1/P2
 **用户**：[谁]
 **目标**：[做什么]
-**前置条件**：[条件]
+**入口条件/来源**：[条件/来源]
 **结束状态**：[状态]
+**主要出口/跳转点**：[如有]
 
-### 主流程
-1. [Step 1]
-2. [Step 2]
-3. [Step 3]
+### 步骤节点（默认路径）
+1. [S1] [Step 1]
+2. [S2] [Step 2]
+3. [S3] [Step 3]
 ...
 
-### 替代路径
-- [替代路径 1]：[关键差异]
+### 跳转/分支
+| From | To | 触发条件 |
+|------|----|----------|
+| [S2] | [Journey B / S1] | [条件] |
 
 ### 异常处理
 | 异常情况 | 处理方式 |
@@ -339,13 +354,17 @@ options:
 
 如果发现优先级冲突（如 P0 journey 依赖 P1 journey），提出并让用户决定。
 
+#### 3.4 Journey Graph 完整性检查
+
+确认无悬挂节点/跳转，所有跳转目标均存在且入口明确；若存在跨 Journey 循环，标注其触发条件与退出路径。
+
 ---
 
 ### Phase 4: 输出与衔接
 
 #### 4.1 生成 User Journey 文档
 
-使用 `assets/journey-output-template.md` 模板生成文档。
+使用 `assets/journey-output-template.md` 模板生成文档（包含 Journey Graph 与跳转表）。
 
 **输出位置**：与用户确认，默认为 `{项目路径}/docs/user-journeys.md`
 
@@ -370,7 +389,7 @@ options:
 
 ### User Journey 文档结构
 
-参考 `assets/journey-output-template.md` 模板。
+参考 `assets/journey-output-template.md` 模板（必须包含 Journey Graph 与跳转关系表）。
 
 ### BRD→Journey→PRD 追溯
 
@@ -398,10 +417,10 @@ options:
 - Journey 范围选择
 - 异常情况识别
 - 边界情况识别
-- 替代路径识别
 
 ### 常见单选场景
 - 优先级（P0/P1/P2 互斥）
+- 步骤流向（继续/回退/跨 Journey）
 - 异常处理方式（通常选一种策略）
 - Journey 确认（确认 vs 修改）
 
