@@ -387,6 +387,37 @@ options:
 
 ## 输出规范
 
+### 流程图必须使用 Mermaid
+
+**禁止使用 ASCII 线框图**（如 `┌───┐`、`│ │`、`└───┘`），在多数 Markdown 渲染器中显示错乱。
+
+所有流程图必须使用 Mermaid：
+
+```mermaid
+flowchart LR
+    S0[开始] --> S1[Step 1]
+    S1 --> S2[Step 2]
+    S2 --> S3[Step 3]
+    S3 --> E[结束]
+```
+
+跨 Journey 跳转图示例：
+
+```mermaid
+flowchart TD
+    subgraph Journey_A[Journey A: 下单]
+        A1[选商品] --> A2{已登录?}
+        A2 -->|是| A3[确认订单]
+        A2 -->|否| B1
+        A3 --> A4[支付]
+    end
+    subgraph Journey_B[Journey B: 登录]
+        B1[输入账号] --> B2[验证]
+        B2 --> B3[登录成功]
+    end
+    B3 --> A3
+```
+
 ### User Journey 文档结构
 
 参考 `assets/journey-output-template.md` 模板（必须包含 Journey Graph 与跳转关系表）。
