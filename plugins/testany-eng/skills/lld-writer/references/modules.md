@@ -44,7 +44,7 @@
 
 ## Deployment/Release
 - 触发：多环境/灰度/回滚
-- 必含：发布步骤、回滚策略、Feature Flag
+- 必含：CI/CD 或发布步骤、回滚策略、Feature Flag
 
 ## Frontend UX
 - 触发：UI/多端交互

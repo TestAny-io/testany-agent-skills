@@ -51,12 +51,16 @@
 | 模块 | 状态 | N/A 理由 | 检查结果 |
 |------|------|----------|----------|
 | Core | Included | — | ✅ |
-| API Contract Impl | Included | — | ✅ |
-| Storage | Excluded | {理由} | ✅/⚠️ |
+| API Contract | Included | — | ✅ |
+| Storage & Migration | Excluded | {理由} | ✅/⚠️ |
 | Async/Event | Excluded | {理由} | ✅/⚠️ |
 | Infra/IaC | Included | — | ✅ |
-| Observability | Included | — | ✅ |
-| Migration | Excluded | {理由} | ✅/⚠️ |
+| Observability | Included | — | ✅/⚠️ |
+| Security/Compliance | Excluded | {理由} | ✅/⚠️ |
+| Deployment/Release | Included | — | ✅/⚠️ |
+| Frontend UX | Excluded | {理由} | ✅/⚠️ |
+| External Integration | Excluded | {理由} | ✅/⚠️ |
+| SDK/Library | Excluded | {理由} | ✅/⚠️ |
 
 ### Guardrails 覆盖检查
 
@@ -113,9 +117,16 @@
 | 模块 | 状态 | 必填项 | 缺失项 | 严重度 |
 |------|------|--------|--------|--------|
 | Core | Included | 5/5 | — | — |
-| API Contract Impl | Included | 3/3 | — | — |
-| Storage | Included | 3/4 | 迁移脚本 | P1 |
+| API Contract | Included | 3/3 | — | — |
+| Storage & Migration | Included | 4/4 | — | — |
+| Async/Event | Included | 4/4 | — | — |
+| Infra/IaC | Included | 3/3 | — | — |
 | Observability | Included | 4/4 | — | — |
+| Security/Compliance | Included | 3/3 | — | — |
+| Deployment/Release | Included | 3/3 | — | — |
+| Frontend UX | Included | 4/4 | — | — |
+| External Integration | Included | 3/3 | — | — |
+| SDK/Library | Included | 3/3 | — | — |
 
 **Gate 3 结论**：✅ 完整 / ⚠️ 存在缺失
 
