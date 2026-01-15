@@ -7,7 +7,7 @@
 testany-eng 提供一套结构化的研发文档工具，覆盖从业务想法到技术方案的全流程：
 
 - **需求阶段**：BRD 访谈 → 用户旅程对齐 → PRD 撰写/审查
-- **设计阶段**：API 契约 → HLD 撰写/审查
+- **设计阶段**：API 契约 → HLD 撰写/审查 → LLD 撰写/审查
 
 每个环节都有明确的输入输出和质量门禁，确保文档质量和上下游衔接。
 
@@ -35,6 +35,9 @@ flowchart TD
     L --> M[/hld-writer/]
     M --> N[/hld-reviewer/]
     N --> O[📄 HLD 准出]
+    O --> P[/lld-writer/]
+    P --> Q[/lld-reviewer/]
+    Q --> R[📄 LLD 准出]
 ```
 
 ---
@@ -53,6 +56,8 @@ flowchart TD
 | PRD 准出了，要定义 API 契约 | `/api-writer` | 输出 OpenAPI/gRPC/Event 等契约 |
 | 有 PRD + API Contract，要写技术方案 | `/hld-writer` | 基于 PRD + 契约撰写 HLD |
 | HLD 写完了，需要技术评审 | `/hld-reviewer` | 检测 PRD→HLD 漂移 |
+| HLD 准出了，要写详细设计 | `/lld-writer` | 将 HLD 细化为可实现的设计 |
+| LLD 写完了，需要设计评审 | `/lld-reviewer` | 检测 HLD→LLD 一致性 |
 
 ### 决策树
 
@@ -63,6 +68,7 @@ flowchart TD
     Start --> C[有 PRD]
     Start --> D[有 API Contract]
     Start --> E[有 HLD]
+    Start --> F[有 LLD]
 
     A --> A1[/brd-interviewer/]
 
@@ -79,7 +85,12 @@ flowchart TD
     D --> D1[/hld-writer/]
     D1 --> D2[/hld-reviewer/]
 
-    E --> E1[/hld-reviewer/]
+    E --> E1{HLD 已准出？}
+    E1 -->|否| E2[/hld-reviewer/]
+    E1 -->|是| E3[/lld-writer/]
+    E3 --> E4[/lld-reviewer/]
+
+    F --> F1[/lld-reviewer/]
 ```
 
 ---
@@ -245,6 +256,47 @@ flowchart TD
 
 ---
 
+### lld-writer
+
+**用途**：将 HLD 架构决策细化为可实现的低层设计文档
+
+**特点**：
+- 模块化组合：Core + Add-ons + Profile + Guardrails
+- 基于 API Contract 作为接口唯一事实源
+- 输出 LLD Manifest 记录模块选择与理由
+- 包含伪代码、流程图、测试设计
+- 不写完整实现代码
+
+**输入**：PRD 路径 + HLD 路径 + API Contract 路径
+**输出**：LLD 文档 + LLD Manifest + 追溯映射表
+
+**示例**：
+```
+/lld-writer ./docs/PRD-用户认证.md ./docs/HLD-用户认证.md ./docs/API-Contract-用户认证.md
+```
+
+---
+
+### lld-reviewer
+
+**用途**：评审 LLD，检测 HLD→LLD 漂移，作为实现前的最后门禁
+
+**特点**：
+- 四道门禁：基线与 Manifest → 一致性与漂移 → 模块完整性 → 可实现性与风险
+- 严格准出：P0=0, P1=0, P2≤2 才放行
+- Guardrails 最高优先级
+- Contract 是事实源，不得重写
+
+**输入**：LLD 路径 + PRD 路径 + HLD 路径 + API Contract 路径
+**输出**：审查报告 + 准出证书（通过时）
+
+**示例**：
+```
+/lld-reviewer ./docs/LLD-用户认证.md ./docs/PRD-用户认证.md ./docs/HLD-用户认证.md ./docs/API-Contract-用户认证.md
+```
+
+---
+
 ## 文档流转关系
 
 | 上游文档 | Skill | 下游文档 |
@@ -256,6 +308,8 @@ flowchart TD
 | PRD | api-writer | API Contract |
 | PRD + API Contract | hld-writer | HLD |
 | HLD + PRD | hld-reviewer | HLD（准出） |
+| PRD + HLD + Contract | lld-writer | LLD + Manifest |
+| LLD + PRD + HLD + Contract | lld-reviewer | LLD（准出） |
 
 ---
 
