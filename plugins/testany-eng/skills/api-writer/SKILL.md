@@ -20,7 +20,7 @@ description: 写 API contract、接口契约、OpenAPI/AsyncAPI/GraphQL/gRPC、W
 
 ## 执行进度清单
 
-**执行时使用此清单跟踪进度，完成后勾选：**
+**执行时使用 TodoWrite 工具跟踪以下进度，完成一项后立即标记为 completed：**
 
 ```
 □ 阶段 0：上下文收集
