@@ -30,6 +30,14 @@
       "source": "./plugins/testany-mrkt",
       "category": "productivity",
       "homepage": "https://github.com/TestAny-io/testany-agent-skills"
+    },
+    {
+      "name": "testany-jira",
+      "description": "Jira/Confluence 工具集：流程设计、工作流配置、自动化规则、跨团队协作、JQL 查询、MCP 集成、ScriptRunner 脚本、DevOps 工具链打通。命令：/testany-jira:jira-operator (WIP)",
+      "version": "0.1.0",
+      "source": "./plugins/testany-jira-wip",
+      "category": "productivity",
+      "homepage": "https://github.com/TestAny-io/testany-agent-skills"
     }
   ]
 }
