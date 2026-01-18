@@ -7,7 +7,7 @@
 testany-eng 提供一套结构化的研发文档工具，覆盖从业务想法到技术方案的全流程：
 
 - **需求阶段**：BRD 访谈 → 用户旅程对齐 → PRD 撰写/审查
-- **设计阶段**：API 契约 → HLD 撰写/审查 → LLD 撰写/审查
+- **设计阶段**：API 契约撰写/审查 → HLD 撰写/审查 → LLD 撰写/审查
 
 每个环节都有明确的输入输出和质量门禁，确保文档质量和上下游衔接。
 
@@ -32,12 +32,14 @@ flowchart TD
 
     J --> K[/api-writer/]
     K --> L[📄 API Contract]
-    L --> M[/hld-writer/]
-    M --> N[/hld-reviewer/]
-    N --> O[📄 HLD 准出]
-    O --> P[/lld-writer/]
-    P --> Q[/lld-reviewer/]
-    Q --> R[📄 LLD 准出]
+    L --> M[/api-reviewer/]
+    M --> N[📄 API Contract 准出]
+    N --> O[/hld-writer/]
+    O --> P[/hld-reviewer/]
+    P --> Q[📄 HLD 准出]
+    Q --> R[/lld-writer/]
+    R --> S[/lld-reviewer/]
+    S --> T[📄 LLD 准出]
 ```
 
 ---
@@ -54,6 +56,7 @@ flowchart TD
 | 想要全自动完成 PRD 写作+审查 | `/prd-studio` | 自动循环：写→审→改 |
 | PRD 写完了，需要独立评审 | `/prd-reviewer` | 多角色视角审查 |
 | PRD 准出了，要定义 API 契约 | `/api-writer` | 输出 OpenAPI/gRPC/Event 等契约 |
+| API 契约写完了，需要评审 | `/api-reviewer` | 检查契约完整性与一致性 |
 | 有 PRD + API Contract，要写技术方案 | `/hld-writer` | 基于 PRD + 契约撰写 HLD |
 | HLD 写完了，需要技术评审 | `/hld-reviewer` | 检测 PRD→HLD 漂移 |
 | HLD 准出了，要写详细设计 | `/lld-writer` | 将 HLD 细化为可实现的设计 |
@@ -81,9 +84,12 @@ flowchart TD
 
     C --> C1[/api-writer/]
     C1 --> C2[📄 API Contract]
+    C2 --> C3[/api-reviewer/]
 
-    D --> D1[/hld-writer/]
-    D1 --> D2[/hld-reviewer/]
+    D --> D1{API Contract 已准出？}
+    D1 -->|否| D2[/api-reviewer/]
+    D1 -->|是| D3[/hld-writer/]
+    D3 --> D4[/hld-reviewer/]
 
     E --> E1{HLD 已准出？}
     E1 -->|否| E2[/hld-reviewer/]
@@ -215,6 +221,26 @@ flowchart TD
 
 ---
 
+### api-reviewer
+
+**用途**：评审 API 契约/接口协议文档，作为进入 HLD/LLD/实现前的门禁
+
+**特点**：
+- 四道门禁：基线与覆盖 → 协议完整性 → 漂移/冲突 → 兼容性/演进
+- 强制 PRD → Contract 100% 覆盖
+- 多协议强制 Contract Index
+- 严格准出：P0=0, P1=0, P2≤2
+
+**输入**：API Contract 路径 + PRD 路径（可选：Index 路径）
+**输出**：审查报告 + 准出证书（通过时）
+
+**示例**：
+```
+/api-reviewer ./docs/API-Contract-订单系统.md ./docs/PRD-订单系统.md
+```
+
+---
+
 ### hld-writer
 
 **用途**：将 PRD 需求转化为高层技术设计文档
@@ -306,6 +332,7 @@ flowchart TD
 | BRD + Journey | prd-writer | PRD |
 | PRD | prd-reviewer | PRD（准出） |
 | PRD | api-writer | API Contract |
+| PRD + API Contract | api-reviewer | API Contract（准出） |
 | PRD + API Contract | hld-writer | HLD |
 | HLD + PRD | hld-reviewer | HLD（准出） |
 | PRD + HLD + Contract | lld-writer | LLD + Manifest |

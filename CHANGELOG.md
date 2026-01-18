@@ -5,6 +5,22 @@
 格式基于 [Keep a Changelog](https://keepachangelog.com/zh-CN/1.0.0/)，
 版本号遵循 [Semantic Versioning](https://semver.org/lang/zh-CN/)。
 
+## [2.2.0] - 2026-01-18
+
+### 新增
+
+- **api-reviewer**：API 契约评审门禁
+  - 四道门：基线与覆盖 → 协议完整性 → 漂移/冲突 → 兼容性/演进
+  - 严格准出：P0=0, P1=0, P2≤2
+  - 支持多协议 Contract Index
+- **testany-eng command**：新增 `/api-reviewer` 命令
+
+### 变更
+
+- **testany-eng README**：工作流程图、决策树、技能列表新增 api-reviewer
+
+---
+
 ## [2.1.0] - 2026-01-13
 
 ### 新增

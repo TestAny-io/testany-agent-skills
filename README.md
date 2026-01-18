@@ -13,7 +13,7 @@ Skills 是包含指令、脚本和资源的文件夹，Claude 可以动态加载
 
 | Plugin | 领域 | 命令 |
 |--------|------|------|
-| **testany-eng** | 研发流程 | `/testany-eng:brd-interviewer`, `/testany-eng:uc-interviewer`, `/testany-eng:prd-writer`, `/testany-eng:prd-reviewer`, `/testany-eng:prd-studio`, `/testany-eng:api-writer`, `/testany-eng:hld-writer`, `/testany-eng:hld-reviewer` |
+| **testany-eng** | 研发流程 | `/testany-eng:brd-interviewer`, `/testany-eng:uc-interviewer`, `/testany-eng:prd-writer`, `/testany-eng:prd-reviewer`, `/testany-eng:prd-studio`, `/testany-eng:api-writer`, `/testany-eng:api-reviewer`, `/testany-eng:hld-writer`, `/testany-eng:hld-reviewer` |
 | **testany-llm** | AI/LLM 工具 | `/testany-llm:skill-creator`, `/testany-llm:prompt-optimizer` |
 | **testany-mrkt** | 营销内容 | `/testany-mrkt:media-writer` |
 
@@ -81,6 +81,7 @@ testany-agent-skills/
 | `/testany-eng:prd-reviewer` | PRD 审查专家，作为「准出门禁」从多角色视角全面审查 |
 | `/testany-eng:prd-studio` | PRD 全自动工作室，自动完成写→审→改→审循环，无需人工干预 |
 | `/testany-eng:api-writer` | API 契约撰写助手，支持 9 种协议，PRD→Contract 100% 覆盖检查 |
+| `/testany-eng:api-reviewer` | API 契约评审门禁，检查完整性/一致性/兼容性 |
 | `/testany-eng:hld-writer` | HLD 写作技能，基于 PRD + API Contract 做技术决策 |
 | `/testany-eng:hld-reviewer` | HLD 审查专家，模拟 Design Review 会议，重点检测 PRD→HLD 漂移 |
 
