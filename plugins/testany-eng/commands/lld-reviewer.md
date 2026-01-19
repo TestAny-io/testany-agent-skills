@@ -1,6 +1,6 @@
 ---
 description: 评审低层设计文档（LLD）
-argument-hint: <LLD 路径> [PRD 路径] [HLD 路径] [API Contract 路径]
+argument-hint: <LLD 路径> [PRD 路径] [HLD 路径] [API Contract 路径] [Guardrails 路径]
 ---
 
 # LLD Reviewer
@@ -16,7 +16,7 @@ $ARGUMENTS
 ## LLD 审查在研发流程中的位置
 
 ```
-PRD → API Contract → HLD → LLD → [LLD Reviewer] → 代码实现
+PRD → API Contract → HLD → Guardrails → LLD → [LLD Reviewer] → 代码实现
 ```
 
 LLD Reviewer 是进入代码实现阶段的最后门禁。
@@ -41,4 +41,4 @@ LLD Reviewer 是进入代码实现阶段的最后门禁。
 - 审查报告（含问题清单和证据）
 - 准出证书（通过时）
 
-请提供 LLD 路径开始评审。建议同时提供 PRD、HLD 和 API Contract 路径。
+请提供 LLD 路径开始评审。建议同时提供 PRD、HLD、API Contract 和 Guardrails 路径。

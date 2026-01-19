@@ -1,6 +1,6 @@
 ---
 description: 撰写低层设计文档（LLD）
-argument-hint: <PRD 路径> <HLD 路径> <API Contract 路径>
+argument-hint: <PRD 路径> <HLD 路径> <API Contract 路径> [Guardrails 路径]
 ---
 
 # LLD Writer
@@ -16,7 +16,7 @@ $ARGUMENTS
 ## LLD 在研发流程中的位置
 
 ```
-PRD → API Contract → HLD → LLD → 代码实现
+PRD → API Contract → HLD → Guardrails → LLD → 代码实现
 ```
 
 LLD 承接 HLD 的架构决策，输出可直接指导编码的设计细节。
@@ -47,7 +47,7 @@ LLD 采用模块化组合方式，根据功能需求选择模块：
 
 ## 工作流程
 
-1. **基线收集**：读取 PRD/HLD/Contract，确认 Guardrails
+1. **基线收集**：读取 PRD/HLD/Contract/Guardrails
 2. **模块选择**：选择 Profile 和 Add-ons
 3. **文档组装**：按模板生成 LLD + Manifest
 4. **一致性自检**：覆盖率 100%、无冲突、Guardrails 全覆盖
@@ -58,4 +58,4 @@ LLD 采用模块化组合方式，根据功能需求选择模块：
 - LLD Manifest（模块选择与理由）
 - 追溯映射表（PRD/HLD/Contract → LLD）
 
-请提供 PRD、HLD 和 API Contract 路径开始撰写。
+请提供 PRD、HLD、API Contract 路径，若有 Guardrails 请一并提供。

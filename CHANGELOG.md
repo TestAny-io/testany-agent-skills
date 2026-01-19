@@ -5,6 +5,26 @@
 格式基于 [Keep a Changelog](https://keepachangelog.com/zh-CN/1.0.0/)，
 版本号遵循 [Semantic Versioning](https://semver.org/lang/zh-CN/)。
 
+## [2.3.0] - 2026-01-18
+
+### 新增
+
+- **guardrails-writer**：项目级工程规范编写
+  - 覆盖前端/后端/API/数据/安全/运维/发布
+  - Must/Should/Nice 分级与验证方式
+  - LLD 模块要求与例外流程
+- **guardrails-reviewer**：工程规范审查门禁
+  - 元信息与范围 → 覆盖性 → 可执行性 → 一致性
+  - 严格准出：P0=0, P1=0, P2≤2
+- **testany-eng command**：新增 `/guardrails-writer` 与 `/guardrails-reviewer`
+
+### 变更
+
+- **testany-eng README**：工作流程图、决策树、技能列表新增 guardrails
+- **仓库 README**：新增 guardrails 命令与描述
+
+---
+
 ## [2.2.0] - 2026-01-18
 
 ### 新增

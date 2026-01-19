@@ -7,7 +7,7 @@
 testany-eng 提供一套结构化的研发文档工具，覆盖从业务想法到技术方案的全流程：
 
 - **需求阶段**：BRD 访谈 → 用户旅程对齐 → PRD 撰写/审查
-- **设计阶段**：API 契约撰写/审查 → HLD 撰写/审查 → LLD 撰写/审查
+- **设计阶段**：API 契约撰写/审查 → HLD 撰写/审查 → LLD 撰写/审查（对齐 Guardrails 基线）
 
 每个环节都有明确的输入输出和质量门禁，确保文档质量和上下游衔接。
 
@@ -44,6 +44,21 @@ flowchart TD
 
 ---
 
+## 项目级规范维护流程（Guardrails）
+
+> Guardrails 是项目级基线，不随每个功能重复创建，仅在以下情况触发：新项目/架构变更/合规要求/事故复盘。
+
+```mermaid
+flowchart TD
+    A[项目启动/重大变更] --> B[/guardrails-writer/]
+    B --> C[📄 Guardrails]
+    C --> D[/guardrails-reviewer/]
+    D --> E[📄 Guardrails 准出]
+    E --> F[作为 LLD/实现的基线]
+```
+
+---
+
 ## 我应该用哪个 Skill？
 
 ### 快速选择表
@@ -57,6 +72,8 @@ flowchart TD
 | PRD 写完了，需要独立评审 | `/prd-reviewer` | 多角色视角审查 |
 | PRD 准出了，要定义 API 契约 | `/api-writer` | 输出 OpenAPI/gRPC/Event 等契约 |
 | API 契约写完了，需要评审 | `/api-reviewer` | 检查契约完整性与一致性 |
+| 需要制定项目级工程规范 | `/guardrails-writer` | 建立全局 Guardrails（不随功能重复） |
+| Guardrails 写完了，需要评审 | `/guardrails-reviewer` | 检查规范可执行性与覆盖性 |
 | 有 PRD + API Contract，要写技术方案 | `/hld-writer` | 基于 PRD + 契约撰写 HLD |
 | HLD 写完了，需要技术评审 | `/hld-reviewer` | 检测 PRD→HLD 漂移 |
 | HLD 准出了，要写详细设计 | `/lld-writer` | 将 HLD 细化为可实现的设计 |
@@ -241,6 +258,43 @@ flowchart TD
 
 ---
 
+### guardrails-writer
+
+**用途**：编写或更新项目级 Guardrails 规范，作为 LLD 与实现的上游基线
+
+**特点**：
+- 风险优先，覆盖安全/API/数据/发布/可观测性
+- Must/Should/Nice 分级与验证方式
+- 例外流程与版本化变更记录
+
+**输入**：项目/规范路径
+**输出**：Guardrails 文档
+
+**示例**：
+```
+/guardrails-writer ./docs/project-context
+```
+
+---
+
+### guardrails-reviewer
+
+**用途**：评审 Guardrails 规范，确认覆盖性与可执行性
+
+**特点**：
+- 四道门：元信息与范围 → 覆盖性 → 可执行性 → 一致性
+- 严格准出：P0=0, P1=0, P2≤2
+
+**输入**：Guardrails 路径
+**输出**：审查报告 + 准出证书（通过时）
+
+**示例**：
+```
+/guardrails-reviewer ./docs/Guardrails.md
+```
+
+---
+
 ### hld-writer
 
 **用途**：将 PRD 需求转化为高层技术设计文档
@@ -293,12 +347,12 @@ flowchart TD
 - 包含伪代码、流程图、测试设计
 - 不写完整实现代码
 
-**输入**：PRD 路径 + HLD 路径 + API Contract 路径
+**输入**：PRD 路径 + HLD 路径 + API Contract 路径 + Guardrails 路径（如有）
 **输出**：LLD 文档 + LLD Manifest + 追溯映射表
 
 **示例**：
 ```
-/lld-writer ./docs/PRD-用户认证.md ./docs/HLD-用户认证.md ./docs/API-Contract-用户认证.md
+/lld-writer ./docs/PRD-用户认证.md ./docs/HLD-用户认证.md ./docs/API-Contract-用户认证.md ./docs/Guardrails.md
 ```
 
 ---
@@ -313,12 +367,12 @@ flowchart TD
 - Guardrails 最高优先级
 - Contract 是事实源，不得重写
 
-**输入**：LLD 路径 + PRD 路径 + HLD 路径 + API Contract 路径
+**输入**：LLD 路径 + PRD 路径 + HLD 路径 + API Contract 路径 + Guardrails 路径（如有）
 **输出**：审查报告 + 准出证书（通过时）
 
 **示例**：
 ```
-/lld-reviewer ./docs/LLD-用户认证.md ./docs/PRD-用户认证.md ./docs/HLD-用户认证.md ./docs/API-Contract-用户认证.md
+/lld-reviewer ./docs/LLD-用户认证.md ./docs/PRD-用户认证.md ./docs/HLD-用户认证.md ./docs/API-Contract-用户认证.md ./docs/Guardrails.md
 ```
 
 ---
@@ -335,8 +389,10 @@ flowchart TD
 | PRD + API Contract | api-reviewer | API Contract（准出） |
 | PRD + API Contract | hld-writer | HLD |
 | HLD + PRD | hld-reviewer | HLD（准出） |
-| PRD + HLD + Contract | lld-writer | LLD + Manifest |
-| LLD + PRD + HLD + Contract | lld-reviewer | LLD（准出） |
+| 项目启动/变更 | guardrails-writer | Guardrails |
+| Guardrails | guardrails-reviewer | Guardrails（准出） |
+| PRD + HLD + Contract + Guardrails（如有） | lld-writer | LLD + Manifest |
+| LLD + PRD + HLD + Contract + Guardrails（如有） | lld-reviewer | LLD（准出） |
 
 ---
 
