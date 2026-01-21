@@ -1,5 +1,5 @@
 ---
-description: 评审 API contract/接口契约文档
+description: API contract review, 评审接口契约文档
 argument-hint: <Contract 路径> [PRD 路径] [Index 路径]
 ---
 

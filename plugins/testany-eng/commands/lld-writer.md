@@ -1,5 +1,5 @@
 ---
-description: 撰写低层设计文档（LLD）
+description: Write LLD, 撰写详细设计文档
 argument-hint: <PRD 路径> <HLD 路径> <API Contract 路径> [Guardrails 路径]
 ---
 

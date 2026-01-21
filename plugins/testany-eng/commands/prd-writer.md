@@ -1,5 +1,5 @@
 ---
-description: 撰写产品需求文档（PRD）
+description: Write PRD, 撰写产品需求文档
 argument-hint: [可选：功能描述或需求概要]
 ---
 

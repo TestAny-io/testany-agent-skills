@@ -1,5 +1,5 @@
 ---
-description: 自媒体内容创作，支持多平台
+description: Social media writing, 自媒体内容创作
 argument-hint: [可选：选题或内容方向]
 ---
 

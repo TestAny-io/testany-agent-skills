@@ -1,5 +1,5 @@
 ---
-description: 评审 Project Guardrails/工程规范
+description: Review Guardrails, 评审工程规范
 argument-hint: <Guardrails 路径>
 ---
 

@@ -1,5 +1,5 @@
 ---
-description: 用户旅程访谈，对齐 Use Case
+description: User journey interview, 用户旅程访谈
 argument-hint: <BRD 文件路径>
 ---
 

@@ -1,5 +1,5 @@
 ---
-description: 撰写或更新 Project Guardrails/工程规范
+description: Write Guardrails, 撰写工程规范
 argument-hint: <项目/文档路径> [补充说明]
 ---
 

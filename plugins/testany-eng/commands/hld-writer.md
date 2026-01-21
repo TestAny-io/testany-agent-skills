@@ -1,5 +1,5 @@
 ---
-description: 撰写高层技术设计文档（HLD）
+description: Write HLD, 撰写技术设计文档
 argument-hint: <PRD 路径> <API Contract 路径>
 ---
 

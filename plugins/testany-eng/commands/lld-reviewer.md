@@ -1,5 +1,5 @@
 ---
-description: 评审低层设计文档（LLD）
+description: LLD review, 评审详细设计文档
 argument-hint: <LLD 路径> [PRD 路径] [HLD 路径] [API Contract 路径] [Guardrails 路径]
 ---
 

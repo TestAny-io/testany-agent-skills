@@ -1,5 +1,5 @@
 ---
-description: 审查 PRD 质量，作为准出门禁
+description: PRD review, 审查产品需求文档
 argument-hint: <PRD 文件路径>
 ---
 

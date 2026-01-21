@@ -1,5 +1,5 @@
 ---
-description: PRD 全自动工作室，自动完成写→审→改循环
+description: PRD automation, PRD 全自动工作室
 argument-hint: [可选：功能描述或需求概要]
 ---
 

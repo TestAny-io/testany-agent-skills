@@ -1,5 +1,5 @@
 ---
-description: 审查 HLD 质量，模拟 Design Review 会议
+description: HLD review, 审查技术设计文档
 argument-hint: <HLD 文件路径> [PRD 文件路径]
 ---
 

@@ -1,5 +1,5 @@
 ---
-description: 业务需求访谈，将一句话想法转化为结构化 BRD
+description: BRD interview, 业务需求访谈
 argument-hint: [可选：业务想法或需求描述]
 ---
 

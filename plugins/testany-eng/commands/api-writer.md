@@ -1,5 +1,5 @@
 ---
-description: 撰写 API 契约/接口协议文档
+description: Write API contract, 撰写接口契约文档
 argument-hint: <PRD 文件路径> [可选：补充说明]
 ---
 
