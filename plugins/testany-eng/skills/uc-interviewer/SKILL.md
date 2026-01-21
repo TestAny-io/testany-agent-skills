@@ -1,14 +1,6 @@
 ---
 name: uc-interviewer
-description: |
-  用户旅程访谈专家。通过结构化访谈，将 BRD 中的业务需求转化为清晰、已对齐的用户旅程文档。
-
-  触发场景：
-  - "帮我梳理用户旅程"、"用户流程访谈"
-  - "BRD 写完了，接下来细化用例"
-  - "对齐一下 use case"、"确认用户操作流程"
-
-  核心价值：在 BRD→PRD 之间建立对齐检查点，确保用户旅程符合用户预期，减少 PRD 阶段的返工。
+description: User journey interview, use case interview, 用户旅程访谈。Use when: BRD 完成后需要梳理用户旅程、"对齐 use case"、"确认用户操作流程"。
 ---
 
 # UC Interviewer - 用户旅程访谈专家

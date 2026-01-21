@@ -1,6 +1,6 @@
 ---
 name: media-writer
-description: 自媒体文章写作、写公众号文章、写知乎回答、写小红书笔记、写 Medium 文章。专业的自媒体内容创作工作流，支持微信公众号、知乎、小红书、LinkedIn、Medium、Reddit 六大平台。
+description: Social media writing, content creation, 自媒体写作。Use when: 需要写微信公众号/知乎/小红书/LinkedIn/Medium/Reddit 文章。
 ---
 
 # Media Writer - 自媒体写作工作流

@@ -1,6 +1,6 @@
 ---
 name: guardrails-writer
-description: 撰写或更新 Project Guardrails/工程规范（前端/后端/API/数据/安全/运维/发布）。用于新项目启动、技术栈变更、多团队协作、事故复盘或持续漂移出现时建立统一约束与最低标准。
+description: Write Project Guardrails, 写工程规范。Use when: 新项目启动、技术栈变更、多团队协作、事故复盘、代码规范漂移时需要定义前端/后端/API/数据/安全/运维/发布标准。
 ---
 
 # Guardrails Writer - 工程规范编写

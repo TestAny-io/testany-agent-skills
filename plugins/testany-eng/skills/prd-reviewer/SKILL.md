@@ -1,6 +1,6 @@
 ---
 name: prd-reviewer
-description: 审查 PRD、PRD 评审、需求评审、检查 PRD 质量。作为 PRD 的"准出门禁"，从多角色视角全面审查，严格把关，迭代审查直到放行。
+description: PRD review, 需求评审, 检查 PRD 质量。Use when: PRD 完成后需要评审、"审查 PRD"、"PRD 评审"、"需求评审"。
 ---
 
 # PRD Reviewer

@@ -1,6 +1,6 @@
 ---
 name: guardrails-reviewer
-description: 评审 Project Guardrails/工程规范。用于在 LLD/实现前检查 Guardrails 的完整性、可执行性、一致性与可验证性，给出准出结论。
+description: Review Project Guardrails, 工程规范评审。Use when: LLD/实现前需要审查 Guardrails/代码规范/工程标准是否可落地。
 ---
 
 # Guardrails Reviewer - 工程规范审查专家

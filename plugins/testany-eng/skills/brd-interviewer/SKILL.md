@@ -1,15 +1,6 @@
 ---
 name: brd-interviewer
-description: |
-  业务需求访谈专家。通过结构化选择题访谈，将 stakeholder 的一句话想法转化为可追溯、可验证的业务需求文档（BRD）。
-
-  触发场景：
-  - "帮我梳理业务需求"、"我有个想法想讨论"
-  - "老板说要做 XXX，帮我理清楚"
-  - "这个需求不太清楚，帮我访谈一下"
-  - "写 BRD"、"业务需求文档"
-
-  核心价值：让 stakeholder 做选择题而不是写作文，通过专业顾问式引导挖掘真实需求。
+description: BRD interview, 业务需求访谈。Use when: 需要将模糊的业务想法梳理成 BRD、"帮我梳理业务需求"、"老板说要做 XXX"、"这个需求不太清楚"、"写 BRD"。
 ---
 
 # BRD Interviewer - 业务需求访谈专家

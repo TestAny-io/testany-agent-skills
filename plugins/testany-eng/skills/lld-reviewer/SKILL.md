@@ -1,6 +1,6 @@
 ---
 name: lld-reviewer
-description: 评审 LLD、低层设计评审、详细设计审查。用于在实现前检查 LLD 是否承接 PRD/HLD/API Contract、遵循 Project Guardrails、覆盖必要模块并具备可实现性与可测试性。
+description: LLD review, Low-Level Design review, 详细设计评审。Use when: 实现前需要审查 LLD 与 PRD/HLD/API Contract/Guardrails 的一致性。
 ---
 
 # LLD Reviewer - 低层设计审查专家

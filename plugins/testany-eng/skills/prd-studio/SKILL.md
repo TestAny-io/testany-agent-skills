@@ -1,15 +1,6 @@
 ---
 name: prd-studio
-description: |
-  PRD 全自动工作室。自动完成"写 PRD → 审查 → 修改 → 再审"的完整循环，无需人工干预。
-
-  触发场景：
-  - "帮我写个 PRD 并审查通过"
-  - "自动完成 PRD"
-  - "PRD 全流程"
-  - "/prd-studio"
-
-  核心价值：通过隔离的 subagent 执行写作和审查，避免上下文污染，每轮都是"新鲜"的审查视角。
+description: PRD automation, PRD 全流程。Use when: "帮我写个 PRD 并审查通过"、"自动完成 PRD"、"PRD 全流程"。
 ---
 
 # PRD Studio - PRD 全自动工作室

@@ -1,6 +1,6 @@
 ---
 name: lld-writer
-description: 写 LLD、低层设计、详细设计、实现级技术方案、模块/接口设计。用于在 PRD/HLD/API Contract 完成后，将架构决策细化为可实现的设计细节，并按 Project Guardrails 组合 LLD 模板模块。
+description: Write LLD, Low-Level Design, 写详细设计。Use when: PRD/HLD/API Contract 完成后需要写模块设计、接口设计、实现级技术方案。
 ---
 
 # LLD Writer

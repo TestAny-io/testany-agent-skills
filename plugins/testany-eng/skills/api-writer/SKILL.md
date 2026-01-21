@@ -1,6 +1,6 @@
 ---
 name: api-writer
-description: 写 API contract、接口契约、OpenAPI/AsyncAPI/GraphQL/gRPC、WebSocket/SSE、Webhook、SDK/库接口、文件格式规范。用于在 PRD 之后、HLD 之前产出可审查的接口契约/协议文档，作为跨团队协作的单一事实源。
+description: Write API contract, 写接口契约。Use when: PRD 完成后、HLD 之前需要定义 OpenAPI/AsyncAPI/GraphQL/gRPC/WebSocket/SSE/Webhook/SDK/文件格式规范。
 ---
 
 # API Writer

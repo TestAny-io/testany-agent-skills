@@ -1,6 +1,6 @@
 ---
 name: hld-writer
-description: 撰写高质量的高层技术设计文档（HLD），基于 PRD 和 API Contract 做出技术架构决策。适用于 PRD 和 API Contract 完成后需要进行系统架构设计、技术选型、或制定技术方案的场景。
+description: Write HLD, High-Level Design, 写技术设计文档。Use when: PRD 和 API Contract 完成后需要做系统架构设计、技术选型、制定技术方案。
 ---
 
 # HLD Writer
