@@ -5,6 +5,25 @@
 格式基于 [Keep a Changelog](https://keepachangelog.com/zh-CN/1.0.0/)，
 版本号遵循 [Semantic Versioning](https://semver.org/lang/zh-CN/)。
 
+## [2.4.0] - 2026-01-22
+
+### 新增
+
+- **runbook-writer**：运维手册（Runbook）编写协调器
+  - Controller 提取上下文 → Writer subagent → Spec reviewer → Quality reviewer
+  - 双阶段审查：Spec compliance（覆盖率）→ Quality（可执行性）
+  - Context 隔离：Subagent 获得新鲜上下文，避免假设污染
+  - 证据驱动：所有约束必须来自上游文档（PRD/HLD/LLD/Guardrails）
+  - 完整模板：部署、回滚、监控、故障处理、值班手册
+- **testany-eng command**：新增 `/runbook-writer` 命令
+
+### 变更
+
+- **testany-eng README**：技能列表新增 runbook-writer
+- **仓库 README**：命令列表新增 `/testany-eng:runbook-writer`
+
+---
+
 ## [2.3.0] - 2026-01-18
 
 ### 新增
