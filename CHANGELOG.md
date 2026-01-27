@@ -5,6 +5,16 @@
 格式基于 [Keep a Changelog](https://keepachangelog.com/zh-CN/1.0.0/)，
 版本号遵循 [Semantic Versioning](https://semver.org/lang/zh-CN/)。
 
+## [2.4.1] - 2026-01-27
+
+### 变更
+
+- **media-writer**：强化 Researcher 硬数据门槛与结构化输出
+- **media-writer**：知乎 Writer 增加篇幅/深度分级与证据密度要求
+- **知乎写作指南**：补充档位规则、证据密度与硬数据标准
+
+---
+
 ## [2.4.0] - 2026-01-22
 
 ### 新增
