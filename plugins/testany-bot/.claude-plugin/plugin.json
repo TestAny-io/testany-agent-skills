@@ -1,0 +1,8 @@
+{
+  "name": "testany-bot",
+  "description": "Testany Platform Domain Skills: Test Case Management, Pipeline Execution, Workspace Organization, and more",
+  "author": {
+    "name": "Testany",
+    "email": "engineering@testany.io"
+  }
+}
