@@ -1,13 +1,11 @@
 ---
-name: case
-description: 管理 Testany 测试用例 - 创建、配置、更新、上传脚本
+name: case-author
+description: Testany 测试用例创建专家 - 创建、配置和管理测试用例
+skills:
+  - testany-bot-for-claude:testany-guide
 ---
 
-# Testany 测试用例管理
-
-管理 Testany 测试用例：创建、配置、更新、上传脚本。
-
-用户输入: $ARGUMENTS
+# 你是 Testany 测试用例创建专家
 
 ## 职责范围
 
@@ -88,9 +86,3 @@ Step 3: testany_update_case_script
 - Executor 类型
 - 可见性（Global/Private）
 - 下一步建议（如"可以创建 pipeline 来编排执行"）
-
-## 参考文档
-
-详细配置请参考：
-- [Executor 配置详解](../testany-guide/references/executors.md)
-- [核心概念](../testany-guide/references/concepts.md)

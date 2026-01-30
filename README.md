@@ -9,13 +9,15 @@ Skills 是包含指令、脚本和资源的文件夹，Claude 可以动态加载
 
 # 关于本仓库
 
-本仓库包含 Testany 公司内部使用的 Agent Skills，覆盖产品研发流程中的各类专业场景。Skills 按领域分为三个 Plugin：
+本仓库包含 Testany 公司内部使用的 Agent Skills，覆盖产品研发流程中的各类专业场景。Skills 按领域分为多个 Plugin：
 
 | Plugin | 领域 | 命令 |
 |--------|------|------|
 | **testany-eng** | 研发流程 | `/testany-eng:brd-interviewer`, `/testany-eng:uc-interviewer`, `/testany-eng:prd-writer`, `/testany-eng:prd-reviewer`, `/testany-eng:prd-studio`, `/testany-eng:api-writer`, `/testany-eng:api-reviewer`, `/testany-eng:guardrails-writer`, `/testany-eng:guardrails-reviewer`, `/testany-eng:hld-writer`, `/testany-eng:hld-reviewer`, `/testany-eng:runbook-writer` |
 | **testany-llm** | AI/LLM 工具 | `/testany-llm:skill-creator`, `/testany-llm:prompt-optimizer` |
 | **testany-mrkt** | 营销内容 | `/testany-mrkt:media-writer` |
+| **testany-bot** | 测试平台（通用版） | `/testany-bot:case`, `/testany-bot:pipeline`, `/testany-bot:tests`, `/testany-bot:debug`, `/testany-bot:cicd`, `/testany-bot:workspace` |
+| **testany-bot-for-claude** | 测试平台（Claude 专用） | `/testany-bot-for-claude:case`, `/testany-bot-for-claude:pipeline`, `/testany-bot-for-claude:tests`, `/testany-bot-for-claude:debug`, `/testany-bot-for-claude:cicd`, `/testany-bot-for-claude:workspace` |
 
 # 仓库结构
 
@@ -28,9 +30,16 @@ testany-agent-skills/
 │   ├── testany-llm/           # AI/LLM 工具集
 │   │   ├── commands/
 │   │   └── skills/
-│   └── testany-mrkt/          # 营销内容工具集
+│   ├── testany-mrkt/          # 营销内容工具集
+│   │   ├── commands/
+│   │   └── skills/
+│   ├── testany-bot/           # Testany 测试平台（通用版，跨平台兼容）
+│   │   ├── commands/
+│   │   └── skills/
+│   └── testany-bot-for-claude/ # Testany 测试平台（Claude Code 专用版）
 │       ├── commands/
-│       └── skills/
+│       ├── skills/
+│       └── agents/            # Subagent 定义
 └── CHANGELOG.md               # 版本变更记录
 ```
 
@@ -49,6 +58,8 @@ testany-agent-skills/
    - `testany-eng` - 研发流程（BRD/PRD/HLD）
    - `testany-llm` - AI 工具（Skill/Prompt）
    - `testany-mrkt` - 营销内容（自媒体）
+   - `testany-bot` - 测试平台（通用版，跨平台兼容）
+   - `testany-bot-for-claude` - 测试平台（Claude Code 专用，Subagent 架构）
 4. 选择 `Install now`
 
 ## 使用
@@ -100,6 +111,32 @@ testany-agent-skills/
 | 命令 | 描述 |
 |------|------|
 | `/testany-mrkt:media-writer` | 自媒体内容创作工作流，支持公众号、知乎、小红书、LinkedIn、Medium、Reddit |
+
+## testany-bot（测试平台 - 通用版）
+
+跨平台兼容版本，适用于 VS Code Copilot、GitHub Copilot 等 AI 平台。需要配置 Testany MCP Server。
+
+| 命令 | 描述 |
+|------|------|
+| `/testany-bot:case` | 测试用例管理 - 创建、配置、更新用例，上传脚本 |
+| `/testany-bot:pipeline` | 流水线编排 - 创建 Pipeline，配置依赖和 Relay |
+| `/testany-bot:tests` | 测试执行 - 触发 Pipeline 执行，监控状态 |
+| `/testany-bot:debug` | 故障诊断 - 分析失败原因，查看日志 |
+| `/testany-bot:cicd` | CI/CD 集成 - 创建门禁、定时计划，提供集成代码 |
+| `/testany-bot:workspace` | 工作空间管理 - 成员管理、权限配置 |
+
+## testany-bot-for-claude（测试平台 - Claude Code 专用版）
+
+Claude Code 专用版，采用 Subagent + Router 架构，支持 Context 隔离。需要配置 Testany MCP Server。
+
+| 命令 | 描述 |
+|------|------|
+| `/testany-bot-for-claude:case` | 测试用例管理（case-author Subagent） |
+| `/testany-bot-for-claude:pipeline` | 流水线编排（pipeline-builder Subagent） |
+| `/testany-bot-for-claude:tests` | 测试执行（test-runner Subagent） |
+| `/testany-bot-for-claude:debug` | 故障诊断（debug-analyzer Subagent） |
+| `/testany-bot-for-claude:cicd` | CI/CD 集成（cicd-integrator Subagent） |
+| `/testany-bot-for-claude:workspace` | 工作空间管理（workspace-admin Subagent） |
 
 # 创建自定义 Skill
 

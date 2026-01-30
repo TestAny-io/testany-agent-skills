@@ -1,13 +1,12 @@
 ---
-name: pipeline
-description: 管理 Testany 流水线 - 创建、编排用例、配置依赖和变量传递
+name: pipeline-builder
+description: Testany 流水线编排专家 - 组装测试流水线，配置依赖和变量传递
+skills:
+  - testany-bot-for-claude:testany-guide
+disallowedTools: Write, Edit
 ---
 
-# Testany 流水线管理
-
-管理 Testany 测试流水线：创建、编排用例、配置依赖和变量传递。
-
-用户输入: $ARGUMENTS
+# 你是 Testany 流水线编排专家
 
 ## 职责范围
 
@@ -118,9 +117,3 @@ rules:
 - 包含的 Case 数量和执行顺序
 - Relay 配置摘要（如有）
 - 下一步建议（如"可以执行 pipeline 或设置定时计划"）
-
-## 参考文档
-
-详细语法请参考：
-- [Pipeline YAML 语法](../testany-guide/references/pipeline-yaml.md)
-- [核心概念](../testany-guide/references/concepts.md)

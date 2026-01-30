@@ -5,6 +5,38 @@
 格式基于 [Keep a Changelog](https://keepachangelog.com/zh-CN/1.0.0/)，
 版本号遵循 [Semantic Versioning](https://semver.org/lang/zh-CN/)。
 
+## [2.5.0] - 2026-01-30
+
+### 新增
+
+- **testany-bot**：Testany 测试平台智能助手（通用版）v2.0.0
+  - 跨平台兼容：VS Code Copilot、GitHub Copilot 等 AI 平台
+  - 自包含 Skills 架构：每个技能内嵌完整知识，无需外部依赖
+  - 6 个核心技能：case、pipeline、tests、debug、cicd、workspace
+  - 遵循 [Agent Skills 公共规范](https://agentskills.io)，仅使用 `name` 和 `description` 字段
+  - 完整 README 文档（含 Mermaid 架构图）
+
+- **testany-bot-for-claude**：Testany 测试平台智能助手（Claude Code 专用版）v2.0.0
+  - **Subagent + Router 架构**：
+    - `testany-router`：意图识别 + 快速问答，支持中英文混合表达
+    - 6 个专业 Subagent：case-author、pipeline-builder、test-runner、debug-analyzer、cicd-integrator、workspace-admin
+  - **Context 隔离**：每个 Subagent 在独立 Context 工作，不污染主对话
+  - **工具权限控制**：通过 `disallowedTools` 限制 Subagent 可用工具
+  - **冲突意图处理**：Router 支持复合意图识别和分步处理策略
+  - 使用 Claude Code 专用字段：`context: fork`、`agent:`、`disable-model-invocation:`
+  - 完整 README 文档（含 Mermaid 架构图）
+
+### 变更
+
+- **marketplace.json**：新增 testany-bot、testany-bot-for-claude 注册
+
+- **仓库 README**：
+  - Plugin 列表新增 testany-bot、testany-bot-for-claude
+  - 目录结构新增 testany-bot、testany-bot-for-claude
+  - Skills 列表新增 12 个命令说明
+
+---
+
 ## [2.4.1] - 2026-01-27
 
 ### 变更
