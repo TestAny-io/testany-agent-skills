@@ -4,5 +4,8 @@
   "author": {
     "name": "Testany",
     "email": "engineering@testany.io"
-  }
+  },
+  "skills": "./skills",
+  "agents": "./agents",
+  "commands": "./commands"
 }

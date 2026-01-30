@@ -22,6 +22,10 @@ __pycache__/
 # Planning docs (internal)
 PLAN-*.md
 temp.md
+testany-bot.md
 
 # WIP plugins (not ready for release)
 plugins/testany-jira-wip/
+
+# Backup directories
+*.backup.*
