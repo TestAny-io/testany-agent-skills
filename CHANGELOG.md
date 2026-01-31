@@ -12,14 +12,14 @@
 - **testany-bot**：Testany 测试平台智能助手（通用版）v2.0.0
   - 跨平台兼容：VS Code Copilot、GitHub Copilot 等 AI 平台
   - 自包含 Skills 架构：每个技能内嵌完整知识，无需外部依赖
-  - 6 个核心技能：case、pipeline、tests、debug、cicd、workspace
+  - 6 个核心技能：case、pipeline、tests、debug、orchestrator、workspace
   - 遵循 [Agent Skills 公共规范](https://agentskills.io)，仅使用 `name` 和 `description` 字段
   - 完整 README 文档（含 Mermaid 架构图）
 
 - **testany-bot-for-claude**：Testany 测试平台智能助手（Claude Code 专用版）v2.0.0
   - **Subagent + Router 架构**：
     - `testany-router`：意图识别 + 快速问答，支持中英文混合表达
-    - 6 个专业 Subagent：case-author、pipeline-builder、test-runner、debug-analyzer、cicd-integrator、workspace-admin
+    - 6 个专业 Subagent：case-author、pipeline-builder、test-runner、debug-analyzer、test-orchestrator、workspace-admin
   - **Context 隔离**：每个 Subagent 在独立 Context 工作，不污染主对话
   - **工具权限控制**：通过 `disallowedTools` 限制 Subagent 可用工具
   - **冲突意图处理**：Router 支持复合意图识别和分步处理策略
@@ -27,6 +27,20 @@
   - 完整 README 文档（含 Mermaid 架构图）
 
 ### 变更
+
+- **testany-bot/testany-bot-for-claude 命名优化**：
+  - `cicd` skill 重命名为 `orchestrator`（更准确描述门禁+定时计划功能）
+  - `cicd-integrator` agent 重命名为 `test-orchestrator`
+  - 与 `test-runner`（执行测试）形成清晰区分：`test-orchestrator`（编排测试何时/何条件执行）
+
+- **testany-bot/testany-bot-for-claude 安全增强**：
+  - `debug` 技能新增 curlCommand 安全验证：
+    - 域名验证：仅允许 `*.testany.io`、`*.testany.com.cn`
+    - 协议验证：仅允许 HTTPS
+    - 参数验证：禁止危险参数（`-o`、`|`、`;`、`$(`）
+
+- **testany-bot/testany-bot-for-claude 执行约束**：
+  - `tests` 技能明确：Testany 只支持执行 Pipeline，不支持直接执行单个 Case
 
 - **marketplace.json**：新增 testany-bot、testany-bot-for-claude 注册
 
