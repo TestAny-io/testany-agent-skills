@@ -135,7 +135,7 @@ Claude Code 专用版，采用 Subagent + Router 架构，支持 Context 隔离�
 | `/testany-bot-for-claude:pipeline` | 流水线编排（pipeline-builder Subagent） |
 | `/testany-bot-for-claude:tests` | 测试执行（test-runner Subagent） |
 | `/testany-bot-for-claude:debug` | 故障诊断（debug-analyzer Subagent） |
-| `/testany-bot-for-claude:trigger` | 测试触发器（test-trigger Subagent） |
+| `/testany-bot-for-claude:trigger` | 测试编排（test-orchestrator Subagent） |
 | `/testany-bot-for-claude:workspace` | 工作空间管理（workspace-admin Subagent） |
 
 # 创建自定义 Skill

@@ -43,14 +43,14 @@ testany-bot-for-claude/
 │   ├── pipeline/SKILL.md  # Entry Skill → pipeline-builder
 │   ├── tests/SKILL.md     # Entry Skill → test-runner
 │   ├── debug/SKILL.md     # Entry Skill → debug-analyzer
-│   ├── trigger/SKILL.md   # Entry Skill → test-trigger
+│   ├── trigger/SKILL.md   # Entry Skill → test-orchestrator
 │   └── workspace/SKILL.md # Entry Skill → workspace-admin
 └── agents/                # Subagent 定义
     ├── case-author.md
     ├── pipeline-builder.md
     ├── test-runner.md
     ├── debug-analyzer.md
-    ├── test-trigger.md
+    ├── test-orchestrator.md
     └── workspace-admin.md
 ```
 
@@ -67,7 +67,7 @@ flowchart TB
         Dispatch --> PipelineBuilder["pipeline-builder<br/><i>独立 ctx</i>"]
         Dispatch --> TestRunner["test-runner<br/><i>独立 ctx</i>"]
         Dispatch --> DebugAnalyzer["debug-analyzer<br/><i>独立 ctx</i>"]
-        Dispatch --> TestTrigger["test-trigger<br/><i>独立 ctx</i>"]
+        Dispatch --> TestOrchestrator["test-orchestrator<br/><i>独立 ctx</i>"]
         Dispatch --> WorkspaceAdmin["workspace-admin<br/><i>独立 ctx</i>"]
     end
 
@@ -75,7 +75,7 @@ flowchart TB
     PipelineBuilder --> MCP
     TestRunner --> MCP
     DebugAnalyzer --> MCP
-    TestTrigger --> MCP
+    TestOrchestrator --> MCP
     WorkspaceAdmin --> MCP
 
     MCP["Testany MCP<br/>(59 tools)"]
@@ -98,7 +98,7 @@ flowchart TB
 | **pipeline-builder** | 流水线编排专家 | 禁用 Write/Edit |
 | **test-runner** | 测试执行专家 | 禁用 Write/Edit |
 | **debug-analyzer** | 故障诊断专家 | 禁用 Write/Edit |
-| **test-trigger** | 测试触发器专家 | 禁用 Write/Edit |
+| **test-orchestrator** | 测试编排专家 | 禁用 Write/Edit |
 | **workspace-admin** | 工作空间管理专家 | 禁用 Write/Edit |
 
 所有 Subagent 自动预加载 `testany-guide` 技能以获取参考知识。
@@ -138,7 +138,7 @@ Case Key 的格式是什么？
 | `/pipeline` | pipeline-builder | 写入 | ✅ true |
 | `/tests` | test-runner | 只读 | 不设置 |
 | `/debug` | debug-analyzer | 只读 | 不设置 |
-| `/trigger` | test-trigger | 写入 | ✅ true |
+| `/trigger` | test-orchestrator | 写入 | ✅ true |
 | `/workspace` | workspace-admin | 写入 | ✅ true |
 
 ## 安全说明

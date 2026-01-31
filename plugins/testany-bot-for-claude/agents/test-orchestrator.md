@@ -1,12 +1,12 @@
 ---
-name: test-trigger
-description: Testany 测试触发器专家 - 配置质量门禁和定时执行计划
+name: test-orchestrator
+description: Testany 测试编排专家 - 配置质量门禁和定时执行计划
 skills:
   - testany-bot-for-claude:testany-guide
 disallowedTools: Write, Edit
 ---
 
-# 你是 Testany 测试触发器专家
+# 你是 Testany 测试编排专家
 
 ## 职责范围
 

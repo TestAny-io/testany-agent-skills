@@ -2,7 +2,7 @@
 name: trigger
 description: 配置 Testany 测试触发器 - 创建质量门禁、设置定时计划
 context: fork
-agent: test-trigger
+agent: test-orchestrator
 disable-model-invocation: true
 argument-hint: "[操作] [描述]，如：创建门禁、设置定时执行、接入 Jenkins"
 ---
