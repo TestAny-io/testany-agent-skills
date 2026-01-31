@@ -71,13 +71,15 @@ user-invocable: false
 
 ### 执行状态码
 | 状态 | 值 | 含义 |
-|------|---|------|
-| PENDING | 0 | 排队中 |
-| RUNNING | 1 | 执行中 |
-| SUCCESS | 2 | 成功 |
-| FAILED | 3 | 失败 |
-| CANCELLED | 4 | 已取消 |
-| TIMEOUT | 5 | 超时 |
+|------|-----|------|
+| NOT_STARTED | -1 | 未开始/排队中 |
+| RUNNING | 0 | 执行中 |
+| SUCCESS | 1 | 成功 |
+| FAILURE | 2 | 失败 |
+| SKIPPED | 3 | 跳过（仅 Case） |
+| FAIL_AS_EXPECTED | 4 | 预期失败（仅 Case） |
+| CANCELLED | 5 | 已取消 |
+| ERROR | 99 | 系统错误 |
 
 ## 分发原则
 

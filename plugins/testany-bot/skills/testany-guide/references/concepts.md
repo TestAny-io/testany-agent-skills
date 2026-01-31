@@ -30,7 +30,7 @@
 
 **属性**：
 - `execution_id`: 格式为 `{pipeline_key}-{序号}`（如 `Y2K-0601-00001`）
-- `status`: PENDING(0), RUNNING(1), SUCCESS(2), FAILED(3), CANCELLED(4), TIMEOUT(5)
+- `status`: NOT_STARTED(-1), RUNNING(0), SUCCESS(1), FAILURE(2), SKIPPED(3), FAIL_AS_EXPECTED(4), CANCELLED(5), ERROR(99)
 
 ### Plan（定时计划）
 
@@ -90,10 +90,12 @@
 ## 执行状态码
 
 | 状态 | 值 | 含义 | 是否终态 |
-|------|---|------|---------|
-| PENDING | 0 | 排队中 | 否 |
-| RUNNING | 1 | 执行中 | 否 |
-| SUCCESS | 2 | 全部通过 | 是 |
-| FAILED | 3 | 有失败 | 是 |
-| CANCELLED | 4 | 已取消 | 是 |
-| TIMEOUT | 5 | 执行超时 | 是 |
+|------|-----|------|---------|
+| NOT_STARTED | -1 | 未开始/排队中 | 否 |
+| RUNNING | 0 | 执行中 | 否 |
+| SUCCESS | 1 | 全部通过 | 是 |
+| FAILURE | 2 | 有失败 | 是 |
+| SKIPPED | 3 | 跳过（仅 Case） | 是 |
+| FAIL_AS_EXPECTED | 4 | 预期失败（仅 Case） | 是 |
+| CANCELLED | 5 | 已取消 | 是 |
+| ERROR | 99 | 系统错误 | 是 |
