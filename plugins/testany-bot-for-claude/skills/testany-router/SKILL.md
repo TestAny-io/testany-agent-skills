@@ -20,8 +20,8 @@ user-invocable: false
 | 查看/检查/status/result + 结果/状态 | `test-runner` | "看看测试跑完了没"、"check execution status" |
 | 失败/报错/为什么/排查/fail/error/why/debug/troubleshoot | `debug-analyzer` | "这个测试为什么失败了"、"why did it fail" |
 | 日志/错误信息/log/error message | `debug-analyzer` | "帮我看看日志"、"show me the logs" |
-| Jenkins/GitHub Actions/GitLab/CI/CD/门禁/gatekeeper/quality gate | `cicd-integrator` | "接入我们的 CI"、"setup quality gate" |
-| 定时/计划/cron/schedule/plan | `cicd-integrator` | "每天凌晨 2 点执行"、"schedule daily run" |
+| Jenkins/GitHub Actions/GitLab/CI/CD/门禁/gatekeeper/quality gate | `test-trigger` | "接入我们的 CI"、"setup quality gate" |
+| 定时/计划/cron/schedule/plan | `test-trigger` | "每天凌晨 2 点执行"、"schedule daily run" |
 | 权限/成员/工作空间/团队/permission/member/workspace/team | `workspace-admin` | "给新同事开权限"、"add team member" |
 
 ## 冲突意图处理

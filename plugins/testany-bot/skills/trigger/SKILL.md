@@ -1,11 +1,11 @@
 ---
-name: cicd
-description: 配置 Testany CI/CD 集成 - 创建质量门禁、设置定时计划
+name: trigger
+description: 配置 Testany 测试触发器 - 创建质量门禁、设置定时计划
 ---
 
-# Testany CI/CD 集成
+# Testany 测试触发器
 
-配置 Testany CI/CD 集成和自动化。
+配置 Testany 测试触发器和自动化。
 
 用户输入: $ARGUMENTS
 

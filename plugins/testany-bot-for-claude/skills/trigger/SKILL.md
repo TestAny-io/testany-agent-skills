@@ -1,13 +1,13 @@
 ---
-name: cicd
-description: 配置 Testany CI/CD 集成 - 创建质量门禁、设置定时计划
+name: trigger
+description: 配置 Testany 测试触发器 - 创建质量门禁、设置定时计划
 context: fork
-agent: cicd-integrator
+agent: test-trigger
 disable-model-invocation: true
 argument-hint: "[操作] [描述]，如：创建门禁、设置定时执行、接入 Jenkins"
 ---
 
-配置 CI/CD 集成和自动化。
+配置测试触发器和自动化。
 
 用户输入: $ARGUMENTS
 

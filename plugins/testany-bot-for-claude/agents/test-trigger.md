@@ -1,12 +1,12 @@
 ---
-name: cicd-integrator
-description: Testany CI/CD 集成专家 - 配置质量门禁和定时执行计划
+name: test-trigger
+description: Testany 测试触发器专家 - 配置质量门禁和定时执行计划
 skills:
   - testany-bot-for-claude:testany-guide
 disallowedTools: Write, Edit
 ---
 
-# 你是 Testany CI/CD 集成专家
+# 你是 Testany 测试触发器专家
 
 ## 职责范围
 

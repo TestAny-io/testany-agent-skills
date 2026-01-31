@@ -1,11 +1,11 @@
 ---
-description: Testany CI/CD, 创建质量门禁，设置定时计划，接入 Jenkins/GitHub Actions
+description: Testany 测试触发器，创建质量门禁，设置定时计划，接入 Jenkins/GitHub Actions
 argument-hint: <操作> <描述>，如：创建门禁、设置定时执行、接入 Jenkins
 ---
 
-# Testany CI/CD 集成
+# Testany 测试触发器
 
-配置 Testany CI/CD 集成和自动化。
+配置 Testany 测试触发器和自动化。
 
 ## 使用方式
 
@@ -21,7 +21,7 @@ $ARGUMENTS
 ## 示例
 
 ```
-/cicd 给 Y2K-0601 创建质量门禁
-/cicd 每天凌晨 2 点执行回归测试
-/cicd 接入 GitHub Actions
+/trigger 给 Y2K-0601 创建质量门禁
+/trigger 每天凌晨 2 点执行回归测试
+/trigger 接入 GitHub Actions
 ```

@@ -16,8 +16,8 @@ Skills 是包含指令、脚本和资源的文件夹，Claude 可以动态加载
 | **testany-eng** | 研发流程 | `/testany-eng:brd-interviewer`, `/testany-eng:uc-interviewer`, `/testany-eng:prd-writer`, `/testany-eng:prd-reviewer`, `/testany-eng:prd-studio`, `/testany-eng:api-writer`, `/testany-eng:api-reviewer`, `/testany-eng:guardrails-writer`, `/testany-eng:guardrails-reviewer`, `/testany-eng:hld-writer`, `/testany-eng:hld-reviewer`, `/testany-eng:runbook-writer` |
 | **testany-llm** | AI/LLM 工具 | `/testany-llm:skill-creator`, `/testany-llm:prompt-optimizer` |
 | **testany-mrkt** | 营销内容 | `/testany-mrkt:media-writer` |
-| **testany-bot** | 测试平台（通用版） | `/testany-bot:case`, `/testany-bot:pipeline`, `/testany-bot:tests`, `/testany-bot:debug`, `/testany-bot:cicd`, `/testany-bot:workspace` |
-| **testany-bot-for-claude** | 测试平台（Claude 专用） | `/testany-bot-for-claude:case`, `/testany-bot-for-claude:pipeline`, `/testany-bot-for-claude:tests`, `/testany-bot-for-claude:debug`, `/testany-bot-for-claude:cicd`, `/testany-bot-for-claude:workspace` |
+| **testany-bot** | 测试平台（通用版） | `/testany-bot:case`, `/testany-bot:pipeline`, `/testany-bot:tests`, `/testany-bot:debug`, `/testany-bot:trigger`, `/testany-bot:workspace` |
+| **testany-bot-for-claude** | 测试平台（Claude 专用） | `/testany-bot-for-claude:case`, `/testany-bot-for-claude:pipeline`, `/testany-bot-for-claude:tests`, `/testany-bot-for-claude:debug`, `/testany-bot-for-claude:trigger`, `/testany-bot-for-claude:workspace` |
 
 # 仓库结构
 
@@ -122,7 +122,7 @@ testany-agent-skills/
 | `/testany-bot:pipeline` | 流水线编排 - 创建 Pipeline，配置依赖和 Relay |
 | `/testany-bot:tests` | 测试执行 - 触发 Pipeline 执行，监控状态 |
 | `/testany-bot:debug` | 故障诊断 - 分析失败原因，查看日志 |
-| `/testany-bot:cicd` | CI/CD 集成 - 创建门禁、定时计划，提供集成代码 |
+| `/testany-bot:trigger` | 测试触发器 - 创建门禁、定时计划，提供集成代码 |
 | `/testany-bot:workspace` | 工作空间管理 - 成员管理、权限配置 |
 
 ## testany-bot-for-claude（测试平台 - Claude Code 专用版）
@@ -135,7 +135,7 @@ Claude Code 专用版，采用 Subagent + Router 架构，支持 Context 隔离�
 | `/testany-bot-for-claude:pipeline` | 流水线编排（pipeline-builder Subagent） |
 | `/testany-bot-for-claude:tests` | 测试执行（test-runner Subagent） |
 | `/testany-bot-for-claude:debug` | 故障诊断（debug-analyzer Subagent） |
-| `/testany-bot-for-claude:cicd` | CI/CD 集成（cicd-integrator Subagent） |
+| `/testany-bot-for-claude:trigger` | 测试触发器（test-trigger Subagent） |
 | `/testany-bot-for-claude:workspace` | 工作空间管理（workspace-admin Subagent） |
 
 # 创建自定义 Skill
