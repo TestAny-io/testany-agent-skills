@@ -28,7 +28,7 @@ testany-bot-for-claude/
 │   ├── pipeline.md
 │   ├── tests.md
 │   ├── debug.md
-│   ├── trigger.md
+│   ├── orchestrator.md
 │   └── workspace.md
 ├── skills/                # 技能定义
 │   ├── testany-guide/     # 参考知识库（Subagent 预加载）
@@ -43,7 +43,7 @@ testany-bot-for-claude/
 │   ├── pipeline/SKILL.md  # Entry Skill → pipeline-builder
 │   ├── tests/SKILL.md     # Entry Skill → test-runner
 │   ├── debug/SKILL.md     # Entry Skill → debug-analyzer
-│   ├── trigger/SKILL.md   # Entry Skill → test-orchestrator
+│   ├── orchestrator/SKILL.md # Entry Skill → test-orchestrator
 │   └── workspace/SKILL.md # Entry Skill → workspace-admin
 └── agents/                # Subagent 定义
     ├── case-author.md
@@ -110,7 +110,7 @@ flowchart TB
 ```
 /case 创建一个 Python API 测试
 /pipeline 把登录和查询用例组成流水线
-/trigger 创建质量门禁
+/orchestrator 创建质量门禁
 /workspace 添加成员
 ```
 
@@ -138,7 +138,7 @@ Case Key 的格式是什么？
 | `/pipeline` | pipeline-builder | 写入 | ✅ true |
 | `/tests` | test-runner | 只读 | 不设置 |
 | `/debug` | debug-analyzer | 只读 | 不设置 |
-| `/trigger` | test-orchestrator | 写入 | ✅ true |
+| `/orchestrator` | test-orchestrator | 写入 | ✅ true |
 | `/workspace` | workspace-admin | 写入 | ✅ true |
 
 ## 安全说明

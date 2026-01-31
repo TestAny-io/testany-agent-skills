@@ -54,7 +54,7 @@ testany-bot/
 | **pipeline** | 流水线编排 | 创建 Pipeline，配置依赖和 Relay |
 | **tests** | 测试执行 | 触发 Pipeline 执行，监控状态 |
 | **debug** | 故障诊断 | 分析失败原因，查看日志 |
-| **trigger** | 测试触发器 | 创建门禁、定时计划，提供集成代码 |
+| **orchestrator** | 测试编排 | 创建门禁、定时计划，提供集成代码 |
 | **workspace** | 工作空间管理 | 成员管理、权限配置 |
 | **testany-guide** | 参考知识 | 核心概念、Executor 配置、YAML 语法 |
 
@@ -67,7 +67,7 @@ testany-bot/
 /pipeline 把登录和查询用例组成流水线
 /tests Y2K-0601
 /debug Y2K-0601-00001
-/trigger 创建质量门禁
+/orchestrator 创建质量门禁
 /workspace 添加成员
 ```
 
