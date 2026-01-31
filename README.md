@@ -16,8 +16,8 @@ Skills 是包含指令、脚本和资源的文件夹，Claude 可以动态加载
 | **testany-eng** | 研发流程 | `/testany-eng:brd-interviewer`, `/testany-eng:uc-interviewer`, `/testany-eng:prd-writer`, `/testany-eng:prd-reviewer`, `/testany-eng:prd-studio`, `/testany-eng:api-writer`, `/testany-eng:api-reviewer`, `/testany-eng:guardrails-writer`, `/testany-eng:guardrails-reviewer`, `/testany-eng:hld-writer`, `/testany-eng:hld-reviewer`, `/testany-eng:runbook-writer` |
 | **testany-llm** | AI/LLM 工具 | `/testany-llm:skill-creator`, `/testany-llm:prompt-optimizer` |
 | **testany-mrkt** | 营销内容 | `/testany-mrkt:media-writer` |
-| **testany-bot** | 测试平台（通用版） | `/testany-bot:case`, `/testany-bot:pipeline`, `/testany-bot:tests`, `/testany-bot:debug`, `/testany-bot:orchestrator`, `/testany-bot:workspace` |
-| **testany-bot-for-claude** | 测试平台（Claude 专用） | `/testany-bot-for-claude:case`, `/testany-bot-for-claude:pipeline`, `/testany-bot-for-claude:tests`, `/testany-bot-for-claude:debug`, `/testany-bot-for-claude:orchestrator`, `/testany-bot-for-claude:workspace` |
+| **testany-bot** | 测试平台（通用版） | `/testany-bot:case`, `/testany-bot:case-writing`, `/testany-bot:pipeline`, `/testany-bot:tests`, `/testany-bot:debug`, `/testany-bot:orchestrator`, `/testany-bot:workspace` |
+| **testany-bot-for-claude** | 测试平台（Claude 专用） | `/testany-bot-for-claude:case`, `/testany-bot-for-claude:case-writing`, `/testany-bot-for-claude:pipeline`, `/testany-bot-for-claude:tests`, `/testany-bot-for-claude:debug`, `/testany-bot-for-claude:orchestrator`, `/testany-bot-for-claude:workspace` |
 
 # 仓库结构
 
@@ -119,6 +119,7 @@ testany-agent-skills/
 | 命令 | 描述 |
 |------|------|
 | `/testany-bot:case` | 测试用例管理 - 创建、配置、更新用例，上传脚本 |
+| `/testany-bot:case-writing` | 测试脚本编写 - 根据需求生成测试用例文档和脚本 |
 | `/testany-bot:pipeline` | 流水线编排 - 创建 Pipeline，配置依赖和 Relay |
 | `/testany-bot:tests` | 测试执行 - 触发 Pipeline 执行，监控状态 |
 | `/testany-bot:debug` | 故障诊断 - 分析失败原因，查看日志 |
@@ -131,7 +132,8 @@ Claude Code 专用版，采用 Subagent + Router 架构，支持 Context 隔离�
 
 | 命令 | 描述 |
 |------|------|
-| `/testany-bot-for-claude:case` | 测试用例管理（case-author Subagent） |
+| `/testany-bot-for-claude:case` | 测试用例管理（case-manager Subagent） |
+| `/testany-bot-for-claude:case-writing` | 测试脚本编写（主进程 Skill，可交互） |
 | `/testany-bot-for-claude:pipeline` | 流水线编排（pipeline-builder Subagent） |
 | `/testany-bot-for-claude:tests` | 测试执行（test-runner Subagent） |
 | `/testany-bot-for-claude:debug` | 故障诊断（debug-analyzer Subagent） |

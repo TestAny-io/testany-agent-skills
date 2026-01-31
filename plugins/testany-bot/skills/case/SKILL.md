@@ -1,11 +1,13 @@
 ---
 name: case
-description: 管理 Testany 测试用例 - 创建、配置、更新、上传脚本
+description: 管理 Testany 测试用例 - 创建、配置、更新、上传脚本（编写脚本请用 /case-writing）
 ---
 
 # Testany 测试用例管理
 
 管理 Testany 测试用例：创建、配置、更新、上传脚本。
+
+**注意**：如果用户需要**编写**测试脚本（而非上传已有脚本），请告知用户使用 `/case-writing` 命令。
 
 用户输入: $ARGUMENTS
 
@@ -65,20 +67,25 @@ Step 3: testany_update_case_script
 
 ## 工作流程
 
-1. **理解需求**：用户想测什么？用什么语言/框架？
-2. **获取 runtime**：`testany_filter_case_runtimes`（推荐 cloudprime）
-3. **确认 workspace**：`testany_get_my_workspaces`（私有 case 需要）
-4. **执行三步曲**：create → update meta → upload script
-5. **验证**（可选）：`testany_dry_run_case` 确认配置正确
+```
+1. 理解需求 → 用户想做什么操作？
+2. 确定脚本来源：
+   ├─ 用户已有脚本 → 继续步骤 3
+   └─ 需要编写脚本 → 告知使用 /case-writing 命令
+3. 获取 runtime：testany_filter_case_runtimes（推荐 cloudprime）
+4. 确认 workspace：testany_get_my_workspaces（私有 case 需要）
+5. 执行三步曲：create → update meta → upload script
+6. 验证（可选）：testany_dry_run_case 确认配置正确
+```
 
 ## 常见问题处理
 
 | 场景 | 处理方式 |
 |------|---------|
-| 用户没提供脚本 | 询问或帮助生成模板脚本 |
-| 不确定用哪个 executor | 根据文件扩展名推断，或询问用户 |
-| 需要 relay 输出 | 配置 `type='output'` 的环境变量 |
-| 更新已有 case | 先 `testany_get_case` 获取当前配置 |
+| 用户没提供脚本但想创建 case | 建议使用 `/case-writing` 先编写脚本 |
+| 需要 relay 输出 | 1) 配置 `type='output'` 环境变量，2) 代码中 POST 到 `TESTANY_OUTPUT_RELAY_SERVICE` |
+| 需要使用凭证 | 1) 绑定凭证到 case，2) 代码中调用 `TESTANY_SECRETS_SERVICE` API |
+| 更新已有 case | 先 `testany_get_case` 获取当前配置，保留不变的部分 |
 
 ## 返回格式
 

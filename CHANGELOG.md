@@ -5,6 +5,43 @@
 格式基于 [Keep a Changelog](https://keepachangelog.com/zh-CN/1.0.0/)，
 版本号遵循 [Semantic Versioning](https://semver.org/lang/zh-CN/)。
 
+## [2.6.0] - 2026-01-31
+
+### 新增
+
+- **testany-bot/testany-bot-for-claude `case-writing` Skill**：
+  - 新增 `case-writing` Skill，用于交互式编写测试脚本
+  - **在主进程运行**：可使用 `AskUserQuestion` 与用户多轮交互，理解需求
+  - **4 阶段工作流程**：需求收集 → 生成测试用例文档 → 生成测试脚本 → 交付
+  - **5 种 Executor 模板**：
+    - PyRes (Python)：pytest 框架，推荐用于 API 测试
+    - Postman：Collection v2.1 格式，适合简单 API 验证
+    - Playwright：TypeScript E2E 测试
+    - Maven：JUnit 5 + JDK 11
+    - Gradle：JUnit 5 构建配置
+  - **完整代码示例**：每种 Executor 包含环境变量使用、Relay 输出、凭证获取（TSS）代码
+  - **Executor 选择决策树**：帮助根据用户需求自动选择合适的测试框架
+  - **新增 `/case-writing` 命令**
+
+### 变更
+
+- **testany-bot-for-claude `case-author` 重命名为 `case-manager`**：
+  - 职责聚焦：仅负责 MCP 操作（创建、配置、上传），不负责脚本编写
+  - 禁用 Write/Edit 权限（脚本编写移至 `case-writing` Skill）
+  - 当用户需要编写脚本时，提示使用 `/case-writing` 命令
+
+- **架构优化：Skill vs Subagent 职责分离**：
+  - **Subagent**（如 `case-manager`）：自主执行 MCP 操作，无需用户交互
+  - **Skill**（如 `case-writing`）：在主进程运行，支持多轮用户交互
+  - 命名规范：Subagent 用名词（case-manager），Skill 用动名词（case-writing）
+
+- **testany-router 路由规则更新**：
+  - 新增 `case-writing` vs `case-manager` 意图区分
+  - "写测试"、"生成脚本" → `case-writing` Skill
+  - "创建 case"、"上传脚本" → `case-manager` Subagent
+
+---
+
 ## [2.5.0] - 2026-01-30
 
 ### 新增

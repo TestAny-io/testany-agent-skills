@@ -25,6 +25,7 @@ testany-bot-for-claude/
 │   └── plugin.json
 ├── commands/              # 命令入口（提供 /command 补全）
 │   ├── case.md
+│   ├── case-writing.md
 │   ├── pipeline.md
 │   ├── tests.md
 │   ├── debug.md
@@ -39,14 +40,17 @@ testany-bot-for-claude/
 │   │       └── pipeline-yaml.md
 │   ├── testany-router/    # 意图路由（Claude 自动加载）
 │   │   └── SKILL.md
-│   ├── case/SKILL.md      # Entry Skill → case-author
+│   ├── case/SKILL.md      # Entry Skill → case-manager
+│   ├── case-writing/      # 脚本编写 Skill（主进程运行）
+│   │   ├── SKILL.md
+│   │   └── references/
 │   ├── pipeline/SKILL.md  # Entry Skill → pipeline-builder
 │   ├── tests/SKILL.md     # Entry Skill → test-runner
 │   ├── debug/SKILL.md     # Entry Skill → debug-analyzer
 │   ├── orchestrator/SKILL.md # Entry Skill → test-orchestrator
 │   └── workspace/SKILL.md # Entry Skill → workspace-admin
 └── agents/                # Subagent 定义
-    ├── case-author.md
+    ├── case-manager.md
     ├── pipeline-builder.md
     ├── test-runner.md
     ├── debug-analyzer.md
@@ -63,7 +67,7 @@ flowchart TB
     subgraph MainClaude["主 Claude"]
         Router["testany-router<br/>(意图识别 + 快速问答)"]
         Router --> |用户意图识别后<br/>派发到专业 Subagent| Dispatch{" "}
-        Dispatch --> CaseAuthor["case-author<br/><i>独立 ctx</i>"]
+        Dispatch --> CaseManager["case-manager<br/><i>独立 ctx</i>"]
         Dispatch --> PipelineBuilder["pipeline-builder<br/><i>独立 ctx</i>"]
         Dispatch --> TestRunner["test-runner<br/><i>独立 ctx</i>"]
         Dispatch --> DebugAnalyzer["debug-analyzer<br/><i>独立 ctx</i>"]
@@ -71,7 +75,7 @@ flowchart TB
         Dispatch --> WorkspaceAdmin["workspace-admin<br/><i>独立 ctx</i>"]
     end
 
-    CaseAuthor --> MCP
+    CaseManager --> MCP
     PipelineBuilder --> MCP
     TestRunner --> MCP
     DebugAnalyzer --> MCP
@@ -94,7 +98,7 @@ flowchart TB
 
 | Subagent | 描述 | 工具权限 |
 |----------|------|---------|
-| **case-author** | 测试用例创建专家 | 全部（需要 Write 创建脚本） |
+| **case-manager** | 测试用例管理专家 | 禁用 Write/Edit |
 | **pipeline-builder** | 流水线编排专家 | 禁用 Write/Edit |
 | **test-runner** | 测试执行专家 | 禁用 Write/Edit |
 | **debug-analyzer** | 故障诊断专家 | 禁用 Write/Edit |
@@ -103,12 +107,21 @@ flowchart TB
 
 所有 Subagent 自动预加载 `testany-guide` 技能以获取参考知识。
 
+## Skill 列表
+
+| Skill | 描述 | 运行位置 |
+|-------|------|---------|
+| **case-writing** | 测试脚本编写 | 主进程（可交互） |
+
+**注意**：`case-writing` 是 Skill 而非 Subagent，在主进程运行，可使用 `AskUserQuestion` 与用户交互。
+
 ## 使用方式
 
 ### 命令触发（写入操作需用户显式调用）
 
 ```
-/case 创建一个 Python API 测试
+/case 上传这个测试脚本到 Testany
+/case-writing 写一个测试用户登录 API 的 Python 测试
 /pipeline 把登录和查询用例组成流水线
 /orchestrator 创建质量门禁
 /workspace 添加成员
@@ -132,9 +145,10 @@ Case Key 的格式是什么？
 
 ## Entry Skill 配置
 
-| Skill | Agent | 操作类型 | `disable-model-invocation` |
-|-------|-------|---------|---------------------------|
-| `/case` | case-author | 写入 | ✅ true |
+| Skill | Agent/运行位置 | 操作类型 | `disable-model-invocation` |
+|-------|---------------|---------|---------------------------|
+| `/case` | case-manager | 写入 | ✅ true |
+| `/case-writing` | 主进程 | 写入 | ✅ true |
 | `/pipeline` | pipeline-builder | 写入 | ✅ true |
 | `/tests` | test-runner | 只读 | 不设置 |
 | `/debug` | debug-analyzer | 只读 | 不设置 |
@@ -153,8 +167,8 @@ Case Key 的格式是什么？
 
 ### 工具权限控制
 
-- 只有 `case-author` 保留 Write/Edit 权限（用于创建测试脚本）
-- 其他 Subagent 通过 `disallowedTools: Write, Edit` 禁用文件修改
+- 所有 Subagent 通过 `disallowedTools: Write, Edit` 禁用文件修改
+- `case-writing` Skill 在主进程运行，可使用 Write/Edit 创建测试脚本
 
 ## 注意事项
 

@@ -1,10 +1,10 @@
 ---
 name: case
-description: 管理 Testany 测试用例 - 创建、配置、更新、上传脚本
+description: 管理 Testany 测试用例 - 创建、配置、更新、上传脚本（编写脚本请用 /case-writing）
 context: fork
-agent: case-author
+agent: case-manager
 disable-model-invocation: true
-argument-hint: "[操作] [描述]，如：创建 API 测试、更新脚本、配置环境变量"
+argument-hint: "[操作] [描述]，如：创建 case、上传脚本、配置环境变量"
 ---
 
 根据用户需求管理测试用例。

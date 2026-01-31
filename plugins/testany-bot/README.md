@@ -26,6 +26,7 @@ testany-bot/
 │   └── plugin.json
 ├── commands/              # 命令入口（提供 /command 补全）
 │   ├── case.md
+│   ├── case-writing.md
 │   ├── pipeline.md
 │   ├── tests.md
 │   ├── debug.md
@@ -39,6 +40,7 @@ testany-bot/
     │       ├── executors.md
     │       └── pipeline-yaml.md
     ├── case/SKILL.md
+    ├── case-writing/SKILL.md
     ├── pipeline/SKILL.md
     ├── tests/SKILL.md
     ├── debug/SKILL.md
@@ -51,6 +53,7 @@ testany-bot/
 | 技能 | 描述 | 主要操作 |
 |------|------|---------|
 | **case** | 测试用例管理 | 创建、配置、更新用例，上传脚本 |
+| **case-writing** | 测试脚本编写 | 根据需求生成测试用例文档和脚本 |
 | **pipeline** | 流水线编排 | 创建 Pipeline，配置依赖和 Relay |
 | **tests** | 测试执行 | 触发 Pipeline 执行，监控状态 |
 | **debug** | 故障诊断 | 分析失败原因，查看日志 |
@@ -63,7 +66,8 @@ testany-bot/
 ### 命令触发
 
 ```
-/case 创建一个 Python API 测试
+/case 上传这个测试脚本到 Testany
+/case-writing 写一个测试用户登录 API 的 Python 测试
 /pipeline 把登录和查询用例组成流水线
 /tests Y2K-0601
 /debug Y2K-0601-00001

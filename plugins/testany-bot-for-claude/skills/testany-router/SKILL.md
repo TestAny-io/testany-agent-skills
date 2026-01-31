@@ -10,10 +10,12 @@ user-invocable: false
 
 当用户请求涉及 Testany 平台操作时，根据以下规则分发：
 
-| 意图关键词（中文/英文） | 派发 Subagent | 典型场景 |
-|------------------------|---------------|----------|
-| 创建/写/新建/create/new + 测试/用例/case/test | `case-author` | "帮我创建一个 API 测试"、"create a new test case" |
-| 编辑/修改/更新/edit/update/modify + 用例/脚本/case/script | `case-author` | "更新这个用例的脚本"、"update the script" |
+| 意图关键词（中文/英文） | 派发目标 | 典型场景 |
+|------------------------|----------|----------|
+| **编写/生成脚本**（write/generate + script/code） | `case-writing` skill | "帮我写一个登录测试"、"generate test script" |
+| 创建/新建/create/new + 用例/case（指在平台创建） | `case-manager` subagent | "在 Testany 创建一个 case"、"create a new case" |
+| 上传/更新/edit/update/upload + 脚本/script | `case-manager` subagent | "上传这个脚本"、"update the script" |
+| 配置/设置/环境变量/config/env | `case-manager` subagent | "配置用例的环境变量"、"set environment variables" |
 | 创建/组装/配置/create/build/compose + 流水线/pipeline | `pipeline-builder` | "把这些用例组成 pipeline"、"create a pipeline" |
 | relay/变量传递/依赖/variable/dependency | `pipeline-builder` | "配置用例之间的变量传递"、"setup relay" |
 | 执行/跑/运行/触发/run/execute/trigger + 测试/pipeline | `test-runner` | "跑一下回归测试"、"run the pipeline" |
@@ -26,15 +28,25 @@ user-invocable: false
 
 ## 冲突意图处理
 
-当用户意图可能匹配多个 Subagent 时：
+当用户意图可能匹配多个目标时：
 
 | 冲突场景 | 处理策略 |
 |---------|---------|
+| "帮我写一个测试" / "写测试脚本" | 派发 `case-writing` skill（编写代码） |
+| "创建一个测试用例" / "新建 case" | 派发 `case-manager` subagent（平台操作） |
+| "写测试并上传" | 先派发 `case-writing`，完成后建议用户使用 `/case` 上传 |
 | "创建 pipeline 并执行" | 先派发 `pipeline-builder`，完成后建议用户使用 `/tests` 执行 |
 | "查看失败原因和日志" | 派发 `debug-analyzer`（同属 debug 职责） |
-| "更新 case 的 relay 配置" | 派发 `case-author`（relay 在 case 层面是环境变量配置） |
+| "更新 case 的 relay 配置" | 派发 `case-manager`（relay 在 case 层面是环境变量配置） |
 | "配置 pipeline 的 relay" | 派发 `pipeline-builder`（relay 在 pipeline 层面是编排配置） |
 | 意图不明确 | 询问用户具体想做什么，再决定派发 |
+
+### 关键区分：case-writing vs case-manager
+
+| 用户表达 | 目标 | 说明 |
+|---------|------|------|
+| "写测试"、"生成脚本"、"帮我写代码" | `case-writing` skill | **编写**测试代码 |
+| "创建 case"、"上传脚本"、"配置环境变量" | `case-manager` subagent | **管理**平台资源 |
 
 ## 简单问答（无需派发 Agent）
 
