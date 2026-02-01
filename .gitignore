@@ -27,5 +27,8 @@ testany-bot.md
 # WIP plugins (not ready for release)
 plugins/testany-jira-wip/
 
+# Temporarily offline plugins (critical issues)
+plugins/testany-bot-for-claude/
+
 # Backup directories
 *.backup.*
