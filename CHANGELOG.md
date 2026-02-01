@@ -5,6 +5,18 @@
 格式基于 [Keep a Changelog](https://keepachangelog.com/zh-CN/1.0.0/)，
 版本号遵循 [Semantic Versioning](https://semver.org/lang/zh-CN/)。
 
+## [2.6.1] - 2026-02-01
+
+### 移除
+
+- **testany-bot-for-claude 紧急下线**：
+  - 因存在严重问题，暂时从 marketplace 移除
+  - 从 git 仓库中排除（用户 clone 后不会包含）
+  - 本地文件保留，待问题修复后重新上线
+  - 用户请使用通用版 `testany-bot`
+
+---
+
 ## [2.6.0] - 2026-01-31
 
 ### 新增

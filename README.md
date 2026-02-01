@@ -17,7 +17,6 @@ Skills 是包含指令、脚本和资源的文件夹，Claude 可以动态加载
 | **testany-llm** | AI/LLM 工具 | `/testany-llm:skill-creator`, `/testany-llm:prompt-optimizer` |
 | **testany-mrkt** | 营销内容 | `/testany-mrkt:media-writer` |
 | **testany-bot** | 测试平台（通用版） | `/testany-bot:case`, `/testany-bot:case-writing`, `/testany-bot:pipeline`, `/testany-bot:tests`, `/testany-bot:debug`, `/testany-bot:orchestrator`, `/testany-bot:workspace` |
-| **testany-bot-for-claude** | 测试平台（Claude 专用） | `/testany-bot-for-claude:case`, `/testany-bot-for-claude:case-writing`, `/testany-bot-for-claude:pipeline`, `/testany-bot-for-claude:tests`, `/testany-bot-for-claude:debug`, `/testany-bot-for-claude:orchestrator`, `/testany-bot-for-claude:workspace` |
 
 # 仓库结构
 
@@ -33,13 +32,9 @@ testany-agent-skills/
 │   ├── testany-mrkt/          # 营销内容工具集
 │   │   ├── commands/
 │   │   └── skills/
-│   ├── testany-bot/           # Testany 测试平台（通用版，跨平台兼容）
-│   │   ├── commands/
-│   │   └── skills/
-│   └── testany-bot-for-claude/ # Testany 测试平台（Claude Code 专用版）
+│   └── testany-bot/           # Testany 测试平台（通用版，跨平台兼容）
 │       ├── commands/
-│       ├── skills/
-│       └── agents/            # Subagent 定义
+│       └── skills/
 └── CHANGELOG.md               # 版本变更记录
 ```
 
@@ -59,7 +54,6 @@ testany-agent-skills/
    - `testany-llm` - AI 工具（Skill/Prompt）
    - `testany-mrkt` - 营销内容（自媒体）
    - `testany-bot` - 测试平台（通用版，跨平台兼容）
-   - `testany-bot-for-claude` - 测试平台（Claude Code 专用，Subagent 架构）
 4. 选择 `Install now`
 
 ## 使用
@@ -125,20 +119,6 @@ testany-agent-skills/
 | `/testany-bot:debug` | 故障诊断 - 分析失败原因，查看日志 |
 | `/testany-bot:orchestrator` | 测试编排 - 创建门禁、定时计划，提供集成代码 |
 | `/testany-bot:workspace` | 工作空间管理 - 成员管理、权限配置 |
-
-## testany-bot-for-claude（测试平台 - Claude Code 专用版）
-
-Claude Code 专用版，采用 Subagent + Router 架构，支持 Context 隔离。需要配置 Testany MCP Server。
-
-| 命令 | 描述 |
-|------|------|
-| `/testany-bot-for-claude:case` | 测试用例管理（case-manager Subagent） |
-| `/testany-bot-for-claude:case-writing` | 测试脚本编写（主进程 Skill，可交互） |
-| `/testany-bot-for-claude:pipeline` | 流水线编排（pipeline-builder Subagent） |
-| `/testany-bot-for-claude:tests` | 测试执行（test-runner Subagent） |
-| `/testany-bot-for-claude:debug` | 故障诊断（debug-analyzer Subagent） |
-| `/testany-bot-for-claude:orchestrator` | 测试编排（test-orchestrator Subagent） |
-| `/testany-bot-for-claude:workspace` | 工作空间管理（workspace-admin Subagent） |
 
 # 创建自定义 Skill
 
