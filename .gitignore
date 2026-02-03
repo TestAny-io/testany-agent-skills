@@ -32,3 +32,5 @@ plugins/testany-bot-for-claude/
 
 # Backup directories
 *.backup.*
+
+.history
