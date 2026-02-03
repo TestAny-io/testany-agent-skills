@@ -28,10 +28,8 @@ description: 管理 Testany 工作空间 - 成员管理、权限配置、团队�
 
 | 角色 | 权限 |
 |------|------|
-| **Owner** | 完全控制，包括删除工作空间 |
 | **Admin** | 管理成员，编辑所有资源 |
 | **Member** | 创建和编辑自己的资源 |
-| **Viewer** | 只读访问 |
 
 ## 常用操作
 
@@ -43,15 +41,33 @@ testany_get_my_workspaces_with_roles  # 包含角色信息
 
 ### 添加成员
 ```
-testany_find_workspace_users → 查找用户
+testany_list_users → 查找用户
 testany_assign_user_to_workspace → 添加单个用户
 testany_assign_users_to_workspace → 批量添加
 ```
 
+### 修改成员角色
+```
+testany_find_workspace_users → 查找工作空间下所有用户
+testany_assign_user_to_workspace → 修改单个用户
+```
+
+### 获取工作空间成员列表
+```
+testany_find_workspace_users → 查找工作空间下现有成员
+```
+
+### 移除成员
+```
+testany_remove_user_from_workspace → 从工作空间移除用户
+```
+
 ### 申请新工作空间
 ```
+testany_check_workspace_key → 检查 workspace key 是否可用
 testany_request_workspace → 提交申请
 ```
+注意：申请前需先调用 testany_check_workspace_key 检查 key 是否已被占用。
 
 ## 工作流程
 
