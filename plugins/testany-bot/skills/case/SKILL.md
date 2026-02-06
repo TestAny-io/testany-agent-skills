@@ -257,5 +257,6 @@ Testany 使用 **labels** 实现虚拟目录结构：
 ## 参考文档
 
 详细配置规则请参考：
+- [Case 元数据规范](./references/case-metadata-spec.md) - **必读**：name/labels/description/env_vars 的填写标准，确保 Pipeline 编排顺利
 - [Executor 配置详解](./references/executors.md) - 包含 trigger_method 配置和环境变量类型
 - [核心概念](./references/concepts.md) - 包含可见性规则和实体定义
