@@ -180,10 +180,13 @@ description: "...前置条件：需要登录状态（AUTH_TOKEN 来自 LOGIN cas
 |------|------|
 | `name` | pipeline 名称 |
 | `description` | 描述 |
-| `yaml` | 执行规则 YAML |
-| `workspaces` | 可访问的工作空间列表 |
+| `definition` | 执行规则 YAML（与 case_keys 二选一） |
+| `case_keys` | Case keys 数组（与 definition 二选一） |
+| `environments` | 环境标签列表 |
+| `owned_by` | 所有者邮箱（可转移所有权） |
+| `pipeline_labels` | Pipeline 标签列表（须在 tenant labels 中存在） |
 
-**注意**：Pipeline 的 owner（createdBy）不可更新。
+**注意**：Pipeline 的 `creator`（创建者）不可更新，但 `owned_by`（所有者）可以转移给其他用户。
 
 #### 更新流程
 
@@ -215,8 +218,11 @@ description: "...前置条件：需要登录状态（AUTH_TOKEN 来自 LOGIN cas
 | 仅列出我的 pipelines | `testany_list_my_pipelines` |
 
 支持的过滤条件：
-- `workspace` - 按工作空间过滤
+- `workspace` - 按工作空间过滤（必填）
 - `keyword` - 按名称关键词搜索
+- `owned_by` - 按所有者邮箱过滤
+- `environments` - 按环境标签过滤
+- `pipeline_labels` - 按 pipeline 标签过滤
 - `page` / `page_size` - 分页
 
 ---

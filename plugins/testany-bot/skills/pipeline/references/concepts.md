@@ -10,8 +10,11 @@
 - `workspace`: 所属工作空间
 - `description`: 描述
 - `definition`: YAML 格式的执行规则定义
-- `createdBy`: 创建者（不可更新）
-- `workspaces`: 可访问的工作空间列表
+- `case_keys`: 关联的 case key 列表
+- `environments`: 环境标签列表
+- `creator`: 创建者（不可更新）
+- `owned_by`: 所有者（可通过更新转移）
+- `pipeline_labels`: Pipeline 标签列表
 
 Pipeline 支持依赖关系（whenPassed/whenFailed）和变量传递（relay）。
 
