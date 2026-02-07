@@ -184,7 +184,8 @@ my-case.zip
 ### 限制
 
 - 每个 case 最多 **16 组** 环境变量
-- key 必须遵循 **POSIX.1-2017 标准**：仅大写字母、数字、下划线（如 `API_URL`、`MAX_RETRY_COUNT`）
+- `name` 必须遵循 **POSIX.1-2017 标准**：仅大写字母、数字、下划线（如 `API_URL`、`MAX_RETRY_COUNT`）
+- `name` 和 `value` 均为必填且非空
 
 ### 类型
 
@@ -202,7 +203,7 @@ my-case.zip
     "environment_variables": [
       { "name": "API_URL", "type": "env", "value": "https://api.example.com" },
       { "name": "API_KEY", "type": "secret", "value": "sk-xxx" },
-      { "name": "TOKEN", "type": "output", "value": "" }
+      { "name": "TOKEN", "type": "output", "value": "-" }
     ]
   }
 }
