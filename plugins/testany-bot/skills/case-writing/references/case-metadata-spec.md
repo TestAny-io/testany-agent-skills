@@ -123,11 +123,15 @@ Pipeline 编排需要完成三个任务：
 - 对于 `type=output`：数据用途（供哪些 case 使用）
 
 **格式**：
+
+- `type` 仅支持 `env` 与 `output`。
+- `value` 不能为空或仅空白字符；如需表达“空值”，请显式填 `-`。
+
 ```json
 {
   "name": "VARIABLE_NAME",
-  "type": "env | output",
-  "value": "",
+  "type": "env",
+  "value": "-",
   "description": "变量语义说明"
 }
 ```
@@ -139,7 +143,7 @@ Pipeline 编排需要完成三个任务：
 {
   "name": "AUTH_TOKEN",
   "type": "env",
-  "value": "",
+  "value": "-",
   "description": "登录认证令牌，来自 LOGIN case 的输出"
 }
 ```
@@ -149,15 +153,15 @@ Pipeline 编排需要完成三个任务：
 {
   "name": "RESOURCE_ID",
   "type": "output",
-  "value": "",
+  "value": "-",
   "description": "创建的订阅资源 ID，供 READONLY_CHECK 和 INSTRUCTION_CHECK cases 使用"
 }
 ```
 
 **错误示例**：
 ```json
-❌ { "name": "TOKEN", "type": "env", "value": "" }  // 缺少 description
-❌ { "name": "X", "type": "output", "value": "", "description": "输出" }  // description 无意义
+❌ { "name": "TOKEN", "type": "env", "value": "-" }  // 缺少 description
+❌ { "name": "X", "type": "output", "value": "-", "description": "输出" }  // description 无意义
 ```
 
 ---
@@ -188,7 +192,7 @@ description: |
 environment_variables:
   - name: AUTH_TOKEN
     type: env
-    value: ""
+    value: "-"
     description: 登录认证令牌，来自 LOGIN case 的输出
 
   - name: GALLERY_ITEM_ID
@@ -198,7 +202,7 @@ environment_variables:
 
   - name: RESOURCE_ID
     type: output
-    value: ""
+    value: "-"
     description: 创建的订阅资源 ID，供后续 READONLY_CHECK 和 INSTRUCTION_CHECK cases 使用
 ```
 
@@ -224,13 +228,13 @@ environment_variables:
     description: 测试账号用户名
 
   - name: PASSWORD
-    type: secret
-    value: ""
-    description: 测试账号密码，从 Credential Safe 获取
+    type: env
+    value: "-"
+    description: 测试账号密码（敏感）。不要把明文写进 meta；建议通过 Secure key reference 绑定，并在代码中通过 TESTANY_SECRETS_SERVICE 获取。
 
   - name: AUTH_TOKEN
     type: output
-    value: ""
+    value: "-"
     description: 登录成功后的认证令牌，供所有需要登录状态的 case 使用
 ```
 

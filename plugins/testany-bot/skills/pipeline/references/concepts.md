@@ -5,9 +5,8 @@
 **定义**：编排多个 case 的执行单元
 
 **属性**：
-- `pipeline_key`: 格式为 `{WS_KEY}-{4或5位数字}`（如 `Y2K-0601`）
+- `pipeline_key`: 格式为 `{WS_KEY}-{4-5位大写十六进制}`（如 `Y2K-0601`、`Y2K-0001A`）
 - `name`: 流水线名称
-- `workspace`: 所属工作空间
 - `description`: 描述
 - `definition`: YAML 格式的执行规则定义
 - `case_keys`: 关联的 case key 列表
@@ -38,7 +37,7 @@ Pipeline 通过 `case_key` 引用 case。
 **定义**：一次测试运行的实例
 
 **属性**：
-- `execution_id`: 格式为 `{pipeline_key}-{序号}`（如 `Y2K-0601-00001`）
+- `execution_id`: 格式为 `{pipeline_key}-{5位大写十六进制}`（如 `Y2K-0601-0000A`）
 - `status`: 执行状态
 
 ---

@@ -19,9 +19,10 @@
 **定义**：编排多个 case 的执行单元
 
 **属性**：
-- `pipeline_key`: 格式为 `{WS_KEY}-{4或5位数字}`（如 `Y2K-0601`）
+- `pipeline_key`: 格式为 `{WS_KEY}-{4-5位大写十六进制}`（如 `Y2K-0601`、`Y2K-0001A`）
 - `name`: 流水线名称
-- `pipeline_yaml`: YAML 格式的执行规则定义
+- `definition`: YAML 格式的执行规则定义（Pipeline YAML）
+- `case_keys`: Case keys 列表（可替代 `definition`）
 - 支持依赖关系（whenPassed/whenFailed）和变量传递（relay）
 
 ### Execution（执行）
@@ -29,7 +30,7 @@
 **定义**：一次测试运行的实例
 
 **属性**：
-- `execution_id`: 格式为 `{pipeline_key}-{序号}`（如 `Y2K-0601-00001`）
+- `execution_id`: 格式为 `{pipeline_key}-{5位大写十六进制}`（如 `Y2K-0601-0000A`）
 - `status`: NOT_STARTED(-1), RUNNING(0), SUCCESS(1), FAILURE(2), SKIPPED(3), FAIL_AS_EXPECTED(4), CANCELLED(5), ERROR(99)
 
 ### Plan（定时计划）

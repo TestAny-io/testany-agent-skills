@@ -24,12 +24,12 @@ my-test.zip
 
 **Maven:**
 ```json
-{"executor": "maven", "trigger_path": "./"}
+{"executor": "maven", "trigger_path": "src/test/java/com/example/ApiTest.java"}
 ```
 
 **Gradle:**
 ```json
-{"executor": "gradle", "trigger_path": "./"}
+{"executor": "gradle", "trigger_path": "src/test/java/com/example/ApiTest.java"}
 ```
 
 ## pom.xml

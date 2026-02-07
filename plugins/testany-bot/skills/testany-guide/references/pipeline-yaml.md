@@ -24,7 +24,7 @@ spec:
 | `run` | 是 | Case Key（8 位大写十六进制） |
 | `whenPassed` | 否 | 前置 case 必须通过才执行 |
 | `whenFailed` | 否 | 前置 case 必须失败才执行（与 whenPassed 互斥） |
-| `expect` | 否 | 设为 `fail` 可反转结果判定 |
+| `expect` | 否 | 期望结果：`pass`（默认）或 `fail`。设为 `fail` 时，该 case **无论实际执行结果如何都会向 pipeline 报告为 Passed**，因此后续依赖它的规则应使用 `whenPassed`（而不是 `whenFailed`） |
 | `relay` | 否 | 变量传递配置 |
 
 ---
@@ -75,21 +75,25 @@ spec:
 ### 顺序执行（无依赖）
 
 ```yaml
-rules:
-  - run: 'A1B2C3D4'
-  - run: 'E5F6A7B8'
-  - run: 'C9D0E1F2'
+kind: rule/v1.2
+spec:
+  rules:
+    - run: 'A1B2C3D4'
+    - run: 'E5F6A7B8'
+    - run: 'C9D0E1F2'
 ```
 
 ### 链式依赖
 
 ```yaml
-rules:
-  - run: 'A1B2C3D4'  # Login
-  - run: 'E5F6A7B8'
-    whenPassed: 'A1B2C3D4'  # Get Profile（需要登录成功）
-  - run: 'C9D0E1F2'
-    whenPassed: 'E5F6A7B8'  # Update Profile（需要获取成功）
+kind: rule/v1.2
+spec:
+  rules:
+    - run: 'A1B2C3D4'  # Login
+    - run: 'E5F6A7B8'
+      whenPassed: 'A1B2C3D4'  # Get Profile（需要登录成功）
+    - run: 'C9D0E1F2'
+      whenPassed: 'E5F6A7B8'  # Update Profile（需要获取成功）
 ```
 
 ### 带 Relay 的链式
@@ -106,23 +110,27 @@ rules:
 
 **Pipeline YAML**:
 ```yaml
-rules:
-  - run: '04E41DDE'  # Login → 输出 TOKEN
-  - run: 'FAFC249A'
-    whenPassed: '04E41DDE'
-    relay:
-      - key: AUTH_TOKEN        # ✓ FAFC249A 中 type='env'
-        refKey: 04E41DDE/TOKEN # ✓ 04E41DDE 中 type='output'
-        nonSecret: true
+kind: rule/v1.2
+spec:
+  rules:
+    - run: '04E41DDE'  # Login → 输出 TOKEN
+    - run: 'FAFC249A'
+      whenPassed: '04E41DDE'
+      relay:
+        - key: AUTH_TOKEN        # ✓ FAFC249A 中 type='env'
+          refKey: 04E41DDE/TOKEN # ✓ 04E41DDE 中 type='output'
+          nonSecret: true
 ```
 
 ### 失败后执行（清理场景）
 
 ```yaml
-rules:
-  - run: 'A1B2C3D4'  # Main test
-  - run: 'CLEANUP01'
-    whenFailed: 'A1B2C3D4'  # 仅当主测试失败时执行清理
+kind: rule/v1.2
+spec:
+  rules:
+    - run: 'A1B2C3D4'  # Main test
+    - run: 'C1EA2E01'  # Cleanup case
+      whenFailed: 'A1B2C3D4'  # 仅当主测试失败时执行清理
 ```
 
 ---

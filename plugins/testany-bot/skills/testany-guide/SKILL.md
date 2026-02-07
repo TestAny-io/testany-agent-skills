@@ -31,9 +31,9 @@ Case (测试用例)
 | 类型 | 格式 | 示例 |
 |------|------|------|
 | Case Key | 8 位大写十六进制 | `A1B2C3D4` |
-| Pipeline Key | `{WS_KEY}-{4或5位数字}` | `Y2K-0601` |
+| Pipeline Key | `{WS_KEY}-{4-5位大写十六进制}` | `Y2K-0001A` |
 | Workspace Key | 3 位大写字母数字 | `Y2K` |
-| Execution ID | `{WS_KEY}-{4或5位数字}-{序号}` | `Y2K-0601-00001` |
+| Execution ID | `{pipeline_key}-{5位大写十六进制}` | `Y2K-0001A-0000B` |
 
 ## MCP Schema Resources
 

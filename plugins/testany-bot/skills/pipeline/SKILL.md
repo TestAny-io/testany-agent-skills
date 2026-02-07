@@ -1,7 +1,7 @@
 ---
 name: pipeline
 description: Testany 流水线 CRUD - 创建/查询/更新/删除 pipeline，编排用例执行顺序和变量传递（执行请用 /tests）
-argument-hint: "[操作] [描述]，如：创建 pipeline、查看 Y2K-0601、删除我的所有 pipeline"
+argument-hint: "[操作] [描述]，如：创建 pipeline、查看 Y2K-0001A、删除我的所有 pipeline"
 ---
 
 # Testany Pipeline CRUD
@@ -24,8 +24,8 @@ argument-hint: "[操作] [描述]，如：创建 pipeline、查看 Y2K-0601、�
 | 创建新 pipeline | Create | `testany_create_pipeline` |
 | 查看 pipeline 详情 | Read | `testany_get_pipeline` |
 | 查看 pipeline YAML | Read | `testany_get_pipeline_yaml` |
-| 搜索/列出 pipelines | Read | `testany_list_pipelines` |
-| 列出我的 pipelines | Read | `testany_list_my_pipelines` |
+| 搜索/列出 pipelines（按 workspace） | Read | `testany_list_pipelines` |
+| 列出我的 pipelines（按 workspace） | Read | `testany_list_my_pipelines` |
 | 修改 pipeline 配置 | Update | `testany_update_pipeline` |
 | 删除 pipeline | Delete | `testany_get_pipeline_used_by` → `testany_delete_pipeline` |
 | 验证 YAML 语法 | Validate | `testany_verify_pipeline` |
@@ -169,8 +169,8 @@ description: "...前置条件：需要登录状态（AUTH_TOKEN 来自 LOGIN cas
 |------|------|------|
 | 获取 pipeline 详情 | `testany_get_pipeline` | 传入 pipeline key |
 | 获取 YAML 内容 | `testany_get_pipeline_yaml` | 传入 pipeline key |
-| 搜索所有 pipelines | `testany_list_pipelines` | 支持关键词搜索 |
-| 仅列出我的 pipelines | `testany_list_my_pipelines` | - |
+| 搜索/列出 pipelines（按 workspace） | `testany_list_pipelines` | `workspace` 必填，支持关键词与更多过滤条件 |
+| 仅列出我的 pipelines（按 workspace） | `testany_list_my_pipelines` | `workspace` 必填 |
 
 ### Update（更新）
 
@@ -220,8 +220,10 @@ description: "...前置条件：需要登录状态（AUTH_TOKEN 来自 LOGIN cas
 支持的过滤条件：
 - `workspace` - 按工作空间过滤（必填）
 - `keyword` - 按名称关键词搜索
-- `owned_by` - 按所有者邮箱过滤
-- `environments` - 按环境标签过滤
+- `owned_by` - 按 owner 过滤（email 列表）
+- `environments` - 按 environment labels 过滤
+- `pipeline_labels` - 按 pipeline labels 过滤
+- `case_keys` - 按包含的 case keys 过滤
 - `pipeline_labels` - 按 pipeline 标签过滤
 - `page` / `page_size` - 分页
 
@@ -235,6 +237,8 @@ description: "...前置条件：需要登录状态（AUTH_TOKEN 来自 LOGIN cas
 - 检查 `kind` 版本是否正确（必须为 `rule/v1.2`）
 - 检查 `rules` 结构是否合法
 - 检查依赖关系是否满足 DAG 约束
+   
+**复制粘贴易错点**：YAML 第一行必须从第 1 列开始写 `kind:`（行首不能有空格），否则后端无法探测 schema 版本并会报错。
 
 ### Query Used By（查询引用）
 
@@ -288,7 +292,7 @@ description: "...前置条件：需要登录状态（AUTH_TOKEN 来自 LOGIN cas
 ## 返回格式
 
 任务完成后，向用户汇报：
-- Pipeline Key（如 `Y2K-0601`）
+- Pipeline Key（如 `Y2K-0001A`）
 - Pipeline 名称
 - 所属工作空间
 - 包含的 Case 数量和执行顺序

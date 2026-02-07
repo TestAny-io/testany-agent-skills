@@ -70,15 +70,24 @@ argument-hint: "[需求描述]，如：根据 PRD 生成登录测试、写一个
 | Playwright | [playwright.md](./references/executors/playwright.md) | UI/E2E 测试 |
 | Maven/Gradle | [maven.md](./references/executors/maven.md) | Java 项目测试 |
 
+> 注意：`executor` 是后端严格字符串。本 skill 涉及的取值为：`pyres`, `postman`, `playwright`, `maven`, `gradle`（平台还支持 `python`, `jmeter`）。
+>
+> Playwright 可能还需要配置 Config Path（对应字段 `case_meta.trigger_method.playwright_config_path`）；具体填写规则以文档为准。
+
 ---
 
-## 环境变量类型
+## 环境变量类型（case_meta.environment_variables.type）
 
 | 类型 | 用途 | 示例 |
 |------|------|------|
-| `env` | 普通配置 | `API_BASE_URL`, `TIMEOUT` |
-| `secret` | 敏感数据 | `PASSWORD`, `API_KEY` |
+| `env` | 输入/普通配置（包括 relay 输入） | `API_BASE_URL`, `AUTH_TOKEN` |
 | `output` | Relay 输出 | `ACCESS_TOKEN`, `USER_ID` |
+
+> 约束（与平台校验一致）：
+> - `type` 仅支持 `env` 与 `output`（不支持 `secret`）。
+> - `name` 必须以大写字母开头，只能包含大写字母、数字、下划线；同一 case 内必须唯一。
+> - `name`/`value` 不能为空或仅空白字符；如需表达“空值”，请显式填 `-`。
+> - 敏感凭证请使用 Secure key reference 绑定，并在代码中通过 `TESTANY_SECRETS_SERVICE` 获取。
 
 ---
 
@@ -94,24 +103,25 @@ Output Relay 用于在 Pipeline 中将一个 case 的输出传递给下游 case�
 │    environment_variables:                                        │
 │      - name: ACCESS_TOKEN    ←── 变量名                          │
 │        type: output          ←── 必须是 output                   │
-│        value: ""                                                 │
+│        value: "-"                                                │
 ├─────────────────────────────────────────────────────────────────┤
 │ 2. Output Case 代码                                              │
-│    requests.post(relay_service, json={                          │
+│    relay_service = os.environ.get("TESTANY_OUTPUT_RELAY_SERVICE") │
+│    requests.post(relay_service, json={                           │
 │        "ACCESS_TOKEN": token  ←── key 必须与配置的变量名一致      │
 │    })                                                            │
 ├─────────────────────────────────────────────────────────────────┤
 │ 3. Pipeline YAML                                                 │
-│    - run: 'INPUT_CASE'                                          │
+│    - run: E5F6A7B8                                              │
 │      relay:                                                      │
 │        - key: AUTH_TOKEN      ←── Input Case 中的变量名          │
-│          refKey: OUTPUT_CASE/ACCESS_TOKEN  ←── Output Case 的输出│
+│          refKey: A1B2C3D4/ACCESS_TOKEN  ←── Output Case 的输出   │
 ├─────────────────────────────────────────────────────────────────┤
 │ 4. Input Case 配置                                               │
 │    environment_variables:                                        │
 │      - name: AUTH_TOKEN      ←── 与 relay.key 一致               │
 │        type: env             ←── 必须是 env                      │
-│        value: ""                                                 │
+│        value: "-"                                                │
 ├─────────────────────────────────────────────────────────────────┤
 │ 5. Input Case 代码                                               │
 │    token = os.getenv("AUTH_TOKEN")  ←── 直接读取环境变量          │
@@ -141,6 +151,7 @@ relay_output({"ACCESS_TOKEN": token})
 
 ```python
 # ❌ 错误：只写了代码，没有在 case 配置中声明 output 变量
+relay_service = os.environ.get("TESTANY_OUTPUT_RELAY_SERVICE")
 requests.post(relay_service, json={"ACCESS_TOKEN": token})
 # 但 case 的 environment_variables 里没有 type=output 的 ACCESS_TOKEN
 
@@ -149,8 +160,9 @@ requests.post(relay_service, json={"ACCESS_TOKEN": token})
 #   environment_variables:
 #     - name: ACCESS_TOKEN
 #       type: output
-#       value: ""
+#       value: "-"
 # 代码：
+relay_service = os.environ.get("TESTANY_OUTPUT_RELAY_SERVICE")
 requests.post(relay_service, json={"ACCESS_TOKEN": token})
 ```
 
@@ -161,7 +173,8 @@ requests.post(relay_service, json={"ACCESS_TOKEN": token})
 - [ ] Output Case 的 `environment_variables` 中声明了 `type: output` 的变量
 - [ ] 代码中 POST 的 key 与配置的变量名**完全一致**
 - [ ] Input Case 的 `environment_variables` 中声明了 `type: env` 的变量
-- [ ] Pipeline YAML 中的 `relay.refKey` 格式正确：`{case_key}/{variable_name}`
+- [ ] Pipeline YAML 中的 `run`/`whenPassed`/`whenFailed` 使用 Test Case Key（8 位大写十六进制，如 `AC2F5A50`）
+- [ ] Pipeline YAML 中的 `relay.refKey` 格式正确：`<SOURCE-CASE-KEY>/<VARIABLE-NAME>`
 
 ---
 
@@ -188,9 +201,9 @@ requests.post(relay_service, json={"ACCESS_TOKEN": token})
 - [测试设计原则](./references/test-design.md) - Test Case vs Assertion、如何从 PRD 设计测试
 - [Case 元数据规范](./references/case-metadata-spec.md) - **必读**：name/labels/description/env_vars 的填写标准
 
-### 官方文档（兜底）
+### 文档（兜底）
 
-如果本地 references 不足以解决问题，请查阅 Testany 官方文档：
+如果本地 references 不足以解决问题，请查阅 Testany 文档中心；当本 skill 的示例与文档不一致时，以文档为准：
 
 **综合指南**
 - [How to Build a Testany-Compatible Test Case](https://docs.testany.io/en/docs/how-to-build-a-testany-compatible-test-case/)

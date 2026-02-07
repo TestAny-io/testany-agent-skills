@@ -130,7 +130,7 @@ AC7: 信息不可见     →      Case 4: 信息保护（独立场景）
 
 **Test Case 设计**：
 
-| Case | 场景 | 包含的 Assertions |
+| Case（别名） | 场景 | 包含的 Assertions |
 |------|------|------------------|
 | `AC1_BTN` | 订阅按钮存在 | AC1 |
 | `LOGIN` | 登录（前置） | - |
@@ -140,31 +140,33 @@ AC7: 信息不可见     →      Case 4: 信息保护（独立场景）
 
 **Pipeline YAML**：
 
+> 注意：上表中的别名仅用于讲解；实际 Pipeline YAML 的 `run`/`whenPassed`/`whenFailed` 必须填写 Testany Test Case Key（8 位大写十六进制，如 `AC2F5A50`）。
+
 ```yaml
 kind: rule/v1.2
 spec:
   rules:
-    - run: 'AC1_BTN'      # 独立 UI 测试
-    - run: 'LOGIN'        # 前置
-    - run: 'SUBSCRIBE'    # 主流程 + 4 个 assertions
-      whenPassed: 'LOGIN'
+    - run: A1B2C3D4        # AC1_BTN: 独立 UI 测试
+    - run: B2C3D4E5        # LOGIN: 前置
+    - run: C3D4E5F6        # SUBSCRIBE: 主流程 + 4 个 assertions
+      whenPassed: B2C3D4E5
       relay:
         - key: AUTH_TOKEN
-          refKey: LOGIN/AUTH_TOKEN
-    - run: 'READONLY'     # 独立行为测试
-      whenPassed: 'SUBSCRIBE'
+          refKey: B2C3D4E5/AUTH_TOKEN
+    - run: D4E5F6A7        # READONLY: 独立行为测试
+      whenPassed: C3D4E5F6
       relay:
         - key: AUTH_TOKEN
-          refKey: LOGIN/AUTH_TOKEN
+          refKey: B2C3D4E5/AUTH_TOKEN
         - key: RESOURCE_ID
-          refKey: SUBSCRIBE/RESOURCE_ID
-    - run: 'HIDE_INST'    # 独立行为测试
-      whenPassed: 'SUBSCRIBE'
+          refKey: C3D4E5F6/RESOURCE_ID
+    - run: E5F6A7B8        # HIDE_INST: 独立行为测试
+      whenPassed: C3D4E5F6
       relay:
         - key: AUTH_TOKEN
-          refKey: LOGIN/AUTH_TOKEN
+          refKey: B2C3D4E5/AUTH_TOKEN
         - key: RESOURCE_ID
-          refKey: SUBSCRIBE/RESOURCE_ID
+          refKey: C3D4E5F6/RESOURCE_ID
 ```
 
 **结果**：7 个 AC → 5 个 Test Cases（不是 7+ 个）
