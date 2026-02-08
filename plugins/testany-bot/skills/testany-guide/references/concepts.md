@@ -38,18 +38,22 @@
 **定义**：自动化调度的执行计划
 
 **属性**：
-- 关联 pipeline
-- Cron 表达式定义执行周期
-- 可启用/禁用
+- `plan_key`: 格式为 `P-{workspace_key}-{5位大写十六进制}`（如 `P-Y2K-0001A`）
+- 关联多个 pipeline（按配置顺序触发）
+- `schedule_expr`: 标准 5 段 Cron（UNIX）`分 时 日 月 周`
+- `timezone`: 时区（为空时后端默认 `Asia/Shanghai`）
+- watchers / notify_ignore_success：通知相关配置（可选）
 
-### Gatekeeper（质量门禁）
+### Gatekeeper（Webhook 触发器）
 
-**定义**：CI/CD 集成的质量控制点
+**定义**：通过 Webhook 触发一个“Pipeline Group”（一组 pipelines）执行的触发器
 
 **属性**：
-- 关联 pipeline
-- 通过率阈值（100% = 全部通过才放行）
-- Webhook URL 接收结果
+- `gatekeeper_key`: 格式为 `G-{workspace_key}-{5位大写十六进制}`（如 `G-Y2K-0001A`）
+- 绑定 pipelines（通过 Pipeline Group 绑定；未绑定时 webhook 会报错 “no pipelines in gatekeeper”）
+- `hook_url`: Webhook URL（用于外部系统触发）
+- trigger_method / trigger_name / trigger_condition：触发条件的描述信息（便于团队理解与维护）
+- watchers / notify_ignore_success / owned_by：通知与归属配置
 
 ### Workspace（工作空间）
 
