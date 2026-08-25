@@ -2,6 +2,7 @@ version: 1
 notes:
   - "Guardrails is cross-cutting, not a default mainline gate."
   - "Prototype is optional and only shown when repo or user intent justifies it."
+  - "Code Review is an implementation gate after an exact Candidate exists; it is parallel to test-document preparation and does not imply deployment approval."
   - "Testany automation landing is optional and only shown when user intent or an approved Test Spec handoff justifies it."
   - "Commands in the automation lane come from the sibling testany-bot plugin and are valid canonical commands for cross-plugin routing."
   - "Use artifact-detection.md for detailed recognition and confidence rules."
@@ -45,6 +46,8 @@ lanes:
     title: 可选 Prototype 分支
   - id: automation
     title: 可选 Testany 自动化落地分支
+  - id: implementation
+    title: 实现与 Code Review 分支
   - id: guardrails
     title: 横切 Guardrails 分支
 
@@ -70,6 +73,9 @@ artifacts:
   - id: TEST_SPEC
     metadata_types: [TEST_SPEC]
     filename_keywords: [test-spec, test_spec, test-package, test_package]
+  - id: IMPLEMENTATION_CANDIDATE
+    evidence_kinds: [explicit_git_candidate, review_request, code_review_report, code_review_certificate]
+    filename_keywords: [code-review, code_review, review-request, review_request, exec-plan, exec_plan]
   - id: RUNBOOK
     filename_keywords: [runbook]
   - id: PROTOTYPE
@@ -115,6 +121,9 @@ artifact_routes:
     creation_command: /test-spec-writer
     review_node: test-reviewer
     review_command: /test-reviewer
+  - artifact: IMPLEMENTATION_CANDIDATE
+    review_node: code-reviewer
+    review_command: /code-reviewer
   - artifact: RUNBOOK
     creation_node: runbook-writer
     creation_command: /runbook-writer
@@ -272,7 +281,21 @@ nodes:
     requires:
       - LLD: exists
     approves: LLD
-    next: [test-spec-writer]
+    next: [test-spec-writer, code-reviewer]
+
+  - id: code-reviewer
+    lane: implementation
+    kind: reviewer
+    command: /code-reviewer
+    requires:
+      - IMPLEMENTATION_CANDIDATE: exists
+      - PRD: preferred
+      - API_CONTRACT: preferred
+      - HLD: preferred
+      - LLD: preferred
+      - GUARDRAILS: optional
+    approves: IMPLEMENTATION_CANDIDATE
+    next: []
 
   - id: test-spec-writer
     lane: main

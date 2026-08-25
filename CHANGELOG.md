@@ -9,6 +9,19 @@
 
 ### 新增
 
+- **testany-eng 源码实现评审门禁**：
+  - 新增 `code-reviewer` skill 与 `/testany-eng:code-reviewer` command，覆盖首次完整 Code Review 和整改 delta 复审
+  - 新增 Scope Lock、architecture budget、四态 verdict（`APPROVED / CHANGES_REQUIRED / SCOPE_DECISION_REQUIRED / EVIDENCE_BLOCKED`）
+  - P0/P1 强制绑定 frozen invariant、精确证据、复现路径、影响与不超出已批准 architecture budget 的最小修复
+  - P2 明确为非阻断；源码、exact-SHA CI 与环境/部署门禁分层输出
+  - 新增中英文 Scope Lock、Review Report、Approval Certificate 模板，以及机器可读 review policy 和按触达面启用的 checklist
+  - 新增 mutable worktree snapshot 工具与漂移重检规则；未提交实现可获得摘要绑定的评审结论，但 immutable certificate 仅用于 commit/tree
+  - snapshot 同时绑定 Git patch、tracked 原始 bytes/mode、untracked/mutable baseline 及 canonical changed-path manifest，覆盖 clean filter、EOL、index flag、submodule 和并发漂移
+  - 明确区分 Candidate 自行越界（标准 P1 scope violation，删除/回退）与真正需要 Owner 扩 scope 的决策，避免把开发加料转成产品扩张入口
+  - 初次评审强制一次性完整覆盖；delta 复审需以上一轮完整覆盖为前提，多仓评审新增 shared Scope Lock coverage ledger 与 closed subagent result extension
+  - Reviewer 漏审不能伪装成无限 delta：只允许一次独立异常完整复核，之后再次漏审则停止并交由用户裁决评审流程
+  - Guide / workflow map 新增 Implementation Candidate → Code Review 路由，不把普通 HEAD 或 feature branch误判为待审 Candidate
+
 - **testany-eng 流程导航能力**：
   - 新增 `guide` skill：扫描现有文档与准出状态，判断当前项目所处阶段并推荐下一步最合适的 `testany-eng` skill
   - 新增 `plugins/testany-eng/skills/guide/references/workflow-map.yaml`，统一主流程、Prototype 可选分支与 Guardrails 横切分支的导航规则
@@ -34,6 +47,16 @@
   - 新增对应 CLI 测试，覆盖 PRD / Test Strategy / Test Spec profile 校验与 RTM 聚合
 
 ### 变更
+
+- **Plugin 架构与仓库兼容基线收敛**：
+  - `AGENTS.md` / `CLAUDE.md` 更新为当前按领域聚合 Plugin、目录自动发现 Skill/command 的真实架构
+  - 架构说明与 validator 对齐上游规则：`plugin.json` 可选、默认 `skills/` 自动发现、manifest 自定义 `skills` 通常追加；只有 marketplace entry 自身在 marketplace-root source 下列出已存在的特定 skill 路径时才替换默认扫描
+  - 清除 `runbook-writer/SKILL.md` 中已提交的冲突标记；把 output language 与 Guardrails trigger 语义合并到 canonical `subagents/*`，保留结构化结果契约并删除未引用的 `prompts/*` 第二 authority
+  - `validate_codex_compat.py` 只扫描 marketplace 注册的 Plugin，落实 `strict:true` 合并、`strict:false` authority 冲突、marketplace-root replacement/fallback 与默认发现；显式 `null`、非法相对路径、dangling symlink、越界 target 和重复 version authority 均 fail closed，并排除未注册的 backup/WIP
+  - `agents/openai.yaml` 保持可选；存在时按官方 generated baseline 校验必填/可选字段、类型、描述长度、`$skill-name` prompt 与图标路径；同 marketplace symlink 可复用，越界/dangling target fail closed
+  - 删除仍残留在默认发现目录中的已废弃 `prd-studio` 源码，令实际安装面与既有删除记录一致
+  - 修复 `guide` command frontmatter；`testany-eng` 升级到 `2.1.0`，每个已注册 Plugin 仅保留一个 version authority，避免已安装端静默复用旧 cache
+  - 根目录 `/output/` 明确为本地生成交付物目录，不纳入版本控制；可复用资产应进入对应 Skill 的 `assets/`
 
 - **uc-interviewer edge case 收敛**：
   - 新增 `plugins/testany-eng/skills/uc-interviewer/references/edge-case-framework.md`，统一 edge case 分类、必问触发器、defer 规则与步骤级矩阵输出契约

@@ -55,6 +55,12 @@ Task tool (general-purpose):
     - LLD: [path]
     - Guardrails: [path]
 
+    ### Output Language
+    - Output language: [zh-CN / en]
+    - Use this language for all human-readable headings, tables, notes, and instructions in the Runbook.
+    - Do not switch back to Chinese just because the controller prompt or repo templates are written in Chinese.
+    - Keep `TRACEABILITY-METADATA` keys, enum values, IDs, and comment markers in English if they appear.
+
     ## Before You Begin
 
     If you have questions about:

@@ -1,6 +1,6 @@
 interface:
   display_name: "Guide"
-  short_description: "Scan project documents and recommend the next skill or downstream automation workflow"
+  short_description: "Recommend the next project workflow skill"
   icon_small: "./assets/testany-logo-small.png"
   icon_large: "./assets/testany-logo.svg"
   default_prompt: "Use $guide to scan this project, identify the current stage, and recommend the next most appropriate skill or downstream automation workflow."

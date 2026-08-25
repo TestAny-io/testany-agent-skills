@@ -9,8 +9,7 @@
   "plugins": [
     {
       "name": "testany-eng",
-      "description": "研发流程与导航工具集：流程导航、BRD、UC、PRD、Prototype、API、HLD、LLD、Test、Runbook。命令：/testany-eng:guide, /testany-eng:brd-interviewer, /testany-eng:uc-interviewer, /testany-eng:prd-writer, /testany-eng:prd-reviewer, /testany-eng:prototype-designer, /testany-eng:prototype-reviewer, /testany-eng:api-writer, /testany-eng:api-reviewer, /testany-eng:guardrails-writer, /testany-eng:guardrails-reviewer, /testany-eng:hld-writer, /testany-eng:hld-reviewer, /testany-eng:test-strategy-writer, /testany-eng:test-strategy-reviewer, /testany-eng:lld-writer, /testany-eng:lld-reviewer, /testany-eng:test-spec-writer, /testany-eng:test-reviewer, /testany-eng:runbook-writer",
-      "version": "2.0.0",
+      "description": "研发流程与导航工具集：流程导航、BRD、UC、PRD、Prototype、API、HLD、LLD、Code Review、Test、Runbook。命令：/testany-eng:guide, /testany-eng:brd-interviewer, /testany-eng:uc-interviewer, /testany-eng:prd-writer, /testany-eng:prd-reviewer, /testany-eng:prototype-designer, /testany-eng:prototype-reviewer, /testany-eng:api-writer, /testany-eng:api-reviewer, /testany-eng:guardrails-writer, /testany-eng:guardrails-reviewer, /testany-eng:hld-writer, /testany-eng:hld-reviewer, /testany-eng:test-strategy-writer, /testany-eng:test-strategy-reviewer, /testany-eng:lld-writer, /testany-eng:lld-reviewer, /testany-eng:code-reviewer, /testany-eng:test-spec-writer, /testany-eng:test-reviewer, /testany-eng:runbook-writer",
       "source": "./plugins/testany-eng",
       "category": "productivity",
       "homepage": "https://github.com/TestAny-io/testany-agent-skills"
@@ -18,7 +17,6 @@
     {
       "name": "testany-llm",
       "description": "AI/LLM 工具集：Prompt 优化。命令：/testany-llm:prompt-optimizer",
-      "version": "2.0.0",
       "source": "./plugins/testany-llm",
       "category": "productivity",
       "homepage": "https://github.com/TestAny-io/testany-agent-skills"
@@ -26,7 +24,6 @@
     {
       "name": "testany-mrkt",
       "description": "营销内容工具集：自媒体文章创作，支持公众号、知乎、小红书、LinkedIn、Medium、Reddit。命令：/testany-mrkt:media-writer",
-      "version": "1.0.0",
       "source": "./plugins/testany-mrkt",
       "category": "productivity",
       "homepage": "https://github.com/TestAny-io/testany-agent-skills"
@@ -34,7 +31,6 @@
     {
       "name": "testany-bot",
       "description": "Testany 测试平台智能助手（通用版）：platform case 编写与注册、pipeline 编排、trigger 配置、execution 管理、故障诊断。兼容 VS Code Copilot、GitHub Copilot 等平台。命令：/testany-bot:case, /testany-bot:case-writing, /testany-bot:pipeline, /testany-bot:execution, /testany-bot:debug, /testany-bot:trigger, /testany-bot:workspace",
-      "version": "2.0.0",
       "source": "./plugins/testany-bot",
       "category": "automation",
       "homepage": "https://github.com/TestAny-io/testany-agent-skills"
