@@ -24,6 +24,15 @@ Task tool (general-purpose):
     ### Complete Context
     [Controller 在 Phase 1 准备的完整上下文]
 
+    ### Guardrails Trigger Check
+    [Controller 提供的 trigger check 结果；若为 require_guardrails_before_design，不应继续派发本审查]
+
+    ### Output Language
+    - Output language: [zh-CN / en]
+    - Write the review in this language.
+    - Do not switch back to Chinese because the prompt template contains Chinese annotations.
+    - Keep any `TRACEABILITY-METADATA` keys, enum values, IDs, and comment markers in English.
+
     ## What Writer Produced
 
     [Writer subagent 输出的完整 Runbook]
@@ -46,6 +55,7 @@ Task tool (general-purpose):
     - Check for missing requirements
     - Check for extra content not requested
     - Verify all claims have upstream document citations
+    - Respect the controller's Guardrails trigger result; `suggest_guardrails` 是治理跟进项，不等于自动判定当前 Runbook 不合规
 
     ## Your Job
 

@@ -1,6 +1,6 @@
 # Subagent Result Contract v1
 
-testany-eng 中使用 subagent 编排的 skill（PRD Studio、Runbook Writer 等）统一遵循本契约。
+testany-eng 中使用 subagent 编排的 skill（Code Reviewer、Runbook Writer 等）统一遵循本契约。
 
 ## 目的
 

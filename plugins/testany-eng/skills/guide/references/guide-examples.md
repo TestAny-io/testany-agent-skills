@@ -316,3 +316,57 @@ User Journey 对应的 `testany-eng` skill 是 `/uc-interviewer`。
 
 它负责在 BRD 和 PRD 之间梳理、确认用户旅程与 use case；如果你已经有 BRD，下一步通常就是它。
 ```
+
+## 示例 11：Implementation Candidate 已冻结，应推荐 Code Reviewer
+
+### 用户输入
+
+> 开发已经完成本地实现，给了 base、Candidate 和 review request。下一步做什么？
+
+### 观察到的证据
+
+- review request 明确列出 repository path、base SHA、Candidate SHA 和 tree
+- Candidate 工作树 clean
+- LLD 已批准
+- 没有 exact Candidate 的 Code Review certificate
+- CI 尚未运行
+
+### 状态判断
+
+| Artifact | 状态 | 证据 | 置信度 |
+|----------|------|------|--------|
+| LLD | approved | 准出证书 | High |
+| IMPLEMENTATION_CANDIDATE | in_review | exact SHA + review request | High |
+
+### 推荐输出
+
+```markdown
+## 推荐下一步
+
+1. `/code-reviewer`：exact Implementation Candidate 已存在，但没有源码准出证据。先冻结 Scope Lock 并做 Lead Dev Code Review。
+2. 测试规格与 Runbook 可以按项目计划并行推进；它们不是本次源码评审的前置条件。
+
+## 边界说明
+
+- CI 尚未运行不等于源码缺陷；Code Review 通过后仍需 exact-SHA CI。
+- Code Review approval 不授予 merge 或 deployment 权限。
+```
+
+## 示例 12：只有 feature branch，不能臆测 Candidate
+
+### 用户输入
+
+> 仓库里有个 feature 分支，下一步是不是 code review？
+
+### 观察到的证据
+
+- feature branch 存在
+- 没有 base/Candidate 绑定、review request 或 worktree 归属说明
+
+### 推荐输出
+
+```markdown
+当前只能确认 feature branch 存在，不能确认哪个 commit/worktree 是待审 Candidate，因此 `IMPLEMENTATION_CANDIDATE` 状态为 `unknown`。
+
+请先提供 base 与 Candidate SHA，或明确要求评审当前 worktree并说明未提交文件归属。形成精确边界后，再运行 `/code-reviewer`。
+```

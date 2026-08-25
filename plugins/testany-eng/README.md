@@ -1,14 +1,15 @@
 # testany-eng
 
-研发流程工具集：从业务需求到测试设计与运维准备的完整链路。
+研发流程工具集：从业务需求、设计到源码评审、测试设计与运维准备的完整链路。
 
 ## 概述
 
-testany-eng 提供一套结构化的研发文档工具，覆盖从业务想法到测试设计与交付准备的全流程：
+testany-eng 提供一套结构化的研发工作流工具，覆盖从业务想法到源码评审、测试设计与交付准备的全流程：
 
 - **需求阶段**：BRD 访谈 → 用户旅程对齐 → PRD 撰写/审查
 - **交互验证阶段（前端仓库可选）**：Prototype 设计/评审
 - **设计阶段**：API 契约撰写/审查 → HLD 撰写/审查 → 测试策略撰写/评审 → LLD 撰写/审查
+- **实现评审阶段**：精确 Implementation Candidate → Scope Lock → Code Review → exact-SHA CI/PR/merge（分别授权）
 - **测试与交付准备阶段**：测试规格/测试包撰写 → 测试门禁评审 → Runbook 撰写 / Testany 自动化落地
 
 每个环节都有明确的输入输出和质量门禁，确保文档质量和上下游衔接。对于已经准出的 Test Spec，`testany-eng` 也应把用户自然推到 `testany-bot` 的自动化落地链路，而不是停在文档侧。
@@ -77,6 +78,12 @@ flowchart TD
     X --> Y[/lld-writer/]
     Y --> Z[/lld-reviewer/]
     Z --> AA[📄 LLD 准出]
+    AA --> CR0[💻 Implementation Candidate]
+    CR0 --> CR1[/code-reviewer/]
+    CR1 --> CR2{Approval artifact}
+    CR2 -->|immutable certificate| CR3[exact-SHA CI / PR / merge]
+    CR2 -->|mutable review comment| CR4[Commit / freeze immutable Candidate]
+    CR4 -->|MUTABLE_TO_IMMUTABLE_REBIND| CR1
     AA --> AB[/test-spec-writer/]
     AB --> AC[/test-reviewer/]
     AC --> AD[📄 测试准出]
@@ -131,6 +138,7 @@ flowchart TD
 | 测试策略写完了，需要评审 | `/test-strategy-reviewer` | 审查风险覆盖、分层与环境策略 |
 | HLD 准出了，要写详细设计 | `/lld-writer` | 将 HLD 细化为可实现的设计 |
 | LLD 写完了，需要设计评审 | `/lld-reviewer` | 检测 HLD→LLD 一致性 |
+| 已有精确实现 Candidate，需要 Lead Dev 源码评审 | `/code-reviewer` | 冻结 Scope Lock 后检查实现正确性；不扩大需求/架构，不替代部署批准 |
 | LLD 准出了，要写完整测试包 | `/test-spec-writer` | 产出 test case package、追溯矩阵与执行说明 |
 | 测试包写完了，需要测试门禁评审 | `/test-reviewer` | 审查覆盖、证据与残余风险 |
 | 测试门禁通过后，要准备运维手册 | `/runbook-writer` | 基于 HLD/LLD/Test 输出生产就绪 Runbook |
@@ -155,6 +163,7 @@ flowchart TD
     Start --> G[有 LLD]
     Start --> H[有 Test Strategy]
     Start --> I[有 Test Spec]
+    Start --> J[有精确 Implementation Candidate]
 
     A --> A1[/brd-interviewer/]
 
@@ -187,6 +196,10 @@ flowchart TD
     G --> G1{LLD 已准出？}
     G1 -->|否| G2[/lld-reviewer/]
     G1 -->|是| G3[/test-spec-writer/]
+
+    J --> J1{已有 exact Code Review approval?}
+    J1 -->|否| J2[/code-reviewer/]
+    J1 -->|是| J3[exact-SHA CI / PR / merge]
 
     H --> H1{Test Strategy 已准出？}
     H1 -->|否| H2[/test-strategy-reviewer/]
@@ -529,6 +542,27 @@ flowchart TD
 
 ---
 
+### code-reviewer
+
+**用途**：对精确 Implementation Candidate 做独立 Lead Dev Code Review，验证源码是否正确实现已批准范围
+
+**特点**：
+- 评审前冻结 base/Candidate/tree、批准基线、In/Out Scope 与 architecture budget
+- 首轮检查完整 Candidate diff；只有上一 Candidate 是 immutable commit、上一轮在同一 Scope Lock 下已完成完整覆盖且两类 coverage gap 均为空时，整改轮才只检查 remediation delta、原 blocking item closure 和直接回归面
+- Candidate 自行加入且可删除/回退的 budget 外 surface 返回 `CHANGES_REQUIRED`；只有边界含糊或最小正确修复确需扩 scope 时才返回 `SCOPE_DECISION_REQUIRED`
+- P0/P1 必须有 frozen invariant、精确证据、复现路径、影响，以及不超出已批准 architecture budget 的最小修复
+- P2 永不阻断；源码、exact-SHA CI 与环境/部署结论分离
+
+**输入**：仓库路径 + base/previous Candidate + Candidate + 已批准基线；有上一轮 terminal 时还必须提供其可读取的精确 artifact（`path@version + SHA-256` 或 canonical embedded envelope），不能只给 findings 摘要
+**输出**：Review Comment 或 Code Review Approval Certificate（不授予部署权限）
+
+**示例**：
+```
+/code-reviewer . main abc123 ./docs/LLD-用户认证.md
+```
+
+---
+
 ### test-spec-writer
 
 **用途**：基于批准的 Test Strategy 与 LLD，产出完整的测试规格与 test case package
@@ -610,6 +644,7 @@ flowchart TD
 | Guardrails | guardrails-reviewer | Guardrails（准出） |
 | PRD + HLD + Contract + Guardrails（如有） | lld-writer | LLD + Manifest |
 | LLD + PRD + HLD + Contract + Guardrails（如有） | lld-reviewer | LLD（准出） |
+| Exact base/Candidate + approved baselines + Scope Lock | code-reviewer | Implementation Candidate（源码准出） |
 | PRD + API Contract + HLD + LLD + Test Strategy | test-spec-writer | Test Spec / Test Case Package |
 | Test Spec + Test Strategy + 执行摘要（可选） | test-reviewer | 测试准出 |
 | HLD + LLD + API Contract + Guardrails（如有） | runbook-writer | Runbook |

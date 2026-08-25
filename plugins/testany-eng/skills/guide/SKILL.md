@@ -1,6 +1,6 @@
 ---
 name: guide
-description: 'Guide, workflow guide, 流程导航、我该用哪个 skill、下一步做什么。Use when: 需要扫描当前项目已有文档和准出状态，判断 testany-eng 主流程所处阶段，并推荐下一步最合适的 skill；当 Test Spec 已具备下游 handoff 条件时，也可推荐进入 testany-bot 自动化落地分支。'
+description: 'Guide, workflow guide, 流程导航、我该用哪个 skill、下一步做什么。Use when: 需要扫描当前项目已有文档、实现 Candidate 和准出状态，判断 testany-eng 流程所处阶段，并推荐下一步最合适的 skill；也可路由到 Code Review 或 Testany 自动化落地分支。'
 ---
 
 # Guide
@@ -17,8 +17,9 @@ description: 'Guide, workflow guide, 流程导航、我该用哪个 skill、下�
 
 - **Guide 是导航器，不是产出器**：不直接撰写 BRD/PRD/HLD/LLD/Test/Runbook，也不替代 reviewer 做准出判断。
 - **Guide 只做状态识别与路由建议**：扫描仓库、读取元数据、判断阶段、推荐下一步。
-- **Guide 服务于 `testany-eng` 主流程**，并补充三个特殊分支：
+- **Guide 服务于 `testany-eng` 主流程**，并补充四个特殊分支：
   - **可选分支**：Prototype
+  - **实现门禁分支**：Implementation Candidate → Code Review
   - **可选分支**：Testany Automation Landing
   - **横切分支**：Guardrails
 
@@ -27,6 +28,10 @@ description: 'Guide, workflow guide, 流程导航、我该用哪个 skill、下�
 ### 主流程（按默认顺序）
 
 `BRD -> User Journey -> PRD -> API Contract -> HLD -> Test Strategy -> LLD -> Test Spec -> Test Review -> Runbook`
+
+LLD 准出后还存在一条与测试文档准备并行的实现门禁：
+
+`Implementation Candidate -> Code Review -> exact-SHA CI / PR / merge`
 
 对应 skill：
 
@@ -42,6 +47,7 @@ description: 'Guide, workflow guide, 流程导航、我该用哪个 skill、下�
 - `/test-strategy-reviewer`
 - `/lld-writer`
 - `/lld-reviewer`
+- `/code-reviewer`（仅当 exact Implementation Candidate 已存在）
 - `/test-spec-writer`
 - `/test-reviewer`
 - `/runbook-writer`
@@ -58,6 +64,14 @@ description: 'Guide, workflow guide, 流程导航、我该用哪个 skill、下�
   - `/pipeline`
   - `/trigger`
   - `/execution`
+
+### 实现门禁分支：Code Review
+
+- 只有存在用户显式提供或仓库证据明确绑定的 exact Candidate/worktree 时才展示
+- 任意 HEAD、feature branch 或“代码看起来写完了”不能自动当作 Candidate
+- Code Review 与 Test Spec/Test Review 可并行；缺少 Test Spec/Runbook 不自动阻塞源码评审
+- Code Review 通过只表示源码 Candidate 准出，不代表 CI、merge、deployment 或 release 已批准
+- 对应 skill：`/code-reviewer`
 
 ### 可选分支：Prototype
 
@@ -118,7 +132,7 @@ description: 'Guide, workflow guide, 流程导航、我该用哪个 skill、下�
 
 该文件是 Guide 的**单一流程事实源**，包含：
 
-- 主流程 / Prototype / Guardrails 的节点定义
+- 主流程 / Prototype / Implementation Code Review / Automation / Guardrails 的节点定义
 - 每个 skill 的产物与默认前置条件
 - canonical slash command 与 artifact 的显式映射
 - 识别 artifact 的关键词和优先顺序
@@ -168,17 +182,20 @@ description: 'Guide, workflow guide, 流程导航、我该用哪个 skill、下�
   □ 1.3 识别审查报告与准出证书
   □ 1.4 检查 Test Spec 是否包含 `Testany Automation Handoff`
   □ 1.5 判定仓库是否属于前端原型适用场景
+  □ 1.6 检测是否存在 exact Implementation Candidate / Code Review 证据
 □ Phase 2：归一化状态
   □ 2.1 为每类 artifact 选出当前有效候选
   □ 2.2 归一化为 missing/draft/in_review/approved/unknown
   □ 2.3 归一化 automation handoff readiness
   □ 2.4 标记歧义与低置信度点
+  □ 2.5 归一化 Implementation Candidate 的 review 状态
 □ Phase 3：计算流程位置
   □ 3.1 找到最早未满足的主流程门
   □ 3.2 判断是否展示 Prototype 分支
   □ 3.3 判断是否展示 Testany Automation Landing 分支
   □ 3.4 判断是否提示 Guardrails 分支
-  □ 3.5 生成 1-3 条下一步建议
+  □ 3.5 判断是否展示 Code Review 实现门禁
+  □ 3.6 生成 1-3 条下一步建议
 □ Phase 4：输出导航结果
   □ 4.1 输出项目状态摘要
   □ 4.2 输出 Mermaid DAG
@@ -267,6 +284,12 @@ description: 'Guide, workflow guide, 流程导航、我该用哪个 skill、下�
 - 状态相同，优先 `updated_at` / 文件更新时间更晚者
 - 仍然冲突时，输出歧义并 AskUserQuestion 让用户确认
 
+**Code Review 特例（优先于上述 artifact 类型/状态偏好）：**
+
+- 按 Review ID、Candidate/snapshot、Scope Lock 和 `prior_terminal_chain` 重建顺序，只选择链上最新的 immediate terminal；先按当前宿主的 Skill 资源解析规则定位已安装 `code-reviewer` 的绝对目录（Claude plugin 中 `${CLAUDE_PLUGIN_ROOT}/skills/code-reviewer` 只是一个平台特定解析方式，Codex 等宿主不得假设该环境变量存在），记录所解析脚本的绝对路径与 SHA-256，再用同一 `scripts/terminal_artifact_envelope.py` 依次执行 `verify` 和 `extract` 读取原始 terminal bytes。不能从 PASS 摘要推断字段；不得因为旧 artifact 是 certificate 或 verdict 为 `APPROVED` 就压过更新的 `CHANGES_REQUIRED / SCOPE_DECISION_REQUIRED / EVIDENCE_BLOCKED`
+- 同一 Candidate 的 terminal 若没有可验证的 chain/摘要、时间或内容互相冲突，归一化为 `unknown` 并报告歧义，不得猜测旧 approval 仍有效
+- mutable/mixed approval 还必须按 `artifact-detection.md` 逐仓验证：每个实际 mutable repository 都用该行记录的 script digest 与完整 argv 重算相同 snapshot，immutable 行只核对 exact SHA/tree。任一 mutable 行缺失、无法重算或不匹配，或任一 immutable 行漂移，都会使整个 comment stale，不能视为 approved
+
 #### 1.5 Reviewer 证据识别
 
 识别以下强证据：
@@ -280,6 +303,7 @@ description: 'Guide, workflow guide, 流程导航、我该用哪个 skill、下�
 
 - 仅有“审查报告”不等于“通过”
 - 只有“准出证书”或明确 `approved` 证据，才能视为 `approved`
+- 上述通用 certificate 优先级不适用于 Code Review terminal chain；Code Review 始终以可验证链上的最新 terminal 为准
 
 #### 1.6 Prototype 适用性判断
 
@@ -321,6 +345,16 @@ Guardrails 建议只在以下场景出现：
 - `status: not_planned` → automation branch `not_planned`
 - section 缺失或无法解析 → automation branch `unknown`
 
+#### 1.9 Code Review 适用性判断
+
+只有满足以下至少一项，才展示 `/code-reviewer`：
+
+- 用户显式提供 exact base/Candidate SHA
+- review request / Exec Plan 明确绑定 repository、Candidate 和 review 状态
+- 用户明确要求评审当前 worktree，且可分类其 staged/unstaged/untracked 归属
+
+状态按 `artifact-detection.md` 的 `IMPLEMENTATION_CANDIDATE` 规则归一化。仅有 feature branch 或普通 HEAD 时保持 `unknown`，不得凭空推荐。
+
 ### Phase 2：计算流程位置
 
 1. 按 `workflow-map.yaml` 的主流程顺序检查每个门是否满足
@@ -344,6 +378,13 @@ Guardrails 建议只在以下场景出现：
 6. Guardrails 是横切分支：
    - 只作为补充建议或治理提醒
    - 除非用户明确处于 Guardrails 强触发场景，否则不挤占主推荐位
+7. Code Review 是实现门禁分支：
+   - exact Candidate 存在且没有源码批准证据 → 推荐 `/code-reviewer`
+   - remediation Candidate 存在时，只有上一份报告同时证明：Previous Candidate 是 immutable commit、Scope Lock ID/digest 与当前逐字相同、`initial_full_coverage_complete: YES`、required source/local validation 完成、`scope_decision_blocked_ranges: []`、`evidence_or_assignment_gaps: []`；全部 prior P0/P1 必须有稳定 ID并可逐项结转（可保持 `OPEN`，由本次 delta 判定 closure），而影响 delta eligibility 的 prior SD/EB 必须已有 Owner decision/恢复证据并按 policy 关闭，才推荐 `/code-reviewer` 的 delta review
+   - 上一轮在冻结基线/范围阶段停止、覆盖不完整或没有可核验的 coverage 记录 → 继续/重做 initial full review；不得用 remediation 标签跳过未审范围
+   - immutable commit/tree 已获 exact Code Review Approval Certificate，且 approval 后没有更新披露的 reviewer miss、符合条件的 post-terminal CI/environment trigger 或其他待处理 chain transition → 不再推荐重复评审；下一步是仓库外的 exact-SHA CI/PR/merge 或并行的测试/运维准备。若有较新 trigger evidence 但尚无 terminal，仍推荐 `/code-reviewer` 由 canonical policy决定 exceptional/new-initial/process-blocked mode
+   - mutable 或 mixed `WORKTREE@sha256` 仅获 Mutable Worktree Review Comment → 先 commit/freeze，再加入 `MUTABLE_TO_IMMUTABLE_REBIND`，由 `/code-reviewer` 按全部共存 causes 和全局 precedence选择 full-review mode（没有更高优先 cause时为 initial full）；不能直接路由 CI/PR/merge
+   - 不要求 Test Spec、Runbook 或环境批准作为 Code Review 前置条件
 
 ## 输出格式
 
@@ -364,6 +405,7 @@ Guardrails 建议只在以下场景出现：
 - 主流程必须清晰
 - Prototype 分支只在适用时展示
 - Guardrails 作为横切分支单独展示，不串入主流程
+- Code Review 分支仅在发现 exact Candidate 时展示，并与测试文档分支分开
 
 ### 3. 推荐下一步
 
@@ -412,6 +454,8 @@ Guardrails 建议只在以下场景出现：
 - 不要把 Guide 做成 reviewer 或 writer
 - 不要输出“泛泛建议”，必须落到具体命令
 - 不要根据 artifact 名脑补 slash command，例如把 User Journey 说成 `/user-journey`
+- 不要把任意 Git HEAD 当成 Implementation Candidate
+- 不要把 Code Review approval 解释成 CI、merge、deployment 或 release approval
 
 ## 使用示例
 
@@ -430,6 +474,10 @@ Guardrails 建议只在以下场景出现：
 **示例 4**
 
 > 我有 PRD 和 Journey，这个仓库是前端项目，先帮我判断要不要走 prototype 分支。
+
+**示例 5**
+
+> 开发已经给出 base/Candidate SHA 和 review request，帮我判断下一步是不是 Code Review。
 
 ## 参考文档
 

@@ -447,13 +447,9 @@ A: 不要让 writer 继续猜，回到 Phase 0 补充文档或 AskUserQuestion�
 ## 参考文档
 
 - `references/runbook-template.md`：Runbook 输出模板
-<<<<<<< Updated upstream
-- `prompts/writer-prompt.md`：Writer subagent prompt 模板
-- `prompts/spec-reviewer-prompt.md`：Spec reviewer prompt 模板
-- `prompts/quality-reviewer-prompt.md`：Quality reviewer prompt 模板
-- `../../references/guardrails-trigger-check.md`：Guardrails 触发检查与分流规则
-=======
 - `subagents/writer.md`：Writer subagent prompt 模板
 - `subagents/spec-reviewer.md`：Spec reviewer prompt 模板
 - `subagents/quality-reviewer.md`：Quality reviewer prompt 模板
->>>>>>> Stashed changes
+- `../../references/guardrails-trigger-check.md`：Guardrails 触发检查与分流规则
+- `../../references/language-policy.md`：输出语言和机器字段规则
+- `../../references/subagent-result-contract.md`：Subagent 结构化结果契约

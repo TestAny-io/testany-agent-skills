@@ -1,7 +1,7 @@
 {
   "name": "testany-eng",
-  "version": "2.0.0",
-  "description": "Testany 研发流程与导航工具集：Guide、BRD、UC、PRD、Prototype、API、Guardrails、HLD、LLD、Test、Runbook",
+  "version": "2.1.0",
+  "description": "Testany 研发流程与导航工具集：Guide、BRD、UC、PRD、Prototype、API、Guardrails、HLD、LLD、Code Review、Test、Runbook",
   "author": {
     "name": "Testany",
     "email": "engineering@testany.io"

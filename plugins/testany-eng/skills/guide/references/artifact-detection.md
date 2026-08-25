@@ -228,7 +228,38 @@ Guide 不把它当成独立 artifact，但在 `TEST_SPEC = approved` 时，应�
 
 - 文件名含 `runbook`
 
-### 10. PROTOTYPE
+### 10. IMPLEMENTATION_CANDIDATE
+
+这是 Git/源码工件，不是普通文档。**不得因为仓库存在 HEAD commit 就自动判定 Candidate 存在。**
+
+强信号：
+
+- 用户显式提供 base/Candidate SHA 或要求 review 当前精确 worktree
+- review request / Exec Plan 明确绑定 repository、base、Candidate、tree
+- Code Review report/certificate 明确绑定 exact Candidate
+
+弱信号：
+
+- 文件名含 `code-review`、`review-request`、`exec-plan`
+- feature branch 存在，但没有明确说明哪个 commit 是 Candidate
+
+状态来源：
+
+| 证据 | 状态 |
+|------|------|
+| mutable worktree 尚无有效 snapshot-bound approval comment，或旧 snapshot 已漂移 | `draft` |
+| exact Candidate + review request，无批准结论 | `in_review` |
+| exact Candidate + `APPROVED` Code Review certificate | `approved` |
+| mutable/mixed Candidate + `APPROVED` Mixed / Mutable Worktree Review Comment，且逐仓核对 immutable SHA/tree，并对每个 mutable repo 用该行记录的 resolved script、完整 argv 重算 `WORKTREE@sha256` 后逐字匹配 | `approved`（仅该组逐仓 binding；不是 immutable certificate） |
+| 只有 feature branch/普通 commit | `unknown`，不能主动推荐 Code Review |
+
+Code Review approval 只表示源码准出；不得据此把 CI、merge、deployment 或 release 标记为 approved。
+
+Code Review terminal 选择不使用“certificate 高于 report”或“approved 高于其他状态”的通用偏好。Guide 必须按 Review ID、Candidate/snapshot、Scope Lock 与 `prior_terminal_chain` 验证 immediate-terminal lineage，并选择链上最新 terminal。若 terminal 以内嵌 envelope 提供，先按宿主的 Skill 资源解析规则定位已安装 `code-reviewer` 的绝对目录；Claude plugin 可解析为 `${CLAUDE_PLUGIN_ROOT}/skills/code-reviewer`，Codex 等宿主必须使用其提供的 skill locator，不得假设该环境变量存在。绑定所解析 `scripts/terminal_artifact_envelope.py` 的绝对路径和 SHA-256 后，使用同一脚本先执行 `verify <file>`，再执行 `extract <file>` 取得原始 bytes 后解析；`verify` 的 PASS 行不是 terminal 内容。较新的 `CHANGES_REQUIRED / SCOPE_DECISION_REQUIRED / EVIDENCE_BLOCKED` 会使较旧 approval 失效。无法建立唯一、完整的 terminal chain 时状态为 `unknown`。
+
+Mutable/mixed approval 必须枚举 terminal 中的全部 repository rows。对每个实际 mutable repo，先证明当前 resolved `code-reviewer/scripts/snapshot_worktree.py` 的 SHA-256 与该 repo 行记录的 script digest 逐字相等（否则取回记录版本；两者都做不到即 stale），再复用该行完整 argv（base、exclude、candidate-ignored、mutable-baseline 全部相同）并逐字核对输出摘要；对每个 immutable repo，只核对 exact Candidate SHA/tree，不运行或伪造 snapshot。只有所有行都匹配才保持 `approved`；任一 repo 的 script/argv/snapshot/SHA/tree 漂移、缺失或无法重算，都使整个 mixed comment stale，并归一化为 `draft` 或 `unknown`，不得只验证其中一仓或把旧 comment 当成重复批准依据。
+
+### 11. PROTOTYPE
 
 强信号：
 
@@ -243,7 +274,7 @@ Guide 不把它当成独立 artifact，但在 `TEST_SPEC = approved` 时，应�
 
 - 原型是“目录级工件”，不能只凭单个 Markdown 文件判定
 
-### 11. GUARDRAILS
+### 12. GUARDRAILS
 
 强信号：
 
@@ -361,3 +392,5 @@ Guide 不负责完整判断 Guardrails 内容是否过期，但可以用以下�
 - 不要把临时评审评论当成准出证书
 - 不要把 feature-local 文档当成 Guardrails
 - 不要因为文件名像 `spec` 就自动当成 Test Spec
+- 不要把任意 HEAD/feature branch 自动当成待审 Implementation Candidate
+- 不要把 Code Review approval 当成部署或发布批准

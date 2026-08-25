@@ -24,6 +24,17 @@ Task tool (general-purpose):
 
     [Controller 提供的上下文摘要]
 
+    ## Guardrails Trigger Check
+
+    [Controller 提供的 trigger check 结果；若为 require_guardrails_before_design，不应继续派发本审查]
+
+    ## Output Language
+
+    - Output language: [zh-CN / en]
+    - Write the quality review in this language.
+    - Do not fall back to Chinese because this prompt template contains Chinese notes.
+    - Keep any `TRACEABILITY-METADATA` keys, enum values, IDs, and comment markers in English.
+
     ## Your Role
 
     You are a Senior SRE reviewing operational documentation. You need to verify
@@ -32,6 +43,7 @@ Task tool (general-purpose):
     - Complete with no ambiguous steps
     - Safe to use in production
     - Maintainable over time
+    - Evaluated in the context of the controller's Guardrails trigger result; `suggest_guardrails` 是治理建议，不等于当前文档自动失败
 
     ## Review Checklist
 

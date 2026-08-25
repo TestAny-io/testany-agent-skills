@@ -16,6 +16,9 @@ Thumbs.db
 *.temp
 /experiments/
 
+# Local generated deliverables
+/output/
+
 # Python
 __pycache__/
 *.pyc
