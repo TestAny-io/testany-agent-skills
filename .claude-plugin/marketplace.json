@@ -9,7 +9,7 @@
   "plugins": [
     {
       "name": "testany-eng",
-      "description": "研发流程与导航工具集：流程导航、BRD、UC、PRD、Prototype、API、HLD、LLD、Code Review、Test、Runbook。命令：/testany-eng:guide, /testany-eng:brd-interviewer, /testany-eng:uc-interviewer, /testany-eng:prd-writer, /testany-eng:prd-reviewer, /testany-eng:prototype-designer, /testany-eng:prototype-reviewer, /testany-eng:api-writer, /testany-eng:api-reviewer, /testany-eng:guardrails-writer, /testany-eng:guardrails-reviewer, /testany-eng:hld-writer, /testany-eng:hld-reviewer, /testany-eng:test-strategy-writer, /testany-eng:test-strategy-reviewer, /testany-eng:lld-writer, /testany-eng:lld-reviewer, /testany-eng:code-reviewer, /testany-eng:test-spec-writer, /testany-eng:test-reviewer, /testany-eng:runbook-writer",
+      "description": "研发流程与导航工具集：流程导航、BRD、UC、PRD、Prototype、API、HLD、LLD、范围冻结与生产语义 Code Review、Test、Runbook。命令：/testany-eng:guide, /testany-eng:brd-interviewer, /testany-eng:uc-interviewer, /testany-eng:prd-writer, /testany-eng:prd-reviewer, /testany-eng:prototype-designer, /testany-eng:prototype-reviewer, /testany-eng:api-writer, /testany-eng:api-reviewer, /testany-eng:guardrails-writer, /testany-eng:guardrails-reviewer, /testany-eng:hld-writer, /testany-eng:hld-reviewer, /testany-eng:test-strategy-writer, /testany-eng:test-strategy-reviewer, /testany-eng:lld-writer, /testany-eng:lld-reviewer, /testany-eng:code-reviewer, /testany-eng:test-spec-writer, /testany-eng:test-reviewer, /testany-eng:runbook-writer",
       "source": "./plugins/testany-eng",
       "category": "productivity",
       "homepage": "https://github.com/TestAny-io/testany-agent-skills"

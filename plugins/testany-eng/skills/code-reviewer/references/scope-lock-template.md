@@ -1,25 +1,21 @@
-# Code Review Charter / Scope Lock 模板
+# Code Review Record / Charter 模板
 
-在阅读实现细节前填写。无法确认的字段不得猜测；它们若影响结论，应返回 `EVIDENCE_BLOCKED` 或 `SCOPE_DECISION_REQUIRED`。
+每个 attempt 只维护一份 Review Record：可完整内嵌，或以可读的 `path@version + sha256` 引用；接收方必须实际读取、校验文件摘要并重算 Scope Lock digest，不能只接受 ID/digest。Charter 在阅读实现细节前冻结，coverage/evidence 随评审补齐，terminal 绑定最终版本。子任务引用冻结的输入/assignment 版本；最终 Record 引用已校验输入与结果，主 Reviewer 核对固定绑定后合并增量，禁止覆盖已引用版本或要求子任务计算最终 Record 的自指 digest。
 
-## 1. Review identity
+未知且影响结论的输入返回 `EVIDENCE_BLOCKED` 或 `SCOPE_DECISION_REQUIRED`。pre-charter 仅把确实未知的字段标为 `NOT_BOUND`，mode 用 `NOT_DETERMINED`、Scope Lock 用 `NOT_FROZEN`；保留其他已知精确字段。空集合保留 `[]`，不生成成片 `N/A` 或无适用事实的附录。
+
+## 1. Identity 与 canonical Charter
 
 | 字段 | 内容 |
 |------|------|
-| Review mode | `initial_full_review` / `remediation_delta_review` / `exceptional_full_review_after_reviewer_miss` |
-| Review round | Round N |
-| Review ID | `CRV-<UUIDv4>`（本 attempt 唯一；不得重绑） |
-| Main Reviewer identity | `{稳定 identity/task；每轮必填}` |
-| Prior reviewer-miss recovery history | `{按时间排序的 missed/recovery Scope Lock ID+digest + review ID + terminal artifact + prior/current Reviewer identities / []}` |
-| Global prior exception count | `{全 history 长度；非负整数}` |
-| Immediate-prior Scope Lock recovery count | `{按 immediate-prior terminal 的 ID/digest过滤 missed lock的长度；0 或 1}` |
-| Scope Lock ID | `{稳定 ID}` |
-| Scope Lock content SHA-256 | `{必填摘要}` |
-| Persisted charter | `{path@version + file SHA-256 / FULL_CANONICAL_PAYLOAD_EMBEDDED}` |
-| Output language | zh-CN / en |
-| User objective | `{用户本轮明确要求}` |
+| Review ID / main Reviewer | `CRV-<UUIDv4> / 稳定 identity/task`（本 attempt 唯一，不得重绑） |
+| Mode / round | `initial_full_review / remediation_delta_review / exceptional_full_review_after_reviewer_miss`；Round N |
+| Scope Lock ID / digest | `{稳定 ID / sha256}` |
+| 用户目标 / 输出语言 | `{本轮明确要求 / zh-CN 或 en}` |
+| Prior exception history | `[] / 单一可读且已校验的历史引用 + 本轮新增项` |
+| Global / immediate-prior lock recovery count | `{展开 history 的总长度 / 按 missed lock 匹配 immediate-prior terminal 的长度，0 或 1}` |
 
-摘要必须由本 Skill 的 `scripts/scope_lock_digest.py <payload.json>` 生成，不得手工选择 JSON shape 或排序。输入是以下 closed payload（没有列出的 key 一律拒绝）：
+Charter 保留以下完整 closed payload，不再另抄基线、scope、budget 和验证边界表。必须使用本 Skill 的 `scripts/scope_lock_digest.py <payload.json>` 生成 canonical payload/digest；v1 schema 不变：
 
 ```json
 {
@@ -38,184 +34,118 @@
 }
 ```
 
-脚本对文本做 NFC + 首尾空白归一化，把所有 array 当作无序集合并按每项 canonical JSON 排序，`required_gates` 同样排序；重复项、缺失/额外 key、语义 key 冲突、非 full lowercase Git SHA、错误类型或未知枚举均 fail closed。每个 `repository_identity` 只能绑定一个 `review_root_base`，每个 verification layer（source/ci/environment）必须恰好一行，每个 budget surface boundary 只能有一条事实。source 固定 required=true；CI/environment 固定 required=false 并使用上方 closed effect enum，Reviewer 不能用 Scope Lock 把环境缺口改造成源码阻断。`repository_identity` 使用批准的仓库 slug/UUID，或去除 userinfo、query、fragment 后的 canonical remote host/path；没有 remote 时由用户批准稳定 ID。绝对 checkout path、attempt-specific excluded WIP、摘要自身、当前/上一 Candidate、review mode、coverage 与 verdict 不在 closed payload 中；excluded WIP 由本轮 snapshot/terminal artifact 独立绑定。Candidate/tree 由每轮 Exact Git boundary 单独绑定，因此换 worktree/host或正常整改不会改变同一 Scope Lock。
+脚本执行 NFC/首尾空白归一化、无序集合排序并拒绝重复、缺失/额外 key、语义冲突、非 full lowercase Git SHA、错误类型和未知枚举。每仓一个 root、三层各一行、每 budget surface boundary 一个事实；source 固定 required=true，CI/environment 固定 false 及上方 effect，attempt 文本不得覆盖。仓库 identity 使用批准 slug/UUID 或移除 userinfo/query/fragment 的 canonical remote host/path；无 remote 时需要用户批准稳定 ID。
 
-## 2. Exact Git boundary
+作者 note、自测 PASS 和 Candidate 自述不是批准基线。budget 未授权的 surface 不得 ADD/MODIFY/DELETE，无字节或语义变化的保留不需额外授权。绝对 checkout path、Candidate/tree、mode、coverage、verdict、摘要自身与 excluded WIP 不进入 payload；普通整改或移动 checkout 不改变语义 Scope Lock。
 
-| Repository identity | Path | Review root base | Base / Previous Candidate | Candidate | Tree / Snapshot | Worktree state/ownership |
-|---------------------|------|------------------|---------------------------|-----------|-----------------|--------------------------|
-| `{stable slug/UUID/sanitized remote}` | `{absolute path, not hashed}` | `{initial approved base SHA}` | `{SHA}` | `{SHA or WORKTREE}` | `{tree SHA or WORKTREE@sha256}` | `{clean / classified WIP}` |
+## 2. Exact repository binding
 
-规则：
+每仓一行；`review_root_base` 直接引用 Charter 对应 repository 行，不另造第二份 authority。
 
-- `initial_full_review`：Base → Candidate。
-- `remediation_delta_review`：Previous Candidate → Current Candidate，并列出上一轮 finding IDs。
-- `exceptional_full_review_after_reviewer_miss`：`review_root_base` → Current Candidate；表中的 Base/Previous、changed-path manifest 命令和所有 reviewed range 都必须使用 `review_root_base`，不得只审上一 delta。
-- 可评审 mutable worktree，但必须用本 Skill 目录下 `scripts/snapshot_worktree.py` 的**解析后绝对路径**绑定 manifest/摘要，并不得签发 immutable Candidate certificate。
-- staged/unstaged/untracked 文件必须明确归属，不能默认属于 Candidate。
+| Repository / root reference | Absolute checkout | Reviewed from | Candidate | Tree / snapshot | Exact reviewed range / ownership |
+|-----------------------------|-------------------|---------------|-----------|-----------------|----------------------------------|
+| `{Charter repository 行}` | `{绝对路径}` | `{精确 base / previous Candidate}` | `{full SHA / WORKTREE}` | `{full tree SHA / WORKTREE@sha256}` | `{精确两端 / clean 或已分类 staged、unstaged、untracked、ignored}` |
 
-### Mutable worktree snapshot（仅适用于 WORKTREE）
+- initial：批准 base → Candidate；exceptional：逐仓 `review_root_base` → Candidate，manifest/range 必须同起点。
+- remediation：previous Candidate → current Candidate；previous 可以是 immutable commit/tree，或依据 [evidence-reuse.md](evidence-reuse.md) 已验证可重建的 snapshot，必须绑定重建和比较证据。不能把 snapshot digest 当 Git SHA；snapshot 工具的 `--base` 始终是 immutable SHA。
+- mode、transition 和 full-review 触发遵循 [review-policy.yaml](review-policy.yaml)。snapshot 改变或 mutable→immutable 都是新 Review ID、新 binding、新 verdict；旧 approval 不自动转换。
 
-| 字段 | 内容 |
-|------|------|
-| Snapshot schema / SHA-256 | `testany.code-reviewer.worktree-snapshot.v1 / {...}` |
-| Snapshot command | `{完整命令与 base}` |
-| Candidate-owned untracked | `{paths / none}` |
-| Candidate-owned ignored | `{--candidate-ignored paths / none}` |
-| Excluded WIP | `{path + owner + reason / none}` |
-| Mutable baseline files | `{path + digest / none}` |
-| Post-validation recheck | `MATCH / DRIFT / NOT_RUN` |
-| Pre-verdict recheck | `MATCH / DRIFT / NOT_RUN` |
+### Mutable Binding Appendix（仅实际 mutable 仓库）
 
-发生 `DRIFT` 时当前 Review ID/attempt 立即失效；保持同一语义 Scope Lock digest，生成新 Review ID并绑定新 snapshot后重跑本轮全部 required source/local validation，旧验证不可复用；否则返回 `EVIDENCE_BLOCKED`。只有批准边界/基线变化才建立新 Scope Lock。
+| Repository reference | Immutable base / HEAD | Snapshot schema | Resolved snapshot script + file sha256 | Exact argv | Post-validation / pre-verdict recheck |
+|----------------------|-----------------------|-----------------|----------------------------------------|------------|---------------------------------------|
+| `{第 2 节行}` | `{full SHA / full SHA}` | `testany.code-reviewer.worktree-snapshot.v1` | `{本 Skill scripts/snapshot_worktree.py 的解析后绝对路径 / sha256}` | `{含 --repo、--base 及每个 --exclude、--candidate-ignored、--mutable-baseline}` | `MATCH / MATCH` |
 
-## 2A. Prior terminal chain 与 blocking-item closure
+- `candidate_untracked: []`；实际项列精确 path 与 Candidate 归属证据。
+- `candidate_ignored: []`；实际项列精确 path、归属证据及 `--candidate-ignored`。
+- `excluded_wip: []`；实际项列 path、owner、证据支持的原因及 `--exclude`。
+- `mutable_baselines: []`；实际项列绝对 path、sha256 及 `--mutable-baseline`。
 
-存在 immediate prior terminal artifact 时必填；无 prior terminal 的真正首次 attempt 写 `N/A / none`。snapshot drift 导致的无 terminal 失效 attempt 使用下方独立 lineage，不能伪装成首次 attempt或 terminal。
+这些集合由 snapshot 绑定，不得假定全部 dirty 文件属于 Candidate。excluded WIP 必须从 manifest 消失，不能排除 immutable diff、`base..HEAD` 已提交 Candidate path 及其 ancestor/descendant；仍在 manifest 的 path 不能标为 WIP。所有 Candidate-owned ignored 必须用 `--candidate-ignored` 捕获，`--mutable-baseline` 不能替代；归属不明不得静默忽略。recheck 为 `DRIFT` 时本 attempt 失效，不能对旧 snapshot 出 verdict；未运行或无法稳定绑定时记录 EB。
 
-| Prior Review ID | Terminal artifact | Transition causes | Per-cause evidence / first-available source or time | Prior/current Candidate | Prior mode / main Reviewer | Current Review ID / mode / main Reviewer | Prior Scope Lock ID / digest | Current Scope Lock ID / digest | Effect |
-|-----------------|-------------------|-------------------|-----------------------------------------------------|-------------------------|----------------------------|------------------------------------------|------------------------------|--------------------------------|--------|
-| `{CRV-UUID}` | `{path@version + sha256 / canonical EMBEDDED_TERMINAL_ENVELOPE JSON}` | `{unique subset of the closed cause enum}` | `{cause → exact evidence + source/time}` | `{exact bindings}` | `{mode / identity}` | `{this attempt's exact root fields}` | `{id / digest}` | `{id / digest}` | `SAME / NEW` |
+### Invalidated attempt lineage（仅存在 pre-terminal drift 时）
 
-- Prior reviewer-miss recovery history / global count / immediate-prior Scope Lock recovery count: `{ordered missed+recovery-lock-bound artifacts / n / 0|1}`
+| Invalidated Review ID | Old / new snapshot | Snapshot script digest / exact argv | Drift evidence | Specific evidence reuse decision |
+|-----------------------|--------------------|------------------------------------|----------------|----------------------------------|
+| `{旧 CRV ID；无 terminal}` | `{两端摘要}` | `{可读证据引用}` | `{精确 mismatch}` | `{第 4 节复用记录 / []}` |
 
-| Blocking item ID / type | Prior invariant / repository / range / status | Closure evidence or Owner authority | Current status | Required next disposition |
-|-------------------------|-----------------------------------------------|-------------------------------------|----------------|---------------------------|
-| `{CR-P0/P1, SD, or EB ID + type}` | `{exact immediate-prior terminal row}` | `{delta/restoration/decision evidence}` | `OPEN / CLOSED` | `{delta / initial full review / new Scope Lock}` |
+reason 固定 `MUTABLE_SNAPSHOT_DRIFT_REBIND`。失效 attempt 不是 terminal，也不能被隐藏为真正首次 attempt；即使后来提交为 immutable，仍保留 lineage。复用的是逐条验证过的证据，不是失效 verdict。
 
-Immediate prior terminal 的每个 P0/P1、SD、EB 都必须出现；P2 不进入 closure。只允许一个 canonical terminal reference；读取/验证后，全部 prior/current copied fields必须逐字匹配两端权威字段，recovery history分别绑定被漏审与 recovery Scope Lock。causes是去重闭集且每项有独立证据；兼容 causes可在一轮组合并累加约束。无 scope-changing cause只能 `SAME`；三个 scope-changing causes中恰好一个出现才可 `NEW`。Mode固定优先级：repeated reviewer miss → initial full + coverage incomplete + `EVIDENCE_BLOCKED`；process reset → initial full；reviewer miss → exceptional full；其他 NEW/rebind/post-CI/partial → initial full；最后才是 eligible delta。pre-charter prior terminal未绑定字段使用 closed `NOT_BOUND / NOT_DETERMINED / NOT_FROZEN`，不得与无 prior terminal 的 `N/A` 混用。
+## 3. Manifest 与 coverage
 
-### Invalidated attempt lineage（仅 mutable snapshot drift 且无 terminal）
+| Repository reference | Manifest source / exact range | Raw manifest SHA-256 |
+|----------------------|-------------------------------|----------------------|
+| `{第 2 节行}` | `{精确命令 / snapshot 字段；需重建时另引用比较证据}` | `{sha256}` |
 
-| Invalidated Review ID | Terminal | Transition reason | Old/new snapshot | Resolved script path + digest | Exact argv | Drift evidence | Prior validation reusable |
-|-----------------------|----------|-------------------|------------------|-------------------------------|------------|----------------|---------------------------|
-| `{CRV-UUID}` | `N/A` | `MUTABLE_SNAPSHOT_DRIFT_REBIND` | `{old / new WORKTREE digests}` | `{absolute path / sha256}` | `{full argv}` | `{exact mismatch}` | `NO` |
+immutable Git 两端先确认 `refs/replace` 与 legacy `info/grafts` 均不存在；commit/tree 解析和 diff 使用 `GIT_NO_REPLACE_OBJECTS=1`。对 `git diff --name-status --no-renames -z --no-ext-diff --no-textconv --ignore-submodules=none <reviewed-from> <candidate> --` 的 raw stdout 直接做 SHA-256。WORKTREE 使用 `manifest.candidate_changed_paths` 与 `manifest.candidate_changed_paths_sha256`；重建 snapshot 的 delta 比较另留精确证据，不能伪装成 Git SHA 范围。
 
-## 3. Approved baselines
+| Repo-qualified manifest path / layers / status | Classification | Scope/budget reference / evidence | Assignment |
+|-----------------------------------------------|----------------|-----------------------------------|------------|
+| `{逐 path，含所有 manifest layers}` | `in_scope / scope_violation / verified_filtered_baseline` | `{精确行；filtered 时为 filter/EOL + prior-raw 双证据}` | `{main / 子任务 ID}` |
 
-| Baseline | Exact version/path/SHA | Approval evidence | Governs |
-|----------|------------------------|-------------------|---------|
-| PRD / User decision | `{...}` | `{...}` | Product scope |
-| API Contract | `{...}` | `{...}` | Wire behavior |
-| HLD / LLD | `{...}` | `{...}` | Architecture and implementation boundary |
-| Guardrails | `{...}` | `{...}` | Project defaults |
-| Other | `{...}` | `{...}` | `{...}` |
+immutable path 只能是前两类。`verified_filtered_baseline` 仅用于 WORKTREE 中唯一变化为 `raw_worktree_vs_index/RAW`、且已证明既有 filter/EOL 表示及 prior raw bytes 的 path。`worktree_mode_vs_index`、`submodule_head_vs_index` 也必须分类，但不能使用 filtered；excluded WIP 不是分类值。
 
-作者 note、自测报告或 Candidate 自述不等于批准基线。
+| Assignment / exact repository range | Paths / components / risk domains | Reviewer | Complete | Typed gaps |
+|------------------------------------|----------------------------------|----------|----------|------------|
+| `{唯一 assignment ID / 第 2 节范围引用}` | `{完整 diff 分配}` | `{identity/task}` | `YES / NO` | `[] / SD 或 EB 绑定的精确范围` |
 
-## 4. Frozen scope
+- `initial_full_coverage_complete: YES / NO`；source：`{本轮或已校验 prior coverage}`。
+- `coverage_reconciled: YES / NO`（全部仓库、manifest、assignment 和共享 Scope Lock）。
+- `unclassified: []`；`scope_decision_blocked_ranges: []`；`evidence_or_assignment_gaps: []`。
 
-### In Scope
+每个 scope-blocked range 与 closed SD proposal 的 contaminated range 一一对应；每个缺证/未分配 range 绑定 EB。前者触发 `SCOPE_DECISION_REQUIRED`，后者触发 `EVIDENCE_BLOCKED`；两者并存时 EB 优先但不丢 SD。APPROVED 或后续 delta 复用都要求完整 coverage、对账通过、unclassified 与两类 gap 为空。
 
-- `{批准能力/组件/仓库/行为}`
+## 4. 行为证据与验证结果
 
-### Out of Scope
+先独立画出生产路径和假设，再核对作者 PASS。只为本次触达的关键面建立下表，不要求每文件全矩阵；明确实际生产入口与真实 helper、被 stub/mock/替换的部分及未覆盖边界，不能把测试自身的预期当独立 oracle。
 
-- `{本轮明确不处理的功能、仓库、阶段或环境}`
+| Frozen invariant | Production entry / parser | Actual helper + substitutions | Independent oracle / source | Legal / illegal / failure outcome | Direct callers / branches / targets / retry sequence；未覆盖边界 |
+|------------------|---------------------------|-------------------------------|-----------------------------|-----------------------------------|----------------------------------------------------------------|
+| `{批准基线行}` | `{path:symbol 与入口参数}` | `{真实调用与替换边界}` | `{独立批准语义/参考源}` | `{适用输入、预期与实测证据}` | `{已检查传播路径与明确缺口}` |
 
-### Must Not Change / Must Not Regress
+状态/resourceVersion、历史终态 Pod、exit code 等仅在触达且批准语义适用时检查，不从示例派生新 scope。
 
-- `{兼容行为、旧调用方、关闭态、数据边界等}`
+| Layer | Exact evidence / command / result | Status |
+|-------|-----------------------------------|--------|
+| Source/local | `{Charter required_gates、实际环境/输入、结果与行为表关联}` | `COMPLETE / INCOMPLETE` |
+| Exact-SHA CI | `{逐仓 SHA 与结果；mutable 为 NOT_APPLICABLE_UNTIL_COMMIT}` | `{SUCCESS / FAILED / NOT_RUN}` |
+| Environment/deployment | `{live 来源、时间和 readiness gap；不继承旧 live 状态}` | `{实测状态 / NOT_RUN}` |
 
-## 5. Architecture budget
+`evidence_reuse: []`；如复用，逐条记录 prior evidence 引用、prior/current bytes、影响范围、依赖/命令/工具/配置/基线一致或已审 delta 的证明、保留/补跑决定。仅同 scope、旧完整 coverage 且两类 gap 空、prior bytes 可重建时才评估复用；missing/unknown 的证据不用，补最小检查，无法可靠划界则 full review。CI 仍只证明原 exact SHA，live 不继承，被 reviewer miss 否证的方法/证据不可复用。细则见 [evidence-reuse.md](evidence-reuse.md)。
 
-只列出本轮**已获批准**的 surface delta。没有列出的 surface 默认不得 `ADD`、`MODIFY` 或 `DELETE`；无字节/语义变化地保留既有 surface 不需要额外授权。
+## 5. Items、prior terminal 与统一 closure
 
-| Surface | Allowed action | Approved source | Exact boundary |
-|---------|----------------|-----------------|----------------|
-| service/workload | KEEP/MODIFY/ADD/DELETE/NONE | `{baseline}` | `{boundary}` |
-| endpoint/RPC/event/wire | ... | ... | ... |
-| table/schema/durable authority | ... | ... | ... |
-| queue/topic/outbox | ... | ... | ... |
-| crypto purpose/key authority | ... | ... | ... |
-| Secret/RBAC identity | ... | ... | ... |
-| publisher/consumer | ... | ... | ... |
-| deployment topology/shared infra | ... | ... | ... |
+`findings: []`；`scope_proposals: []`；`evidence_blockers: []`；`environment_only_notes: []`。条目只存一份完整正文或可读已校验引用；字段及 conditional provenance 见 [report-templates.md](report-templates.md)。报告与子任务引用同一 registry，不抄完整历史。
 
-## 6. Verification boundary
+`prior_terminal_chain: []`（真正没有 prior terminal 时）。存在时只绑定一个 canonical terminal artifact：`{path@version + sha256 / 已验证并解码读取的 EMBEDDED_TERMINAL_ENVELOPE}`；从该引用读取 prior Review ID、Candidate、mode/main Reviewer、Scope Lock，不重复抄写。
 
-| Layer | Required in this review | Evidence available | Effect on code verdict |
-|-------|-------------------------|--------------------|------------------------|
-| Source/local tests | `YES — 使用 canonical payload 的 required_gates` | `{exact results / missing}` | `MAY_BLOCK_WHEN_TIED_TO_FROZEN_INVARIANT` |
-| Exact-SHA CI | `NO` | `{status / NOT_RUN}` | `REPORT_SEPARATELY;MAY_PROVE_SOURCE_FINDING` |
-| Environment/deployment | `NO` | `{status / NOT_RUN}` | `REPORT_SEPARATELY;MAY_PROVE_SOURCE_FINDING` |
+| Transition cause | Exact authority / trigger / restoration evidence | First-available source or time |
+|------------------|--------------------------------------------------|--------------------------------|
+| `{review-policy.yaml 的 closed cause}` | `{每 cause 独立证据}` | `{精确来源/时间}` |
 
-本节只能回显 canonical Scope Lock payload 的 closed 三层语义；不得再次填写 `yes/no` 或用 attempt 文本覆盖其 required/effect。实际 evidence 状态可以变化，但不会改变语义 Scope Lock。
+causes 去重且兼容约束累加；`SAME / NEW` 及 mode 按 policy 推导。无 scope-changing cause 为 SAME（ID/digest 均相等）；恰好一个批准的 scope-changing cause 才可 NEW（ID/digest 均不同），不能借 rebind/new scope 清除历史。
 
-## 7. Coverage ledger
+`blocking_items: []`；存在 prior 时，每个原 P0/P1、SD、EB 必须在同一表保留原 ID，P2 不进入 mandatory closure。
 
-- 每个仓库单独绑定 Candidate changed-path manifest 与摘要：immutable 先确认 `refs/replace` 与 legacy `info/grafts` 均不存在，再使用 `GIT_NO_REPLACE_OBJECTS=1 git diff --name-status --no-renames -z --no-ext-diff --no-textconv --ignore-submodules=none <reviewed-from> <candidate> --` 的 raw stdout并直接做 SHA-256；commit/tree 解析也必须使用相同 replacement-disabled 环境。WORKTREE 使用 snapshot 的 `manifest.candidate_changed_paths` 与 `manifest.candidate_changed_paths_sha256`。`reviewed-from` 在 initial 是 base，在 remediation 是 previous Candidate，在 exceptional 必须是 `review_root_base`。
+| Original item ID / type | Prior invariant / repo / range / status reference | Causal classification / old-new code / first visibility | Closure evidence / authority / regression | Current status / next disposition |
+|-------------------------|--------------------------------------------------|-------------------------------------------------------|-------------------------------------------|-----------------------------------|
+| `{CR-P0/P1 / SD / EB}` | `{prior terminal 精确行引用}` | `{代码原因适用时填写；其他为 []}` | `{最小修复或恢复/Owner 决定；相关回归}` | `OPEN / CLOSED；所需下一步` |
 
-| Repository identity | Manifest source/range | Manifest SHA-256 |
-|---------------------|-----------------------|-----------------|
-| `{stable repo ID}` | `{raw immutable command / WORKTREE snapshot field}` | `{sha256}` |
+代码原因使用 `original_unfixed / introduced_by_fix / pre_existing_unreported_cause`，并绑定旧/新代码、首次可见性、prior acceptance/status 与 Reviewer 责任。对未关闭同 issue 补原因不自动触发正式 miss；已漏报 blocking item 或无依据的原 closure 按 reviewer-miss 处理，同 ID 不能免除责任，也不能静默改变原 acceptance。所有 prior blocking items CLOSED 才可批准；最小修复还须评估操作/门禁复杂度，不只计算新增表或服务。
 
-| Repository identity | Candidate-owned path | Manifest layer/status | Classification | Scope/budget reference / evidence | Reviewer assignment |
-|---------------------|----------------------|-----------------------|----------------|-----------------------------------|---------------------|
-| `{stable repo ID}` | `{path}` | `{base_to_candidate:M / ...}` | `in_scope / scope_violation / verified_filtered_baseline (mutable raw-only)` | `{row / filter+prior-raw evidence}` | `{main/subagent}` |
+### Reviewer-miss Appendix（仅实际发生时）
 
-immutable path 只能是 `in_scope` 或 `scope_violation`。`verified_filtered_baseline` 只适用于 WORKTREE 中唯一变化为 `raw_worktree_vs_index/RAW` 且有 filter/EOL 与 prior-raw 双证据的 path。mutable `excluded_wip` 必须通过 snapshot `--exclude` 从 manifest 移除，并在第 1/2 节 ledger 单独记录；它不是 changed-path classification。
+| Missed item / type | Prior-Candidate discoverability | Missed lock / prior terminal reference | Independent main / different evidence method |
+|--------------------|--------------------------------|----------------------------------------|----------------------------------------------|
+| `{CR/SD ID + P0/P1/scope_proposal}` | `{旧 path:symbol + failure path；含无依据 closure 时的证据}` | `{已校验 chain/history 行}` | `{当前 main identity；独立路径/假设与不同验证方法}` |
 
-| Repository / Range | Assigned path/component/risk domain | Reviewer | Reviewed complete | Typed blocked/gap ranges |
-|--------------------|-------------------------------------|----------|-------------------|-----------------|
-| `{repo base..Candidate}` | `{complete diff allocation}` | `{main/subagent}` | `YES/NO` | `[] / details` |
+首次 miss：同 missed lock recovery count=0，独立 main 不同于前任，从逐仓 review root 做一次 exceptional full（ordinal=1）；不能只换 ID、换子任务或重跑作者 PASS。当前 recovery 仅存非自引用 `exceptional_review`；下一 attempt 在 terminal digest 已知后向可读 history 追加 missed/recovery 两套 Scope Lock、prior/independent Reviewer 与 artifact 的绑定。
 
-- Initial full coverage complete: `YES / NO`
-- Shared Scope Lock digest reconciled: `YES / NO / N/A`
-- All repositories/ranges reconciled: `YES / NO`
-- Unclassified changed-path manifest entries: `[] / details`
-- Scope-decision-blocked ranges: `[] / exact SD-bound details`
-- Evidence/assignment gaps: `[] / exact EB-bound or unassigned details`
+同 missed lock 再次 miss：建立 `EB-*/review_process_integrity`，绑定 prior exception artifact、第二个 item/type/旧 Candidate 证据及全部 implicated Reviewer；coverage incomplete，`EVIDENCE_BLOCKED`。只有用户明确授权不在 implicated 集合内的新 independent main 从 review root 做新的 initial full 才可恢复；Candidate 修改/测试/普通补证不能关闭，也不允许 delta。其他 lock 的历史不触发本锁 quota，NEW/rebind 不清零旧 quota。
 
-初次评审必须为 `YES` 且两类 range 都为空才可输出 `APPROVED` 或把覆盖作为后续 delta 的复用依据。与 closed proposal 一一对应的 scope-blocked range 返回 `SCOPE_DECISION_REQUIRED`；缺证/未分配 range 返回 `EVIDENCE_BLOCKED`。两类都非空时遵循 evidence 优先级但完整保留 proposal。复审只有在上一轮 coverage=YES 且两类 range 都为空时才能使用 delta-only。
+## 6. Charter decision
 
-`raw_worktree_vs_index`、`worktree_mode_vs_index` 和 `submodule_head_vs_index` path 也必须分类。只有前者没有其他 manifest layer 且能证明是既有 clean/smudge/EOL 工作区表示、并绑定 prior raw bytes 时，才可使用 `verified_filtered_baseline`；mode/submodule mismatch 只能按 `in_scope` 或 `scope_violation` 分类。
-
-## 8. Remediation closure（仅 `remediation_delta_review`）
-
-- Previous Review ID：`{CRV-UUID}`
-- Previous terminal artifact：`{path@version + sha256 / canonical EMBEDDED_TERMINAL_ENVELOPE JSON}`
-
-| Finding ID | Frozen invariant | Expected minimum fix | Allowed surface delta |
-|------------|------------------|----------------------|-----------------------|
-| `CR-P1-001` | `{...}` | `{...}` | `none / exact approved budget row` |
-
-上一轮 initial full coverage complete: `YES / NO`。若为 `NO`，本轮不能使用 `remediation_delta_review`。
-
-| Prior Scope Proposal ID | Owner decision evidence | Disposition | Scope Lock effect |
-|-------------------------|-------------------------|-------------|-------------------|
-| `SD-...` | `{exact decision}` | `CLOSED / OPEN` | `UNCHANGED / NEW_SCOPE_LOCK_INITIAL_REVIEW_REQUIRED` |
-
-| Prior Evidence Blocker ID | Missing input | Restoration evidence | Status |
-|---------------------------|---------------|----------------------|--------|
-| `EB-...` | `{exact input}` | `{exact restored source}` | `CLOSED / OPEN` |
-
-上一 Review ID、可读取的 terminal artifact及摘要、Candidate、finding IDs、scope proposal IDs和evidence blocker IDs必须全部列出；任何 prior item 不得静默消失。
-
-## 9. Reviewer-miss exception binding（仅 `exceptional_full_review_after_reviewer_miss`）
-
-| Field | Value |
-|-------|-------|
-| Invalidated prior review ID | `{exact ID}` |
-| Invalidated prior terminal artifact | `{path@version + sha256 / canonical EMBEDDED_TERMINAL_ENVELOPE JSON}` |
-| Invalidated prior main Reviewer identity | `{stable identity/task}` |
-| Missed immediate-prior Scope Lock ID / digest | `{exact prior terminal lock ID / sha256}` |
-| Triggering missed item | `{CR/SD ID + P0/P1/scope_proposal}` |
-| Prior-Candidate discoverability evidence | `{exact prior Candidate path:line/symbol + failure path}` |
-| Global prior exception history / count | `{可含其他 Scope Lock 的历史 / n}` |
-| Immediate-prior Scope Lock recovery count | `0`（非此值不得进入本模式） |
-| Current independent main Reviewer identity | `{identity/task；必须不同于前任}` |
-| Current exception ordinal | `1` |
-| Full range | `{review_root_base..current Candidate per repo}` |
-
-本节独立于第 8 节。当前 artifact只记录非自引用 recovery block；下一 attempt等 digest已知后，把 missed immediate-prior Scope Lock与本 artifact的 recovery Scope Lock一并加入 global history。quota按 missed lock过滤；同一 missed lock再次漏审创建 `review_process_integrity` blocker，`NEW` 不得清零。
-
-## 10. Charter decision
-
-- Charter complete: YES / NO
-- Unresolved baseline conflict: `{none / details}`
-- Unapproved scope proposal already present: `{none / details}`
-- Candidate binding stable: YES / NO（immutable SHA/tree 也填写 YES）
-- Initial full coverage plan complete: YES / NO
-- Review may proceed: YES / `EVIDENCE_BLOCKED` / `SCOPE_DECISION_REQUIRED`
-- Proceed with independently reviewable ranges: `YES / NO + exact reason`（存在局部 proposal/gap 时默认 YES）
+- Charter complete / candidate binding stable / full coverage plan complete：`YES / NO`。
+- 未解决 baseline conflict / 未批准 proposal：`[] / 精确 item 引用`。
+- Review may proceed：`YES / EVIDENCE_BLOCKED / SCOPE_DECISION_REQUIRED`。
+- 独立可审范围继续：`YES / NO + 精确理由`（局部 proposal/gap 默认不阻止其余范围）。

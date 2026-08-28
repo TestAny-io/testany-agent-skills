@@ -1,4 +1,4 @@
-version: 1
+version: 2
 skill: code-reviewer
 
 review_modes:
@@ -14,8 +14,10 @@ review_modes:
     prior_verdict_does_not_control_delta_eligibility: true
     delta_eligibility:
       same_scope_lock_required: true
-      previous_candidate_must_be_immutable_commit: true
-      mutable_to_mutable_disposition: INITIAL_FULL_REVIEW_FROM_IMMUTABLE_REVIEW_ROOT_OR_BASE
+      previous_candidate_must_be_reconstructable: true
+      previous_candidate_allowed: [immutable_commit, verified_reconstructable_snapshot]
+      snapshot_digest_without_original_content_is_sufficient: false
+      mutable_to_mutable_disposition: VERIFIED_DELTA_AND_DEPENDENCY_CLOSURE_OR_INITIAL_FULL_REVIEW
       prior_initial_full_coverage_complete_required: true
       prior_scope_decision_blocked_ranges_must_be_empty: true
       prior_evidence_or_assignment_gaps_must_be_empty: true
@@ -25,7 +27,7 @@ review_modes:
       - previous_review_id
       - previous_terminal_artifact_path_version_and_digest_or_canonical_embedded_base64_envelope
       - previous_candidate
-      - previous_finding_ids
+      - previous_blocking_finding_ids
       - previous_scope_proposal_ids_and_owner_decisions
       - previous_evidence_blocker_ids_and_restoration_evidence
   exceptional_full_review_after_reviewer_miss:
@@ -107,9 +109,29 @@ attempt_integrity:
     - independent_main_reviewer_identity
   review_id_reuse_after_candidate_snapshot_mode_or_reviewed_from_change: false
 
+review_record:
+  single_authoritative_record_per_attempt: true
+  allowed_representation: [embedded_complete_record, readable_versioned_artifact_with_sha256]
+  references_require_read_and_digest_verification: true
+  digest_or_summary_alone_is_sufficient: false
+  required_once:
+    - review_identity_and_mode
+    - complete_scope_lock_payload_or_verified_charter
+    - exact_repository_candidate_and_range_bindings
+    - changed_path_classification_and_coverage
+    - critical_behavior_evidence
+    - prior_blocking_item_closure_when_applicable
+    - verification_results_and_limitations
+  copied_fields_when_present_must_match_authority: true
+  report_and_subagents_may_reference_verified_record: true
+  duplicate_history_and_empty_inapplicable_appendices_required: false
+  exception_history_may_use_verified_prior_chain_reference: true
+  exception_count_still_derived_from_complete_verified_history: true
+
 prior_terminal_chain:
   required_when_an_immediate_prior_terminal_exists: true
-  first_attempt_without_prior_terminal_uses_explicit_na: true
+  first_attempt_without_prior_terminal_uses_explicit_empty_chain: true
+  legacy_explicit_na_for_no_prior_terminal_accepted: true
   prior_terminal_artifact_representation:
     allowed:
       - persisted_path_at_version_plus_sha256
@@ -119,6 +141,7 @@ prior_terminal_chain:
     summary_only_allowed: false
   one_canonical_prior_terminal_artifact_reference_must_be_reused_everywhere: true
   redundant_prior_review_artifact_alias_allowed: false
+  bound_fields_may_resolve_through_read_verified_review_record: true
   prior_bound_fields_must_equal_verified_immediate_prior_terminal:
     - prior_review_id
     - prior_candidate
@@ -222,7 +245,6 @@ prior_terminal_chain:
         - SCOPE_DECISION_RESOLVED_CHANGED_OR_EXPANDED
         - APPROVED_BASELINE_OR_SCOPE_CHANGED
         - PRECHARTER_INPUTS_RESTORED_AND_SCOPE_LOCK_FIRST_FROZEN
-        - MUTABLE_TO_IMMUTABLE_REBIND
       review_mode_must_equal: initial_full_review
       reviewed_from_must_equal_current_review_root_base: true
     delta:
@@ -230,7 +252,10 @@ prior_terminal_chain:
       allowed_causes:
         - ORDINARY_REMEDIATION
         - SCOPE_DECISION_RESOLVED_PRESERVED
+        - MUTABLE_TO_IMMUTABLE_REBIND
       remediation_delta_eligibility_must_also_pass: true
+      rebind_requires_evidence_reuse_predicates: true
+      unbounded_or_unreconstructable_delta_requires_initial_full_review: true
   exact_trigger_evidence_and_first_available_source_required: true
   every_blocking_p0_p1_scope_proposal_and_evidence_blocker_from_immediate_prior_terminal_must_be_listed: true
   prior_blocking_item_may_disappear_silently: false
@@ -268,13 +293,16 @@ prior_terminal_chain:
     at_least_one_repository_must_transition:
       prior_candidate_must_be: WORKTREE_SNAPSHOT
       current_candidate_must_be: IMMUTABLE_COMMIT_AND_TREE
-    current_candidate_for_every_repository_must_be: IMMUTABLE_COMMIT_AND_TREE
+    current_candidate_for_every_repository_must_be: EXACT_IMMUTABLE_OR_VERIFIED_MUTABLE_BINDING
+    certificate_requires_all_repositories_immutable: true
     prior_immutable_repository_binding_must_remain_exact_unless_another_transition_cause_authorizes_and_evidences_its_change: true
     prior_and_current_binding_required_per_repository: true
-    full_review_mode_required: true
-    reviewed_from_must_equal_current_review_root_base_for_every_repository: true
+    full_review_mode_required: false
+    mode_depends_on_verified_delta_and_all_copresent_causes: true
+    missing_equivalence_or_bounded_delta_requires_full_review: true
     mutable_approval_may_be_converted_to_certificate: false
-    delta_reuse_allowed: false
+    delta_reuse_allowed_only_under_evidence_reuse_policy: true
+    new_review_id_candidate_binding_and_verdict_required: true
 
 invalidated_attempt_lineage:
   separate_from_prior_terminal_chain: true
@@ -288,8 +316,9 @@ invalidated_attempt_lineage:
     - resolved_snapshot_script_path_and_digest
     - exact_argv
     - exact_drift_evidence
-    - invalidated_validation_may_be_reused
-  invalidated_validation_may_be_reused: false
+    - evidence_reuse_decisions
+  invalidated_verdict_may_be_reused: false
+  validation_reuse_requires_verified_unaffected_inputs: true
   may_be_present_with_prior_terminal_chain: true
 
 scope_lock_binding:
@@ -348,8 +377,23 @@ scope:
   independent_in_scope_review_continues_when_scope_proposal_exists: true
   scope_contaminated_ranges_are_recorded_as_gaps: true
   scope_proposal_may_be_converted_to_finding: false
+  complexity_boundary:
+    no_new_architecture_surface_is_sufficient_justification: false
+    review_minimum_fix_operational_and_maintenance_cost: true
+    additional_manual_steps_gates_configuration_and_approvals_require_invariant_justification: true
+    prefer_narrowing_false_claim_over_building_proof_infrastructure: true
+    narrowing_false_claim_may_weaken_approved_requirements: false
+    generic_complexity_score_or_zero_guard_policy_required: false
+
+optional_work:
+  mandatory_remediation_contains_only_confirmed_p0_p1: true
+  p2_requires_explicit_selection_to_become_requested_work: true
+  selected_p2_automatically_becomes_blocking: false
+  unselected_p2_enters_next_round_blocking_closure: false
+  bundled_suggestion_to_close_all_p2_this_round_allowed: false
 
 finding:
+  required_identity_fields: [finding_id, severity, scope_classification]
   allowed_provenance:
     - initial_review
     - remediation_delta
@@ -373,18 +417,19 @@ finding:
   post_terminal_new_ci_env_provenance_requires_matching_full_review_cause: true
   required_for_p0_p1:
     - provenance
-    - prior_evidence_blocker_id
-    - prior_evidence_blocker_restoration_evidence
-    - prior_terminal_chain_reference
-    - underlying_item_prior_source_nondiscoverability_evidence
-    - why_not_discoverable_previously
     - violated_frozen_invariant
     - exact_evidence
     - reproducer_or_failure_path
     - impact
     - minimum_boundary_preserving_fix
     - architecture_surface_delta
-    - architecture_budget_reference
+  conditionally_required_fields:
+    within_approved_budget: [architecture_budget_reference]
+    previously_unavailable_evidence: [prior_evidence_blocker_id, prior_evidence_blocker_restoration_evidence, why_not_discoverable_previously]
+    post_terminal_new_ci_env: [prior_terminal_chain_reference, underlying_item_prior_source_nondiscoverability_evidence, why_not_discoverable_previously]
+    reviewer_miss: [prior_terminal_chain_reference, prior_candidate_discoverability_evidence]
+    continued_or_late_cause: [causal_history]
+  unused_conditional_fields_require_na_rows: false
   allowed_architecture_surface_delta_for_p0_p1:
     - none
     - within_approved_budget
@@ -398,7 +443,7 @@ finding:
     exact_restoration_evidence_required: true
     missing_prior_blocker_disposition: REVIEWER_MISS
   post_terminal_new_ci_env:
-    prior_evidence_blocker_id_must_equal: N/A
+    prior_evidence_blocker_id_must_be_absent_or_na: true
     prior_terminal_chain_must_include_cause: POST_TERMINAL_NEW_CI_ENV
     exceptional_mode_requires_reviewer_miss_cause_too: true
     exact_external_evidence_and_first_available_source_or_time_required: true
@@ -423,6 +468,22 @@ scope_proposal:
     - minimum_owner_question
     - boundary_preserving_recommendation
     - expansion_option_consequence
+    - prior_candidate_discoverability_evidence
+    - causal_history
+  field_population: CORE_PROPOSAL_FIELDS_PLUS_APPLICABLE_PROVENANCE_FIELDS_ONLY
+  required_fields:
+    - scope_proposal_id
+    - trigger
+    - provenance
+    - conflicting_or_ambiguous_baselines
+    - approved_budget_reference
+    - exact_evidence
+    - why_revert_or_delete_is_not_a_correct_fix
+    - contaminated_paths_or_ranges
+    - minimum_owner_question
+    - boundary_preserving_recommendation
+    - expansion_option_consequence
+  provenance_fields_follow_finding_conditional_requirements: true
   allowed_triggers:
     - baseline_conflict
     - ambiguous_baseline
@@ -475,6 +536,7 @@ evidence_blocker:
     - prior_exception_terminal_artifact
     - second_missed_item_id_type_and_evidence
     - status
+  process_fields_required_only_for_review_process_integrity: true
   allowed_kinds:
     - candidate_binding
     - approved_baseline
@@ -498,8 +560,81 @@ evidence_blocker:
     restoration_action: NEW_INDEPENDENT_INITIAL_FULL_REVIEW_FROM_REVIEW_ROOT
     delta_review_after_closure_allowed: false
   non_review_process_integrity_fields:
-    prior_exception_terminal_artifact_must_equal: N/A
-    second_missed_item_id_type_and_evidence_must_equal: N/A
+    process_specific_fields_may_be_omitted_or_na: true
+
+production_evidence:
+  applies_to: TOUCHED_CRITICAL_PATHS_AND_FROZEN_INVARIANTS
+  required_evidence_dimensions:
+    - production_entry_and_input_provider_or_parser
+    - actual_helper_and_substitution_boundary
+    - independent_expected_result_source
+    - legal_illegal_error_and_side_effect_behavior
+    - direct_callers_branches_targets_and_recovery_sequences
+    - remaining_unproven_boundary
+  one_evidence_row_may_cover_multiple_findings: true
+  real_database_or_cluster_alone_proves_production_semantics: false
+  mock_of_reviewed_helper_proves_its_closure: false
+  current_output_generated_expected_hash_proves_approved_binding: false
+  source_string_order_proves_runtime_branch_execution: false
+  parser_comparison_uses_actual_owning_parser_semantics: true
+  alternate_parser_authority_may_be_invented: false
+  pair_required_legal_acceptance_with_illegal_rejection: true
+  inspect_normal_transitions_only_when_relevant: true
+  historical_terminal_and_active_terminating_objects_may_be_conflated: false
+  smallest_discriminating_existing_harness_preferred: true
+  universal_new_test_platform_or_per_file_matrix_required: false
+
+behavior_closure:
+  trace_direct_consumers_of_same_invariant: true
+  include_ordinary_and_continuation_paths_when_present: true
+  include_all_approved_targets_when_present: true
+  inspect_cross_attempt_state_when_recovery_or_compensation_is_touched: true
+  one_line_change_is_sufficient_closure: false
+  scope_expansion_or_unrelated_repository_rescan_allowed: false
+
+evidence_reuse:
+  reference: references/evidence-reuse.md
+  allowed_layer: source_local
+  decisions: [REUSE, RERUN, BLOCKED]
+  all_required:
+    - same_verified_scope_and_approved_baselines
+    - prior_evidence_read_and_provenance_verified
+    - prior_and_current_original_content_reconstructable
+    - reviewed_delta_and_direct_dependency_closure
+    - exact_command_config_tool_inputs_and_external_fixture_identity
+    - independent_oracle_and_test_semantics_still_valid
+    - no_changed_input_to_the_reused_evidence
+  unknown_input_disposition: DO_NOT_REUSE_RESTORE_SMALLEST_CHECK
+  unchanged_file_or_commit_message_alone_is_sufficient: false
+  live_observation_reuse_as_current_state_allowed: false
+  exact_sha_ci_rebinding_allowed: false
+  invalidated_method_or_miss_affected_coverage_reuse_allowed: false
+  old_approval_automatically_inherited: false
+  rebind_requires_new_review_id_exact_candidate_and_verdict: true
+  delta_eligibility_also_requires_trustworthy_complete_prior_coverage_and_empty_gaps: true
+  changed_gate_inputs_require_rerun: true
+  unrelated_changed_files_automatically_invalidate_all_evidence: false
+  unreconstructable_or_unbounded_delta_disposition: INITIAL_FULL_REVIEW
+
+review_independence:
+  build_critical_path_and_assumptions_before_author_pass_narrative: true
+  delta_prior_acceptance_conditions_must_not_be_hidden: true
+  reviewer_identity_or_count_alone_is_sufficient: false
+  changed_path_coverage_alone_is_behavior_proof: false
+  after_miss_requires_old_blind_spot_and_different_discriminating_method: true
+  main_reviewer_revalidates_subagent_evidence: true
+  maximize_finding_count_is_valid_objective: false
+
+skill_behavior_validation:
+  applies_only_when_maintaining_skill: true
+  reference: tests/evaluation.md
+  paired_defective_and_corrected_raw_cases_required: true
+  fixed_scope_p2_and_insufficient_evidence_controls_required: true
+  independent_forward_test_sees_expected_answers: false
+  raw_case_must_include_exact_source_binding_and_approved_requirement: true
+  evaluation_dimensions: [missed_defect, false_positive, scope_creep, convergence]
+  policy_string_tests_alone_are_quality_proof: false
+  reduced_fixture_claims_real_product_deployment_success: false
 
 evidence_layers:
   source:
@@ -537,6 +672,14 @@ remediation_rounds:
     may_change_scope_or_acceptance_criteria: false
     may_require_unapproved_architecture: false
   p2_may_extend_review: false
+  causal_history:
+    applies_even_when_finding_id_is_unchanged: true
+    categories: [original_unfixed, introduced_by_fix, pre_existing_unreported_cause]
+    required_evidence: [prior_and_current_source, first_discoverability, prior_acceptance_and_status, reviewer_responsibility]
+    same_id_or_scope_exempts_miss_accountability: false
+    every_extra_cause_of_open_item_automatically_is_formal_miss: false
+    new_blocker_or_invalidated_closed_approved_path_requires_miss_assessment: true
+    silently_changed_acceptance_conditions_allowed: false
 
 multi_repository_review:
   shared_scope_lock_digest_required: true

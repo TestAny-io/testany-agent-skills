@@ -101,7 +101,7 @@ testany-agent-skills/
 | `/testany-eng:test-strategy-reviewer` | 测试策略评审门禁，检查风险覆盖、分层、环境和入口/出口标准 |
 | `/testany-eng:lld-writer` | LLD 写作技能，将 HLD 和 Contract 细化为可实现的详细设计 |
 | `/testany-eng:lld-reviewer` | LLD 审查门禁，检查 HLD→LLD 漂移、完整性与实现风险 |
-| `/testany-eng:code-reviewer` | 源码实现评审门禁，以 Scope Lock 和精确 Candidate 检查实现正确性，禁止借评审扩大需求或架构 |
+| `/testany-eng:code-reviewer` | 冻结范围内的源码评审：核验生产语义、正反行为与整改整链；同 ID 漏审问责、有条件复用证据，P2 不阻断 |
 | `/testany-eng:test-spec-writer` | 测试规格与测试用例包写作助手，输出完整 test case package |
 | `/testany-eng:test-reviewer` | 测试评审门禁，检查测试包覆盖、证据与残余风险 |
 | `/testany-eng:runbook-writer` | 运维手册（Runbook）编写协调器，基于 HLD/LLD 产出生产就绪的运维手册 |

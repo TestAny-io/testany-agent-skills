@@ -1,0 +1,105 @@
+{
+  "schema": "code-reviewer.small-regressions.v1",
+  "runtime": {
+    "resource": {
+      "contents": {
+        "setup": "CREATE TABLE sample (id INTEGER);\n",
+        "index": "CREATE INDEX sample_id ON sample(id);\n",
+        "changed": "CREATE TABLE changed (id INTEGER);\n"
+      },
+      "r1_counterexamples": ["moved", "leaf-only", "extra-same-name"],
+      "inputs": [
+        {
+          "id": "complete",
+          "files": {"db/migration/V001__setup.sql": "setup", "db/migration/nested/V002__index.sql": "index"},
+          "expected": {"exit": 0, "accepted": true}
+        },
+        {
+          "id": "moved",
+          "files": {"db/migration/V001__setup.sql": "setup", "shadow/V002__index.sql": "index"},
+          "expected": {"exit": 3, "accepted": false}
+        },
+        {
+          "id": "leaf-only",
+          "files": {"V001__setup.sql": "setup", "V002__index.sql": "index"},
+          "expected": {"exit": 3, "accepted": false}
+        },
+        {
+          "id": "extra-same-name",
+          "files": {"db/migration/V001__setup.sql": "setup", "db/migration/nested/V002__index.sql": "index", "shadow/V001__setup.sql": "setup"},
+          "expected": {"exit": 3, "accepted": false}
+        },
+        {
+          "id": "modified-content",
+          "files": {"db/migration/V001__setup.sql": "changed", "db/migration/nested/V002__index.sql": "index"},
+          "expected": {"exit": 3, "accepted": false}
+        },
+        {
+          "id": "missing",
+          "files": {"db/migration/V001__setup.sql": "setup"},
+          "expected": {"exit": 3, "accepted": false}
+        },
+        {"id": "empty", "files": {}, "expected": {"exit": 3, "accepted": false}}
+      ]
+    },
+    "permission": {
+      "r1_counterexamples": ["deny", "no-with-success"],
+      "inputs": [
+        {"id": "allow", "expected": {"exit": 0, "stdout": "ALLOW\n"}},
+        {"id": "deny", "expected": {"exit": 0, "stdout": "DENY\n"}},
+        {"id": "command-error", "expected": {"exit": 2, "stdout": "ERROR\n"}},
+        {"id": "no-with-error", "expected": {"exit": 2, "stdout": "ERROR\n"}},
+        {"id": "no-with-success", "expected": {"exit": 2, "stdout": "ERROR\n"}},
+        {"id": "unknown", "expected": {"exit": 2, "stdout": "ERROR\n"}}
+      ]
+    },
+    "lifecycle": {
+      "r1_counterexamples": ["resume-release", "resume-blocked"],
+      "inputs": [
+        {"id": "ordinary-release", "mode": "ordinary", "release": "released", "expected": {"exit": 0, "events": ["release", "PASS"], "lock_held": false}},
+        {"id": "resume-release", "mode": "resume", "release": "released", "expected": {"exit": 0, "events": ["release", "PASS"], "lock_held": false}},
+        {"id": "ordinary-blocked", "mode": "ordinary", "release": "blocked", "expected": {"exit": 3, "events": ["release"], "lock_held": true}},
+        {"id": "resume-blocked", "mode": "resume", "release": "blocked", "expected": {"exit": 3, "events": ["release"], "lock_held": true}},
+        {"id": "unknown-mode", "mode": "other", "release": "released", "expected": {"exit": 2, "events": [], "lock_held": true}}
+      ]
+    }
+  },
+  "review": {
+    "CRB-001": {
+      "terminal": "CHANGES_REQUIRED", "required_roots": ["resource-identity"], "paired_case": "CRB-002",
+      "facts": "gate.py 丢弃目录，仅对 basename/checksum 比较。真实 DirectoryProvider 返回完整路径，移动或同名额外 SQL 仍通过；原单测只构造叶子文件名。P1 应绑定 DEC-R-17 的路径集合不变量，并实际复现真实 provider；最小修复是全路径比较，不引入新服务。"
+    },
+    "CRB-002": {
+      "terminal": "APPROVED", "required_roots": [],
+      "facts": "合法完整资源接受，移动/重复名称目录/内容修改/缺失/空目录拒绝。不得因为需要测试真实 Flyway/PostgreSQL 或历史中间 commit 的问题阻止当前 Candidate。"
+    },
+    "CRB-003": {
+      "terminal": "CHANGES_REQUIRED", "required_roots": ["probe-protocol"], "paired_case": "CRB-004",
+      "facts": "probe.sh 将合法的 rc1+no 提前作为 ERROR；同时 rc0+no 被接受。P1 证据为真实 shell helper 与离线 CLI 边界的 stdout/exit 组合，合法拒绝不能进入命令故障分支；按完整状态对分类即可。两种现象属于同一协议根因，不强求拆为两个 finding。"
+    },
+    "CRB-004": {
+      "terminal": "APPROVED", "required_roots": [],
+      "facts": "正常允许/拒绝均成功，命令错误与非法状态对拒绝。无真实集群不是本样本的源码 blocker，不要求新增 kubectl adapter 平台。"
+    },
+    "CRB-005": {
+      "terminal": "CHANGES_REQUIRED", "required_roots": ["resume-terminal-order"], "paired_case": "CRB-006",
+      "facts": "resume 在 release 前发布 PASS 且吞掉 OSError；正常分支正确不能证明恢复分支。真实文件 unlink 失败时仍 exit0/PASS/锁保留。P1 最小修复是统一两路径的 release-then-PASS，保留异常传播；不需要新锁服务。"
+    },
+    "CRB-006": {
+      "terminal": "APPROVED", "required_roots": [],
+      "facts": "两分支成功均 release 后 PASS；失败 exit3、无 PASS 且锁保留。可在 paired delta 中关闭原 finding；不得因有新的可选测试建议继续阻断。"
+    },
+    "CRB-007": {
+      "terminal": "APPROVED", "required_roots": [], "max_finding_severity": "P2",
+      "facts": "只有非必需的诊断 mode 建议。接受记录为 P2 或不提；不得制造 P1、要求条件通过或追加审核轮次。"
+    },
+    "CRB-008": {
+      "terminal": "APPROVED", "required_roots": [], "max_finding_severity": "P2",
+      "facts": "资源实现正确；作者提议的 HTTP 服务/跨仓库控制台未经批准且非必要，应记 OUT_OF_SCOPE 或忽略，不能要求实现、转成 P1 或 SCOPE_DECISION_REQUIRED。临时目录命名仅可选建议。"
+    },
+    "CRB-009": {
+      "terminal": "EVIDENCE_BLOCKED", "required_roots": [], "evidence_gap": "vendor_inventory source",
+      "facts": "provider wrapper 在 base 与 Candidate 完全相同；必要的供应商 provider 源码与安装包未交付。应精确登记缺口/所有者/恢复材料，继续检查可读 helper，不能把缺材料冒充 Candidate 删除依赖的 P1，也不能臆造测试结果。"
+    }
+  }
+}
