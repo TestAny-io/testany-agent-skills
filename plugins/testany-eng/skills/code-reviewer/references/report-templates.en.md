@@ -1,452 +1,153 @@
 # Code Review Output Templates
 
-## Mandatory Mutable Binding Appendix for every WORKTREE verdict
+Each terminal uses one [Review Record](scope-lock-template.en.md) and the applicable body below; A–G are selectors, not sections to emit together. The Record holds the complete Charter, per-repository bindings, manifests/coverage, behavioral evidence, three verification layers, prior chain/closure, and applicable appendices. Reference it instead of copying its tables. Omit mutable, drift, or miss appendices when inapplicable; keep empty collections as `[]`.
 
-Whenever A/B/C/E/G binds `WORKTREE@...`, include this appendix in the same terminal artifact. The canonical Scope Lock payload excludes these attempt-specific facts and cannot replace these tables. Immutable-only D is not applicable.
+## Shared terminal header and approval conditions
 
-| Repository | Root / immutable base / HEAD | Snapshot schema / SHA | Resolved script path + file SHA-256 | Exact argv (all options) | Changed-path digest | Post-validation / pre-verdict |
-|------------|------------------------------|-----------------------|------------------------------------|--------------------------|---------------------|--------------------------------|
-| `{mutable repo only}` | `{absolute root / full SHA / full SHA}` | `testany.code-reviewer.worktree-snapshot.v1 / WORKTREE@{sha256}` | `{absolute snapshot_worktree.py / sha256}` | `{argv array: --repo, --base, every --exclude, --candidate-ignored, --mutable-baseline}` | `{manifest.candidate_changed_paths_sha256}` | `{MATCH/DRIFT / MATCH/DRIFT}` |
+```markdown
+# Code Review — {verdict}
 
-| Repository | Binding class | Exact path | Exact option | Ownership / reason / bound digest |
-|------------|---------------|------------|--------------|-----------------------------------|
-| `{repo}` | `candidate_untracked` | `{path / none}` | `automatic untracked capture` | `{Candidate / N/A}` |
-| `{repo}` | `candidate_ignored` | `{path / none}` | `--candidate-ignored` | `{Candidate / N/A}` |
-| `{repo}` | `excluded_wip` | `{path / none}` | `--exclude` | `{owner + evidence-backed reason / N/A}` |
-| `{repo}` | `mutable_baseline` | `{absolute path / none}` | `--mutable-baseline` | `{sha256 / N/A}` |
+- Review Record: {complete EMBEDDED_REVIEW_RECORD or readable path@version + sha256}
+- Record verification: READ_AND_HASH_VERIFIED (including canonical Scope Lock digest recomputation)
+- P0 / P1 / P2: {n / n / n}
+- Required remediation IDs: [] (confirmed P0/P1 only)
+- Required decisions / inputs: [] (SD / EB IDs)
 
-Use one row per actual path; when empty, retain one `none` row for each class. Any `DRIFT` invalidates the current Review ID and forbids a verdict based on the old snapshot.
+{Applicable A–E body only; F or G references the Record according to mode}
+```
 
-## Mandatory Prior Terminal Chain Appendix when an immediate prior terminal exists
+Read and verify the Record, its prior terminal/history, and referenced item bodies; a digest, summary, or count cannot replace them. Verify, decode, and read embedded prior terminals with `terminal_artifact_envelope.py`. Do not issue a verdict on mismatched Record versions/fixed bindings. Pre-charter unknowns use the Charter's closed sentinels while preserving main Reviewer identity and all available exact fields.
 
-A/B/C/D/E/G must preserve every blocking item from the immediate prior terminal whenever one exists. F is only extra ordinary-remediation delta detail and cannot replace this appendix. Use `N/A / none` for a true first attempt with no prior terminal.
+Precedence is `EVIDENCE_BLOCKED > SCOPE_DECISION_REQUIRED > CHANGES_REQUIRED > APPROVED`. `APPROVED` requires P0=P1=0, all SD/EB closed, every prior blocking item CLOSED, required source/local evidence COMPLETE, stable Candidate bindings, complete reconciled initial full coverage, and `[]` for unclassified and both gap lists. Report CI/environment separately; undeployed state or CI NOT_RUN is not a source defect. Create a standard finding only when evidence proves a Candidate violation of a frozen invariant.
 
-| Prior Review ID | Terminal artifact | Transition causes | Per-cause evidence / first-available source or time | Prior/current Candidate | Prior mode / main Reviewer | Current Review ID / mode / main Reviewer | Prior Scope Lock ID / digest | Current Scope Lock ID / digest | Effect |
-|-----------------|-------------------|-------------------|-----------------------------------------------------|-------------------------|----------------------------|------------------------------------------|------------------------------|--------------------------------|--------|
-| `{CRV-UUID}` | `{path@version + sha256 / canonical EMBEDDED_TERMINAL_ENVELOPE JSON}` | `{unique subset of the closed cause enum}` | `{cause → exact evidence + source/time}` | `{exact bindings}` | `{mode / identity}` | `{this attempt's exact root fields}` | `{id / digest}` | `{id / digest}` | `SAME / NEW` |
+P2 is optional: without explicit selection it does not become remediation, enter mandatory closure, extend review, or invite a bundled request to "fix them all this round." Selection does not automatically make it blocking. No source verdict authorizes CI triggers, merge, Secret, migration, deployment, live smoke, or release.
 
-| Blocking item ID / type | Prior invariant / repository / range / status | Closure evidence or Owner authority | Current status | Required next disposition |
-|-------------------------|-----------------------------------------------|-------------------------------------|----------------|---------------------------|
-| `{CR-P0/P1, SD, or EB ID + type}` | `{exact immediate-prior terminal row}` | `{exact delta/restoration/decision/process authority}` | `OPEN / CLOSED` | `{delta / initial full review / new Scope Lock}` |
+## Item bodies (stored once in the Record registry)
 
-Approval requires every prior **blocking** item `CLOSED`; P2 never enters blocking closure. Only one canonical prior-terminal reference is allowed. After reading/verifying it, all copied prior/current fields must exactly match both authoritative endpoints, and recovery history must separately match the missed and recovery Scope Locks. Causes are a unique closed set with independent evidence; compatible causes compose in one attempt and all constraints accumulate. Without a scope-changing cause the effect is `SAME`; exactly one of the three scope-changing causes is required for `NEW`. Fixed mode precedence is repeated reviewer miss → initial full + incomplete coverage + `EVIDENCE_BLOCKED`, process reset → initial full, reviewer miss → exceptional full, other NEW/rebind/post-CI/partial → initial full, then eligible delta. This closes process-reset/scope-change/rebind or reviewer-miss/post-CI combinations once without allowing one cause to erase another.
+### P0/P1 finding
 
-## Mutable Snapshot Drift Lineage without a terminal
+Structured items still contain explicit `finding_id`, `severity`, and `scope_classification: in_scope | scope_violation`. A human-readable heading is presentation only; do not infer counts by guessing from headings.
 
-When pre-terminal snapshot drift occurred, add one row per invalidated attempt to the same A/B/C/D/E/G artifact. Even if the later Candidate is committed and produces immutable D, do not represent an invalidated attempt as either a terminal or a first attempt.
+```markdown
+### {CR-P0/P1-ID} — {title}
 
-| Invalidated Review ID | Terminal | Transition reason | Old/new snapshot | Resolved script path + digest | Exact argv | Drift evidence | Prior validation reusable |
-|-----------------------|----------|-------------------|------------------|-------------------------------|------------|----------------|---------------------------|
-| `{CRV-UUID}` | `N/A` | `MUTABLE_SNAPSHOT_DRIFT_REBIND` | `{old / new WORKTREE digests}` | `{absolute path / sha256}` | `{full argv}` | `{exact mismatch}` | `NO` |
+- provenance: {allowed by review-policy.yaml and matched to mode}
+- violated_frozen_invariant: {exact approved baseline requirement}
+- exact_evidence: {repo + Candidate + path:line/symbol}
+- reproducer_or_failure_path: {reproducible inputs and failure path}
+- impact: {user/system effect}
+- minimum_boundary_preserving_fix: {minimum repair; justify any added operational/gate complexity}
+- architecture_surface_delta: none / within_approved_budget
+```
+
+Add `architecture_budget_reference` only for `within_approved_budget`. When the Candidate crossed a boundary and deletion/revert correctly restores compliance, use a P1 titled `scope violation`; the minimum fix is deletion/revert only, with net surface delta `none`, not an Owner proposal. Never silently change prior acceptance or approved scope to support a new finding.
+
+### SD scope proposal
+
+```markdown
+### {SD-ID}
+
+- scope_proposal_id: {original ID}
+- trigger: baseline_conflict / ambiguous_baseline / minimum_correct_fix_requires_unapproved_surface
+- provenance: {closed provenance matched to mode}
+- conflicting_or_ambiguous_baselines: [] / {exact references}
+- approved_budget_reference: {exact Charter row / NONE}
+- exact_evidence: {repo + Candidate + path:line/symbol}
+- why_revert_or_delete_is_not_a_correct_fix: {evidence-backed reason}
+- contaminated_paths_or_ranges: [] / {exact ranges}
+- minimum_owner_question: {one concrete decision}
+- boundary_preserving_recommendation: {one recommendation}
+- expansion_option_consequence: {baselines to update + new Scope Lock / full review}
+```
+
+Generic best practices and directly removable Candidate scope violations are not SD. Before the Owner decision, do not convert a proposal to P0/P1 or derive new requirements from it. Each contaminated range must map one-to-one to the Record's `scope_decision_blocked_ranges`; keep the array empty when the proposal does not impede remaining coverage.
+
+### Conditional provenance (shared by findings/proposals; emit only when applicable)
+
+| Condition | Required evidence or exact Record reference |
+|-----------|----------------------------------------------|
+| `previously_unavailable_evidence` | `prior_evidence_blocker_id`, `prior_evidence_blocker_restoration_evidence`, `why_not_discoverable_previously`; the prior EB must cover the same invariant/range, otherwise use miss handling |
+| `post_terminal_new_ci_env` | `prior_terminal_chain_reference` containing `POST_TERMINAL_NEW_CI_ENV`, `underlying_item_prior_source_nondiscoverability_evidence`, `why_not_discoverable_previously`; the chain binds first availability/source/time and cannot relabel an issue discoverable in old source as new evidence |
+| `reviewer_miss` | `prior_terminal_chain_reference`, `prior_candidate_discoverability_evidence`; follow the Record's independent-review rules |
+| continued / late cause | `causal_history` references unified closure: `original_unfixed / introduced_by_fix / pre_existing_unreported_cause`, old/new code, first visibility, prior acceptance/status, and Reviewer responsibility |
+
+The same ID does not exempt miss accountability. An extra cause of the same OPEN issue is not automatically a formal miss, but a previously unreported blocking item or unsupported CLOSED/APPROVED path requires miss assessment. Mode/provenance follows the closed matrix in [review-policy.yaml](review-policy.yaml); a new ID or scope cannot evade responsibility.
+
+### EB and environment-only note
+
+| Type | Required fields |
+|------|-----------------|
+| EB | `evidence_blocker_id`, `blocker_kind`, `frozen_invariant`, `repository_identity`, `affected_paths_or_ranges`, `missing_input`, `smallest_restoration_evidence`, `status` |
+| Additional `review_process_integrity` fields | `prior_exception_terminal_artifact`, `second_missed_item_id_type_and_evidence`, `implicated_reviewer_identities`; exact references to the Record's miss appendix are allowed |
+| Environment-only note | `note_id`, `exact_evidence`, `readiness_gap`, `source_verdict_effect: NONE` |
+
+EB kinds are limited to `candidate_binding / approved_baseline / source_access / verification_evidence / review_process_integrity`. Even at Gate 0 retain available repo/range fields and `NOT_FROZEN`; other EB kinds omit empty process-only fields. Missing evidence is not itself a source defect. All IDs are unique within the shared Review ID, and original issues keep their IDs. Counts must equal actual findings; summaries/counts cannot discard items.
 
 ## A. Review Comment / CHANGES_REQUIRED
 
 ```markdown
-# Lead Dev Code Review
-
-## 1. Exact binding
-
-| Repository | Review root base | Reviewed from | Candidate | Tree / Snapshot | Reviewed range |
-|------------|------------------|---------------|-----------|-----------------|----------------|
-| `{repo}` | `{initial approved base SHA}` | `{base / previous SHA / review root for exceptional}` | `{sha or WORKTREE}` | `{tree or WORKTREE@sha256}` | `{reviewed-from..candidate}` |
-
-- Review mode: `initial_full_review` / `remediation_delta_review` / `exceptional_full_review_after_reviewer_miss`
-- Review ID: `CRV-<UUIDv4>`
-- Main Reviewer identity: `{stable identity/task}`
-- Prior reviewer-miss recovery history / global count / immediate-prior Scope Lock recovery count: `{ordered entries each with missed+recovery Scope Lock IDs/digests + terminal artifact + prior/current Reviewer identities / []} / {n>=0} / {0|1}`
-- Scope Lock ID / content digest: `{id / sha256}`
-- Persisted Charter: `{path@version + file sha256 / FULL_CANONICAL_PAYLOAD_EMBEDDED}`
-- Canonical Scope Lock payload: `{full script output when embedded / N/A when persisted Charter is bound}`
-- Approved baselines: `{paths/SHA/decision records}`
-- Worktree ownership: `{clean / classified WIP}`
-
-## 2. Scope decision
-
-- In Scope: `{summary}`
-- Out of Scope: `{summary}`
-- Must Not Change / Regress: `{summary}`
-- Architecture budget: `{approved surface delta}`
-- Unapproved scope proposal: `none`
-
-## 3. Findings
-
-### [P0/P1] `CR-{severity}-{nnn}` - {title}
-
-- `violated_frozen_invariant`: `{approved invariant}`
-- `provenance`: `initial_review / remediation_delta / previously_unavailable_evidence / reviewer_miss / post_terminal_new_ci_env`
-- `prior_evidence_blocker_id`: `EB-... / N/A`
-- `prior_evidence_blocker_restoration_evidence`: `{exact prior EB closure / N/A}`
-- `prior_terminal_chain_reference`: `{prior Review ID + cause row / N/A}`
-- `underlying_item_prior_source_nondiscoverability_evidence`: `{exact evidence / N/A}`
-- `why_not_discoverable_previously`: `{exact reason / N/A}`
-- `exact_evidence`: `{absolute/repository path:line or symbol, commit}`
-- `reproducer_or_failure_path`: `{minimal deterministic path}`
-- `impact`: `{user/system impact}`
-- `minimum_boundary_preserving_fix`: `{smallest repair}`
-- `architecture_surface_delta`: `none / within_approved_budget`
-- `architecture_budget_reference`: `{N/A or exact Scope Lock row}`
-
-When the Candidate itself crossed an explicit boundary and revert/delete restores compliance, use a standard `P1` finding titled `scope violation`; `minimum_boundary_preserving_fix` is only revert/delete and `architecture_surface_delta: none`.
-
-### P2 (non-blocking)
-
-- `CR-P2-{nnn}` `{evidence-backed suggestion}`
-
-## 4. Separate readiness notes
-
-- Source/local gates: `{status}`
-- Exact-SHA CI: `{SUCCESS / FAILED / NOT_RUN}`
-- Environment/deployment gaps: `{separate list; not source findings}`
-- Initial full coverage complete: `YES`
-- Per-repository changed-path manifests / digests: `{repo → source / sha256}`
-- Unclassified changed-path manifest entries: `[]`
-- Scope-decision-blocked ranges: `[]`
-- Evidence/assignment gaps: `[]`
-
-## 5. Verdict
-
-`CHANGES_REQUIRED`
-
-- P0: `{n}`
-- P1: `{n}`
-- P2: `{n}` (non-blocking)
-- Required remediation: `{finding IDs only}`
-- Scope Lock for next round: `UNCHANGED`
-- Initial full coverage complete: `YES`
+Confirmed findings: {exact Record P0/P1 item references and concise impact}
+Required remediation: {only those P0/P1 IDs; retain each boundary}
+Verdict: CHANGES_REQUIRED
 ```
+
+Use for at least one confirmed P0/P1 with no higher-precedence SD/EB. If blocked ranges remain, use B/C and preserve every confirmed finding. P2 cannot enter required remediation.
 
 ## B. SCOPE_DECISION_REQUIRED
 
 ```markdown
-# Lead Dev Code Review - Scope Decision Required
-
-## Exact binding
-
-{same binding table}
-
-- Review ID: `CRV-<UUIDv4>`
-- Review mode: `{mode}`
-- Main Reviewer identity: `{stable identity/task}`
-- Prior reviewer-miss recovery history / global count / immediate-prior Scope Lock recovery count: `{ordered entries each with missed+recovery Scope Lock IDs/digests + terminal artifact + prior/current Reviewer identities / []} / {n>=0} / {0|1}`
-- Scope Lock ID / content digest: `{id / sha256}`
-- Persisted Charter: `{path@version + file sha256 / FULL_CANONICAL_PAYLOAD_EMBEDDED}`
-- Canonical Scope Lock payload: `{full script output when embedded / N/A when persisted Charter is bound}`
-
-## Frozen boundaries
-
-| Boundary | Frozen value |
-|----------|--------------|
-| In Scope | `{complete summary or exact persisted Charter section}` |
-| Out of Scope | `{complete summary or exact persisted Charter section}` |
-| Must Not Change / Regress | `{complete summary or exact persisted Charter section}` |
-| Architecture budget | `{complete KEEP/ADD/MODIFY/DELETE/NONE rows or exact persisted Charter section}` |
-
-## Confirmed scope proposals / Owner decisions
-
-### `SD-{nnn}`
-
-- `scope_proposal_id`: `SD-{nnn}`
-- `trigger`: `baseline_conflict / ambiguous_baseline / minimum_correct_fix_requires_unapproved_surface`
-- `provenance`: `initial_review / remediation_delta / previously_unavailable_evidence / reviewer_miss / post_terminal_new_ci_env`
-- `prior_evidence_blocker_id`: `EB-... / N/A`
-- `prior_evidence_blocker_restoration_evidence`: `{exact prior EB closure / N/A}`
-- `prior_terminal_chain_reference`: `{prior Review ID + cause row / N/A}`
-- `underlying_item_prior_source_nondiscoverability_evidence`: `{exact evidence / N/A}`
-- `why_not_discoverable_previously`: `{exact reason / N/A}`
-- `conflicting_or_ambiguous_baselines`: `{exact references}`
-- `approved_budget_reference`: `{exact Scope Lock row / NONE}`
-- `exact_evidence`: `{path:line/symbol/commit}`
-- `why_revert_or_delete_is_not_a_correct_fix`: `{evidence-backed reason}`
-- `contaminated_paths_or_ranges`: `[] / {exact ranges}`
-- `minimum_owner_question`: `{one concrete decision}`
-- `boundary_preserving_recommendation`: `{one recommendation}`
-- `expansion_option_consequence`: `{baselines to update + new Scope Lock/full review}`
-
-## Review progress and reusable coverage
-
-- Initial full coverage complete: `YES / NO`
-- Initial full coverage source: `{this review / exact prior review ID / N/A}`
-- Per-repository changed-path manifests / digests: `{repo → source / sha256 / NOT_COMPLETE}`
-- Unclassified changed-path manifest entries: `[] / details`
-- Coverage ledger reconciled: `YES / NO`
-- Required source/local gates and exact results: `{commands + results / INCOMPLETE}`
-- Required verification evidence: `COMPLETE / INCOMPLETE`
-- Scope-decision-blocked ranges: `[] / exact proposal-bound ranges`
-- Evidence/assignment gaps: `[]` (use template C when non-empty)
-- Delta review eligible after decision: `YES only when coverage=YES, required evidence=COMPLETE, both range lists=[], every EB/SD item CLOSED, Scope Lock unchanged, and this terminal Candidate is an immutable commit/tree; WORKTREE is always NO / NO`
-
-## Confirmed findings from independently reviewable scope
-
-`none`, or repeat the complete P0/P1 finding fields from section A for every confirmed item, including validated P1 scope violations.
-
-- Confirmed P0 / P1 / P2: `{n / n / n}`
-- Required remediation IDs: `{IDs / none}`
-
-## Product/Architecture Owner decision
-
-Decide only this minimum question: `{one concrete decision}`.
-
-Options:
-
-1. `{boundary-preserving option}` (recommended) — `{impact}`
-2. `{explicit scope expansion}` — update `{PRD/API/HLD/LLD/Guardrails}` and freeze a new Scope Lock first
-
-Until that decision exists, the Reviewer will not convert the proposal into P0/P1 or derive more requirements from it.
-
-Verdict: `SCOPE_DECISION_REQUIRED`
+Owner decision: {Record SD ID + minimum_owner_question}
+Recommendation: {boundary-preserving recommendation; baseline/Scope Lock effect of expansion}
+Confirmed findings: [] / {Record item references}
+Verdict: SCOPE_DECISION_REQUIRED
 ```
+
+Use B only without evidence gaps. A local scope decision does not stop independently reviewable ranges. After the decision, assess delta eligibility using complete Record coverage, source evidence, closure of all SD/EB, and [evidence-reuse.md](evidence-reuse.md). Do not categorically reject verified snapshots or automatically inherit prior approval.
 
 ## C. EVIDENCE_BLOCKED
 
 ```markdown
-# Lead Dev Code Review - Evidence Blocked
-
-| Repository | Review root base | Reviewed from | Candidate | Tree / Snapshot | Reviewed range |
-|------------|------------------|---------------|-----------|-----------------|----------------|
-| `{repo / NOT_BOUND}` | `{SHA / NOT_BOUND}` | `{SHA / NOT_BOUND}` | `{SHA/WORKTREE / NOT_BOUND}` | `{tree/snapshot / NOT_BOUND}` | `{range / NOT_BOUND}` |
-
-- Review ID: `CRV-<UUIDv4>`
-- Review mode: `{mode / NOT_DETERMINED}`
-- Main Reviewer identity: `{stable identity/task; always required}`
-- Prior reviewer-miss recovery history / global count / immediate-prior Scope Lock recovery count: `{ordered entries each with missed+recovery Scope Lock IDs/digests + terminal artifact + prior/current Reviewer identities / []} / {n>=0} / {0|1}`
-- Scope Lock ID / content digest: `{id / sha256 / NOT_FROZEN}`
-- Persisted Charter: `{path@version + file sha256 / FULL_CANONICAL_PAYLOAD_EMBEDDED / NOT_BOUND before Gate 0}`
-- Canonical Scope Lock payload: `{full script output / N/A / NOT_BOUND before Gate 0}`
-| Evidence Blocker ID / kind | Frozen invariant | Repository / affected range | Missing/ambiguous input | Prior exception terminal artifact | Second missed item ID/type/evidence | Smallest restoration evidence | Implicated Reviewer identities | Status |
-|----------------------------|------------------|-----------------------------|-------------------------|-----------------------------------|-------------------------------------|-------------------------------|-------------------------------|--------|
-| `EB-... / {closed kind}` | `{exact invariant / NOT_FROZEN}` | `{repo + paths/ranges / all available binding}` | `{exact Candidate/base/baseline/source/process input}` | `{path@version+sha256 / canonical EMBEDDED_TERMINAL_ENVELOPE JSON / N/A}` | `{CR/SD ID + P0/P1/scope_proposal + exact prior-Candidate evidence / N/A}` | `{one concrete input}` | `{[] / all implicated identities for review_process_integrity}` | `OPEN` |
-
-The two dedicated columns are required only for `review_process_integrity`; every other blocker kind uses `N/A`.
-
-## Frozen boundaries
-
-Use the closed `NOT_BOUND` sentinel when `Scope Lock: NOT_FROZEN`; otherwise embed or reference all rows:
-
-| Boundary | Frozen value |
-|----------|--------------|
-| In Scope | `{complete summary / NOT_BOUND}` |
-| Out of Scope | `{complete summary / NOT_BOUND}` |
-| Must Not Change / Regress | `{complete summary / NOT_BOUND}` |
-| Architecture budget | `{complete rows / NOT_BOUND}` |
-
-- Checks already completed: `{read-only evidence}`
-- Required source/local gates and exact results: `{commands + results / INCOMPLETE}`
-- Required verification evidence: `COMPLETE / INCOMPLETE`
-- Initial full coverage complete: `YES / NO`
-- Initial full coverage source: `{this review / exact prior review ID / N/A}`
-- Per-repository changed-path manifests / digests: `{repo → source / sha256 / NOT_COMPLETE}`
-- Unclassified changed-path manifest entries: `[] / details`
-- Coverage ledger reconciled: `YES / NO`
-- Scope-decision-blocked ranges: `[] / exact proposal-bound ranges`
-- Evidence/assignment gaps: `[] / exact EB-bound ranges`
-- Review-process-integrity blocker open: `YES / NO`
-- Delta review eligible when evidence is restored: `YES only when coverage=YES, required evidence=COMPLETE, both range lists=[], every EB/SD item CLOSED, Scope Lock unchanged, this terminal Candidate is an immutable commit/tree, and no review_process_integrity blocker ever required a process reset; WORKTREE is always NO / NO`
-
-A `review_process_integrity` blocker can be restored only by explicit user authority for a new independent initial full review from the review root. Candidate changes, tests, or ordinary evidence cannot close it, and this attempt is never delta eligible.
-
-## Confirmed findings from completed checks
-
-`none`, or repeat the complete P0/P1 finding fields from section A; do not discard confirmed findings merely because the terminal verdict is `EVIDENCE_BLOCKED`.
-
-- Confirmed P0 / P1 / P2: `{n / n / n}`
-- Required remediation IDs: `{IDs / none}`
-
-## Confirmed scope proposals / Owner decisions
-
-`none`, or preserve every closed proposal field from section B. A higher-precedence `EVIDENCE_BLOCKED` verdict must not discard an already confirmed scope decision. Every contaminated range must also appear in `scope_decision_blocked_ranges`.
-
-- Confirmed proposal IDs: `{IDs / none}`
-- Minimum Owner questions and recommendations: `{exact questions / none}`
-- No source defect conclusion was inferred from the missing evidence.
-
-Verdict: `EVIDENCE_BLOCKED`
+Missing inputs: {Record EB ID + smallest_restoration_evidence}
+Completed checks / confirmed findings / scope proposals: {exact Record references; [] when empty}
+Verdict: EVIDENCE_BLOCKED
 ```
 
-## D. Code Review Approval Certificate (immutable commit/tree only)
+Preserve every confirmed P0/P1 and SD, including Owner questions, despite EB precedence. Bind every evidence/assignment gap to EB. The minimum restoration for `review_process_integrity` is explicit user authority for a new independent main outside the implicated set to begin an initial full review from the review root. Candidate changes, tests, or ordinary evidence cannot close it, and this attempt is never delta eligible.
+
+## D. Code Review Approval Certificate (all repositories immutable)
 
 ```markdown
 # Code Review Approval Certificate
 
-| Repository | Review root base | Reviewed from | Candidate | Tree | Reviewed range |
-|------------|------------------|---------------|-----------|------|----------------|
-| `{repo}` | `{initial approved base SHA}` | `{base / previous SHA / review root for exceptional}` | `{exact SHA}` | `{exact tree}` | `{reviewed-from..Candidate}` |
-
-| Field | Value |
-|-------|-------|
-| Review ID | `CRV-<UUIDv4>` |
-| Review mode | `{mode}` |
-| Main Reviewer identity | `{stable identity/task}` |
-| Prior reviewer-miss recovery history / global count / immediate-prior Scope Lock recovery count | `{ordered entries each with missed+recovery Scope Lock IDs/digests + terminal artifact + prior/current Reviewer identities / []} / {n>=0} / {0|1}` |
-| Scope Lock ID / content digest | `{id / sha256}` |
-| Persisted Charter | `{path@version + file sha256 / FULL_CANONICAL_PAYLOAD_EMBEDDED}` |
-| Canonical Scope Lock payload | `{full script output when embedded / N/A}` |
-| Repository Candidate(s) | `{exact SHA/tree table}` |
-| Approved baselines | `{exact references}` |
-| Previous finding IDs (delta only) | `{IDs / N/A}` |
-| Initial full coverage source | `{this review / exact prior review ID}` |
-| Initial full coverage complete | `YES` |
-| Per-repository changed-path manifests / digests | `{repo → source / sha256}` |
-| Unclassified changed-path manifest entries | `[]` |
-| Coverage ledger | `RECONCILED; scope_decision_blocked_ranges=[]; evidence_or_assignment_gaps=[]` |
-| Required source/local gates | `{commands + exact results; COMPLETE}` |
-| Required verification evidence | `COMPLETE` |
-| Unresolved scope proposals | `0` |
-| Open evidence blockers | `0` |
-| P0 / P1 / P2 | `0 / 0 / {n}` |
-| Source verdict | `APPROVED` |
-| Exact-SHA CI | `{status; may be NOT_RUN}` |
-| Environment/deployment | `NOT AUTHORIZED BY THIS CERTIFICATE` |
-
-## Confirmed boundaries
-
-| Boundary | Frozen value |
-|----------|--------------|
-| In Scope | `{complete summary or exact persisted Charter section}` |
-| Out of Scope | `{complete summary or exact persisted Charter section}` |
-| Must Not Change / Regress | `{complete summary or exact persisted Charter section}` |
-| Architecture budget | `{complete KEEP/ADD/MODIFY/DELETE/NONE rows or exact persisted Charter section}` |
-
-- The Candidate implements the approved scope without an unapproved architecture surface.
-- No evidence-backed P0/P1 remains inside the frozen Scope Lock.
-- P2 items, if any, are non-blocking and do not require another review round.
-- CI, merge, Secret, migration, deployment, live smoke, and release remain separately authorized actions.
-
-Verdict: `APPROVED`
+Scope: {Record exact immutable Candidate/tree bindings}
+Source verdict: APPROVED
+Readiness: {Record references for separate exact-SHA CI / environment status}
 ```
+
+Use only when every approval condition is met and every repository binds an exact immutable commit/tree. P2 may remain non-blocking; the certificate does not authorize deployment or other external operations.
 
 ## E. Mixed / Mutable Worktree Review Comment / APPROVED
 
 ```markdown
 # Mixed / Mutable Worktree Code Review
 
-If any repository is a mutable worktree, use this Comment for the entire multi-repository approval. Every immutable repository still retains its exact Candidate/tree; never fabricate a WORKTREE snapshot for it. Populate the next two snapshot/WIP tables only for repositories that are actually mutable.
-
-| Repository | Review root base | Reviewed from (immutable) | Candidate | Tree / worktree snapshot | HEAD (mutable only) | Reviewed range |
-|------------|------------------|---------------------------|-----------|--------------------------|---------------------|----------------|
-| `{repo}` | `{initial approved base SHA}` | `{base / previous SHA / review root for exceptional}` | `{exact SHA or WORKTREE@sha256}` | `{exact tree SHA or WORKTREE@sha256}` | `{exact HEAD or N/A}` | `{reviewed-from..Candidate}` |
-
-| Repository | Snapshot schema / SHA | Resolved script path + file SHA-256 | Exact argv (base and every option) | Changed-path digest | Post-validation / pre-verdict |
-|------------|-----------------------|------------------------------------|------------------------------------|---------------------|--------------------------------|
-| `{mutable repo only}` | `testany.code-reviewer.worktree-snapshot.v1 / WORKTREE@{sha256}` | `{absolute snapshot_worktree.py path / sha256}` | `{argv array including --repo, --base, every --exclude, --candidate-ignored, --mutable-baseline}` | `{manifest.candidate_changed_paths_sha256}` | `MATCH / MATCH` |
-
-| Repository | Binding class | Exact path | Exact option | Ownership / reason / bound digest |
-|------------|---------------|------------|--------------|-----------------------------------|
-| `{mutable repo only}` | `candidate_untracked` | `{path / none}` | `automatic untracked capture` | `{Candidate / N/A}` |
-| `{mutable repo only}` | `candidate_ignored` | `{path / none}` | `--candidate-ignored` | `{Candidate / N/A}` |
-| `{mutable repo only}` | `excluded_wip` | `{path / none}` | `--exclude` | `{owner + evidence-backed reason / N/A}` |
-| `{mutable repo only}` | `mutable_baseline` | `{absolute path / none}` | `--mutable-baseline` | `{sha256 / N/A}` |
-
-| Field | Value |
-|-------|-------|
-| Review ID | `CRV-<UUIDv4>` |
-| Review mode | `{mode}` |
-| Main Reviewer identity | `{stable identity/task}` |
-| Prior reviewer-miss recovery history / global count / immediate-prior Scope Lock recovery count | `{ordered entries each with missed+recovery Scope Lock IDs/digests + terminal artifact + prior/current Reviewer identities / []} / {n>=0} / {0|1}` |
-| Scope Lock ID / content digest | `{id / sha256}` |
-| Persisted Charter | `{path@version + file sha256 / FULL_CANONICAL_PAYLOAD_EMBEDDED}` |
-| Canonical Scope Lock payload | `{full script output when embedded / N/A}` |
-| Initial full coverage source | `{this review / exact prior review ID}` |
-| Initial full coverage complete | `YES` |
-| Per-repository changed-path manifests / digests | `{repo → immutable replacement-disabled raw git command or WORKTREE snapshot field / sha256}` |
-| Unclassified changed-path manifest entries | `[]` |
-| Coverage ledger | `RECONCILED; scope_decision_blocked_ranges=[]; evidence_or_assignment_gaps=[]` |
-| Required source/local gates | `{commands + exact results; COMPLETE}` |
-| Required verification evidence | `COMPLETE` |
-| Unresolved scope proposals | `0` |
-| Open evidence blockers | `0` |
-| P0 / P1 / P2 | `0 / 0 / {n}` |
-| Source verdict | `APPROVED` |
-| Exact-SHA CI by repository | `{repo → exact-SHA CI status / NOT_APPLICABLE_UNTIL_COMMIT for mutable repo}` |
-| Environment/deployment | `NOT AUTHORIZED BY THIS REVIEW` |
-
-## Frozen boundaries
-
-| Boundary | Frozen value |
-|----------|--------------|
-| In Scope | `{complete summary or exact persisted Charter section}` |
-| Out of Scope | `{complete summary or exact persisted Charter section}` |
-| Must Not Change / Regress | `{complete summary or exact persisted Charter section}` |
-| Architecture budget | `{complete KEEP/ADD/MODIFY/DELETE/NONE rows or exact persisted Charter section}` |
-
-- This verdict applies only to the stated worktree snapshot and is invalidated by any change to bound Candidate/baseline state. Explicitly excluded third-party WIP and non-Candidate ignored files are outside that binding.
-- This is not an immutable Candidate certificate. After commit, establish a fresh immutable SHA/tree binding; do not automatically promote the mutable verdict into a certificate.
-- P2 items remain non-blocking and do not require another source review round.
-
-Verdict: `APPROVED`
+Scope: {Record per-repository Candidate/tree or WORKTREE snapshot bindings}
+Source verdict: APPROVED
+Artifact type: REVIEW COMMENT — NOT AN IMMUTABLE CANDIDATE CERTIFICATE
 ```
 
-## F. Remediation delta section
+If any repository remains mutable, use E for the entire multi-repository artifact. Immutable repositories retain their real SHA/tree, never fabricated snapshots. Actual mutable repositories require the Record's complete Mutable Binding Appendix and both MATCH rechecks. The verdict binds only the specified snapshot/baseline; explicitly excluded third-party WIP and non-Candidate ignored files are outside that binding.
 
-Append this section to a remediation report:
+A snapshot change or partial/full commit requires a new Review ID and bindings. Uncommitted repositories may remain verified mutable; D is available only when all are immutable. An old comment cannot automatically become a certificate. Reuse eligible source/local evidence only item by item under evidence-reuse; live status never carries over and CI does not transfer to another SHA.
 
-```markdown
-## Remediation closure
+## F. Remediation delta section (remediation mode only)
 
-- Previous Review ID: `{CRV-UUID}`
-- Previous terminal artifact: `{path@version + sha256 / canonical EMBEDDED_TERMINAL_ENVELOPE JSON}`
-- Previous immutable Candidate: `{exact SHA}`
+Reference the Record's single `blocking_items` closure, delta binding, and behavioral evidence instead of appending separate P0/P1, SD, and EB tables. For each original ID state status, causal classification, minimum fix, and relevant regression. The previous Candidate may be immutable or a verified reconstructable snapshot; every reuse prerequisite must hold.
 
-| Finding ID | Previous evidence | Delta evidence | Regression checked | Status |
-|------------|-------------------|----------------|--------------------|--------|
-| `CR-P1-001` | `{old path}` | `{new path}` | `{targeted gate}` | CLOSED/OPEN |
+Ordinary delta late items follow policy for remediation-introduced problems or new evidence restored from a prior EB. A miss cannot masquerade as ordinary delta; post-terminal CI/environment follows its own cause and strict prior nondiscoverability proof. Composed causes accumulate constraints and resolve in one review, not duplicate reports.
 
-| Scope Proposal ID | Owner decision evidence | Status | Scope Lock effect |
-|-------------------|-------------------------|--------|-------------------|
-| `SD-...` | `{exact decision}` | `CLOSED/OPEN` | `UNCHANGED / NEW_SCOPE_LOCK_INITIAL_REVIEW_REQUIRED` |
+## G. Exceptional reviewer-miss full review (never append F)
 
-| Evidence Blocker ID / kind | Prior invariant / repository / range / missing input | Restoration evidence | Status |
-|----------------------------|------------------------------------------------------|----------------------|--------|
-| `EB-... / {kind}` | `{exact prior row}` | `{exact restored evidence}` | `CLOSED/OPEN` |
+Reference the Record's Reviewer-miss Appendix, full root→Candidate coverage, original-ID closure, and the A/B/C/D/E terminal body matching the verdict. The first independent review reconstructs production paths/assumptions before checking author PASS and uses a different evidence method; changing a Reviewer ID alone is not independent evidence.
 
-## Late findings
-
-| Finding ID | Same frozen invariant | Trigger | Prior EB ID / restoration evidence | Why not discoverable previously | Surface delta / budget reference |
-|------------|-----------------------|---------|------------------------------------|---------------------------------|----------------------------------|
-| `{id or none}` | `{invariant}` | `remediation_delta / previously_unavailable_evidence` | `{EB-... + exact closure / N/A}` | `{explanation}` | `none / within_approved_budget + row` |
-
-## Late scope proposals
-
-| Proposal ID | Trigger | Provenance | Prior EB ID / restoration evidence | Why not discoverable previously | Disposition |
-|-------------|---------|------------|------------------------------------|---------------------------------|-------------|
-| `{ID or none}` | `{closed trigger}` | `remediation_delta / previously_unavailable_evidence` | `{EB-... + exact closure / N/A}` | `{exact explanation}` | `SCOPE_DECISION_REQUIRED / reviewer_miss_exception` |
-
-A pure reviewer miss cannot enter these tables as an ordinary delta item; it adds the `REVIEWER_MISS` cause and starts one independent exceptional full review. `previously_unavailable_evidence` without a prior `EB-*` is treated the same way. Qualifying post-terminal CI/environment evidence adds `POST_TERMINAL_NEW_CI_ENV`: alone it starts an initial full review; disclosed with the first reviewer miss, both causes compose into one exceptional full review. Neither belongs here. If prior source was sufficient, it remains a reviewer miss.
-
-```
-
-## G. Exceptional reviewer-miss full review (standalone; never append F)
-
-Use this independent integrity block together with the A/B/C/D/E terminal body matching the final verdict. Do not fill in F's remediation-delta closure.
-
-```markdown
-# Exceptional Reviewer-Miss Full Review
-
-| Repository | Review root base | Reviewed from | Candidate | Tree / Snapshot | Full reviewed range |
-|------------|------------------|---------------|-----------|-----------------|---------------------|
-| `{repo}` | `{initial approved base SHA}` | `{same review_root_base}` | `{exact SHA or WORKTREE}` | `{tree or WORKTREE@sha256}` | `{review_root_base..current Candidate}` |
-
-| Field | Value |
-|-------|-------|
-| Review ID | `CRV-<UUIDv4>` |
-| Review mode | `exceptional_full_review_after_reviewer_miss` |
-| Main Reviewer identity | `{stable identity/task}` |
-| Scope Lock ID / content digest | `{id / sha256}` |
-| Persisted Charter | `{path@version + file sha256 / FULL_CANONICAL_PAYLOAD_EMBEDDED}` |
-| Invalidated prior review ID | `{exact ID}` |
-| Invalidated prior terminal artifact | `{path@version + sha256 / canonical EMBEDDED_TERMINAL_ENVELOPE JSON}` |
-| Invalidated prior main Reviewer identity | `{stable identity/task}` |
-| Missed immediate-prior Scope Lock ID / digest | `{exact prior terminal lock ID / sha256}` |
-| Triggering missed item | `{CR/SD ID + P0/P1/scope_proposal}` |
-| Prior-Candidate discoverability evidence | `{prior Candidate path:line/symbol + failure path}` |
-| Global prior reviewer-miss recovery history / count | `{every entry binds missed+recovery Scope Locks / n>=0}` |
-| Immediate-prior Scope Lock recovery count | `0` |
-| Current independent main Reviewer identity | `{must equal this attempt's main Reviewer and differ from the invalidated prior Reviewer}` |
-| Current exception ordinal | `1` |
-| Initial full coverage complete | `YES / NO` |
-| Scope-decision-blocked ranges | `[] / details` |
-| Evidence/assignment gaps | `[] / details` |
-| Required source/local gates and exact results | `{commands + results / INCOMPLETE}` |
-| Required verification evidence | `COMPLETE / INCOMPLETE` |
-
-The artifact must consolidate every item from this full review and emit one verdict. It records this recovery only in the non-self-referential `exceptional_review` block. After its digest is known, the next attempt adds both the missed immediate-prior Scope Lock and this artifact's recovery Scope Lock to history. Another reviewer miss against the same missed Scope Lock creates a `review_process_integrity` blocker; `NEW` cannot reset that quota.
-```
+One exceptional full review consolidates every finding/proposal/blocker into one verdict. History contains only a readable verified prior reference plus new recovery bindings. A second miss against the same missed lock requires `review_process_integrity` and user authority for a new independent initial full review; NEW/rebind cannot reset the quota.

@@ -548,13 +548,17 @@ flowchart TD
 
 **特点**：
 - 评审前冻结 base/Candidate/tree、批准基线、In/Out Scope 与 architecture budget
-- 首轮检查完整 Candidate diff；只有上一 Candidate 是 immutable commit、上一轮在同一 Scope Lock 下已完成完整覆盖且两类 coverage gap 均为空时，整改轮才只检查 remediation delta、原 blocking item closure 和直接回归面
+- 首轮检查完整 Candidate diff；同一 Scope Lock 下，旧完整覆盖可信、两类 gap 为空且旧内容/直接影响范围可重建时，整改轮只检查 delta、原 blocking closure 和直接回归面
 - Candidate 自行加入且可删除/回退的 budget 外 surface 返回 `CHANGES_REQUIRED`；只有边界含糊或最小正确修复确需扩 scope 时才返回 `SCOPE_DECISION_REQUIRED`
 - P0/P1 必须有 frozen invariant、精确证据、复现路径、影响，以及不超出已批准 architecture budget 的最小修复
-- P2 永不阻断；源码、exact-SHA CI 与环境/部署结论分离
+- 核对实际生产入口/provider/parser、真实 helper 与独立 oracle；成对检查合法接受和非法拒绝，沿直接 caller/branch/target 与跨尝试恢复状态判断整改闭合
+- 同 finding ID 仍披露原问题未修完、新回归、旧原因漏报的因果与 reviewer 责任；漏审后的独立复核必须改变失效的验证方法
+- P2 永不阻断或捆绑当轮整改；最小修复同时约束架构面与新增操作/门禁维护负担，源码、CI、环境结论分离
+- 使用一份可核验 Review Record，报告/子任务引用，不重复抄历史；只有内容、依赖、命令、工具、配置和基线核验一致才能复用 source/local 证据，新 Candidate 仍需新绑定与 verdict
+- Skill 自身有缩小的生产语义正反样本与盲测控制，分别评估漏报、误报、越界和收敛；不把样本通过冒充真实部署通过
 
 **输入**：仓库路径 + base/previous Candidate + Candidate + 已批准基线；有上一轮 terminal 时还必须提供其可读取的精确 artifact（`path@version + SHA-256` 或 canonical embedded envelope），不能只给 findings 摘要
-**输出**：Review Comment 或 Code Review Approval Certificate（不授予部署权限）
+**输出**：Review Comment 或 Code Review Approval Certificate + 一份共享 Review Record（可内嵌，不强制新增文件；不授予部署权限）
 
 **示例**：
 ```

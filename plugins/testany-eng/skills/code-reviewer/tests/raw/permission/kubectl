@@ -1,0 +1,14 @@
+#!/bin/sh
+case "$*" in
+    'auth can-i get pods'|'auth can-i get pods --namespace review-space') ;;
+    *) printf 'unexpected arguments\n' >&2; exit 2 ;;
+esac
+case "${PROBE_SCENARIO:-allow}" in
+    allow) printf 'yes\n'; exit 0 ;;
+    deny) printf 'no\n'; exit 1 ;;
+    command-error) printf 'connection unavailable\n' >&2; exit 1 ;;
+    no-with-error) printf 'no\n'; exit 2 ;;
+    no-with-success) printf 'no\n'; exit 0 ;;
+    unknown) printf 'maybe\n'; exit 0 ;;
+    *) printf 'unsupported scenario\n' >&2; exit 2 ;;
+esac

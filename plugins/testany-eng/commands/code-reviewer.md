@@ -5,9 +5,9 @@ argument-hint: <仓库路径> [base SHA] [Candidate SHA 或 WORKTREE] [批准基
 
 # Code Reviewer
 
-以 `${CLAUDE_PLUGIN_ROOT}/skills/code-reviewer/SKILL.md` 及其直接引用的
-`review-policy.yaml`、Scope Lock、checklist、report templates 和 subagent
-result extension 为唯一规则源执行 Code Review；不要在 command 层复制、删减或
+以 `${CLAUDE_PLUGIN_ROOT}/skills/code-reviewer/SKILL.md` 为入口，按其条件路由读取
+policy、Scope Lock、checklist、report templates 与必要的 evidence-reuse / subagent
+参考；以这些文件为唯一规则源。不要在 command 层复制、删减或
 改写另一套评审状态机。把以下参数作为仓库、base/Candidate、批准基线与 prior
 terminal inputs 传入：
 

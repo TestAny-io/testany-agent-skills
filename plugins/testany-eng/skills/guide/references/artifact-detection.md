@@ -255,6 +255,8 @@ Guide 不把它当成独立 artifact，但在 `TEST_SPEC = approved` 时，应�
 
 Code Review approval 只表示源码准出；不得据此把 CI、merge、deployment 或 release 标记为 approved。
 
+Code Reviewer v2 的 terminal 可引用唯一 Review Record。先读取并校验该 record 的版本/摘要，再解析其 Scope Lock、逐仓 binding、coverage 和 prior chain；内嵌 record 必须完整。不要要求报告重复所有附录，也不要接受只给摘要的 record。复用 source/local evidence 不等于继承旧 approval，新 Candidate 仍需自己的评审绑定和 verdict。
+
 Code Review terminal 选择不使用“certificate 高于 report”或“approved 高于其他状态”的通用偏好。Guide 必须按 Review ID、Candidate/snapshot、Scope Lock 与 `prior_terminal_chain` 验证 immediate-terminal lineage，并选择链上最新 terminal。若 terminal 以内嵌 envelope 提供，先按宿主的 Skill 资源解析规则定位已安装 `code-reviewer` 的绝对目录；Claude plugin 可解析为 `${CLAUDE_PLUGIN_ROOT}/skills/code-reviewer`，Codex 等宿主必须使用其提供的 skill locator，不得假设该环境变量存在。绑定所解析 `scripts/terminal_artifact_envelope.py` 的绝对路径和 SHA-256 后，使用同一脚本先执行 `verify <file>`，再执行 `extract <file>` 取得原始 bytes 后解析；`verify` 的 PASS 行不是 terminal 内容。较新的 `CHANGES_REQUIRED / SCOPE_DECISION_REQUIRED / EVIDENCE_BLOCKED` 会使较旧 approval 失效。无法建立唯一、完整的 terminal chain 时状态为 `unknown`。
 
 Mutable/mixed approval 必须枚举 terminal 中的全部 repository rows。对每个实际 mutable repo，先证明当前 resolved `code-reviewer/scripts/snapshot_worktree.py` 的 SHA-256 与该 repo 行记录的 script digest 逐字相等（否则取回记录版本；两者都做不到即 stale），再复用该行完整 argv（base、exclude、candidate-ignored、mutable-baseline 全部相同）并逐字核对输出摘要；对每个 immutable repo，只核对 exact Candidate SHA/tree，不运行或伪造 snapshot。只有所有行都匹配才保持 `approved`；任一 repo 的 script/argv/snapshot/SHA/tree 漂移、缺失或无法重算，都使整个 mixed comment stale，并归一化为 `draft` 或 `unknown`，不得只验证其中一仓或把旧 comment 当成重复批准依据。

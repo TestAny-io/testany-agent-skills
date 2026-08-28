@@ -48,6 +48,17 @@
 
 ### 变更
 
+- **code-reviewer 八项高优先级改进（testany-eng 2.2.0）**：
+  1. 核验生产入口、输入 provider/parser、真实 helper、替身边界与独立 oracle，不把真实 PG/Kind 或测试数量等同生产语义证据。
+  2. 对触达关键校验成对验证合法接受/非法拒绝，检查正常状态变化、错误分类与拒绝副作用。
+  3. 按同一 invariant 的直接 callers、普通/续跑分支、批准 targets 和跨尝试恢复状态关闭整改，不只检查改动行。
+  4. 同 ID 也区分 original_unfixed / introduced_by_fix / pre_existing_unreported_cause；保留漏审撤回、独立 full review 与有限恢复机制，禁止隐改验收条件。
+  5. 新增隔离的 raw 行为样本、缺陷/修正版对照和 P2/范围/缺证控制；盲测不提供答案，分别检查漏报、误报、越界和收敛，不把结构断言当能力证明。
+  6. P2 不捆绑当前整改或自动结转；除架构 surface 外，还核对新增手工步骤、门禁、配置与维护负担的必要性，优先缩小不实声明。
+  7. 中英文模板与子任务共用一个可核验 Review Record；同范围下有条件复用内容/依赖不变的 source/local 证据，未知不复用，新 Candidate 仍需新 ID/绑定/verdict，不能继承 CI/live/旧批准。
+  8. 独立复核先重建生产路径与假设再核作者结论；漏审后必须换能识别旧盲点的验证方法，不以 agent 名称/数量或 path coverage 代替行为证据。
+  - Guide/command 仅同步 Review Record 与有条件 rebind 路由，Scope Lock/snapshot/envelope 原有字节绑定工具保持兼容；未新增发布流程或产品门禁。
+
 - **Plugin 架构与仓库兼容基线收敛**：
   - `AGENTS.md` / `CLAUDE.md` 更新为当前按领域聚合 Plugin、目录自动发现 Skill/command 的真实架构
   - 架构说明与 validator 对齐上游规则：`plugin.json` 可选、默认 `skills/` 自动发现、manifest 自定义 `skills` 通常追加；只有 marketplace entry 自身在 marketplace-root source 下列出已存在的特定 skill 路径时才替换默认扫描
