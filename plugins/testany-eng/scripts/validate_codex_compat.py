@@ -3,6 +3,7 @@ from __future__ import annotations
 
 import argparse
 import json
+import math
 import os
 import re
 import sys
@@ -19,6 +20,12 @@ except ImportError as exc:  # pragma: no cover
 
 
 REQUIRED_FRONTMATTER_KEYS = {"name", "description"}
+PORTABLE_FRONTMATTER_KEYS = {
+    "name", "description", "license", "compatibility", "allowed-tools", "metadata"
+}
+# The repository's audited extension subset, not the complete Claude schema.
+CLAUDE_FRONTMATTER_KEYS = {"argument-hint", "hooks"}
+FRONTMATTER_PROFILES = ("repository", "portable")
 MAX_SKILL_NAME_LENGTH = 64
 MAX_DESCRIPTION_LENGTH = 1024
 SKILL_NAME_PATTERN = re.compile(r"^[a-z0-9]+(?:-[a-z0-9]+)*$")
@@ -45,7 +52,60 @@ class SkillDiscovery:
     errors: tuple[str, ...]
 
 
-def load_frontmatter(skill_md: Path) -> dict:
+class UniqueKeyLoader(yaml.SafeLoader):
+    def construct_mapping(self, node, deep=False):
+        keys = set()
+        for key_node, _ in node.value:
+            key = self.construct_object(key_node, deep=deep)
+            if not isinstance(key, str):
+                raise ValueError("frontmatter YAML mapping keys must be strings")
+            if key in keys:
+                raise ValueError(f"duplicate frontmatter YAML key: {key}")
+            keys.add(key)
+        return super().construct_mapping(node, deep=deep)
+
+
+def _nonempty_string(value: object, label: str) -> None:
+    if not isinstance(value, str) or not value.strip():
+        raise ValueError(f"{label} must be a non-empty string")
+
+
+def _validate_skill_hooks(value: object) -> None:
+    """Validate the currently supported one-shot prompt Stop hook subset."""
+    if not isinstance(value, dict) or set(value) != {"Stop"}:
+        raise ValueError("repository hooks support only a non-empty Stop configuration")
+    groups = value["Stop"]
+    if not isinstance(groups, list) or not groups:
+        raise ValueError("hooks.Stop must be a non-empty list")
+    for group in groups:
+        if not isinstance(group, dict) or set(group) != {"hooks"}:
+            raise ValueError("hooks.Stop entries must contain only hooks; Stop has no matcher")
+        handlers = group["hooks"]
+        if not isinstance(handlers, list) or not handlers:
+            raise ValueError("hooks.Stop[].hooks must be a non-empty list")
+        for handler in handlers:
+            if not isinstance(handler, dict):
+                raise ValueError("Stop hook handler must be a mapping")
+            unknown = set(handler) - {"type", "prompt", "timeout", "statusMessage", "once"}
+            if unknown:
+                raise ValueError("unsupported Stop hook handler fields: " + ", ".join(sorted(unknown)))
+            if handler.get("type") != "prompt":
+                raise ValueError("repository Stop hooks support only type: prompt")
+            _nonempty_string(handler.get("prompt"), "Stop hook prompt")
+            # Skill hooks otherwise survive into unrelated later turns.
+            if handler.get("once") is not True:
+                raise ValueError("repository Stop hook policy requires once: true on the handler")
+            timeout = handler.get("timeout", 30)
+            if (type(timeout) not in (int, float) or timeout <= 0
+                    or timeout > sys.float_info.max or not math.isfinite(timeout)):
+                raise ValueError("Stop hook timeout must be a positive finite number")
+            if "statusMessage" in handler:
+                _nonempty_string(handler["statusMessage"], "Stop hook statusMessage")
+
+
+def load_frontmatter(skill_md: Path, profile: str = "repository") -> dict:
+    if profile not in FRONTMATTER_PROFILES:
+        raise ValueError(f"unknown frontmatter profile: {profile}")
     text = skill_md.read_text(encoding="utf-8")
     lines = text.splitlines()
     if not lines or lines[0] != "---":
@@ -55,13 +115,18 @@ def load_frontmatter(skill_md: Path) -> dict:
     if closing is None:
         raise ValueError("SKILL.md frontmatter is incomplete")
 
-    data = yaml.safe_load("\n".join(lines[1:closing]))
+    data = yaml.load("\n".join(lines[1:closing]), Loader=UniqueKeyLoader)
     if not isinstance(data, dict):
         raise ValueError("SKILL.md frontmatter must parse to a mapping")
 
     missing = sorted(REQUIRED_FRONTMATTER_KEYS - data.keys())
     if missing:
         raise ValueError(f"SKILL.md missing frontmatter keys: {', '.join(missing)}")
+
+    allowed = PORTABLE_FRONTMATTER_KEYS | (CLAUDE_FRONTMATTER_KEYS if profile == "repository" else set())
+    unknown = sorted(data.keys() - allowed)
+    if unknown:
+        raise ValueError(f"unsupported frontmatter keys for {profile} profile: {', '.join(unknown)}")
 
     name = data["name"]
     if not isinstance(name, str) or not name.strip():
@@ -81,7 +146,36 @@ def load_frontmatter(skill_md: Path) -> dict:
             "SKILL.md frontmatter description exceeds "
             f"{MAX_DESCRIPTION_LENGTH} characters"
         )
+    if description.strip().startswith("[TODO:"):
+        raise ValueError("description contains an unfinished TODO placeholder")
+    if "<" in description or ">" in description:
+        raise ValueError("repository description policy forbids angle brackets")
+    for key in ("license", "compatibility", "argument-hint"):
+        if key in data:
+            _nonempty_string(data[key], f"frontmatter {key}")
+    if "compatibility" in data and len(data["compatibility"].strip()) > 500:
+        raise ValueError("frontmatter compatibility exceeds 500 characters")
+    if "metadata" in data:
+        metadata = data["metadata"]
+        if not isinstance(metadata, dict) or not all(isinstance(k, str) and isinstance(v, str) for k, v in metadata.items()):
+            raise ValueError("frontmatter metadata must be a string-to-string mapping")
+    if "allowed-tools" in data:
+        value = data["allowed-tools"]
+        if profile == "repository" and isinstance(value, list) and value:
+            for item in value:
+                _nonempty_string(item, "allowed-tools entry")
+        else:
+            _nonempty_string(value, "frontmatter allowed-tools")
+    if "hooks" in data:
+        _validate_skill_hooks(data["hooks"])
     return data
+
+
+def claude_extension_fields(frontmatter: dict) -> list[str]:
+    fields = frontmatter.keys() & CLAUDE_FRONTMATTER_KEYS
+    if isinstance(frontmatter.get("allowed-tools"), list):
+        fields.add("allowed-tools")
+    return sorted(fields)
 
 
 def _target_within(path: Path, allowed_root: Path) -> bool:
@@ -516,7 +610,7 @@ def discover_active_skills(repo_root: Path) -> SkillDiscovery:
     return SkillDiscovery(tuple(sorted(active)), tuple(errors))
 
 
-def validate_skills(skill_dirs: Iterable[Path], repo_root: Path) -> list[str]:
+def validate_skills(skill_dirs: Iterable[Path], repo_root: Path, profile: str = "repository") -> list[str]:
     repo_root = repo_root.resolve()
     errors: list[str] = []
     for skill_dir in skill_dirs:
@@ -528,7 +622,7 @@ def validate_skills(skill_dirs: Iterable[Path], repo_root: Path) -> list[str]:
             resolved_skill_md.relative_to(repo_root)
             if not resolved_skill_md.is_file():
                 raise ValueError("SKILL.md must be a regular file")
-            frontmatter = load_frontmatter(resolved_skill_md)
+            frontmatter = load_frontmatter(resolved_skill_md, profile)
         except Exception as exc:
             skill_errors.append(str(exc))
 
@@ -546,13 +640,16 @@ def validate_skills(skill_dirs: Iterable[Path], repo_root: Path) -> list[str]:
 
 def parse_args(argv: Sequence[str] | None = None) -> argparse.Namespace:
     parser = argparse.ArgumentParser(
-        description="Validate active marketplace skills for Codex compatibility."
+        description="Static validation of discovered skills and the repository's audited frontmatter subset; not a host runtime test."
     )
     parser.add_argument(
         "--repo-root",
         type=Path,
         help="Repository root (defaults to the root containing this script).",
     )
+    parser.add_argument("--profile", choices=FRONTMATTER_PROFILES, default="repository",
+                        help="repository: common fields plus audited Claude extensions; portable: common fields only")
+    parser.add_argument("--format", choices=("text", "json"), default="text")
     return parser.parse_args(argv)
 
 
@@ -561,7 +658,22 @@ def main(argv: Sequence[str] | None = None) -> int:
     repo_root = (args.repo_root or Path(__file__).resolve().parents[3]).resolve()
     discovery = discover_active_skills(repo_root)
     errors = list(discovery.errors)
-    errors.extend(validate_skills(discovery.active, repo_root))
+    errors.extend(validate_skills(discovery.active, repo_root, args.profile))
+    extensions = []
+    for skill in discovery.active:
+        try:
+            fields = claude_extension_fields(load_frontmatter(skill / "SKILL.md", args.profile))
+        except (ValueError, yaml.YAMLError, OSError):
+            continue
+        if fields:
+            extensions.append({"path": str(skill.relative_to(repo_root)), "fields": fields,
+                               "scope": "Claude Code extension; not a Codex capability assertion"})
+    report = {"status": "fail" if errors else "pass", "profile": args.profile,
+              "active_skills": len(discovery.active), "errors": errors,
+              "claude_extensions": extensions, "host_runtime_verified": False}
+    if args.format == "json":
+        print(json.dumps(report, ensure_ascii=False, indent=2))
+        return 1 if errors else 0
 
     if errors:
         print("Validation failed:", file=sys.stderr)
@@ -570,9 +682,11 @@ def main(argv: Sequence[str] | None = None) -> int:
         return 1
 
     print(
-        f"Validated {len(discovery.active)} active Codex-compatible skills "
+        f"Validated {len(discovery.active)} active skills (profile={args.profile}, static checks only) "
         f"from {repo_root / '.claude-plugin' / 'marketplace.json'}"
     )
+    for extension in extensions:
+        print(f"- Claude extension validated: {extension['path']}: {', '.join(extension['fields'])}; not a Codex capability assertion")
     return 0
 
 

@@ -7,11 +7,11 @@ argument-hint: "[操作] [描述]，如：根据 decomposition 创建 pipeline�
 # Testany Pipeline
 
 本 skill 通过 Testany MCP 工具管理 **Testany 平台上的 pipeline**。
-所有操作都是对 Testany 平台的远程 API 调用，不涉及本地文件系统。
+平台对象操作通过远程 API；允许为本次编排读取本地 handoff、生成和静态检查 YAML。这不授权执行测试或返回的命令。
 
 **关键前提**：
 - pipeline 是 Testany 的**执行与编排单元**
-- Testany **不支持直接执行单条 case**
+- 常规场景执行使用 pipeline；case dry-run 是另一个需要执行授权的验证动作，不能当作只读检查或自动替代 pipeline
 - trigger 只是 pipeline 的执行入口，不是编排层
 
 用户输入: $ARGUMENTS
@@ -20,6 +20,7 @@ argument-hint: "[操作] [描述]，如：根据 decomposition 创建 pipeline�
 
 ## 宿主能力适配
 
+- 遵循 [整体目标与交接](../testany-guide/references/task-handoff.md)：完整目标中的注册、编排、一次执行和等待按需接续，不能只给下一步建议；仅配置的目标不扩大为运行。
 - 优先使用宿主提供的结构化提问工具（如 AskUserQuestion）一次性收集缺失信息。
 - 如果宿主不支持该工具，则用一条普通消息集中提问相同问题；低风险字段可给出默认值建议。
 - 如果宿主支持 slash command，可推荐相关 workflow 的命令入口；否则直接在当前线程继续对应 workflow。
@@ -78,6 +79,10 @@ argument-hint: "[操作] [描述]，如：根据 decomposition 创建 pipeline�
 
 ## Create（创建）
 
+本地 YAML 检查、远程验证与执行分开，遵循 [交付验证](../testany-guide/references/delivery-verification.md)。创建后按真实 key 读回配置及需要的 YAML，核对名称、workspace、case 引用与本次编排；accepted 不等于配置已一致，更不等于执行成功。
+
+创建与依赖新 key 的调用存在数据依赖：先取得并检查创建响应，再将实际 `pipeline_key` 传给验证、读回或执行。不要在创建前把示例/猜测 key 填进同一批调用；`&&` 只保证前一命令成功，不会把新 key 自动传给后一命令。脚本编排可解析响应并检查非空 key 后继续，缺失或不确定时停止相关调用。
+
 ### Phase 0: 先判断输入模式
 
 #### Primary：已有 automation design / decomposition
@@ -116,8 +121,8 @@ argument-hint: "[操作] [描述]，如：根据 decomposition 创建 pipeline�
 - `testany_list_cases` 或 `testany_list_my_cases`
 
 如果用户还没有把 platform cases 注册到 Testany 平台：
-- 停止创建 pipeline
-- 提示先走 `testany-case`
+- 不使用不存在的 case key 创建 pipeline
+- 完整目标包含注册且已授权时，读取 `testany-case` 先注册，再携真实 key 返回；仅编排现有 case 时说明缺少对象，不扩大为注册
 
 ---
 
@@ -240,6 +245,7 @@ argument-hint: "[操作] [描述]，如：根据 decomposition 创建 pipeline�
 3. 优先按已有 automation design 更新，而不是现场重猜
 4. 如修改 YAML，重新验证 relay 与依赖
 5. `testany_update_pipeline` 提交更新
+6. `testany_get_pipeline` 读回授权字段；改了编排时再读 YAML 核对。读回仍为旧值或不可读时报告未验证/不一致，不自动重试、执行或删除
 
 ---
 
@@ -277,8 +283,7 @@ argument-hint: "[操作] [描述]，如：根据 decomposition 创建 pipeline�
 - 来源输入模式：`automation design / explicit case keys / fallback inference`
 - 包含的 case 数量与顺序
 - relay 配置摘要
-- 是否建议继续到 `testany-trigger`
-- 如已发起执行，是否建议继续到 `testany-execution`
+- 整体目标是否仍需 `testany-trigger` / `testany-execution`：已授权则实际接续；未包含则不扩展
 
 ---
 

@@ -166,13 +166,13 @@ Import 会把脚本文件上传成 case，但**不负责**为 case 填 `environm
 
 ### managed_import
 
-直接 confirm，后端自动对比镜像：
+先获取本轮 `testany_preview_git_sync`，按 [同步授权决策表](./references/sync-authorization.md) 核对实际差异与当前许可。只有全部差异在授权内且提交前状态没有冲突时，才提交；已明确许可不重复征求确认：
 
 ```
 testany_confirm_git_sync({ import_history_id })
 ```
 
-如用户想先看 diff，可先 `testany_preview_git_sync`。
+`no_changes` 时结束；意外删除/新增不能被「同步一下」或旧 preview 授权覆盖。managed confirm 按整体镜像差异落地，不能传 file_selections 裁掉未授权项。要求锁定精确候选但工具不支持时停止并披露，不伪造快照参数。提交后核对 sync record、实际 commit 和 failed_items。
 
 ### sync_link
 
@@ -188,14 +188,14 @@ testany_confirm_git_sync({ import_history_id })
 
 ### 失败处理
 
-`SyncResult.failed_items` 非空 → `testany_retry_git_sync({sync_record_id})`。注意：**retry 仅 sync_link 可用**，managed_import 的 confirm 内部已自行处理 per-file 失败。
+`SyncResult.failed_items` 非空先报告部分完成；仅当前任务已授权相同范围重试时，才考虑 `testany_retry_git_sync({sync_record_id})`，不无限循环。注意：**retry 仅 sync_link 可用**，managed_import 的 confirm 内部已自行处理 per-file 失败。
 
 ---
 
 ## Phase 5：Switch（只在 sync_mode 维度上操作）
 
 **switch 工具不改 `import_mode`**（managed_import ↔ sync_link）；只操作 `sync_mode`。
-都是 `preview → confirm` 两阶段，建议总是先 preview 把 diff 给用户看。
+都是 `preview → confirm` 两阶段，先 preview 取证；按 [同步授权决策表](./references/sync-authorization.md) 区分已授权提交与真正需要新增决定的差异。不能从普通 sync 许可推导切版本或跟踪模式许可。
 
 ### switchCommit — 换钉住的 commit
 
@@ -226,12 +226,14 @@ testany_confirm_git_sync({ import_history_id })
 
 1. `testany_get_git_add_files_summary` — `available=false` 就不能走，看 `blocked_reason`
 2. `testany_list_git_add_files_candidates` — 拿到 `snapshot_commit` 和候选列表
+   - 读取完整候选，只选择本轮已授权文件/元数据；新候选不自动扩大授权
 3. `testany_confirm_git_add_files({selected_files, snapshot_commit})` — `idempotency_key` 由 MCP 自动生成
    - **`snapshot_commit` 必须原样回传** list 时拿到的值；值对不上时后端会拒绝，防止竞态下把过期候选集落地
 
 ### 源文件被删（sourceDeleted）
 
 仓库里已经删掉、但 Testany 上 binding 还在的：summary → list → confirm 同一套，但 confirm 的参数是 `file_binding_ids`（不是 file_path）。
+删除/下线影响必须在许可内，不能从脚本同步推导。按本轮 list 的 snapshot_commit 提交，提交后核对绑定与实际处理结果。
 
 ---
 
@@ -266,7 +268,7 @@ testany_confirm_git_sync({ import_history_id })
 3. **addFiles / sourceDeleted 依赖 `snapshot_commit`**（managed_import 和 sync_link 都是如此）：list 阶段拿到的值原样回传到 confirm
 4. **sync_link 在 current phase 下不走 `confirm_git_sync`**：后端 422。要演化 binding 集就走 addFiles / sourceDeleted
 5. **删除连接不会级联删 import history**：那些 import history 会变 `not_ready`，需重新授权
-6. **大批量改动先 preview**：任何 sync / switch / relation 的 confirm 之前，把 diff / 候选集给用户确认
+6. **先取证、按影响授权**：sync / switch 用本轮完整 preview，relation 用候选 snapshot；既有许可覆盖实际差异时不重复问，越界/删除/漂移时按 [同步授权决策表](./references/sync-authorization.md) 停止对应提交
 7. **不要让用户挑 workspace 除非必要**：顶层 `workspace_key` 是可选兼容字段，不是 UX 必选项。只有当用户明确要建 restricted case，且 per-file 没给 `workspace_keys` 时才问
 8. **不要预设 `deployment_type`**：在允许 global case 前，用 `tenantClient.getCreditStatus` 或向用户确认环境类型；`deployment_type=2` 环境下 global 会被后端直接拒（`E400001`）
 9. **Runtime 选择不要盘问语言**：直接列 `testany_filter_case_runtimes` 结果让用户选，默认推荐 `CloudPrime-Default`

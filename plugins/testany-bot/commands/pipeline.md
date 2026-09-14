@@ -11,6 +11,10 @@ argument-hint: <操作> <描述>，如：根据 decomposition 创建流水线、
 
 $ARGUMENTS
 
+按 [交付验证](../skills/testany-guide/references/delivery-verification.md) 检查实际编排并在创建/更新后读回相关配置；请求受理不等于配置生效，不自动执行或重试。
+
+按 [整体目标交接](../skills/testany-guide/references/task-handoff.md) 接续已授权的注册、编排和运行目标；仅配置则不运行，已有 case 不重复创建。
+
 ## 支持的操作
 
 - **创建流水线**：优先根据上游 decomposition 组合多个 case 创建 pipeline

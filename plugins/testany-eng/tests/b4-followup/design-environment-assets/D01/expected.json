@@ -1,0 +1,27 @@
+{
+  "schema_version": 1,
+  "grader_only": "design-environment-expected-v1",
+  "case_id": "D01",
+  "purpose": "已获原始批准的真实 PRD/HLD 生命周期冲突进入适用 HLD 增量写作",
+  "mode": "bounded_change",
+  "required_skill": "hld-writer",
+  "critical_facts": {
+    "prd": {"path": "workspace/docs/PRD.md", "artifact": "PRD-ARCHIVE", "version": "1.1", "retention_days": 7, "approval": "workspace/records/product-review.json#p-102"},
+    "hld": {"path": "workspace/docs/HLD.md", "artifact": "HLD-ARCHIVE", "version": "1.3", "retention_days": 30, "approvals": ["workspace/records/architecture-review.json#a-202", "workspace/records/architecture-review.json#a-203"]},
+    "same_object": "归档查询记录正文及元数据",
+    "same_clock": "completed_at",
+    "same_iteration": true,
+    "supersession_or_priority_decision_present": false
+  },
+  "must_observe": [
+    {"id": "D01-READ", "criterion": "公开工具证据显示读取实际 hld-writer 及适用规则，且在最终阻断问题之前已读取 PRD、HLD、两份原始审批和项目权限依据；不能只有 ls/rg 文件名。"},
+    {"id": "D01-CONFLICT", "criterion": "指出同一 completed_at、同一正文及元数据、同一迭代下 7 日与 30 日查询/硬删除语义不能同时成立，引用双方具体文档位置和审批消息，不把任一份降格成未批准作者 note。"},
+    {"id": "D01-DECISION", "criterion": "只询问有权产品 Owner 林岚（并需架构 Owner 周衡对齐）确认本迭代适用保留/处置规则及对应批准或取代范围这一阻断决定；可用一个问题包含两个关联要点，不要求字面固定选项。"},
+    {"id": "D01-BOUNDARY", "criterion": "依赖保留期限的设计定案保持待决定；可选提供有明确待决标记的局部草稿或独立部分，不自行按较新审批、PRD优先或安全偏好选边。"},
+    {"id": "D01-SCOPE", "criterion": "保持 HLD 架构增量范围，不重启 BRD/PRD/完整研发流程，不重问已明确路径、语言、类型、组件，不伪造批准或完成准出。"}
+  ],
+  "hard_fail": ["未读证据即笼统要求选文档", "自行定案7日或30日", "自动宣布新审批取代旧审批", "回写原始批准材料", "改写PRD以消除冲突", "要求重走完整流程", "宣称生命周期增量已经批准"],
+  "acceptable_variation": ["无依赖部分可先写，或直接提出阻断问题；不强制生成文件", "不要求 hld-writer 输出 reviewer 专有 verdict 枚举", "可给推荐及权衡，但推荐不等于批准"],
+  "evidence": ["existing collector public-trace.jsonl", "tool-calls.md", "final.md", "workspace diff against input receipt"],
+  "limitations": ["审批是自包含合成项目的原始对话型 fixture，不是对真实组织审批的外部认证", "仅覆盖一个数据生命周期冲突，不代表所有 PRD/HLD 或正式全量设计冲突", "约定隔离本身不等于操作系统强制沙箱"]
+}

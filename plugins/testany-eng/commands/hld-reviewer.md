@@ -5,6 +5,8 @@ argument-hint: <HLD 或有限架构变更请求> [批准依据]
 
 # HLD Reviewer
 
+执行前读取 [工作流执行约定](../references/workflow-execution.md)：先取证再提问、按实际工具能力回退，并从本次安装位置定位资源。
+
 读取并遵循 `../skills/hld-reviewer/SKILL.md` 及其要求的共享边界/参考文档，评审以下输入：
 
 $ARGUMENTS

@@ -5,6 +5,10 @@ description: 'Review Project Guardrails, 工程规范评审。Use when: Guardrai
 
 # Guardrails Reviewer
 
+执行前读取 [工作流执行约定](../../references/workflow-execution.md)：先取证再提问、按实际工具能力回退，并从本次安装位置定位资源。
+
+评审先读取 [证据、准出与复审规则](../../references/review-assurance.md)。P2 不按数量阻断；缺证据不等于产品缺陷；提前门禁失败不取消独立安全检查；完成本轮评审不等于批准工件。
+
 > **语言规则**：默认跟随用户输入语言；用户显式指定时以用户指定为准；不要因为本 `SKILL.md` 是中文而强制输出中文；`TRACEABILITY-METADATA` 的字段名、枚举值、ID、comment markers 始终保持英文。若本 skill 使用模板或派发子任务，继续传递同一个 `output_language`。详见 `../../references/language-policy.md`。
 
 你是项目级 Guardrails 准出 reviewer。你的职责不是重写规则，而是判断这份 Guardrails 是否已经达到“可作为仓库治理基线被下游消费”的标准。
@@ -24,7 +28,7 @@ description: 'Review Project Guardrails, 工程规范评审。Use when: Guardrai
 | **先审证据，再审规则** | 尤其是 `repository_scan_first`，不能把现状误当标准 |
 | **workflow hooks 是准出对象** | 不只审规则本身，还审“改完后谁要重审、是否阻塞下游” |
 | **项目级边界优先** | Guardrails 不能混入 feature-specific 设计细节 |
-| **无条件通过** | P0=0, P1=0, P2≤2；拒绝“差不多可以” |
+| **无条件通过** | P0=0, P1=0, 必要证据充分；P2 不按数量阻断；拒绝“差不多可以” |
 
 ## 问题分级与准出门槛
 
@@ -32,10 +36,10 @@ description: 'Review Project Guardrails, 工程规范评审。Use when: Guardrai
 |------|----------|------|
 | **P0** | 阻断 | = 0 |
 | **P1** | 严重 | = 0 |
-| **P2** | 建议 | ≤ 2 |
+| **P2** | 建议 | 不按数量阻断 |
 
 **P0 典型场景**：
-- 缺少 Guardrails 文档或当前生效版本不可访问
+- 文档/生效版本不可访问记 evidence_gap，无法批准；不能仅凭不可访问定为产品 P0
 - `create/update/restructure/no_change` 判定缺失或明显错误
 - `repository_scan_first` 未区分 `fact` / `declared_standard` / `future_intent`
 - 高风险领域规则缺失，或关键规则不可验证
@@ -55,7 +59,7 @@ description: 'Review Project Guardrails, 工程规范评审。Use when: Guardrai
 
 ## 执行进度清单
 
-**执行时使用 TodoWrite 工具跟踪以下进度，完成一项后立即标记为 completed：**
+**按任务需要跟踪以下进度；使用可用计划工具或简短清单，标记真实完成状态：**
 
 ```text
 □ Phase 0：基线与动作识别

@@ -16,7 +16,7 @@ $ARGUMENTS
 - **连接 Git 平台**：GitHub / GitLab 的 OAuth 连接管理（initiate 返回 `authorize_url`，由用户浏览器完成）
 - **浏览仓库**：列仓库 / 分支 / commit、浏览目录、预览文件
 - **创建导入**：managed（后端镜像） / sync_link（用户显式选文件）两种模式
-- **同步 / 切换**：preview → confirm 两阶段，覆盖 sync、switchCommit、switchMode、addFiles、sourceDeleted
+- **同步 / 切换**：sync/switch 先 preview，relation 先取得候选 snapshot；按真实差异及授权决定是否提交
 - **同步记录**：列表与 per-file 详情
 - **Webhook**：启用 / 关闭 / 轮换 secret / 查看平台侧配置步骤
 
@@ -39,6 +39,8 @@ $ARGUMENTS
 - **current-phase 约束**：`confirm_git_sync` 仅 managed_import 可用；sync_link 的 binding 演化统一走 **addFiles** / **sourceDeleted** 关系流（managed_import 也支持这两条路径）
 - **switchMode 只动 sync_mode**：把 `pinned_commit → latest`；**不是** managed_import ↔ sync_link 的切换
 - **idempotency_key 自动生成**：不要手动传 UUID，除非跨多次调用显式去重
+- **confirm 不等于人类批准**：按 [同步授权决策表](../skills/testany-import-git/references/sync-authorization.md) 处理；授权内差异不重复问，意外删除/扩大集合/版本漂移须停对应动作
+- **不能假锁定快照**：managed confirm 不支持用 file_selections 筛选或自造 snapshot 参数；提交后核对实际 commit 和逐项结果，部分失败不得说全部完成
 
 ## MCP Schema 资源
 

@@ -5,8 +5,12 @@ argument-hint: <PRD 路径> <API Contract 路径>
 
 # HLD Writer
 
+执行前读取 [工作流执行约定](../references/workflow-execution.md)：先取证再提问、按实际工具能力回退，并从本次安装位置定位资源。
+
 启动 HLD 撰写流程。基于 PRD 和 API Contract，做出架构级技术决策。
 
+
+先区分 `formal_design` 与 `bounded_change`/`amendment`；有限增量使用既有有效基线及 Owner 批准，只处理受影响范围，不回补全生命周期文档。详见 `../references/document-amendments.md`；完整流程只适用于正式新功能/全量准出。
 ## 使用方式
 
 提供 PRD 和 API Contract 文件路径：

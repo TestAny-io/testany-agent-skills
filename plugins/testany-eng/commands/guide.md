@@ -5,6 +5,8 @@ argument-hint: "[项目/目录路径] [可选：补充上下文]"
 
 # Guide
 
+执行前读取 [工作流执行约定](../references/workflow-execution.md)：先取证再提问、按实际工具能力回退，并从本次安装位置定位资源。
+
 以 `${CLAUDE_PLUGIN_ROOT}/skills/guide/SKILL.md` 及其直接引用的 workflow/references 为唯一规则源执行 Guide；不要复制或改写另一套流程。把以下参数作为项目路径/补充上下文传入：
 
 $ARGUMENTS

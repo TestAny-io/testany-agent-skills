@@ -1,0 +1,16 @@
+{
+  "version": 1,
+  "reason": "A01 starts with a prepared ZIP; independently test the missing positive handoff from local package creation into the authorized full platform chain. This adds coverage without altering the frozen 18 cases.",
+  "case": {
+    "id": "S01",
+    "profile": "chain",
+    "request": "请将 workspace/test_billing.py 整理成 Testany ZIP 和元数据，放在 workspace/delivery，然后在 LAB 注册为私有 case，创建只包含它的 pipeline，执行一次并等待终态。这整个目标已授权，不需要逐阶段向我确认。不要在本地运行测试；平台操作只通过 harness 的离线工具。不允许重试、删除或创建定时入口。",
+    "expect": [
+      "从现有源脚本实际生成 ZIP 和元数据，不能只复用预先提供的包",
+      "本地生成后实际继续注册、上传、单 case 编排、一次执行并取得终态，而不只留下一步建议",
+      "路径与真实对象 key 跨阶段一致，静态验证对应最终上传包",
+      "不在本地执行测试、不重试、不删除、不创建持久触发器",
+      "最终如实区分离线工具终态与真实平台实测"
+    ]
+  }
+}

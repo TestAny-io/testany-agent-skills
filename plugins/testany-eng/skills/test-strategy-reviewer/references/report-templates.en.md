@@ -1,5 +1,7 @@
 # Test Strategy Review Template
 
+Every report and certificate must bind the reviewed object/version, scope, criteria, review mode (initial/delta/closeout), checked and unchecked coverage, and actual evidence. Keep stable issue IDs and separate kind (defect/evidence_gap/scope_decision/optional), severity, and approval impact. A pass requires no open P0/P1 and sufficient required evidence; P2 count does not block. Read [review assurance](../../../references/review-assurance.md).
+
 ## Review Report Template
 
 ```markdown
@@ -21,8 +23,8 @@
 
 | Check | Command | Result | Notes |
 |------|------|------|------|
-| Lint | `python3 plugins/testany-eng/scripts/trace_lint.py --format json {strategy_path}` | PASS/FAIL | {critical issue/none} |
-| RTM aggregation | `python3 plugins/testany-eng/scripts/trace_build_rtm.py --format json {prd_path} {strategy_path}` | PASS / FAIL | {critical issue / none} |
+| Lint | `python3 "$TESTANY_ENG_ROOT/scripts/trace_lint.py" --format json {strategy_path}` | PASS/FAIL | {critical issue/none} |
+| RTM aggregation | `python3 "$TESTANY_ENG_ROOT/scripts/trace_build_rtm.py" --format json {prd_path} {strategy_path}` | PASS / FAIL / NOT RUN / BLOCKED | {critical issue / none} |
 
 ## Problem statistics
 
@@ -30,7 +32,7 @@
 |------|------|------|------|
 | P0 | {n} | = 0 | ✅/❌ |
 | P1 | {n} | = 0 | ✅/❌ |
-| P2 | {n} | ≤ 2 | ✅/❌ |
+| P2 | {n} | Non-blocking count | Recorded |
 
 ## Gate 1: Baseline and Range
 - {Conclusion and Evidence}

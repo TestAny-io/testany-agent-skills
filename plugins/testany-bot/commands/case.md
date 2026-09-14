@@ -11,14 +11,18 @@ argument-hint: <操作> <描述>，如：注册这些 case packages、更新脚�
 
 $ARGUMENTS
 
+按 [整体目标交接](../skills/testany-guide/references/task-handoff.md) 携带真实 key 与验证状态继续已授权的后续目标；注册/上传许可不等于执行许可。
+
 ## 核心动作
+
+按 [交付验证](../skills/testany-guide/references/delivery-verification.md) 先检本地包，变更后读回配置和脚本状态；上传失败保留真实 case key，不自动重建或回滚删除。
 
 - **注册 case package**：创建 shell case，补齐 metadata，并上传 ZIP
 - **更新配置**：修改 case metadata、可见性、labels、运行配置
 - **上传脚本**：上传或更新测试脚本 ZIP 包
 - **查看用例**：获取 case 详情和脚本
 - **管理标签**：为 case 添加分类标签
-- **dry run 验证**：验证 case 是否 ready
+- **dry run 验证**：按本轮明确许可执行脚本验证，不从注册、上传或补字段自动推导许可
 
 ## 示例
 
@@ -34,8 +38,9 @@ $ARGUMENTS
 
 - `case` 是 Testany 平台上的**原子自动化步骤包**
 - 如果你只有传统测试场景，还没有拆解结果和脚本，请先用 `/case-writing`
-- Testany **不支持直接执行单条 case**
-- 如果要真正执行，注册完 case 后还需要 `/pipeline`
+- 常规编排执行以 pipeline 为单位；case dry run 是单独的验证入口，不替代编排验证
+- 只要求配置就交付配置与「未执行」；明确授权且目标/副作用已知时可直接完成一次验证，不重复确认
+- 查询既有 dry run 不新开执行；等待遵守 [有界等待合同](../skills/testany-guide/references/execution-boundaries.md)，超时不等于远程取消，不自动重试
 
 ## Case Labels (用例标签)
 

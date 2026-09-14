@@ -5,7 +5,11 @@ argument-hint: <Guardrails 路径>
 
 # Guardrails Reviewer
 
+执行前读取 [工作流执行约定](../references/workflow-execution.md)：先取证再提问、按实际工具能力回退，并从本次安装位置定位资源。
+
 启动 Guardrails 准出审查流程。除了审规则本身，还会检查这次变更的触发判定、生成模式、事实标准、下游工作流钩子与重审建议是否成立。
+评审先读取 [证据、准出与复审规则](../references/review-assurance.md)。P2 不按数量阻断；缺证据不等于产品缺陷；提前门禁失败不取消独立安全检查；完成本轮评审不等于批准工件。
+
 
 ## 使用方式
 
@@ -24,6 +28,6 @@ $ARGUMENTS
 
 - **P0 = 0**
 - **P1 = 0**
-- **P2 ≤ 2**
+- **必要证据充分；P2 不按数量阻断**
 
 请提供 Guardrails 文档路径开始评审。

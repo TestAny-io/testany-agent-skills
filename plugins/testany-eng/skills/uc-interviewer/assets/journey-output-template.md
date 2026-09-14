@@ -25,7 +25,7 @@ entities:
     - id: FLOW-{PROJECT_KEY}-001
       title: {Journey 1 标题}
       statement: {一句话描述 Journey 1 的用户目标与完成结果}
-      status: approved
+      status: proposed
       scope: in
       kind: user_journey
       priority: P0
@@ -65,6 +65,8 @@ waivers: []
 
 # User Journey 文档
 
+默认草稿，示例流程和状态不是已批准事实。已给材料可直接复用，但当前工件批准须有对应版本/范围的真实来源；按访谈、材料整理或缺口补问模式生成。
+
 ## 文档信息
 
 | 属性 | 值 |
@@ -76,7 +78,8 @@ waivers: []
 | BRD Baseline Artifact ID | {BRD-ARTIFACT-ID} |
 | BRD Baseline 确认 | 已确认 / 待确认 |
 | Checkpoint Status | draft / in_review / approved |
-| trace-lint 结果 | pass / fail |
+| trace-lint 结果 | not_run / pass / fail（只填真实检查结果） |
+| 输入来源与整理模式 | {材料路径/版本；interview / synthesis / gap_followup} |
 | Blocking Issues | 无 / {问题列表} |
 
 ---
@@ -93,7 +96,7 @@ waivers: []
 
 | Journey ID | Journey | 优先级 | 状态 | BRD 来源 |
 |------------|---------|--------|------|----------|
-| FLOW-{PROJECT_KEY}-001 | {Journey 1} | P0 | 已确认 | {BRD section} |
+| FLOW-{PROJECT_KEY}-001 | {Journey 1} | P0 | 待定 / 已确认（需来源） | {BRD section} |
 | FLOW-{PROJECT_KEY}-002 | {Journey 2} | P1 | 已确认 / 待定 | {BRD section} |
 
 ---

@@ -1,5 +1,7 @@
 # 审查报告与准出证书模板
 
+每份报告和准出证书必须绑定对象/版本、范围、标准、模式（initial/delta/closeout）、已审/未审覆盖及真实证据。沿用稳定问题 ID，分列 kind（defect/evidence_gap/scope_decision/optional）、严重级别和准出影响。通过须无未关闭 P0/P1 且必要证据充分，P2 不按数量阻断。详见 [评审规则](../../../references/review-assurance.md)。
+
 本文档定义 prototype-reviewer 的输出格式模板。
 
 ---
@@ -9,6 +11,10 @@
 ```markdown
 # 原型审查报告
 
+- 评审绑定：[对象/版本/可得摘要；范围；标准/版本；initial/delta/closeout]
+- 覆盖状态：[已审；未审；复用证据及有效性]
+- 准出影响：[defect / evidence_gap / scope_decision / optional；稳定 ID 与关闭证据]
+
 ## 基本信息
 
 | 项目 | 内容 |
@@ -16,7 +22,7 @@
 | 沙箱目录 | [路径] |
 | PRD 来源 | [路径] |
 | User Journey 来源 | [路径] |
-| 交付摘要 | [路径 / 缺失（P1）] |
+| 交付摘要 | [路径 / 未提供（evidence_gap，注明所限结论；专项检查不扩大范围）] |
 | 变更基线 | [commit range / worktree + 归属确认] |
 | 审查时间 | YYYY-MM-DD |
 | 审查轮次 | 第 N 轮 |
@@ -31,7 +37,7 @@
 | REQ-01 | [描述] | [页面名] | [S1/S2] | ✅/⚠️/❌ | [未覆盖/部分覆盖原因] |
 
 - Journey 步骤覆盖率：X / Y (Z%)
-- 门一结论：[无 P0 可继续 / 存在 P0 阻塞]
+- 门一结论：[实际检查结果 / 证据缺口及未审范围]；本门受阻不取消独立检查，专项隔离检查不强制补做门四。
 
 ## 门二：原型完整性
 
@@ -82,6 +88,10 @@
 
 ```markdown
 # 原型准出证书
+
+- 评审绑定：[对象/版本/可得摘要；范围；标准/版本；initial/delta/closeout]
+- 覆盖状态：[已审；未审；复用证据及有效性]
+- 准出影响：[defect / evidence_gap / scope_decision / optional；稳定 ID 与关闭证据]
 
 ## 基本信息
 

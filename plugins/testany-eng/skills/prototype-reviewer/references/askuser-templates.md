@@ -1,5 +1,7 @@
 # AskUserQuestion 模板
 
+以下模板仅用于读取相关材料后仍存在的真实缺口。已明确的基线、模式、格式或范围直接复用；问题须引用具体冲突，不要求先确认后读取。工具名称为示例，无对应工具可用普通文本。
+
 本文档定义 prototype-reviewer 审查过程中需要向用户确认的问题模板。
 
 ---
@@ -18,7 +20,7 @@ options:
   - label: "从 Manifest 中读取"
     description: "已有 _prototype-manifest.md，从中提取 PRD 和 Journey 路径"
   - label: "部分文档缺失"
-    description: "说明缺失项（PRD 或 Journey 缺失将导致 P0）"
+    description: "说明缺失项（上游对齐无法准出，但工程隔离继续）"
 ```
 
 **处理路径**：
@@ -26,8 +28,8 @@ options:
 |------|--------|------|
 | 所有路径可访问 | — | 继续审查 |
 | 从 Manifest 读取成功 | — | 继续审查 |
-| PRD 或 Journey 缺失 | P0 | 停止审查 |
-| 交付摘要缺失 | P1 | 继续审查，Gate 4 降级 |
+| PRD 或 Journey 缺失 | evidence_gap | 上游对齐待补，工程隔离继续 |
+| 交付摘要未提供 | evidence_gap | 仅限制依赖它的结论；专项检查不强制补做 Gate 4，不自动生成 P1 |
 
 ---
 

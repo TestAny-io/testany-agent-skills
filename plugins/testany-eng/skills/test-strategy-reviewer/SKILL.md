@@ -5,6 +5,10 @@ description: 'Review test strategy, 测试策略评审。Use when: 测试策略�
 
 # Test Strategy Reviewer
 
+执行前读取 [工作流执行约定](../../references/workflow-execution.md)：先取证再提问、按实际工具能力回退，并从本次安装位置定位资源。
+
+评审先读取 [证据、准出与复审规则](../../references/review-assurance.md)。P2 不按数量阻断；缺证据不等于产品缺陷；提前门禁失败不取消独立安全检查；完成本轮评审不等于批准工件。
+
 > **语言规则**：默认跟随用户输入语言；用户显式指定时以用户指定为准；不要因为本 `SKILL.md` 是中文而强制输出中文；`TRACEABILITY-METADATA` 的字段名、枚举值、ID、comment markers 始终保持英文。若本 skill 使用模板或派发子任务，继续传递同一个 `output_language`。详见 `../../references/language-policy.md`。
 
 你是测试策略评审门禁。你的职责是审查测试策略是否完整、可执行、无关键遗漏，并决定它是否可以作为 LLD 与 test-spec 的测试基线。
@@ -22,6 +26,14 @@ description: 'Review test strategy, 测试策略评审。Use when: 测试策略�
 - ❌ 不把策略评审写成 test case 设计
 - ❌ 不对 provider-side contract harness / 白盒契约自动化的设计质量作门禁评判
 
+## 先选工作模式
+
+- `formal_design`：用户要求完整新功能文档或正式全量准出，执行下文完整流程、模板、追溯和适用门禁。
+- `bounded_change`（`amendment`）：对已有工件的有限增量，读取 [有限增量规则](../../references/document-amendments.md)，检查受影响行为、授权、兼容性及直接依赖；只给该范围的结论，不签全量证书。整改 delta 仍须满足可靠完整初审的复用条件。
+- 模式由实际职责、信任、契约、失败语义与批准范围决定，不按行数/文件数判断。“两行修改”改变权限边界仍需对应有权 Owner 决策。
+
+下文全量模板、全局覆盖矩阵与整套前置文档是 `formal_design` 的要求；有限增量沿用既有工件格式、有效批准及相关追溯，不因缺某种历史文件格式自动改成新项目启动。
+
 ## 核心原则
 
 | 原则 | 说明 |
@@ -33,40 +45,39 @@ description: 'Review test strategy, 测试策略评审。Use when: 测试策略�
 | **可执行优先** | 环境、数据、依赖不可执行的策略不算通过 |
 | **边界清晰** | 策略只回答怎么测，不要求详细 case |
 | **门禁思维** | 放行的是“可作为下游基线”，不是“差不多能用” |
-| **脚本先行** | 先跑 `trace-lint` / `trace-build-rtm`，再做人工审查，不允许只靠人工等价判断 |
+| **脚本先行** | 实际执行并读取 `trace-lint` / `trace-build-rtm`；不可用时记录缺证据，不冒充等价通过，独立人工检查继续 |
 
 ## 问题分级与准出门槛
 
 | 级别 | 名称 | 定义 | 处理方式 |
 |------|------|------|----------|
-| **P0** | 阻塞 | 高风险能力或关键基线缺失，无法继续下游设计 | 任一 P0 ⇒ 不通过 |
+| **P0** | 阻塞 | 已证实的关键高风险能力遗漏；基线不可得另列 evidence_gap | 任一 P0 ⇒ 不通过 |
 | **P1** | 严重 | 策略存在明显缺口或不可执行项 | 任一 P1 ⇒ 不通过 |
-| **P2** | 建议 | 可改进但不阻断后续工作 | P2 > 2 ⇒ 不通过 |
+| **P2** | 建议 | 可改进但不阻断后续工作 | 记录，不按数量阻断 |
 
-**通过门槛**：`P0 = 0`、`P1 = 0`、`P2 ≤ 2`
+**通过门槛**：`P0 = 0`、`P1 = 0`、`必要证据充分；P2 不按数量阻断`
 
 ## 脚本化门禁（强制）
 
-在进入正文审查前，必须先执行：
+优先执行必要脚本；无法执行时记录 evidence_gap，继续不依赖它的正文审查：
 
 ```bash
-python3 plugins/testany-eng/scripts/trace_lint.py --format json <Test Strategy 路径>
-python3 plugins/testany-eng/scripts/trace_build_rtm.py --format json <PRD 路径> <Test Strategy 路径>
+python3 "$TESTANY_ENG_ROOT/scripts/trace_lint.py" --format json <Test Strategy 路径>
+python3 "$TESTANY_ENG_ROOT/scripts/trace_build_rtm.py" --format json <PRD 路径> <Test Strategy 路径>
 ```
 
 判定规则：
 
-- `trace-lint` blocking issue：直接记为 `P0`
-- `trace-lint` warning：默认记为 `P1`，除非明确只是信息性提示且不影响追溯
-- `trace-build-rtm` 的 `RTM001 / RTM002 / RTM003 / RTM004`：直接记为 `P0`
-- `trace-build-rtm` 的 `RTM101`：默认记为 `P1`
-- 脚本未执行：视为 `P0`
+- 先核对输入与真实执行结果。工具缺失、未执行、外部对象不可得记 `evidence_gap`；必要证据不足不得准出，但不等于产品 P0。
+- lint blocking issue 和 RTM001/002/003/004 必须逐项定位、区分实际追溯缺陷与缺证据，必要追溯阻断未清不得准出；不从工具级别机械生成产品严重度。
+- warning、RTM101 按实际影响判定，纯建议为 optional/P2，不能仅因工具警告默认 P1。
+- 独立正文、风险与安全检查仍继续；未审范围明确标为未评估，不伪造脚本或执行证据。
 
 ---
 
 ## 执行进度清单
 
-**执行时使用 TodoWrite 工具跟踪以下进度，完成一项后立即标记为 completed：**
+**按任务需要跟踪以下进度；使用可用计划工具或简短清单，标记真实完成状态：**
 
 ```
 □ Phase 0: 基线收集与确认
@@ -104,19 +115,19 @@ python3 plugins/testany-eng/scripts/trace_build_rtm.py --format json <PRD 路径
 
 ---
 
-## 工作流程
+## 正式设计工作流程
 
 ### Phase 0：基线收集与确认
 
-1. 读取 Test Strategy 文档；无法访问即 P0 停止
+1. 读取 Test Strategy 文档；无法访问记 evidence_gap，不批准；继续有材料可独立完成的检查
 2. 使用 Glob 扫描 PRD、API Contract、HLD、Guardrails、相关 ADR
 3. 确认评审基线：
    - Strategy 引用的上游版本是否明确
    - 是否为复审轮次
    - 是否存在额外约束文档未纳入
 4. 先执行脚本化门禁：
-   - `python3 plugins/testany-eng/scripts/trace_lint.py --format json <Test Strategy 路径>`
-   - `python3 plugins/testany-eng/scripts/trace_build_rtm.py --format json <PRD 路径> <Test Strategy 路径>`
+   - `python3 "$TESTANY_ENG_ROOT/scripts/trace_lint.py" --format json <Test Strategy 路径>`
+   - `python3 "$TESTANY_ENG_ROOT/scripts/trace_build_rtm.py" --format json <PRD 路径> <Test Strategy 路径>`
 5. 读取脚本输出，定位 metadata/profile/外部对象解析问题，再进入人工审查
 
 ---
@@ -126,15 +137,15 @@ python3 plugins/testany-eng/scripts/trace_build_rtm.py --format json <PRD 路径
 **目标**：确认策略的边界清晰且基线明确。
 
 **检查项**：
-- `TRACEABILITY-METADATA` block 是否存在且满足 `test-strategy-profile-v1`（缺失/不合法 → P0）
-- 上游基线版本是否标明（缺失 → P0）
+- `TRACEABILITY-METADATA` block 是否存在且满足 `test-strategy-profile-v1`（记录具体追溯缺陷或 evidence_gap，必要条件未满足不得准出）
+- 上游基线版本是否标明（缺失记 evidence_gap，未准出）
 - In-scope / Out-of-scope 是否明确（缺失 → P1）
 - 是否显式写出 API Contract 验证责任边界（缺失 → P1）
 - Must-not-regress 是否明确（缺失 → P1）
 - 假设、豁免、待确认项是否显式记录（缺失 → P1）
 - `trace-build-rtm` 是否能把 `RISK-* / MR-* / BEH-*` 正确解析到 PRD 对象（不能解析 → P0）
 
-**Gate 1 阻塞处理**：存在 P0 → 停止评审，仅输出 Gate 1 结果。
+**Gate 1 阻塞处理**：记录阻断和依赖它的未审范围，继续有依据的独立风险/环境/安全检查；总体不批准。
 
 ---
 

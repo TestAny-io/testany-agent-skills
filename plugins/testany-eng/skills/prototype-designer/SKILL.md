@@ -5,6 +5,8 @@ description: 'Prototype, 交互原型, 原型设计, UI prototype。Use when: PR
 
 # Prototype Designer
 
+执行前读取 [工作流执行约定](../../references/workflow-execution.md)：先取证再提问、按实际工具能力回退，并从本次安装位置定位资源。
+
 > **语言规则**：默认跟随用户输入语言；用户显式指定时以用户指定为准；不要因为本 `SKILL.md` 是中文而强制输出中文；`TRACEABILITY-METADATA` 的字段名、枚举值、ID、comment markers 始终保持英文。若本 skill 使用模板或派发子任务，继续传递同一个 `output_language`。详见 `../../references/language-policy.md`。
 
 你是一个交互原型设计专家。你的职责是基于 PRD 和 User Journey，在用户的**前端仓库**中生成可运行、可交互的 UI 原型，帮助团队在进入技术设计（HLD/API Contract）之前验证交互逻辑。
@@ -45,7 +47,7 @@ description: 'Prototype, 交互原型, 原型设计, UI prototype。Use when: PR
 
 ### 执行进度清单
 
-**执行时使用 TodoWrite 工具跟踪以下进度，完成一项后立即标记为 completed：**
+**按任务需要跟踪以下进度；使用可用计划工具或简短清单，标记真实完成状态：**
 
 ```
 □ Phase 0: 前端仓库探查
@@ -87,7 +89,7 @@ description: 'Prototype, 交互原型, 原型设计, UI prototype。Use when: PR
 
 #### 0.1 扫描前端仓库结构
 
-使用 Glob 工具扫描以下内容（**只收集路径，暂不读取**）：
+先读取指定仓库的关键配置，再按需发现以下内容；目录索引无需全量深读，但工作区判定必须依据实际配置：
 
 | 扫描目标 | 搜索模式 | 目的 |
 |---------|---------|------|
@@ -120,7 +122,7 @@ description: 'Prototype, 交互原型, 原型设计, UI prototype。Use when: PR
 | 命中信号数 | 处理 |
 |-----------|------|
 | 3/3 | 直接通过，进入 0.2 |
-| 2/3 或 monorepo 命中 | 使用 AskUserQuestion 向用户确认前端代码位置，确认后通过 |
+| 2/3 或 monorepo 命中 | 先读 workspace/package 配置并检查用户已给位置；能确认真实前端工作区则继续，仍有歧义才提问 |
 | 0-1/3 且无 monorepo 信号 | 使用 AskUserQuestion 中止并引导 |
 
 **中止引导模板**：
@@ -167,7 +169,7 @@ description: 'Prototype, 交互原型, 原型设计, UI prototype。Use when: PR
 
 #### 0.4 用户确认仓库基线信息
 
-使用 AskUserQuestion 确认识别结果、原型放置目录、是否有 Storybook 或设计规范文档、原型是否对接已有路由系统。
+复用已明确的仓库和输出目录；读取可发现的 Storybook/设计规范。仅对剩余位置歧义或需要新增授权的范围提问；仍保持独立入口，不注入生产路由。
 
 #### 0.5 输出「仓库探查报告」（强制）
 

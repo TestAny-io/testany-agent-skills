@@ -1,0 +1,14 @@
+{
+  "export_kind": "original_project_conversation",
+  "thread_id": "receipt-change-12",
+  "attachments": [
+    {"path": "../contracts/receipt.v1.schema.json", "artifact": "RECEIPT-SCHEMA", "version": "1.0"},
+    {"path": "PRD.md", "artifact": "PRD-RECEIPT", "version": "1.1"},
+    {"path": "Guardrails.md", "artifact": "GR-RECEIPT", "version": "1.0"}
+  ],
+  "messages": [
+    {"id": "r-101", "author": "周衡", "role": "architecture_owner", "at": "2026-09-08T09:00:00+08:00", "text": "确认附件 RECEIPT-SCHEMA v1.0 是已批准生效的原始文件契约；现有 reader 忽略未知字段，当前 OS 作业账户权限不变。"},
+    {"id": "r-102", "author": "林岚", "role": "product_owner", "at": "2026-09-10T09:00:00+08:00", "text": "批准附件 PRD-RECEIPT v1.1：仅增加可选 request_id，约束为 1 至 64 个小写英文字母、数字或连字符，不包含敏感信息。其余语义保持不变。契约候选仍须按既有标准评审。"},
+    {"id": "r-103", "author": "周衡", "role": "architecture_owner", "at": "2026-09-10T09:10:00+08:00", "text": "批准附件 GR-RECEIPT v1.0。准出必须具有仓库本地 contract-check 1.4.2 的实际校验证据，不允许从全局工具或自写替代程序获得同等结论。允许 request_id 契约增量按此标准接受首次评审，既有职责和权限不变。"}
+  ]
+}

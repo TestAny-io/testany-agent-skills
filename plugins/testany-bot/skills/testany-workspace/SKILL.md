@@ -71,10 +71,13 @@ testany_request_workspace → 提交申请
 
 ## 工作流程
 
+遵循 [交付与读回验证](../testany-guide/references/delivery-verification.md)，已知目标无需重复确认，只操作授权的 workspace/成员/角色。
+
 1. **确认目标**：操作哪个工作空间？
 2. **获取当前状态**：`testany_get_my_workspaces_with_roles`
 3. **执行操作**：添加成员、修改角色等
-4. **确认结果**：返回操作状态
+4. **读回验证**：成员/角色变更后用 `testany_find_workspace_users` 核对相关成员；申请后用实际可用的申请状态或 workspace 列表核对。申请已受理/待审批不等于已批准可用，成员写请求成功不等于角色已生效
+5. **保留部分结果**：读回缺失或不一致时返回真实 key、已提交动作和限制，不自动重试、重复申请、增加其他成员或回滚删除
 
 ## 返回格式
 

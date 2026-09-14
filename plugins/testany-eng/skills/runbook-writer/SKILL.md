@@ -1,23 +1,37 @@
 ---
 name: runbook-writer
-description: 'Write Runbook, 撰写运维手册。Use when: LLD 完成后需要编写部署、回滚、监控、故障处理等运维文档。'
+description: 'Write Runbook, 撰写运维手册。Use when: LLD 完成后需要编写部署、回滚、监控、故障处理等运维文档。 也用于既有相关文档的有限增量更新。'
 ---
 
 # Runbook Writer - 运维手册编写
+
+执行前读取 [工作流执行约定](../../references/workflow-execution.md)：先取证再提问、按实际工具能力回退，并从本次安装位置定位资源。
 
 > **语言规则**：默认跟随用户输入语言；用户显式指定时以用户指定为准；不要因为本 `SKILL.md` 是中文而强制输出中文；`TRACEABILITY-METADATA` 的字段名、枚举值、ID、comment markers 始终保持英文。若本 skill 使用模板或派发子任务，继续传递同一个 `output_language`。详见 `../../references/language-policy.md`。
 
 你是运维手册编写的协调者。你的职责是收集上下文、派发 subagent 独立写作、组织审查流程，确保 Runbook 质量达到生产就绪标准。
 
+审查与自检记录遵循 [证据、准出与复审规则](../../references/review-assurance.md)，绑定范围、对象版本、覆盖与稳定问题 ID；自检不代替必要独立评审。
+
+## 先选工作模式
+
+- `formal_design`：用户要求完整新功能文档或正式全量准出，执行下文完整流程、模板、追溯和适用门禁。
+- `bounded_change`（`amendment`）：在已有有效基线和明确授权的变更范围内，读取 [有限增量规则](../../references/document-amendments.md)，直接执行“读取基线与授权 -> 核对影响边界 -> 修改获授权增量 -> 检查差异与验证 -> 交付范围限定的结果”。不回补全套历史文档，不把草稿或自检升级为批准。
+- 模式由实际职责、信任、契约、失败语义与批准范围决定，不按行数/文件数判断。“两行修改”改变权限边界仍需对应有权 Owner 决策。
+
+下文全量模板、全局覆盖矩阵与整套前置文档是 `formal_design` 的要求；有限增量沿用既有工件格式、有效批准及相关追溯，不因缺某种历史文件格式自动改成新项目启动。
+
 ## 核心定位
 
-**协调者，而非作者。**
+**有独立委派能力且获授权时作为协调者；否则作为草稿作者与自检者。**
+
+先判断实际能力。无独立 agent 时顺序执行写作、规格自检与质量自检，交付标注“草稿；独立评审未执行；未批准”的 Runbook 及缺口。下文 Task/子 agent 流程仅在可委派时适用；顺序自检不能代替必要独立准出。
 
 - ✅ 提取上游文档的关键约束和要求
 - ✅ 派发 writer subagent 独立写作
 - ✅ 派发 reviewer subagent 独立审查
 - ✅ 处理冲突、回答问题、汇总结果
-- ❌ 不自己写 Runbook（context 污染风险）
+- 无委派能力时可自行写草稿，但不冒充独立 writer/reviewer
 - ❌ 不跳过审查环节
 
 ## 核心原则
@@ -25,7 +39,7 @@ description: 'Write Runbook, 撰写运维手册。Use when: LLD 完成后需要�
 | 原则 | 说明 |
 |------|------|
 | **Context 隔离** | Subagent 获得新鲜 context，避免主 session 的假设污染 |
-| **完整上下文传递** | Controller 提取完整约束，subagent 不需要自己读文件猜测 |
+| **完整上下文传递** | Controller 提取完整约束，subagent 可读取授权范围内原始证据核对摘要，不猜测缺失约束 |
 | **双阶段审查** | Spec compliance 先行，quality 后续，避免浪费精力优化不该存在的内容 |
 | **证据驱动** | 所有约束必须来自上游文档，不得凭空推测 |
 | **可执行优先** | 每个步骤必须有验证命令，回滚路径必须可操作 |
@@ -33,7 +47,7 @@ description: 'Write Runbook, 撰写运维手册。Use when: LLD 完成后需要�
 
 ## 执行进度清单
 
-**执行时使用 TodoWrite 工具跟踪以下进度，完成一项后立即标记为 completed：**
+**按任务需要跟踪以下进度；使用可用计划工具或简短清单，标记真实完成状态：**
 
 ```
 □ Phase 0: 基线收集
@@ -52,7 +66,7 @@ description: 'Write Runbook, 撰写运维手册。Use when: LLD 完成后需要�
 
 □ Phase 2: 派发 Writer Subagent
   - 使用 subagents/writer.md 模板
-  - 提供完整上下文（不让 subagent 读文件）
+  - 提供完整上下文（附带原始证据路径供核对）
   - 解析 AGENT-RESULT 块判定结果
   - 等待 writer 提问（如有 needs_user_input）并回答
 
@@ -60,15 +74,15 @@ description: 'Write Runbook, 撰写运维手册。Use when: LLD 完成后需要�
   - 使用 subagents/spec-reviewer.md 模板
   - 解析 AGENT-RESULT 块中的 verdict
   - 发现问题 → 返回 writer 修复 → 重新审查（最多 2 轮）
-  - 2 轮后仍有 Critical → 停止，输出遗留问题
+  - 2 轮后仍有 Critical/Important 或必要证据缺口 → 停止，输出遗留问题
   - 通过 → 进入 Phase 4
 
 □ Phase 4: Quality Review（最多 2 轮修复）
   - 使用 subagents/quality-reviewer.md 模板
   - 解析 AGENT-RESULT 块中的 verdict
-  - 发现 Critical → 返回 writer 修复 → 重新审查（最多 2 轮）
-  - 2 轮后仍有 Critical → 停止，输出遗留问题
-  - 通过（含 conditional_pass）→ 输出最终 Runbook
+  - 发现 Critical/Important → 返回 writer 修复 → 重新审查（最多 2 轮）
+  - 2 轮后仍有 Critical/Important 或必要证据缺口 → 停止，输出遗留问题
+  - 通过且必要独立证据充分 → 输出已审 Runbook；否则交付未批准草稿
 
 □ Subagent 失败处理（贯穿 Phase 2-4）
   - AGENT-RESULT 缺失 → 重试 1 次 → 二次缺失 → 报告用户
@@ -98,22 +112,7 @@ description: 'Write Runbook, 撰写运维手册。Use when: LLD 完成后需要�
 - Infrastructure 文档：云资源、网络拓扑、安全配置
 - 现有 Runbook：参考已有系统的运维手册
 
-**如果缺失关键文档：**
-
-```yaml
-AskUserQuestion:
-  questions:
-    - question: "以下文档缺失，是否继续？"
-      header: "缺失文档"
-      multiSelect: false
-      options:
-        - label: "提供文档路径后继续"
-          description: "我会提供缺失文档的路径"
-        - label: "基于现有文档继续"
-          description: "运维手册可能不完整，但可以基于现有信息编写"
-        - label: "暂停，等文档齐全"
-          description: "暂停 runbook 编写，等上游文档完成"
-```
+**实际依据缺口**：先读已有材料并提取本次运行约束。仅询问取证后仍无法确定的必要决策，不为缺某个历史文档标题泛问“是否继续”；可交付标记待确认的非依赖草稿，缺必要证据不批准生产使用。
 
 ### 执行 Guardrails trigger check
 
@@ -121,7 +120,7 @@ AskUserQuestion:
 
 - `no_trigger`：继续 Phase 1
 - `suggest_guardrails`：记录原因、影响域和推荐动作后继续
-- `require_guardrails_before_design`：停止当前 Runbook 编写，明确建议先运行 `guardrails-writer`
+- `require_guardrails_before_design`：暂停依赖缺失规则的定案；继续有依据的非依赖草稿，列明需责任方补齐的规则
 
 ### 提取运维约束
 
@@ -214,7 +213,7 @@ AskUserQuestion:
 
 ## Phase 2: 派发 Writer Subagent
 
-### 使用 Task 工具派发
+### 使用实际可用且获授权的独立委派工具
 
 ```markdown
 Task tool (general-purpose):
@@ -234,7 +233,7 @@ Task tool (general-purpose):
 2. 有 → 提供答案 + 引用位置
 3. 没有 → AskUserQuestion 给用户，获得答案后传递给 writer
 
-**禁止**：让 writer 自己猜测或"先写个占位符"。
+**禁止**：猜测关键约束或把占位符当成可执行步骤。草稿可明确标记待确认项，并完成不依赖该缺口的部分。
 
 ### 接收 Writer 输出
 
@@ -274,7 +273,7 @@ Spec reviewer 发现：
 
 → 返回给 writer subagent 修复
 → 重新派发 spec reviewer
-→ 直到通过
+→ 最多 2 轮修复；仍不通过时交付未批准草稿与遗留问题
 ```
 
 **通过标准：**
@@ -306,8 +305,8 @@ Task tool (general-purpose):
 ### 处理审查结果
 
 **Issue 分级：**
-- **Critical**：无法执行的步骤、缺失关键信息
-- **Important**：不够清晰、需要人工判断
+- **Critical**：已证实无法执行或会造成严重安全后果的步骤；未获必要信息单列 evidence_gap
+- **Important**：会影响正确操作的实质歧义或验证遗漏；已明确的必要人工决策本身不算缺陷
 - **Minor**：可优化的表述
 
 **修复循环：**
@@ -317,7 +316,7 @@ Quality reviewer 发现 Important issue:
 
 → 返回 writer 修复
 → 重新 quality review
-→ 直到所有 Critical/Important 问题解决
+→ 最多 2 轮修复；仍有阻断项时结束本轮，保留未批准状态
 ```
 
 ## Phase 5: 输出与验证
@@ -388,19 +387,19 @@ docs/runbook/[system-name]-runbook.md
 ## 红旗警告
 
 **禁止行为：**
-- ❌ 主 agent 自己写 Runbook（context 污染）
+- 无独立能力时把主 agent 自检冒充独立审查
 - ❌ 跳过 spec compliance review（容易遗漏要求）
 - ❌ 跳过 quality review（可执行性无保障）
 - ❌ 凭空推测未在上游文档中的约束
-- ❌ 让 writer subagent 自己读文件（效率低、易误解）
-- ❌ 在审查未通过时直接使用输出
+- 阻止 writer 核对授权范围内的原始证据，或把摘要当作批准来源
+- 在审查未通过时把草稿标成生产就绪或获准部署
 
 **强制要求：**
 - ✅ Controller 必须提取完整上下文
 - ✅ Writer subagent 可以随时提问
 - ✅ 必须经过双阶段审查
 - ✅ 所有约束必须有上游文档引用
-- ✅ 审查发现问题必须修复后重审
+- 实质阻断项修复后需复审；Minor 可列遗留，不为凑零建议无限循环
 
 ## 与其他 Skill 的关系
 

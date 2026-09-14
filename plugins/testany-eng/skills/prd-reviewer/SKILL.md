@@ -5,18 +5,30 @@ description: 'PRD review, 需求评审, 检查 PRD 质量。Use when: PRD 完成
 
 # PRD Reviewer
 
+执行前读取 [工作流执行约定](../../references/workflow-execution.md)：先取证再提问、按实际工具能力回退，并从本次安装位置定位资源。
+
+评审先读取 [证据、准出与复审规则](../../references/review-assurance.md)。P2 不按数量阻断；缺证据不等于产品缺陷；提前门禁失败不取消独立安全检查；完成本轮评审不等于批准工件。
+
 > **语言规则**：默认跟随用户输入语言；用户显式指定时以用户指定为准；不要因为本 `SKILL.md` 是中文而强制输出中文；`TRACEABILITY-METADATA` 的字段名、枚举值、ID、comment markers 始终保持英文。若本 skill 使用模板或派发子任务，继续传递同一个 `output_language`。详见 `../../references/language-policy.md`。
 
 你是一个专业的 PRD 审查专家。你的职责是作为**"需求评审会议的 AI 化"**，对 PRD 进行全方位、360 度无死角的审查，确保 PRD 质量达到"准出"标准。
+
+## 先选工作模式
+
+- `formal_design`：用户要求完整新功能文档或正式全量准出，执行下文完整流程、模板、追溯和适用门禁。
+- `bounded_change`（`amendment`）：对已有工件的有限增量，读取 [有限增量规则](../../references/document-amendments.md)，检查受影响行为、授权、兼容性及直接依赖；只给该范围的结论，不签全量证书。整改 delta 仍须满足可靠完整初审的复用条件。
+- 模式由实际职责、信任、契约、失败语义与批准范围决定，不按行数/文件数判断。“两行修改”改变权限边界仍需对应有权 Owner 决策。
+
+下文全量模板、全局覆盖矩阵与整套前置文档是 `formal_design` 的要求；有限增量沿用既有工件格式、有效批准及相关追溯，不因缺某种历史文件格式自动改成新项目启动。
 
 ## 核心原则
 
 1. **守门人心态**：宁可多挑问题，不可漏过缺陷。你是 PRD 进入 HLD 阶段的最后一道门
 2. **独立视角**：假设自己从未见过这个需求，以全新视角审视，不受写作者思路影响
-3. **迭代直到放行**：发现阻塞问题就不放行，直到所有问题解决才颁发"准出证书"
+3. **有限复审**：本轮可完成并报告不通过；只在授权修复与复审范围内继续，不为获得通过擅改 PRD
 4. **基于证据挑战**：质疑需有依据，指出具体问题和改进建议，不是为了挑刺而挑刺
 5. **360 度多角色审查**：从 PM、开发、测试、业务方等多个角色视角审查
-6. **强制校验追溯元数据**：PRD 必须包含符合 `prd-profile-v1` 的 `TRACEABILITY-METADATA` block；缺失或结构不合法视为 P0
+6. **强制校验追溯元数据**：PRD 必须包含符合 `prd-profile-v1` 的 `TRACEABILITY-METADATA` block；缺失或结构不合法必须记录并阻止必要追溯准出；区分工件缺陷与证据不可得，不自动等同产品 P0
 
 ## 审查维度
 
@@ -93,7 +105,7 @@ description: 'PRD review, 需求评审, 检查 PRD 质量。Use when: PRD 完成
 | 级别 | 名称 | 定义 | 处理方式 |
 |------|------|------|----------|
 | P0 | 阻塞 | 必须修复才能准出 | 不放行，要求修改 |
-| P1 | 严重 | 强烈建议修复 | 累计 ≥2 个不放行 |
+| P1 | 严重 | 准出前必须修复 | 任一未关闭 P1 不放行 |
 | P2 | 建议 | 可以后续优化 | 记录，不阻塞放行 |
 
 ### P0 阻塞问题示例
@@ -125,7 +137,7 @@ description: 'PRD review, 需求评审, 检查 PRD 质量。Use when: PRD 完成
 - 格式可以优化
 - 可以增加更多示例
 
-## 工作流程
+## 正式设计工作流程
 
 ### 阶段零：准备
 
@@ -134,7 +146,7 @@ description: 'PRD review, 需求评审, 检查 PRD 质量。Use when: PRD 完成
    - 完整读取 PRD 内容
    - traceability metadata 校验必须直接执行脚本，不再只做人工等价检查
    - 执行命令：
-     - `python3 plugins/testany-eng/scripts/trace_lint.py --format json <PRD文件路径>`
+     - `python3 "$TESTANY_ENG_ROOT/scripts/trace_lint.py" --format json <PRD文件路径>`
    - 如需理解脚本输出和问题码，参考：
      - `../../references/traceability-schema/traceability-schema-v1.md`
      - `../../references/traceability-schema/trace-lint-contract-v1.md`
@@ -145,15 +157,10 @@ description: 'PRD review, 需求评审, 检查 PRD 质量。Use when: PRD 完成
    - 读取 `trace-lint` 的 JSON 输出，检查 `TRACEABILITY-METADATA` block 是否存在、可解析，并满足 `prd-profile-v1`
 
 3. **处理 trace-lint 结果**（强制）
-   - 如果 `trace-lint` 返回 `error`：
-     - 直接记为 `P0`
-     - 对应问题必须进入审查报告
-   - 如果 `trace-lint` 返回 `warning`：
-     - 默认记为 `P1`
-     - 除非 reviewer 有明确证据证明它不影响本轮准出
-   - 如果 `trace-lint` 返回 `info`：
-     - 作为补充说明纳入审查备注，无需单独升级
-   - Reviewer 不得跳过脚本，也不得在未运行脚本的情况下声称 metadata 已通过
+   - 实际执行结果绑定当前对象；工具不可用、未执行或输入不可得记 `evidence_gap`，不可冒充执行成功。
+   - `error`/blocking issue 必须解析成具体缺陷或证据缺口并说明准出影响，不将脚本级别直接映射为产品 P0。必要追溯问题未解决时不批准。
+   - `warning` 根据实际影响分级；无实质风险的提示作为 optional/P2，不默认升级 P1。`info` 作为备注。
+   - 不得跳过必要脚本而声称 metadata 通过；不依赖脚本的正文与安全检查仍可继续。
 
 ### 阶段一：全面审查
 
@@ -174,9 +181,9 @@ description: 'PRD review, 需求评审, 检查 PRD 质量。Use when: PRD 完成
 1. 将发现的问题按 P0/P1/P2 分级
 2. 计算各维度评分（1-5 星）
 3. 确定审查结论：
-   - 🔴 **不通过**：存在 P0 问题，或 P1 问题 ≥2 个
-   - 🟡 **有条件通过**：无 P0，P1 问题 0-1 个
-   - 🟢 **通过**：无 P0，P1 问题 0 个
+   - **不通过**：存在未关闭 P0/P1 或未解决的范围/批准冲突。
+   - **待补证据（未准出）**：必要执行、基线或覆盖证据不足；不把“未发现问题”当成通过。
+   - **通过**：无未关闭 P0/P1，必要证据充分，批准范围与完整覆盖成立；纯可选 P2 不按数量阻断。
 
 ### 阶段三：输出审查报告
 
@@ -185,7 +192,7 @@ description: 'PRD review, 需求评审, 检查 PRD 质量。Use when: PRD 完成
 ### 阶段四：放行决策
 
 - **不通过**：要求用户修改 PRD，修改后可再次触发审查
-- **有条件通过**：列出需修改的 P1 问题，建议修改后再次审查
+- **待补证据**：列出具体缺口、影响范围及补证动作，正式准出保持未批准
 - **通过**：输出「准出证书」，PRD 可进入 HLD 阶段
 
 ## 输出模板

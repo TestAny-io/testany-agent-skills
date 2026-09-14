@@ -1,5 +1,7 @@
 # trace-lint v1 输入输出契约
 
+命令中的 `TESTANY_ENG_ROOT` 须先按 [资源定位约定](../workflow-execution.md) 从实际加载位置确定，不是预置环境变量；工件路径则指向产品工作区。
+
 ## 1. 目标
 
 `trace-lint` 是 `testany-eng` traceability metadata 的基础校验器。  
@@ -12,7 +14,7 @@
 当前脚本已实现于：
 
 ```bash
-python3 plugins/testany-eng/scripts/trace_lint.py
+python3 "$TESTANY_ENG_ROOT/scripts/trace_lint.py"
 ```
 
 `prd-reviewer` 和后续 reviewer skill 应直接调用该脚本，而不是仅做人工等价检查。
@@ -48,7 +50,7 @@ trace-lint <path...> [--format text|json] [--profile <profile>] [--strict]
 仓库内当前脚本路径：
 
 ```bash
-python3 plugins/testany-eng/scripts/trace_lint.py <path...>
+python3 "$TESTANY_ENG_ROOT/scripts/trace_lint.py" <path...>
 ```
 
 ### 3.1 Quick Start
@@ -56,26 +58,26 @@ python3 plugins/testany-eng/scripts/trace_lint.py <path...>
 校验一个 PRD Markdown 文档：
 
 ```bash
-python3 plugins/testany-eng/scripts/trace_lint.py docs/PRD-checkout.md
+python3 "$TESTANY_ENG_ROOT/scripts/trace_lint.py" docs/PRD-checkout.md
 ```
 
 输出机器可读 JSON：
 
 ```bash
-python3 plugins/testany-eng/scripts/trace_lint.py --format json docs/PRD-checkout.md
+python3 "$TESTANY_ENG_ROOT/scripts/trace_lint.py" --format json docs/PRD-checkout.md
 ```
 
 在 reviewer / CI 中启用严格模式：
 
 ```bash
-python3 plugins/testany-eng/scripts/trace_lint.py --strict docs/PRD-checkout.md
+python3 "$TESTANY_ENG_ROOT/scripts/trace_lint.py" --strict docs/PRD-checkout.md
 ```
 
 校验示例 profile：
 
 ```bash
-python3 plugins/testany-eng/scripts/trace_lint.py \
-  plugins/testany-eng/references/traceability-schema/prd-profile-v1.example.yaml
+python3 "$TESTANY_ENG_ROOT/scripts/trace_lint.py" \
+  "$TESTANY_ENG_ROOT/references/traceability-schema/prd-profile-v1.example.yaml"
 ```
 
 ### 3.2 参数
@@ -380,8 +382,8 @@ Suggestion: 标注来源文档和章节。
 ### 11.2 `prd-reviewer`
 
 - reviewer 必须把 `trace-lint` 视为 PRD 准出前的强制门禁
-- 在脚本未实现前，按本契约进行人工等价校验
-- metadata block 缺失、损坏、profile 不匹配、`REQ-*` 结构非法，都应视为 `P0`
+- 脚本已实现，应实际执行；工具/依赖不可用时记录 `evidence_gap`，不得以人工检查冒充脚本通过。
+- metadata block 缺失、损坏、profile 不匹配、`REQ-*` 结构非法须定位并记录；必要追溯条件未满足不得准出。区分实际工件缺陷和证据不可得，按影响分级，不将工具级别机械映射为产品 `P0`。独立正文检查仍可继续。
 
 ## 11. v1 边界
 

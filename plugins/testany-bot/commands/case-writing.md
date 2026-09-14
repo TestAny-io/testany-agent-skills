@@ -11,6 +11,8 @@ argument-hint: <需求描述>，如：根据 approved test spec 的 handoff 生�
 
 $ARGUMENTS
 
+读取 `testany-case-writing/SKILL.md` 和 [整体目标交接](../skills/testany-guide/references/task-handoff.md)：仅本地包不访问平台；完整目标已授权时继续注册/编排/执行，不只留下一步建议。
+
 ## 核心动作
 
 - **场景拆解**：先判断一个传统测试场景要拆成几个 Testany platform cases
@@ -39,5 +41,5 @@ $ARGUMENTS
 
 - platform case inventory
 - Testany-compatible 测试脚本
-- 可直接上传的 ZIP 包
+- 实际 ZIP 包及本地归档/入口/metadata/静态语法检查结果；未验证项不能说成可注册就绪
 - 面向 `testany-pipeline` 的 decomposition / handoff 摘要

@@ -1,5 +1,7 @@
 # testany-eng
 
+命令中的 `TESTANY_ENG_ROOT` 须先按 [资源定位约定](references/workflow-execution.md) 从实际加载位置确定，不是预置环境变量；工件路径则指向产品工作区。
+
 研发流程工具集：从业务需求、设计到源码评审、测试设计与运维准备的完整链路。
 
 ## 概述
@@ -12,11 +14,15 @@ testany-eng 提供一套结构化的研发工作流工具，覆盖从业务想�
 - **实现评审阶段**：精确 Implementation Candidate → Scope Lock → Code Review → exact-SHA CI/PR/merge（分别授权）
 - **测试与交付准备阶段**：测试规格/测试包撰写 → 测试门禁评审 → Runbook 撰写 / Testany 自动化落地
 
-每个环节都有明确的输入输出和质量门禁，确保文档质量和上下游衔接。对于已经准出的 Test Spec，`testany-eng` 也应把用户自然推到 `testany-bot` 的自动化落地链路，而不是停在文档侧。
+每个环节都有明确的输入输出和质量门禁，确保文档质量和上下游衔接。用户目标包含自动化落地时，已准出的 Test Spec 可衔接 `testany-bot`；仅要文档时不因文档完成自动注册、配置或执行平台资产。
 
 默认情况下，`testany-eng` 会跟随用户输入语言输出；用户显式指定语言时以用户指定为准；`TRACEABILITY-METADATA` 的字段名、枚举值与稳定 ID 始终保持英文。
 
+BRD/UC 按 [访谈模式与事实标准](references/interview-modes.md) 选择访谈、材料整理或缺口补问。资料充分时直接生成草稿，不重复询问已知信息；缺历史数字可保留测量计划或离散验收，不编造基线，不把草稿或 lint 通过当正式批准。
+
 ## 追溯元数据约定
+
+工作流执行以 [先取证与能力回退](references/workflow-execution.md)、[评审证据与准出](references/review-assurance.md)、[正式设计与有限增量](references/document-amendments.md) 为准。完整新功能保留对应全量门禁；已有有效批准边界的局部更新只维护受影响工件与追溯，不要求补写全套历史文档。工具不可用不虚称通过，调查完成与工件准出分别表达。Code Reviewer 继续使用其专用冻结对象与证据协议。
 
 testany-eng 提供统一的 traceability metadata contract，用于 RTM 生成、覆盖率校验和文档间自动追溯。
 
@@ -34,16 +40,16 @@ testany-eng 提供统一的 traceability metadata contract，用于 RTM 生成�
 最直接的校验命令：
 
 ```bash
-python3 plugins/testany-eng/scripts/trace_lint.py <PRD.md 或 metadata.yaml>
-python3 plugins/testany-eng/scripts/trace_lint.py --strict <PRD.md 或 metadata.yaml>
-python3 plugins/testany-eng/scripts/trace_lint.py --format json <PRD.md 或 metadata.yaml>
-python3 plugins/testany-eng/scripts/trace_lint.py plugins/testany-eng/references/traceability-schema/hld-profile-v1.example.yaml
-python3 plugins/testany-eng/scripts/trace_lint.py plugins/testany-eng/references/traceability-schema/lld-profile-v1.example.yaml
-python3 plugins/testany-eng/scripts/trace_lint.py plugins/testany-eng/references/traceability-schema/test-strategy-profile-v1.example.yaml
-python3 plugins/testany-eng/scripts/trace_lint.py plugins/testany-eng/references/traceability-schema/test-spec-profile-v1.example.yaml
-python3 plugins/testany-eng/scripts/trace_build_rtm.py <多个 metadata 文档>
-python3 plugins/testany-eng/scripts/trace_build_rtm.py --format json <多个 metadata 文档>
-python3 plugins/testany-eng/scripts/trace_build_rtm.py --format json <PRD.md> <HLD.md> <LLD.md> <Test-Strategy.md> <Test-Spec.md>
+python3 "$TESTANY_ENG_ROOT/scripts/trace_lint.py" <PRD.md 或 metadata.yaml>
+python3 "$TESTANY_ENG_ROOT/scripts/trace_lint.py" --strict <PRD.md 或 metadata.yaml>
+python3 "$TESTANY_ENG_ROOT/scripts/trace_lint.py" --format json <PRD.md 或 metadata.yaml>
+python3 "$TESTANY_ENG_ROOT/scripts/trace_lint.py" "$TESTANY_ENG_ROOT/references/traceability-schema/hld-profile-v1.example.yaml"
+python3 "$TESTANY_ENG_ROOT/scripts/trace_lint.py" "$TESTANY_ENG_ROOT/references/traceability-schema/lld-profile-v1.example.yaml"
+python3 "$TESTANY_ENG_ROOT/scripts/trace_lint.py" "$TESTANY_ENG_ROOT/references/traceability-schema/test-strategy-profile-v1.example.yaml"
+python3 "$TESTANY_ENG_ROOT/scripts/trace_lint.py" "$TESTANY_ENG_ROOT/references/traceability-schema/test-spec-profile-v1.example.yaml"
+python3 "$TESTANY_ENG_ROOT/scripts/trace_build_rtm.py" <多个 metadata 文档>
+python3 "$TESTANY_ENG_ROOT/scripts/trace_build_rtm.py" --format json <多个 metadata 文档>
+python3 "$TESTANY_ENG_ROOT/scripts/trace_build_rtm.py" --format json <PRD.md> <HLD.md> <LLD.md> <Test-Strategy.md> <Test-Spec.md>
 ```
 
 ---
@@ -65,7 +71,7 @@ python3 plugins/testany-eng/scripts/trace_build_rtm.py --format json <PRD.md> <H
 
 混合请求按问题拆开；仓库数量、安全关键词和“技术方案”标题不决定层级。新增授权边界要回到原始 Owner 决定，不能用 Reviewer comment → 作者 APPROVED note → 新评审的循环自证。已授权工程细节可直接判断，产品行为/权限对象/收费/支持范围变化才交产品 Owner；外部写入、发布策略、部署仍需各自明确许可。
 
-HLD/LLD 正式模式保留完整覆盖；有限模式只给对应增量意见。P2 数量不阻断这两类设计评审及 Code Review，必要 gap 关闭即停止。其他 skill 的准出规则本轮未重写。
+HLD/LLD 正式模式保留完整覆盖；有限模式只给对应增量意见。P2 数量不阻断这两类设计评审及 Code Review，必要 gap 关闭即停止。PRD/API/Guardrails/Test Strategy/Test/Prototype 同样区分缺陷、证据缺口与范围决策，P2 不按数量阻断，必要证据不足不准出；参见 references/review-assurance.md。
 
 ### 正式新功能流程
 
@@ -141,8 +147,8 @@ flowchart TD
 | 你的情况 | 使用命令 | 说明 |
 |----------|----------|------|
 | 不确定项目当前在哪一步，或接手了一个已有部分文档的项目 | `/guide` | 扫描现有文档与准出状态，推荐下一步最合适的 skill |
-| 有个模糊的想法，想梳理成业务需求 | `/brd-interviewer` | 通过选择题访谈，输出 BRD |
-| BRD 写完了，要细化用户操作流程 | `/uc-interviewer` | 逐条对齐 user journey |
+| 有个模糊的想法或已有业务材料，要整理需求 | `/brd-interviewer` | 访谈 / 直接整理 / 缺口补问，输出真实状态的 BRD |
+| BRD 写完了，要细化或整理用户操作流程 | `/uc-interviewer` | 复用已知流程，只补问缺口，检查 Journey 内容与批准 |
 | 要写产品需求文档 | `/prd-writer` | 基于 BRD + Journey 撰写 PRD |
 | PRD 写完了，需要独立评审 | `/prd-reviewer` | 多角色视角审查 |
 | 有 PRD + User Journey，要在前端仓库先验证交互 | `/prototype-designer` | 生成隔离原型，提前暴露交互、状态和导航问题 |
@@ -249,7 +255,7 @@ flowchart TD
 
 **特点**：
 - 麦肯锡/BCG 顾问式访谈
-- 只问选择题，降低用户认知负担
+- 材料充分直接整理；真实缺口使用开放问题或可信选项，不强制选择题
 - 强制量化成功指标
 - 守住 BRD 边界，不越界到技术方案
 
@@ -268,7 +274,7 @@ flowchart TD
 **用途**：在 BRD 和 PRD 之间建立对齐检查点，确保用户旅程符合预期
 
 **特点**：
-- 先确认最新批准 BRD baseline，再逐条 Journey 确认
+- 先读取并核验 BRD 来源，资料充分直接整理 Journey；只补问未决项，用户要求逐条检查点时遵循
 - 两段式访谈：开放发现 → 结构化确认
 - 逐条 Journey 确认（主流程 → 跳转/分支 → 异常 → 步骤级 edge case matrix）
 - 每个 Journey 确认后再进入下一个
@@ -311,7 +317,7 @@ flowchart TD
 **特点**：
 - 多角色视角：PM、开发、测试、业务方
 - 问题分级：P0 阻塞 / P1 严重 / P2 建议
-- 迭代审查直到放行
+- 按完整覆盖证据进行有限复审；报告可完成而工件仍未批准
 - 输出审查报告 + 准出证书
 
 **输入**：PRD 文件路径
@@ -353,7 +359,7 @@ flowchart TD
 - 四道门审查：上游对齐 → 原型完整性 → 工程隔离 → 下游可用性
 - 强调沙箱目录、路由前缀、零依赖新增、零生产文件改动
 - 同时检查 Prototype 对 API Contract 和 HLD 的输入是否清晰
-- 严格准出：P0=0, P1=0, P2≤2
+- 严格准出：无未关闭 P0/P1、必要证据充分；P2 不按数量阻断
 
 **输入**：原型沙箱目录路径 + PRD 路径 + User Journey 路径
 **输出**：审查报告 + 准出证书（通过时）
@@ -393,7 +399,7 @@ flowchart TD
 - 四道门禁：基线与覆盖 → 协议完整性 → 漂移/冲突 → 兼容性/演进
 - 强制 PRD → Contract 100% 覆盖
 - 多协议强制 Contract Index
-- 严格准出：P0=0, P1=0, P2≤2
+- 严格准出：无未关闭 P0/P1、必要证据充分；P2 不按数量阻断
 
 **输入**：API Contract 路径 + PRD 路径（可选：Index 路径）
 **输出**：审查报告 + 准出证书（通过时）
@@ -431,7 +437,7 @@ flowchart TD
 
 **特点**：
 - 五道门：触发判定 → 事实标准 → 规则质量 → workflow hooks → 可落地性
-- 严格准出：P0=0, P1=0, P2≤2
+- 严格准出：无未关闭 P0/P1、必要证据充分；P2 不按数量阻断
 
 **输入**：Guardrails 路径
 **输出**：审查报告 + 准出证书（通过时）
@@ -513,7 +519,7 @@ flowchart TD
 
 **特点**：
 - 四道门禁：基线与范围 → 风险覆盖与分层 → 环境/数据/依赖 → 门禁与自动化
-- 严格准出：P0=0, P1=0, P2≤2
+- 严格准出：无未关闭 P0/P1、必要证据充分；P2 不按数量阻断
 - 可作为 `test-spec-writer` 的正式基线
 
 **输入**：Test Strategy 路径 + PRD 路径 + API Contract 路径 + HLD 路径
@@ -625,7 +631,7 @@ flowchart TD
 - 四道门禁：基线与追溯 → 覆盖与漂移 → 可执行性 → 执行证据与残余风险
 - 支持设计准备评审与发布前测试门禁两种模式
 - 使用统一的测试设计覆盖率口径做门禁判断
-- 严格准出：P0=0, P1=0, P2≤2
+- 严格准出：无未关闭 P0/P1、必要证据充分；P2 不按数量阻断
 
 **输入**：Test Spec 路径 + Test Strategy 路径 + 执行摘要/缺陷清单（发布前模式建议提供）
 **输出**：审查报告 + 准出证书（通过时）

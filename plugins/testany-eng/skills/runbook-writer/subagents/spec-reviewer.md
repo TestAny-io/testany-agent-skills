@@ -5,7 +5,7 @@ Use this template when dispatching a spec compliance reviewer subagent.
 **Purpose:** Verify Runbook covers all upstream document requirements (nothing more, nothing less)
 
 ```
-Task tool (general-purpose):
+Available authorized independent-agent tool (example):
   description: "Review Runbook spec compliance"
   prompt: |
     You are reviewing whether a Runbook matches upstream document requirements.
@@ -198,7 +198,7 @@ Task tool (general-purpose):
        - Missing: P99 latency < 500ms monitoring
        - Impact: Cannot verify SLO compliance
 
-    #### Important (Should Add)
+    #### Important (Must Add Before Approval)
     1. **Health check endpoint incomplete**
        - Required by: API Contract Section 2.3 "/health"
        - Missing: Expected response body format
@@ -263,6 +263,8 @@ Task tool (general-purpose):
     - [ ] Provided specific document citations for all issues
     - [ ] Categorized issues by severity
     - [ ] Clear pass/fail verdict
+
+    Before the result, bind object/version, scope, criteria, initial/delta mode, checked/unchecked coverage, stable issue IDs, and closure evidence. Missing required evidence blocks approval but is not automatically a product P0. Reuse delta only after reliable complete initial coverage. Never modify the Runbook as a reviewer.
 
     ## Structured Result (MANDATORY)
 

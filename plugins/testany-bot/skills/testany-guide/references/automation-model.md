@@ -16,7 +16,7 @@
 - `test-spec` 产出的是**场景级测试设计**，不是 Testany 平台资产。
 - 当 `testany-eng` 的 Test Spec 已包含 `Testany Automation Handoff` 时，它就是进入 `testany-bot` 的首选上游输入。
 - Testany `case` 是**可复用的原子自动化步骤包**，不是传统语义下的完整测试场景。
-- `pipeline` 才是 Testany 的**执行与编排单元**。即使只有一个 platform case，要真正执行也仍然需要一条 pipeline。
+- `pipeline` 是常规场景的**执行与编排单元**。单 case 的常规编排也使用 pipeline；另有需要执行授权的 case dry-run，不能替代编排验证。
 - `trigger` 是**执行入口**，不是编排层。它只决定“如何触发 pipeline”，不决定 pipeline 内部逻辑。
 - execution 发起之后的观测、查询、刷新、取消与失败交接，属于 `testany-execution`。
 
@@ -38,6 +38,8 @@
 - 一个 `traditional test scenario` 也可能对应 **一条或多条** pipelines
 
 ## 推荐职责链
+
+按 [整体目标与交接](task-handoff.md) 只运行用户目标包含且已授权的阶段；完整目标在当前对话接续，职责链不是每一步都要用户重新发命令的清单。观测、取消、排障各自仍受授权边界约束。
 
 ```text
 approved test-spec (+ Testany Automation Handoff) / 用户需求

@@ -14,6 +14,8 @@ argument-hint: "[execution_key / pipeline_key / 操作]，如：查看 Y2K-0601-
 
 ## 先统一心智模型
 
+遵循 [整体目标与交接](../testany-guide/references/task-handoff.md)，使用上一步真实 execution key 和未重置的等待预算。只查当前状态不自动等待；失败终态不自行扩展为重试、取消或排障。
+
 在开始之前，先按 [automation-model.md](../testany-guide/references/automation-model.md) 理解边界：
 
 - `pipeline` 是执行与编排单元
@@ -24,7 +26,7 @@ argument-hint: "[execution_key / pipeline_key / 操作]，如：查看 Y2K-0601-
 **重要结论**：
 - 本 skill 不负责创建 Plan / Manual Trigger / Gatekeeper
 - 本 skill 也不负责即时发起一次执行；这属于 `testany-trigger`
-- 本 skill 关注 execution lifecycle：看、查、刷、停、交接
+- 本 skill 关注 execution lifecycle：看、查、刷、停、交接；查询、等待与取消不互相授权
 
 ---
 
@@ -91,8 +93,7 @@ Testany 使用 workspace 级并发槽位（Redis semaphore）控制 execution �
 
 ```text
 trigger 已返回 execution_key
-  -> testany_get_execution / testany_refresh_execution
-  -> 状态进入终态
+  -> 按用户目标查询当前状态，或有界等待终态
   -> 如失败，按需 testany_get_execution_case / testany_log_sign
   -> 必要时交给 testany-debug
 ```
@@ -109,8 +110,10 @@ trigger 已返回 execution_key
 
 处理方式：
 1. `testany_get_execution`
-2. 如状态不新鲜或用户要求刷新，`testany_refresh_execution`
+2. 仅用户要求刷新，或有具体陈旧证据且刷新在许可内时，`testany_refresh_execution`；RUNNING 本身不是陈旧证据
 3. 汇报当前状态、开始时间、通过/失败数量
+
+只查状态到此完成，不因尚在运行自动长轮询、取消、重试或启动新执行。
 
 ### 2. 轮询等待执行完成
 
@@ -119,14 +122,12 @@ trigger 已返回 execution_key
 - 已知 `execution_key`
 
 处理方式：
-1. `testany_get_execution`
-2. 若未终态，则循环 `testany_refresh_execution`
-3. 直到进入终态或达到超时上限
-
-轮询建议：
-- 初始间隔：5 秒
-- 最大间隔：30 秒
-- 默认超时：10-30 分钟，按 pipeline 复杂度调整
+遵守 [执行许可与等待合同](../testany-guide/references/execution-boundaries.md)：
+1. 首次查询前从实际时钟保存开始时间和截止时间，再调用 `testany_get_execution`；口头承诺预算不代替计时值。
+2. 仅已知非终态 -1/0 且仍有预算时等待并 `testany_refresh_execution`；间隔从 5 秒退避至最多 30 秒，每次调用前检查截止时间。
+3. 默认总等待 10 分钟，用户更短预算优先，工具耗时计入预算；不自行延长。
+4. 终态、未知状态、工具错误、预算耗尽或用户中断时停止新调用；报告最后状态及限制。等待超时不是远程失败/取消，不自动调用 cancel、retry 或新执行。
+get 或 refresh 已给出终态时直接结案，不再追加同对象查询；等待间隔使用 sleep，不做空循环忙等。
 
 ### 3. 查看历史执行
 
@@ -155,8 +156,9 @@ trigger 已返回 execution_key
 
 处理方式：
 1. `testany_get_execution`
-2. 仅当状态仍是未开始 / pending 时，调用 `testany_cancel_execution`
+2. 仅当用户已授权取消该对象且状态仍是未开始 / pending 时，调用 `testany_cancel_execution`
 3. 如果已经开始运行，明确告知不能取消
+4. 读回取消状态；请求已受理但没有取消终态时，不能说已取消。权限不足或竞态失败照实报告
 
 ### 5. 查看队列状态 / 诊断 execution 排队
 
@@ -220,7 +222,8 @@ trigger 已返回 execution_key
 - 当前状态或终态结果
 - 通过/失败/跳过数量
 - 失败 case 列表（如有）
-- 是否可取消 / 是否已取消
+- 是否实际请求取消、是否有已取消证据；不把等待结束当作取消
+- 若未取得终态，说明最后观察状态、预算/工具限制和未完成项
 - 下一步建议：
   - 需要继续触发执行 → 去 `testany-trigger`
   - 需要分析失败原因 → 去 `testany-debug`

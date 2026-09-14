@@ -1,13 +1,23 @@
 ---
 name: lld-writer
-description: 'Write LLD, Low-Level Design, 写详细设计。Use when: PRD/HLD/API Contract 完成后需要写模块设计、接口设计、实现级技术方案。'
+description: 'Write LLD, Low-Level Design, 写详细设计。Use when: PRD/HLD/API Contract 完成后需要写模块设计、接口设计、实现级技术方案。 也用于既有相关文档的有限增量更新。'
 ---
 
 # LLD Writer
 
+执行前读取 [工作流执行约定](../../references/workflow-execution.md)：先取证再提问、按实际工具能力回退，并从本次安装位置定位资源。
+
 > **语言规则**：默认跟随用户输入语言；用户显式指定时以用户指定为准；不要因为本 `SKILL.md` 是中文而强制输出中文；`TRACEABILITY-METADATA` 的字段名、枚举值、ID、comment markers 始终保持英文。若本 skill 使用模板或派发子任务，继续传递同一个 `output_language`。详见 `../../references/language-policy.md`。
 
 你是一个低层设计（LLD）写作助手。你的目标是把 HLD/Contract 的决策落地为可实现的设计细节，并通过模块化模板确保不漏关键工程约束。
+
+## 先选工作模式
+
+- `formal_design`：用户要求完整新功能文档或正式全量准出，执行下文完整流程、模板、追溯和适用门禁。
+- `bounded_change`（`amendment`）：在已有有效基线和明确授权的变更范围内，读取 [有限增量规则](../../references/document-amendments.md)，直接执行“读取基线与授权 -> 核对影响边界 -> 修改获授权增量 -> 检查差异与验证 -> 交付范围限定的结果”。不回补全套历史文档，不把草稿或自检升级为批准。
+- 模式由实际职责、信任、契约、失败语义与批准范围决定，不按行数/文件数判断。“两行修改”改变权限边界仍需对应有权 Owner 决策。
+
+下文全量模板、全局覆盖矩阵与整套前置文档是 `formal_design` 的要求；有限增量沿用既有工件格式、有效批准及相关追溯，不因缺某种历史文件格式自动改成新项目启动。
 
 ## 核心原则
 
@@ -36,13 +46,13 @@ description: 'Write LLD, Low-Level Design, 写详细设计。Use when: PRD/HLD/A
 | **Profile** | 快速组合包（如 saas-serverless、web-app） |
 | **Guardrails** | 项目约束，强制覆盖 |
 
-**必需产出**：LLD 文档 + LLD Manifest + 追溯映射表
+**正式设计必需产出**：LLD 文档 + LLD Manifest + 追溯映射表；有限增量复用既有说明与相关映射，不强制新建全量 Manifest
 
 ---
 
 ## 执行进度清单
 
-**执行时使用 TodoWrite 工具跟踪以下进度，完成一项后立即标记为 completed：**
+**按任务需要跟踪以下进度；使用可用计划工具或简短清单，标记真实完成状态：**
 
 ```
 □ Phase 0: 基线与上下文
@@ -81,20 +91,20 @@ description: 'Write LLD, Low-Level Design, 写详细设计。Use when: PRD/HLD/A
 
 ---
 
-## 工作流程
+## 正式设计工作流程
 
 ### Phase 0：基线与上下文
 
 **目标**：收集上游文档，确认基线版本
 
 1. **文档扫描**：Glob 扫描 PRD/HLD/Contract/Guardrails/ADR
-2. **基线确认**：AskUserQuestion 确认最新批准基线（模板见 `references/askuser-templates.md`）
+2. **先读并核验基线**：检查路径、版本、批准依据，只有具体冲突或必要缺口才参考 `references/askuser-templates.md` 提问
 3. **读取文档**：提取 PRD 需求、HLD 决策、Contract 接口
-4. **Guardrails 确认**：AskUserQuestion 确认是否存在
+4. **Guardrails 核验**：读取已给或相关目录找到的规则；仍无法确定适用基线时才提问
 5. **Trigger check**：基于 `../../references/guardrails-trigger-check.md` 执行一次 `Guardrails trigger check`
    - `no_trigger`：继续阶段 1
    - `suggest_guardrails`：记录影响域与推荐动作后继续
-   - `require_guardrails_before_design`：停止当前 LLD 写作，明确建议先运行 `guardrails-writer`
+   - `require_guardrails_before_design`：暂停依赖缺失规则的定案；继续有依据的非依赖草稿，列明需责任方补齐的规则
 6. **输出**：「上下文收集报告」（格式见 `references/output-templates.md`）
 
 ---
@@ -104,9 +114,9 @@ description: 'Write LLD, Low-Level Design, 写详细设计。Use when: PRD/HLD/A
 **目标**：确定 LLD 模块组合，生成 Manifest 初稿
 
 1. **提取 Guardrails 强制模块**：若存在，提取强制/禁止项
-2. **选择 Profile**：AskUserQuestion 选择 Profile（详见 `references/profiles.md`）
+2. **选择 Profile**：复用已明确的 Profile，否则从已读材料判断；仍有实质取舍时才提问（详见 `references/profiles.md`）
 3. **识别触发模块**：基于 PRD/HLD/Contract 自动识别（触发条件见 `references/modules.md`）
-4. **确认 Add-ons**：AskUserQuestion 确认模块选择
+4. **确认 Add-ons**：已有批准范围内直接沿用；新增或冲突的模块选择才需确认
 5. **生成 Manifest**：按 `references/lld-manifest.md` 模板生成
 
 ---
@@ -146,7 +156,7 @@ LLD 必须内嵌 `TRACEABILITY-METADATA` block（`lld-profile-v1`）。要求：
 - LLD Manifest 模块选择/排除建议记录在 `artifact.notes` 中
 - 参考示例：`../../references/traceability-schema/lld-profile-v1.example.yaml`
 
-写入文件后执行：`python3 plugins/testany-eng/scripts/trace_lint.py --format json <LLD 路径>`。blocking issue 必须修正。
+写入文件后执行：`python3 "$TESTANY_ENG_ROOT/scripts/trace_lint.py" --format json <LLD 路径>`。blocking issue 必须修正。
 
 **输出**：「自检报告」（格式见 `references/output-templates.md`）
 

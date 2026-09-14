@@ -25,7 +25,7 @@ entities:
     - id: FLOW-{PROJECT_KEY}-001
       title: {Journey 1 Title}
       statement: {One-line description of the user goal and outcome for Journey 1}
-      status: approved
+      status: proposed
       scope: in
       kind: user_journey
       priority: P0
@@ -76,7 +76,8 @@ waivers: []
 | BRD Baseline Artifact ID | {BRD-ARTIFACT-ID} |
 | BRD Baseline Confirmed | Yes / No |
 | Checkpoint Status | draft / in_review / approved |
-| trace-lint Result | pass / fail |
+| trace-lint Result | not_run / pass / fail (actual evidence only) |
+| Sources and mode | {paths/versions; interview / synthesis / gap_followup} |
 | Blocking Issues | None / {Issue list} |
 
 ---
@@ -93,7 +94,7 @@ waivers: []
 
 | Journey ID | Journey | Priority | Status | BRD Source |
 |------------|---------|----------|--------|------------|
-| FLOW-{PROJECT_KEY}-001 | {Journey 1} | P0 | Confirmed | {BRD section} |
+| FLOW-{PROJECT_KEY}-001 | {Journey 1} | P0 | Pending / Confirmed (source required) | {BRD section} |
 | FLOW-{PROJECT_KEY}-002 | {Journey 2} | P1 | Confirmed / Pending | {BRD section} |
 
 ---

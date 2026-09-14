@@ -1,13 +1,23 @@
 ---
 name: test-spec-writer
-description: 'Write test spec, 测试规格/测试用例包撰写。Use when: LLD 完成且测试策略已确认后，需要产出独立测试范围内完整的 test case package、追溯矩阵与执行说明。'
+description: 'Write test spec, 测试规格/测试用例包撰写。Use when: LLD 完成且测试策略已确认后，需要产出独立测试范围内完整的 test case package、追溯矩阵与执行说明。 也用于既有相关文档的有限增量更新。'
 ---
 
 # Test Spec Writer
 
+执行前读取 [工作流执行约定](../../references/workflow-execution.md)：先取证再提问、按实际工具能力回退，并从本次安装位置定位资源。
+
 > **语言规则**：默认跟随用户输入语言；用户显式指定时以用户指定为准；不要因为本 `SKILL.md` 是中文而强制输出中文；`TRACEABILITY-METADATA` 的字段名、枚举值、ID、comment markers 始终保持英文。若本 skill 使用模板或派发子任务，继续传递同一个 `output_language`。详见 `../../references/language-policy.md`。
 
 你是测试规格与测试用例包写作助手。你的目标是基于批准的 Test Strategy 与 PRD/API/HLD/LLD 基线，产出完整、准确、详细、无关键漂移的 test case package。
+
+## 先选工作模式
+
+- `formal_design`：用户要求完整新功能文档或正式全量准出，执行下文完整流程、模板、追溯和适用门禁。
+- `bounded_change`（`amendment`）：在已有有效基线和明确授权的变更范围内，读取 [有限增量规则](../../references/document-amendments.md)，直接执行“读取基线与授权 -> 核对影响边界 -> 修改获授权增量 -> 检查差异与验证 -> 交付范围限定的结果”。不回补全套历史文档，不把草稿或自检升级为批准。
+- 模式由实际职责、信任、契约、失败语义与批准范围决定，不按行数/文件数判断。“两行修改”改变权限边界仍需对应有权 Owner 决策。
+
+下文全量模板、全局覆盖矩阵与整套前置文档是 `formal_design` 的要求；有限增量沿用既有工件格式、有效批准及相关追溯，不因缺某种历史文件格式自动改成新项目启动。
 
 ## 核心原则
 
@@ -46,7 +56,7 @@ description: 'Write test spec, 测试规格/测试用例包撰写。Use when: LL
 - unit、code-level integration 的详细测试设计
 - provider-side contract harness / 白盒契约自动化的实现设计
 
-## Traceability Metadata（强制）
+## 正式工件的 Traceability Metadata（强制）
 
 产出的 Test Spec / Test Case Package 必须内嵌 traceability metadata block，并遵循以下参考：
 
@@ -68,7 +78,7 @@ writer 至少要做到：
 
 ## 执行进度清单
 
-**执行时使用 TodoWrite 工具跟踪以下进度，完成一项后立即标记为 completed：**
+**按任务需要跟踪以下进度；使用可用计划工具或简短清单，标记真实完成状态：**
 
 ```
 □ Phase 0: 基线与上下文
@@ -105,7 +115,7 @@ writer 至少要做到：
 
 ---
 
-## 工作流程
+## 正式设计工作流程
 
 ### Phase 0：基线与上下文
 
@@ -119,7 +129,7 @@ writer 至少要做到：
    - Test Strategy
    - Guardrails
    - 现有测试文档/自动化资产
-2. 使用 `references/askuser-templates.md` 的模板 AskUserQuestion 确认最新批准基线
+2. 先读取相关材料，核验版本、批准来源与范围；只有读后仍有冲突或必要缺口时，参考 `references/askuser-templates.md` 精确提问
 3. 提取：
    - 关键需求与验收标准
    - 接口/事件/错误契约
@@ -249,8 +259,8 @@ writer 至少要做到：
    - 若 `status: ready`，则 handoff 应足以让 `/case-writing` 直接开始工作
 7. 使用 `references/test-package-template.md` 输出最终文档
 8. 对已保存的文档执行：
-   - `python3 plugins/testany-eng/scripts/trace_lint.py --format json <Test Spec 路径>`
-   - `python3 plugins/testany-eng/scripts/trace_build_rtm.py --format json <PRD 路径> <Test Strategy 路径> <Test Spec 路径>`
+   - `python3 "$TESTANY_ENG_ROOT/scripts/trace_lint.py" --format json <Test Spec 路径>`
+   - `python3 "$TESTANY_ENG_ROOT/scripts/trace_build_rtm.py" --format json <PRD 路径> <Test Strategy 路径> <Test Spec 路径>`
 9. 若 `trace-lint` 有 blocking issue，或 `trace-build-rtm` 存在 duplicate ID / unresolved target / unresolved relation.from，则必须先修正文档与 metadata
 
 ## 覆盖率口径（强制）
@@ -334,7 +344,7 @@ writer 至少要做到：
 
 ## 交互规范
 
-### 必须使用 AskUserQuestion 的场景
+### 取证后仍需澄清的场景（已知项不重复问）
 
 1. LLD/Test Strategy 基线不明确
 2. 存在多个合理行为解释，文档无法判定

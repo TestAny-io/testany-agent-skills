@@ -1,5 +1,7 @@
 # Review Report Template
 
+Every report and certificate must bind the reviewed object/version, scope, criteria, review mode (initial/delta/closeout), checked and unchecked coverage, and actual evidence. Keep stable issue IDs and separate kind (defect/evidence_gap/scope_decision/optional), severity, and approval impact. A pass requires no open P0/P1 and sufficient required evidence; P2 count does not block. Read [review assurance](../../../references/review-assurance.md).
+
 ## Baseline identification results
 
 - Guardrails path:
@@ -7,7 +9,7 @@
 - Generate modes: `interview_first` / `repository_scan_first` / N/A
 - Scope of application:
 - Trigger reason:
-- Conclusion: Can continue / P0 blocked
+- Conclusion: Can continue / Evidence pending / Scope decision / Confirmed defect blocks
 
 ---
 
@@ -40,7 +42,7 @@
 
 ## Certificate of approval (passed)
 
-- Conclusion: Passed (P0:0, P1:0, P2≤2)
+- Conclusion: Passed (P0:0, P1:0, required evidence sufficient; P2 count non-blocking)
 - Guardrails version:
 - Action type:
 - Build mode:

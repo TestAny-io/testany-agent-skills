@@ -1,0 +1,9 @@
+
+    def run_batch(self, handler, limit):
+        if isinstance(limit, bool) or not isinstance(limit, int) or limit < 0:
+            raise ValueError("limit must be a non-negative integer")
+        results = []
+        for _ in range(min(limit, len(self._pending))):
+            job = self._pending.pop(0)
+            results.append(handler(job))
+        return results

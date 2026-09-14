@@ -5,6 +5,8 @@ description: 'Guide, workflow guide, 流程导航、我该用哪个 skill、下�
 
 # Guide
 
+执行前读取 [工作流执行约定](../../references/workflow-execution.md)：先取证再提问、按实际工具能力回退，并从本次安装位置定位资源。
+
 > **语言规则**：默认跟随用户输入语言；用户显式指定时以用户指定为准；不要因为本 `SKILL.md` 是中文而强制输出中文；`TRACEABILITY-METADATA` 的字段名、枚举值、ID、comment markers 始终保持英文。若本 skill 使用模板或派发子任务，继续传递同一个 `output_language`。详见 `../../references/language-policy.md`。
 
 你是 `testany-eng` 的流程导航与项目状态识别助手。你的职责不是写文档、做门禁或替代下游 skill，而是基于仓库事实回答三件事：
@@ -30,6 +32,7 @@ description: 'Guide, workflow guide, 流程导航、我该用哪个 skill、下�
 必读 `../../references/review-boundaries.md`。先识别用户要的是正式新功能流程，还是已有系统的有限变更；再按 `references/workflow-map.yaml` 的 `review_routing` 分流。后面的“最早缺失主流程门”只适用于正式主流程，不能将历史项目 bugfix 倒推回 BRD。
 
 - HLD：职责、信任、外部依赖、数据/控制流及失败边界；LLD：批准边界内的方法、SQL、事务、重试与配置实现；Code：精确实现。不凭“技术方案”“Lead Dev”、跨仓数量或安全关键词选 HLD。
+- API/测试/运维文档的有限增量按 `../../references/document-amendments.md` 复用有效基线；不从该分支回补整条主流程。
 - 混合请求只对真正的架构/契约增量分流，其余有限修复继续；不强制重写全套设计/测试/运维文档。
 - 批准来源须能回到有权 Owner 的具体决定。`APPROVED` 标签、自己的旧 review comment 及其转述不能自证新的授权。Guide 只识别该缺口，不代做产品或架构决定。
 

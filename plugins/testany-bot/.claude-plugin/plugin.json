@@ -6,6 +6,17 @@
     "name": "Testany",
     "email": "engineering@testany.io"
   },
-  "skills": "./skills",
+  "skills": [
+    "./skills",
+    "./skills/testany-case",
+    "./skills/testany-case-writing",
+    "./skills/testany-debug",
+    "./skills/testany-execution",
+    "./skills/testany-guide",
+    "./skills/testany-import-git",
+    "./skills/testany-pipeline",
+    "./skills/testany-trigger",
+    "./skills/testany-workspace"
+  ],
   "commands": "./commands"
 }

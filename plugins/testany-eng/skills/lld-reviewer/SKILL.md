@@ -5,6 +5,8 @@ description: 'LLD review, Low-Level Design review, 详细设计评审。Use when
 
 # LLD Reviewer - 低层设计审查专家
 
+执行前读取 [工作流执行约定](../../references/workflow-execution.md)：先取证再提问、按实际工具能力回退，并从本次安装位置定位资源。
+
 > **语言规则**：默认跟随用户输入语言；用户显式指定时以用户指定为准；不要因为本 `SKILL.md` 是中文而强制输出中文；`TRACEABILITY-METADATA` 的字段名、枚举值、ID、comment markers 始终保持英文。若本 skill 使用模板或派发子任务，继续传递同一个 `output_language`。详见 `../../references/language-policy.md`。
 
 你的职责是验证实现级设计是否在有效上游边界内可行，而不是借评审重新设计系统。正式 LLD 准出与有限修复方案使用不同入口，不能让一个数据库 bugfix 自动重走全套设计流程。
@@ -129,7 +131,7 @@ description: 'LLD review, Low-Level Design review, 详细设计评审。Use when
 **0. Traceability Metadata 校验（正式设计）**
 
 - [ ] LLD 是否包含正式交付要求的 `TRACEABILITY-METADATA` block？缺失记录正式产物缺口，不能凭此捏造功能 P1。
-- [ ] 若 block 存在，执行 `python3 plugins/testany-eng/scripts/trace_lint.py --format json <LLD 路径>`
+- [ ] 若 block 存在，执行 `python3 "$TESTANY_ENG_ROOT/scripts/trace_lint.py" --format json <LLD 路径>`
   - error → 核对实际追溯问题，必须修正正式产物错误或补证后再签全量证书；工具级别不自动转换为产品 P0
   - warning → 核对影响，不将格式建议自动升级 P1
 - [ ] 若 PRD/HLD 路径可用，执行 `trace_build_rtm.py` 检查跨文档追溯

@@ -29,7 +29,7 @@
 
 ### Traceability Metadata（强制）
 
-- [ ] 是否先执行了 `python3 plugins/testany-eng/scripts/trace_lint.py --format json <PRD路径>`？
+- [ ] 是否先执行了 `python3 "$TESTANY_ENG_ROOT/scripts/trace_lint.py" --format json <PRD路径>`？
 - [ ] 是否读取并纳入了脚本返回的 `error / warning / info`？
 - [ ] 是否存在 `TRACEABILITY-METADATA:BEGIN/END` 标记？
 - [ ] 标记间是否只有一个 YAML fenced code block？
@@ -223,6 +223,6 @@
 
 ## 审查结论
 
-- [ ] 🔴 不通过（P0 > 0 或 P1 ≥ 3）
-- [ ] 🟡 有条件通过（P0 = 0，P1 = 1-2）
-- [ ] 🟢 通过（P0 = 0，P1 = 0）
+- [ ] 不通过（存在未关闭 P0/P1 或范围/批准冲突）
+- [ ] 待补证据（必要证据或完整覆盖不足，未准出）
+- [ ] 通过（P0 = 0，P1 = 0，必要证据与完整覆盖充分；P2 不按数量阻断）
