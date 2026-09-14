@@ -1,0 +1,382 @@
+{
+  "BACKUP_BOUNDARY": {
+    "en": "The backup is missing, changed, or outside its verified location. Recovery was stopped; inspect the original details.",
+    "ja": "バックアップの欠落・変更、または保存場所の不一致により復元を停止しました。元の詳細を確認してください。"
+  },
+  "BACKUP_CHANGED": {
+    "en": "The backup is missing, changed, or outside its verified location. Recovery was stopped; inspect the original details.",
+    "ja": "バックアップの欠落・変更、または保存場所の不一致により復元を停止しました。元の詳細を確認してください。"
+  },
+  "BACKUP_MISSING": {
+    "en": "The backup is missing, changed, or outside its verified location. Recovery was stopped; inspect the original details.",
+    "ja": "バックアップの欠落・変更、または保存場所の不一致により復元を停止しました。元の詳細を確認してください。"
+  },
+  "BODY_TOO_LARGE": {
+    "en": "The content exceeds the supported size or file limit. Reduce its size and try again.",
+    "ja": "対応する容量・ファイル数の上限を超えています。対象を減らして再試行してください。"
+  },
+  "SKILL_TOO_LARGE": {
+    "en": "The content exceeds the supported size or file limit. Reduce its size and try again.",
+    "ja": "対応する容量・ファイル数の上限を超えています。対象を減らして再試行してください。"
+  },
+  "SOURCE_LIMIT": {
+    "en": "The content exceeds the supported size or file limit. Reduce its size and try again.",
+    "ja": "対応する容量・ファイル数の上限を超えています。対象を減らして再試行してください。"
+  },
+  "CLI_OUTPUT_LIMIT": {
+    "en": "The content exceeds the supported size or file limit. Reduce its size and try again.",
+    "ja": "対応する容量・ファイル数の上限を超えています。対象を減らして再試行してください。"
+  },
+  "BROKEN_LINK": {
+    "en": "The source contains a broken link. Repair the link before importing.",
+    "ja": "配布元にリンク切れがあります。修正してから取り込んでください。"
+  },
+  "BUILD_MISSING": {
+    "en": "The app build is missing. Restart with the SkillDock launcher to prepare it.",
+    "ja": "アプリのビルドがありません。SkillDock の起動スクリプトで再起動してください。"
+  },
+  "BUSY": {
+    "en": "Another operation is running. Wait for it to finish before retrying.",
+    "ja": "別の操作を実行中です。完了後に再試行してください。"
+  },
+  "CLI_COMMAND": {
+    "en": "This operation is not supported by the current service or CLI.",
+    "ja": "この操作は現在のサービスまたは CLI に対応していません。"
+  },
+  "INVALID_ACTION": {
+    "en": "This operation is not supported by the current service or CLI.",
+    "ja": "この操作は現在のサービスまたは CLI に対応していません。"
+  },
+  "METHOD": {
+    "en": "This operation is not supported by the current service or CLI.",
+    "ja": "この操作は現在のサービスまたは CLI に対応していません。"
+  },
+  "CLI_FAILED": {
+    "en": "The Codex command failed. Review its original output before retrying.",
+    "ja": "Codex コマンドが失敗しました。元の出力を確認してから再試行してください。"
+  },
+  "CLI_JSON": {
+    "en": "The response or input is not valid JSON. Refresh and inspect the original details.",
+    "ja": "応答または入力が有効な JSON ではありません。再読み込みし、元の詳細を確認してください。"
+  },
+  "INVALID_JSON": {
+    "en": "The response or input is not valid JSON. Refresh and inspect the original details.",
+    "ja": "応答または入力が有効な JSON ではありません。再読み込みし、元の詳細を確認してください。"
+  },
+  "CLI_TIMEOUT": {
+    "en": "The command timed out; its final state is unknown. Refresh the inventory before retrying.",
+    "ja": "コマンドがタイムアウトし、最終状態は不明です。一覧を再読み込みしてから再試行してください。"
+  },
+  "CLI_UNAVAILABLE": {
+    "en": "Codex CLI is unavailable. Configure a working executable and restart the service.",
+    "ja": "Codex CLI を利用できません。有効な実行ファイルを設定してサービスを再起動してください。"
+  },
+  "COMPONENT_ENTRY_MISSING": {
+    "en": "Plugin components or their source could not be verified. Use the owning plugin manager and inspect the details.",
+    "ja": "プラグインの構成要素や配布元を検証できません。管理元のプラグイン管理機能と詳細を確認してください。"
+  },
+  "COMPONENT_SOURCE_MISMATCH": {
+    "en": "Plugin components or their source could not be verified. Use the owning plugin manager and inspect the details.",
+    "ja": "プラグインの構成要素や配布元を検証できません。管理元のプラグイン管理機能と詳細を確認してください。"
+  },
+  "UNSUPPORTED_COMPONENTS": {
+    "en": "Plugin components or their source could not be verified. Use the owning plugin manager and inspect the details.",
+    "ja": "プラグインの構成要素や配布元を検証できません。管理元のプラグイン管理機能と詳細を確認してください。"
+  },
+  "CONFIG_CHANGED": {
+    "en": "Configuration changed outside SkillDock. Reload it before trying again.",
+    "ja": "SkillDock の外部で設定が変更されました。再読み込みしてから再試行してください。"
+  },
+  "CONFIG_SYNTAX": {
+    "en": "The configuration cannot be safely edited. The original is preserved; inspect or fix it through Codex settings.",
+    "ja": "設定を安全に編集できません。原本は保持されています。Codex の設定で確認・修正してください。"
+  },
+  "INVALID_CONFIG": {
+    "en": "The configuration cannot be safely edited. The original is preserved; inspect or fix it through Codex settings.",
+    "ja": "設定を安全に編集できません。原本は保持されています。Codex の設定で確認・修正してください。"
+  },
+  "CONFIG_LINK": {
+    "en": "The configuration cannot be safely edited. The original is preserved; inspect or fix it through Codex settings.",
+    "ja": "設定を安全に編集できません。原本は保持されています。Codex の設定で確認・修正してください。"
+  },
+  "CONTENT_TYPE": {
+    "en": "The request must contain JSON. Reload this app before retrying.",
+    "ja": "リクエストは JSON である必要があります。アプリを再読み込みしてください。"
+  },
+  "CROSS_DEVICE": {
+    "en": "The skill and recovery storage are on different filesystems. Use an app data directory on the same disk.",
+    "ja": "スキルと復元領域が別のファイルシステムにあります。アプリデータを同じディスクに配置してください。"
+  },
+  "CROSS_SITE": {
+    "en": "The local request could not be verified. Reopen this app from its local URL and try again.",
+    "ja": "ローカルリクエストを検証できません。アプリのローカル URL を開き直してください。"
+  },
+  "HOST_REJECTED": {
+    "en": "The local request could not be verified. Reopen this app from its local URL and try again.",
+    "ja": "ローカルリクエストを検証できません。アプリのローカル URL を開き直してください。"
+  },
+  "ORIGIN_REJECTED": {
+    "en": "The local request could not be verified. Reopen this app from its local URL and try again.",
+    "ja": "ローカルリクエストを検証できません。アプリのローカル URL を開き直してください。"
+  },
+  "TOKEN_REJECTED": {
+    "en": "The local request could not be verified. Reopen this app from its local URL and try again.",
+    "ja": "ローカルリクエストを検証できません。アプリのローカル URL を開き直してください。"
+  },
+  "ROOT_BOUNDARY": {
+    "en": "A path is outside its verified management boundary or its identity changed. The operation was stopped; inspect the exact path in the details.",
+    "ja": "パスが確認済みの管理範囲外、または場所が変更されています。操作を停止しました。詳細のパスを確認してください。"
+  },
+  "CONFIG_BOUNDARY": {
+    "en": "A path is outside its verified management boundary or its identity changed. The operation was stopped; inspect the exact path in the details.",
+    "ja": "パスが確認済みの管理範囲外、または場所が変更されています。操作を停止しました。詳細のパスを確認してください。"
+  },
+  "RESTORE_BOUNDARY": {
+    "en": "A path is outside its verified management boundary or its identity changed. The operation was stopped; inspect the exact path in the details.",
+    "ja": "パスが確認済みの管理範囲外、または場所が変更されています。操作を停止しました。詳細のパスを確認してください。"
+  },
+  "TARGET_BOUNDARY": {
+    "en": "A path is outside its verified management boundary or its identity changed. The operation was stopped; inspect the exact path in the details.",
+    "ja": "パスが確認済みの管理範囲外、または場所が変更されています。操作を停止しました。詳細のパスを確認してください。"
+  },
+  "PLUGIN_BOUNDARY": {
+    "en": "A path is outside its verified management boundary or its identity changed. The operation was stopped; inspect the exact path in the details.",
+    "ja": "パスが確認済みの管理範囲外、または場所が変更されています。操作を停止しました。詳細のパスを確認してください。"
+  },
+  "SOURCE_BOUNDARY": {
+    "en": "A path is outside its verified management boundary or its identity changed. The operation was stopped; inspect the exact path in the details.",
+    "ja": "パスが確認済みの管理範囲外、または場所が変更されています。操作を停止しました。詳細のパスを確認してください。"
+  },
+  "MARKETPLACE_BOUNDARY": {
+    "en": "A path is outside its verified management boundary or its identity changed. The operation was stopped; inspect the exact path in the details.",
+    "ja": "パスが確認済みの管理範囲外、または場所が変更されています。操作を停止しました。詳細のパスを確認してください。"
+  },
+  "OUTSIDE_SOURCE": {
+    "en": "A path is outside its verified management boundary or its identity changed. The operation was stopped; inspect the exact path in the details.",
+    "ja": "パスが確認済みの管理範囲外、または場所が変更されています。操作を停止しました。詳細のパスを確認してください。"
+  },
+  "PATH_REJECTED": {
+    "en": "A path is outside its verified management boundary or its identity changed. The operation was stopped; inspect the exact path in the details.",
+    "ja": "パスが確認済みの管理範囲外、または場所が変更されています。操作を停止しました。詳細のパスを確認してください。"
+  },
+  "INVALID_PATH": {
+    "en": "A path is outside its verified management boundary or its identity changed. The operation was stopped; inspect the exact path in the details.",
+    "ja": "パスが確認済みの管理範囲外、または場所が変更されています。操作を停止しました。詳細のパスを確認してください。"
+  },
+  "SANDBOX_BOUNDARY": {
+    "en": "The source is outside the workspace allowed by this service. Check the source path.",
+    "ja": "取得元がこのサービスで許可されたワークスペースの範囲外です。取得元のパスを確認してください。"
+  },
+  "INVALID_COMMIT": {
+    "en": "The Git branch, tag or commit could not be resolved. Check the reference and repository.",
+    "ja": "Git のブランチ・タグ・コミットを解決できません。参照とリポジトリを確認してください。"
+  },
+  "INVALID_REF": {
+    "en": "The Git branch, tag or commit could not be resolved. Check the reference and repository.",
+    "ja": "Git のブランチ・タグ・コミットを解決できません。参照とリポジトリを確認してください。"
+  },
+  "INVALID_GIT": {
+    "en": "Use an HTTPS, SSH or local Git repository address without embedded credentials or unsupported parameters.",
+    "ja": "HTTPS・SSH・ローカル Git リポジトリを指定してください。認証情報や未対応のパラメーターは含めないでください。"
+  },
+  "INVALID_ID": {
+    "en": "The item name, identifier or version is not valid for this operation. Inspect the original details.",
+    "ja": "名前・識別子・バージョンがこの操作に適していません。元の詳細を確認してください。"
+  },
+  "INVALID_NAME": {
+    "en": "The item name, identifier or version is not valid for this operation. Inspect the original details.",
+    "ja": "名前・識別子・バージョンがこの操作に適していません。元の詳細を確認してください。"
+  },
+  "PLUGIN_IDENTITY": {
+    "en": "The item name, identifier or version is not valid for this operation. Inspect the original details.",
+    "ja": "名前・識別子・バージョンがこの操作に適していません。元の詳細を確認してください。"
+  },
+  "INVALID_VERSION": {
+    "en": "The item name, identifier or version is not valid for this operation. Inspect the original details.",
+    "ja": "名前・識別子・バージョンがこの操作に適していません。元の詳細を確認してください。"
+  },
+  "INVALID_MANIFEST": {
+    "en": "The plugin or marketplace manifest is invalid or unsupported. Correct its declaration before importing.",
+    "ja": "プラグインまたはマーケットの宣言が無効、または未対応です。修正してから取り込んでください。"
+  },
+  "INVALID_MARKETPLACE": {
+    "en": "The plugin or marketplace manifest is invalid or unsupported. Correct its declaration before importing.",
+    "ja": "プラグインまたはマーケットの宣言が無効、または未対応です。修正してから取り込んでください。"
+  },
+  "UNSUPPORTED_MARKETPLACE": {
+    "en": "The plugin or marketplace manifest is invalid or unsupported. Correct its declaration before importing.",
+    "ja": "プラグインまたはマーケットの宣言が無効、または未対応です。修正してから取り込んでください。"
+  },
+  "STRICT_CONFLICT": {
+    "en": "The plugin or marketplace manifest is invalid or unsupported. Correct its declaration before importing.",
+    "ja": "プラグインまたはマーケットの宣言が無効、または未対応です。修正してから取り込んでください。"
+  },
+  "VERSION_AUTHORITY": {
+    "en": "The plugin or marketplace manifest is invalid or unsupported. Correct its declaration before importing.",
+    "ja": "プラグインまたはマーケットの宣言が無効、または未対応です。修正してから取り込んでください。"
+  },
+  "INVALID_MODE": {
+    "en": "The service could not select a workspace. Reload the inventory and try again.",
+    "ja": "サービスがワークスペースを選択できませんでした。一覧を再読み込みしてから再試行してください。"
+  },
+  "INVALID_SKILL": {
+    "en": "SKILL.md needs valid YAML frontmatter with a nonempty name and description.",
+    "ja": "SKILL.md に有効な YAML frontmatter と空でない name・description が必要です。"
+  },
+  "INVALID_SOURCE": {
+    "en": "The source does not exist or is not a valid skill directory. Check the path and its SKILL.md file.",
+    "ja": "取得元が存在しないか、有効なスキルディレクトリではありません。パスと SKILL.md ファイルを確認してください。"
+  },
+  "SOURCE_MISSING": {
+    "en": "The source does not exist or is not a valid skill directory. Check the path and its SKILL.md file.",
+    "ja": "取得元が存在しないか、有効なスキルディレクトリではありません。パスと SKILL.md ファイルを確認してください。"
+  },
+  "INVALID_STATE": {
+    "en": "Saved app state could not be read. Preserve the data and inspect the original error.",
+    "ja": "保存済みの状態を読み取れません。データを保持し、元のエラーを確認してください。"
+  },
+  "INVALID_SUBPATH": {
+    "en": "The subdirectory must be a relative path within the source repository.",
+    "ja": "サブディレクトリには配布元内の相対パスを指定してください。"
+  },
+  "LOCAL_CHANGES": {
+    "en": "Local content changed. Preserve or reconcile your edits before updating or restoring; it will not be overwritten automatically.",
+    "ja": "ローカルの内容が変更されています。更新・復元前に編集内容を保存・整理してください。自動上書きはしません。"
+  },
+  "MARKETPLACE_CHANGED": {
+    "en": "The source marketplace identity changed. Review the source before continuing.",
+    "ja": "配布元のマーケットの識別情報が変わりました。続行前に確認してください。"
+  },
+  "MARKETPLACE_EXISTS": {
+    "en": "A marketplace with this name is already registered.",
+    "ja": "同名のマーケットが登録済みです。"
+  },
+  "NOT_FOUND": {
+    "en": "This item was not found. Refresh the inventory and select it again.",
+    "ja": "項目が見つかりません。一覧を再読み込みして選び直してください。"
+  },
+  "NO_UPDATE": {
+    "en": "There are no changes to apply.",
+    "ja": "適用する変更はありません。"
+  },
+  "PREVIEW_MISMATCH": {
+    "en": "The preview is stale, changed, or belongs to another item. Create a fresh preview before continuing.",
+    "ja": "プレビューが期限切れ・変更済み、または別の項目に属しています。新しいプレビューを作成してください。"
+  },
+  "STALE_PREVIEW": {
+    "en": "The preview is stale, changed, or belongs to another item. Create a fresh preview before continuing.",
+    "ja": "プレビューが期限切れ・変更済み、または別の項目に属しています。新しいプレビューを作成してください。"
+  },
+  "SOURCE_CHANGED": {
+    "en": "The preview is stale, changed, or belongs to another item. Create a fresh preview before continuing.",
+    "ja": "プレビューが期限切れ・変更済み、または別の項目に属しています。新しいプレビューを作成してください。"
+  },
+  "STAGED_CHANGED": {
+    "en": "The preview is stale, changed, or belongs to another item. Create a fresh preview before continuing.",
+    "ja": "プレビューが期限切れ・変更済み、または別の項目に属しています。新しいプレビューを作成してください。"
+  },
+  "PROTECTED_MARKETPLACE": {
+    "en": "This item does not support the requested action here. Review its owner and available management options.",
+    "ja": "この項目はここからの操作に対応していません。管理元と利用できる操作を確認してください。"
+  },
+  "PROTECTED_PLUGIN": {
+    "en": "This item does not support the requested action here. Review its owner and available management options.",
+    "ja": "この項目はここからの操作に対応していません。管理元と利用できる操作を確認してください。"
+  },
+  "PROTECTED_SKILL": {
+    "en": "This item does not support the requested action here. Review its owner and available management options.",
+    "ja": "この項目はここからの操作に対応していません。管理元と利用できる操作を確認してください。"
+  },
+  "READBACK_FAILED": {
+    "en": "The command returned, but its final state could not be verified. Check the official inventory before retrying.",
+    "ja": "コマンドは終了しましたが最終状態を検証できません。再試行前に公式の一覧を確認してください。"
+  },
+  "RESTORE_MISSING": {
+    "en": "No usable recovery record exists for this action.",
+    "ja": "この操作に利用できる復元記録はありません。"
+  },
+  "SPECIAL_FILE": {
+    "en": "The source includes an unsupported special file. Remove or replace it before importing.",
+    "ja": "配布元に未対応の特殊ファイルがあります。除外または置換してから取り込んでください。"
+  },
+  "TARGET_EXISTS": {
+    "en": "The target already exists. Existing content was preserved. Choose another target or inspect it before retrying.",
+    "ja": "保存先が既に存在します。既存の内容は保持されています。別の保存先を選ぶか、内容を確認してください。"
+  },
+  "HTTP_ERROR": {
+    "en": "The request did not complete. Inspect the HTTP response and retry when the service is ready.",
+    "ja": "リクエストが完了しませんでした。HTTP 応答を確認し、サービスの準備後に再試行してください。"
+  },
+  "INVALID_TARGET": {
+    "en": "The update target is invalid or its source is not ready. Refresh the inventory and verify the source first.",
+    "ja": "更新対象が無効、または配布元が未確認です。一覧を再読み込みして配布元を確認してください。"
+  },
+  "TARGET_NOT_READY": {
+    "en": "The update target is invalid or its source is not ready. Refresh the inventory and verify the source first.",
+    "ja": "更新対象が無効、または配布元が未確認です。一覧を再読み込みして配布元を確認してください。"
+  },
+  "INVALID_SCHEDULE": {
+    "en": "The schedule is invalid. Use an interval of 15–10080 whole minutes and explicit targets.",
+    "ja": "スケジュールが無効です。15～10080 分の整数間隔と明示的な対象を指定してください。"
+  },
+  "INVALID_TIMEZONE": {
+    "en": "The time zone is invalid. Choose a supported IANA time zone.",
+    "ja": "タイムゾーンが無効です。対応する IANA タイムゾーンを指定してください。"
+  },
+  "INVALID_UPDATE_STATE": {
+    "en": "Saved update state is invalid. Automatic updates remain disabled; preserve the data and inspect the original error.",
+    "ja": "保存された更新状態が無効です。自動更新は無効のままです。データを保持し、元のエラーを確認してください。"
+  },
+  "EMPTY_TARGETS": {
+    "en": "Select at least one valid update target before enabling the schedule.",
+    "ja": "スケジュールを有効にする前に、有効な更新対象を一つ以上選択してください。"
+  },
+  "DOWNLOAD_MISSING": {
+    "en": "The download has not been built. Rebuild the app to prepare the license and corresponding source archive.",
+    "ja": "ダウンロードファイルが未生成です。アプリを再ビルドしてライセンスと対応するソースアーカイブを準備してください。"
+  },
+  "GIT_OWNER_MANAGED": {
+    "en": "This directory is a Git repository. Update it through Git; SkillDock does not replace its working tree or metadata.",
+    "ja": "このディレクトリは Git リポジトリです。Git で更新してください。SkillDock はワークツリーやメタデータを置き換えません。"
+  },
+  "OWNER_MANAGED": {
+    "en": "Use the owning manager to update this item, then refresh its status here.",
+    "ja": "管理元の機能で更新してから、ここで状態を再読み込みしてください。"
+  },
+  "STATE_UNKNOWN": {
+    "en": "The original enabled state is unknown. Verify it before attempting a package update.",
+    "ja": "元の有効状態が不明です。パッケージを更新する前に確認してください。"
+  },
+  "VERSION_UNVERIFIED": {
+    "en": "The source has no verifiable version. Ask its maintainer to publish an explicit version.",
+    "ja": "配布元に確認可能な版がありません。管理者に明示的な版の公開を依頼してください。"
+  },
+  "INSTALLATION_UNVERIFIED": {
+    "en": "The installation or connected source changed or could not be verified. Refresh and create a new update preview.",
+    "ja": "インストールまたは関連付けられた配布元が変更されたか、検証できません。再読み込みして新しいプレビューを作成してください。"
+  },
+  "INSTALLATION_CHANGED": {
+    "en": "The installation or connected source changed or could not be verified. Refresh and create a new update preview.",
+    "ja": "インストールまたは関連付けられた配布元が変更されたか、検証できません。再読み込みして新しいプレビューを作成してください。"
+  },
+  "SOURCE_RELINKED": {
+    "en": "The installation or connected source changed or could not be verified. Refresh and create a new update preview.",
+    "ja": "インストールまたは関連付けられた配布元が変更されたか、検証できません。再読み込みして新しいプレビューを作成してください。"
+  },
+  "STATE_RESTORE_FAILED": {
+    "en": "The package may have updated, but its previous disabled state could not be restored. Check Codex plugin settings; this is not a confirmed success.",
+    "ja": "パッケージは更新された可能性がありますが、元の無効状態を復元できませんでした。Codex のプラグイン設定を確認してください。更新成功とは扱えません。"
+  },
+  "OPERATION_FAILED": {
+    "en": "The operation failed. Review the original error and current inventory before retrying.",
+    "ja": "操作に失敗しました。元のエラーと現在の一覧を確認してから再試行してください。"
+  },
+  "UPDATE_FAILED": {
+    "en": "The operation failed. Review the original error and current inventory before retrying.",
+    "ja": "操作に失敗しました。元のエラーと現在の一覧を確認してから再試行してください。"
+  },
+  "MODE_DISABLED": {
+    "en": "This workspace is not available from the service. Reload the application to reconnect.",
+    "ja": "このサービスでは指定されたワークスペースを利用できません。アプリを再読み込みして接続し直してください。"
+  }
+}

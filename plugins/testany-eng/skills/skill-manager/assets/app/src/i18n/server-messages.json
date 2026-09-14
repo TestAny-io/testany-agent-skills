@@ -1,0 +1,378 @@
+{
+  "个人 · .agents": {
+    "en": "Personal · .agents",
+    "ja": "個人・.agents"
+  },
+  "当前项目 · .codex": {
+    "en": "Current project · .codex",
+    "ja": "現在のプロジェクト・.codex"
+  },
+  "系统技能": {
+    "en": "System skills",
+    "ja": "システムスキル"
+  },
+  "配置无法解析，启用状态未知；配置开关暂不可用。": {
+    "en": "Configuration could not be read. Enabled state is unknown and toggles are unavailable.",
+    "ja": "設定を読み取れません。有効状態が不明なため、切り替えは利用できません。"
+  },
+  "插件附带技能，请按所属插件管理。": {
+    "en": "This skill belongs to a plugin. Manage it through that plugin.",
+    "ja": "プラグインに含まれるスキルです。所属プラグインから管理してください。"
+  },
+  "仅发现缓存，当前安装和启用状态待核实。": {
+    "en": "Only cached files were found. Installation and enabled state are unverified.",
+    "ja": "キャッシュのみ検出しました。現在のインストールと有効状態は未確認です。"
+  },
+  "系统或托管内容受保护。": {
+    "en": "System and host-managed content is protected.",
+    "ja": "システムやホストが管理する内容は保護されています。"
+  },
+  "仅文件缓存；未确认安装": {
+    "en": "Cached files only; installation unverified",
+    "ja": "ファイルキャッシュのみ・インストール未確認"
+  },
+  "文件发现；持久配置读取失败": {
+    "en": "Files discovered; persistent configuration could not be read",
+    "ja": "ファイルを検出・永続設定の読み込みに失敗"
+  },
+  "文件发现 + Codex 持久配置": {
+    "en": "File discovery + persistent Codex configuration",
+    "ja": "ファイル検出と Codex の永続設定"
+  },
+  "平台托管插件，请使用 Codex 官方管理入口。": {
+    "en": "Platform-managed plugin. Use the official Codex management interface.",
+    "ja": "プラットフォーム管理のプラグインです。Codex の公式管理画面を利用してください。"
+  },
+  "未建立可靠的本地包管理边界。": {
+    "en": "A reliable local package-management boundary is not established.",
+    "ja": "ローカルで安全にパッケージを管理できる範囲を確認できていません。"
+  },
+  "平台维护的市场来源。": {
+    "en": "Marketplace source maintained by the platform.",
+    "ja": "プラットフォームが管理するマーケットの配布元です。"
+  },
+  "无法完整确认市场声明的组件范围，暂不提供卸载。": {
+    "en": "The declared component scope could not be verified. Uninstall is unavailable.",
+    "ja": "宣言されたコンポーネントの範囲を検証できないため、削除は利用できません。"
+  },
+  "无法完整确认插件组件范围，暂不提供卸载。": {
+    "en": "Plugin components could not be fully verified. Uninstall is unavailable.",
+    "ja": "プラグインの構成要素をすべて検証できないため、削除は利用できません。"
+  },
+  "预览已准备；确认后才会安装。": {
+    "en": "Preview ready. Installation starts only after confirmation.",
+    "ja": "プレビューの準備ができました。確認後にインストールします。"
+  },
+  "当前内容与来源一致。": {
+    "en": "Current content matches the source.",
+    "ja": "現在の内容は配布元と一致しています。"
+  },
+  "发现来源变化，请检查文件列表。": {
+    "en": "Source changes found. Review the file list.",
+    "ja": "配布元の変更を検出しました。ファイル一覧を確認してください。"
+  },
+  "{v0} 个文件有变化；更新前会保留旧版本。": {
+    "en": "{v0} files changed. The previous version will be retained.",
+    "ja": "{v0} ファイルに変更があります。更新前の版を保持します。"
+  },
+  "已安装 {v0}。请开启新的 Codex 会话以加载。": {
+    "en": "Installed {v0}. Open a new Codex session to load it.",
+    "ja": "{v0} を追加しました。新しい Codex セッションで読み込んでください。"
+  },
+  "已启用 {v0}。配置已读回；新会话生效。": {
+    "en": "Enabled {v0}. Configuration was verified; effective in a new session.",
+    "ja": "{v0} を有効にしました。設定を再確認済みです。新しいセッションで反映されます。"
+  },
+  "已禁用 {v0}。配置已读回；新会话生效。": {
+    "en": "Disabled {v0}. Configuration was verified; effective in a new session.",
+    "ja": "{v0} を無効にしました。設定を再確認済みです。新しいセッションで反映されます。"
+  },
+  "已更新 {v0}，旧版已保留，可从操作记录恢复。": {
+    "en": "Updated {v0}. The previous version is retained and can be restored from Activity.",
+    "ja": "{v0} を更新しました。以前の版は操作履歴から復元できます。"
+  },
+  "已将 {v0} 移至可恢复区；可从操作记录恢复。": {
+    "en": "Moved {v0} to recovery storage. Restore it from Activity.",
+    "ja": "{v0} を復元領域に移動しました。操作履歴から復元できます。"
+  },
+  "已恢复 {v0}。": {
+    "en": "Restored {v0}.",
+    "ja": "{v0} を復元しました。"
+  },
+  "已启用插件 {v0}，新会话生效。": {
+    "en": "Enabled plugin {v0}; effective in a new session.",
+    "ja": "プラグイン {v0} を有効にしました。新しいセッションで反映されます。"
+  },
+  "已禁用插件 {v0}，新会话生效。": {
+    "en": "Disabled plugin {v0}; effective in a new session.",
+    "ja": "プラグイン {v0} を無効にしました。新しいセッションで反映されます。"
+  },
+  "已安装插件 {v0}，请在新会话中确认能力。": {
+    "en": "Installed plugin {v0}. Check its capabilities in a new session.",
+    "ja": "プラグイン {v0} を追加しました。新しいセッションで機能を確認してください。"
+  },
+  "已卸载插件 {v0}，请在新会话中确认能力。": {
+    "en": "Uninstalled plugin {v0}. Verify the result in a new session.",
+    "ja": "プラグイン {v0} を削除しました。新しいセッションで結果を確認してください。"
+  },
+  "已添加市场 {v0}，可以浏览并安装其中的插件。": {
+    "en": "Added marketplace {v0}. You can browse and install its plugins.",
+    "ja": "マーケット {v0} を追加しました。プラグインを参照・追加できます。"
+  },
+  "已移除市场来源 {v0}；已安装插件保留。": {
+    "en": "Removed marketplace source {v0}; installed plugins remain.",
+    "ja": "マーケットの配布元 {v0} を削除しました。インストール済みプラグインは保持されます。"
+  },
+  "已刷新 Git 市场 {v0}；这不表示已安装插件全部更新。": {
+    "en": "Refreshed Git marketplace {v0}. This does not update every installed plugin.",
+    "ja": "Git マーケット {v0} を更新しました。インストール済みの全プラグインが更新されたわけではありません。"
+  },
+  "市场 {v0}：{v1}": {
+    "en": "Marketplace {v0}: {v1}",
+    "ja": "マーケット {v0}：{v1}"
+  },
+  "插件 {v0}：{v1}": {
+    "en": "Plugin {v0}: {v1}",
+    "ja": "プラグイン {v0}：{v1}"
+  },
+  "缓存 {v0}：{v1}": {
+    "en": "Cache {v0}: {v1}",
+    "ja": "キャッシュ {v0}：{v1}"
+  },
+  "{v0} · 缓存": {
+    "en": "{v0} · Cache",
+    "ja": "{v0}・キャッシュ"
+  },
+  "CLI 插件清单形状不受支持。": {
+    "en": "The CLI plugin inventory format is unsupported.",
+    "ja": "CLI のプラグイン一覧形式に対応していません。"
+  },
+  "CLI 市场清单形状不受支持。": {
+    "en": "The CLI marketplace inventory format is unsupported.",
+    "ja": "CLI のマーケット一覧形式に対応していません。"
+  },
+  "技能链接越出发现范围：{v0}": {
+    "en": "Skill link is outside the discovery boundary: {v0}",
+    "ja": "スキルのリンクが検出範囲外です：{v0}"
+  },
+  "目录链接不可读：{v0}": {
+    "en": "Directory link cannot be read: {v0}",
+    "ja": "ディレクトリのリンクを読み取れません：{v0}"
+  },
+  "Codex 已安装清单与所属 marketplace。": {
+    "en": "Codex installed inventory and owning marketplace.",
+    "ja": "Codex のインストール済み一覧と所属マーケット。"
+  },
+  "Marketplace 声明；未确认安装。": {
+    "en": "Marketplace declaration; installation unverified.",
+    "ja": "マーケットの宣言・インストールは未確認。"
+  },
+  "现有 Git 工作区": {
+    "en": "Existing Git working tree",
+    "ja": "既存の Git ワークツリー"
+  },
+  "读取已有 Git origin、HEAD 和目录相对路径；未 fetch、pull 或修改工作树。": {
+    "en": "Read existing Git origin, HEAD and relative directory paths; no fetch, pull or working-tree changes.",
+    "ja": "既存の Git origin・HEAD・相対パスを読み取ります。fetch・pull・ワークツリーの変更は行っていません。"
+  },
+  "Codex 系统内置": {
+    "en": "Codex built-in",
+    "ja": "Codex 内蔵"
+  },
+  "系统技能标记 {v0}；由宿主提供。": {
+    "en": "System skill marker {v0}; provided by the host.",
+    "ja": "システムスキルのマーカー {v0}・ホストが提供。"
+  },
+  "位于 Codex 系统技能根；由宿主维护。": {
+    "en": "Located in the Codex system skill root; maintained by the host.",
+    "ja": "Codex のシステムスキル配下にあり、ホストが管理します。"
+  },
+  "用户关联来源": {
+    "en": "User-connected source",
+    "ja": "ユーザーが関連付けた配布元"
+  },
+  "已追踪来源": {
+    "en": "Tracked source",
+    "ja": "追跡済みの配布元"
+  },
+  "已记录来源及当前安装内容指纹；更新前重新校验。": {
+    "en": "The source and installed-content fingerprint are recorded and checked again before updates.",
+    "ja": "配布元と現在の内容の指紋を記録し、更新前に再検証します。"
+  },
+  "仅缓存线索": {
+    "en": "Cache evidence only",
+    "ja": "キャッシュの情報のみ"
+  },
+  "缓存路径表明包名和版本，不能证明当前有效安装或原始下载来源。": {
+    "en": "The cache path indicates a package name and version, but does not prove an active installation or original download source.",
+    "ja": "キャッシュのパスからパッケージ名と版は分かりますが、有効なインストールや元の取得先は証明できません。"
+  },
+  "来源未记录": {
+    "en": "Source not recorded",
+    "ja": "配布元の記録なし"
+  },
+  "未发现安装来源记录；文件名和修改时间不能证明来源。": {
+    "en": "No installation-source record was found. File names and modification times do not prove the source.",
+    "ja": "インストール元の記録がありません。ファイル名や更新日時では配布元を証明できません。"
+  },
+  "检查已验证来源；通过 Codex 包级重新安装更新，并保留启用状态。": {
+    "en": "Check the verified source; update by reinstalling the package through Codex while preserving its enabled state.",
+    "ja": "確認済みの配布元を確認します。Codex でパッケージを再インストールし、有効状態を維持して更新します。"
+  },
+  "由 Codex 远程插件管理器维护；在 Codex 插件页检查更新，随后刷新此处状态。": {
+    "en": "Managed by Codex's remote plugin manager. Check for updates on the Codex plugin page, then refresh this inventory.",
+    "ja": "Codex のリモートプラグイン管理機能が管理します。Codex のプラグイン画面で更新を確認し、この一覧を再読み込みしてください。"
+  },
+  "系统内置技能随 Codex 宿主维护。请通过 Codex 应用的更新入口更新宿主，再刷新状态；SkillDock 不替换内置文件。": {
+    "en": "Built-in skills are maintained with Codex. Update the Codex app through its update interface, then refresh here. SkillDock does not replace built-in files.",
+    "ja": "内蔵スキルは Codex と一緒に管理されます。Codex アプリの更新機能で更新してから再読み込みしてください。SkillDock は内蔵ファイルを置き換えません。"
+  },
+  "检查已追踪来源的文件变化。": {
+    "en": "Check file changes in the tracked source.",
+    "ja": "追跡中の配布元のファイル変更を確認します。"
+  },
+  "请在对应 Git 仓库检查上游并更新工作树；SkillDock 只读取仓库来源，不自动 pull。": {
+    "en": "Review upstream changes and update the corresponding Git working tree. SkillDock reads repository metadata without automatically pulling.",
+    "ja": "該当する Git リポジトリで上流の変更を確認し、ワークツリーを更新してください。SkillDock は情報を読み取るだけで、自動 pull はしません。"
+  },
+  "先在 Codex 插件页确认所属包的安装状态，再刷新此处。": {
+    "en": "Verify the owning package on the Codex plugin page, then refresh here.",
+    "ja": "Codex のプラグイン画面で所属パッケージのインストール状態を確認してから再読み込みしてください。"
+  },
+  "关联一个本地或 Git 来源后，预览差异并更新；关联本身不会替换文件。": {
+    "en": "Connect a local or Git source, then review changes before updating. Connecting does not replace files.",
+    "ja": "ローカルまたは Git の配布元を関連付け、差分を確認してから更新します。関連付けだけではファイルを変更しません。"
+  },
+  "检测到来源变化；请重新检查生成本次更新预览。": {
+    "en": "Source changes were detected. Check again to create a fresh update preview.",
+    "ja": "配布元の変更を検出しました。再確認して新しいプレビューを作成してください。"
+  },
+  "已安装版本和内容与来源一致。": {
+    "en": "The installed version and content match the source.",
+    "ja": "インストール済みの版と内容は配布元と一致しています。"
+  },
+  "来源内容变化但版本未递增；Codex 可能复用旧缓存，请维护者递增版本。": {
+    "en": "Source content changed without a version increase. Codex may reuse its cache; ask the maintainer to increase the version.",
+    "ja": "内容が変更されていますが、版が上がっていません。Codex がキャッシュを再利用する可能性があるため、管理者に版の更新を依頼してください。"
+  },
+  "来源版本低于已安装版本，自动更新不会降级。": {
+    "en": "The source version is older than the installed version. Automatic updates do not downgrade.",
+    "ja": "配布元の版がインストール済みより古いため、自動更新でダウングレードはしません。"
+  },
+  "来源版本不同但无法证明先后；可手动确认更新，定时计划不会自动应用。": {
+    "en": "Versions differ but their order is unverified. You can review and apply manually; schedules will not apply this update automatically.",
+    "ja": "版は異なりますが新旧を確認できません。手動で確認して適用できますが、スケジュールでは自動適用しません。"
+  },
+  "发现新包版本；通过 Codex 重新安装并恢复原启用状态。": {
+    "en": "A new package version is available. Codex will reinstall it and restore its previous enabled state.",
+    "ja": "新しいパッケージ版があります。Codex で再インストールし、元の有効状態を復元します。"
+  },
+  "已将 {v0} 更新到 {v1}，并保留原启用状态。旧包备份已保留；包级回退通过所属管理器执行。": {
+    "en": "Updated {v0} to {v1}, preserving its enabled state. The old package backup is retained; use its owning manager for package rollback.",
+    "ja": "{v0} を {v1} に更新し、有効状態を維持しました。以前のパッケージを保持しています。パッケージの復旧は管理元で行ってください。"
+  },
+  "已将 {v0} 更新到 {v1}，并保留原禁用状态。旧包备份已保留；包级回退通过所属管理器执行。": {
+    "en": "Updated {v0} to {v1}, preserving its disabled state. The old package backup is retained; use its owning manager for package rollback.",
+    "ja": "{v0} を {v1} に更新し、無効状態を維持しました。以前のパッケージを保持しています。パッケージの復旧は管理元で行ってください。"
+  },
+  "请确认来源与本机差异；关联本身不会替换内容。": {
+    "en": "Review the differences between the source and local files. Connecting does not replace content.",
+    "ja": "配布元とローカルファイルの差分を確認してください。関連付けだけでは内容を変更しません。"
+  },
+  "已关联 {v0} 的更新来源，本机文件保持原样。": {
+    "en": "Connected the update source for {v0}. Local files were not changed.",
+    "ja": "{v0} の更新元を関連付けました。ローカルファイルは変更していません。"
+  },
+  "Codex bundled plugins": {
+    "en": "Codex bundled plugins",
+    "ja": "Codex 内蔵プラグイン"
+  },
+  "Codex workspace runtime": {
+    "en": "Codex workspace runtime",
+    "ja": "Codex ワークスペースの実行環境"
+  },
+  "Codex remote plugin manager": {
+    "en": "Codex remote plugin manager",
+    "ja": "Codex リモートプラグイン管理"
+  },
+  "Codex plugin manager": {
+    "en": "Codex plugin manager",
+    "ja": "Codex プラグイン管理"
+  },
+  "Git working tree": {
+    "en": "Git working tree",
+    "ja": "Git ワークツリー"
+  },
+  "User": {
+    "en": "User",
+    "ja": "ユーザー"
+  },
+  "修改更新计划": {
+    "en": "Change update schedule",
+    "ja": "更新スケジュールを変更"
+  },
+  "关联更新来源": {
+    "en": "Connect update source",
+    "ja": "更新元を関連付け"
+  },
+  "更新插件": {
+    "en": "Update plugin",
+    "ja": "プラグインを更新"
+  },
+  "检查插件更新": {
+    "en": "Check plugin update",
+    "ja": "プラグインの更新を確認"
+  },
+  "上次服务在运行中停止，执行结果未确认。恢复后重新检查实际状态，不重放旧的写请求。": {
+    "en": "The previous run was interrupted and its outcome is unverified. Current state is checked after recovery; old write requests are not replayed.",
+    "ja": "前回の実行が中断され、結果は未確認です。復帰後に実際の状態を確認し、以前の書き込み要求は再実行しません。"
+  },
+  "已启用固定 {v0} 分钟周期，{v1} 个明确目标；自动应用已验证更新。": {
+    "en": "Enabled a {v0}-minute schedule for {v1} explicit targets, automatically applying verified updates.",
+    "ja": "{v1} 件の明示的な対象を {v0} 分間隔で確認し、検証済みの更新を自動適用します。"
+  },
+  "已启用固定 {v0} 分钟周期，{v1} 个明确目标；仅检查。": {
+    "en": "Enabled a {v0}-minute check-only schedule for {v1} explicit targets.",
+    "ja": "{v1} 件の明示的な対象を {v0} 分間隔で確認します。自動適用はしません。"
+  },
+  "已关闭自动更新；在途单项安全结束后不启动后续对象。": {
+    "en": "Automatic updates are disabled. An in-flight item finishes safely; no later targets will start.",
+    "ja": "自動更新を無効にしました。実行中の項目は安全に完了し、後続の対象は開始しません。"
+  },
+  "更新已读回确认。": {
+    "en": "The update was verified by reading back its state.",
+    "ja": "状態を再読み取りし、更新を確認しました。"
+  },
+  "原目标已不存在；重新选择目标后才会纳入计划。": {
+    "en": "The original target no longer exists. Select it again to include it in the schedule.",
+    "ja": "元の対象が存在しません。スケジュールに含めるには再選択してください。"
+  },
+  "来源、所有者、安装目录或内容已变化；旧计划不接管新对象，请重新选择。": {
+    "en": "The source, owner, installation path or content changed. The existing schedule will not adopt a new object; select it again.",
+    "ja": "配布元・管理元・保存先・内容が変更されています。既存のスケジュールは新しい対象を引き継ぎません。再選択してください。"
+  },
+  "已更新并确认结果。": {
+    "en": "Updated and verified.",
+    "ja": "更新し、結果を確認しました。"
+  },
+  "更新批次结束：{v0} 项已更新。": {
+    "en": "Update run finished: {v0} items updated.",
+    "ja": "更新処理が終了しました。{v0} 件を更新しました。"
+  },
+  "已启用固定 {v0} 小时周期，{v1} 个明确目标；自动应用已验证更新。": {
+    "en": "Enabled a {v0}-hour schedule for {v1} explicit targets, automatically applying verified updates.",
+    "ja": "{v1} 件の明示的な対象を {v0} 時間間隔で確認し、検証済みの更新を自動適用します。"
+  },
+  "已启用固定 {v0} 小时周期，{v1} 个明确目标；仅检查。": {
+    "en": "Enabled a {v0}-hour check-only schedule for {v1} explicit targets.",
+    "ja": "{v1} 件の明示的な対象を {v0} 時間間隔で確認します。自動適用はしません。"
+  },
+  "Codex CLI / 已安装包状态": {
+    "en": "Codex CLI / installed package state",
+    "ja": "Codex CLI・インストール済みパッケージの状態"
+  },
+  "Codex 已在刷新市场时更新包，已核对版本和内容。": {
+    "en": "Codex updated the package while refreshing its marketplace. The version and contents have been verified.",
+    "ja": "マーケットプレイスの更新時に Codex がプラグインを更新しました。バージョンと内容を確認済みです。"
+  }
+}

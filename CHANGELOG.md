@@ -187,6 +187,16 @@
   - `testany-llm` 的命令列表和 plugin 描述改为仅保留 `prompt-optimizer`
   - 根 README、`AGENTS.md`、`CLAUDE.md` 不再引用已删除的 `skill-creator` 脚本与路径
 
+## [testany-eng 2.4.0 / SkillDock 0.1.0] - 2026-09-14
+
+- 新增 `skill-manager` 与本地 SkillDock GUI，管理 Codex 技能、插件、市场来源、安装更新、启禁和可恢复移除。
+- 支持浅色、深色、系统外观及中英日界面；显示已有安装的来源证据，支持关联更新来源、小时周期与所选对象的后台自动更新。
+- 支持 SkillDock 自身更新后的自动重启与界面重连，跨版本保留计划及历史；构建失败保留旧服务，启动失败尝试恢复旧运行目录。
+- macOS 启动入口自动复用 Codex 的 Node.js/npm，并在缺失时准备经过固定摘要校验的专用运行时；首次启动及自动重启无需用户预装全局 Node。
+- 三轮 UAT 整改已完成；产品移除 Sandbox，打开即本机清单，隔离夹具仅供自动化测试。本机文件与计划保留。
+- SkillDock 子树采用 AGPL-3.0-only，提供完整许可证、第三方声明和对应运行版本源码；其他 skills 沿用 MIT。
+- 先通过现有 Git marketplace 分发，新增 Codex 安装与更新指引；不代表进入 OpenAI 官方目录。
+
 ## [2.6.1] - 2026-02-01
 
 ### 移除
