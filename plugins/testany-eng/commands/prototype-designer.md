@@ -5,6 +5,8 @@ argument-hint: <PRD 路径> <User Journey 路径>
 
 # Prototype Designer
 
+执行前读取 [工作流执行约定](../references/workflow-execution.md)：先取证再提问、按实际工具能力回退，并从本次安装位置定位资源。
+
 在前端仓库中生成可交互的 UI 原型。基于 PRD 和 User Journey，验证交互模式和流转逻辑。
 
 ## 使用方式

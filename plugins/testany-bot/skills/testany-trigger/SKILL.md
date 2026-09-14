@@ -13,6 +13,8 @@ description: Testany 执行入口与单次触发 - 为 pipeline 配置 Plan、Ma
 
 ## 先统一心智模型
 
+遵循 [整体目标与交接](../testany-guide/references/task-handoff.md)。用户要求一次执行并等终态时，拿到 execution key 后继续 `testany-execution`，而非停在启动成功；只启动或配置则到该目标为止。
+
 在开始之前，先按 [automation-model.md](../testany-guide/references/automation-model.md) 理解边界：
 
 - `pipeline` 是执行与编排单元
@@ -23,10 +25,13 @@ description: Testany 执行入口与单次触发 - 为 pipeline 配置 Plan、Ma
 **重要结论**：
 - 本 skill 既负责**持久化执行入口**，也负责**即时单次触发**
 - 本 skill 不负责查看 execution 历史、轮询、取消或失败诊断
+- 配置执行入口不自动授权 Run Now；发起成功不等于执行成功；UI 回退不等于已配置
 
 ---
 
 ## 职责范围
+
+按 [交付验证](../testany-guide/references/delivery-verification.md) 读回本轮变更相关状态。请求受理、配置一致、执行已提交和执行成功分开；部分失败保留资源及真实 key，不自动删除回滚或重试。
 
 - 创建/查询/更新/删除 Plan（定时计划）
 - 创建/查询/更新/删除 Gatekeeper（Webhook 触发器）
@@ -123,10 +128,10 @@ description: Testany 执行入口与单次触发 - 为 pipeline 配置 Plan、Ma
    - `testany_get_my_workspaces`
    - `testany_list_pipelines`
    - 帮用户定位目标 pipeline
-2. 调用 `testany_execute_pipeline`
+2. 按 [执行许可与等待合同](../testany-guide/references/execution-boundaries.md) 核对本轮执行许可、pipeline、环境/参数及副作用；明确的信息不重复问，然后调用一次 `testany_execute_pipeline`
 3. 返回 `execution_key`
 4. 明确告诉用户：
-   - 执行已经发起
+   - 仅在工具确认已受理并返回 key 时说执行已经发起；没有终态证据不能说测试成功
    - 接下来如需看进度、查历史、取消、看结果，切到 `testany-execution`
 
 ### 输入补充
@@ -150,6 +155,7 @@ Plan 用于按固定 schedule 自动触发一个或多个 pipeline。
 1. `testany_get_my_workspaces` → 选择 workspace
 2. `testany_list_pipelines` → 选择要定时执行的 pipelines
 3. `testany_create_plan` → 创建计划
+4. `testany_get_plan` 核对目标、schedule 和配置；受理但读回失败时说明已创建而未核验，不重复创建
 
 建议同时填写：
 - `schedule_expr`
@@ -163,6 +169,7 @@ Plan 更新应视为高风险“覆盖式更新”：
 1. `testany_get_plan` 先读取现有配置
 2. 基于现有配置构造完整 payload
 3. 再调用 `testany_update_plan`
+4. 读回核对本次字段；不一致或权限不足报告验证受阻，不自动执行计划来「验证配置」
 
 ---
 
@@ -184,6 +191,9 @@ Manual Trigger 用于按需执行一个或多个 pipeline，不依赖定时调�
 1. 帮用户确定 workspace 和 pipelines
 2. 给出建议的名称、描述和 pipeline 列表
 3. 提示用户到 Testany UI 创建 Manual Trigger
+4. 明确「尚未配置，待用户操作」；不声称 MCP 已完成，不替换成 Plan/Gatekeeper/Run Now，也不擅自操作 UI
+
+若当前宿主实际具备对应工具，则按其真实 schema 配置并读回，不凭本表推断工具永远缺失。
 
 ---
 
@@ -207,6 +217,8 @@ Gatekeeper 通过 Webhook 触发一个 pipeline group 的执行。
 3. `testany_create_gatekeeper(workspace, name, pipelines=[...])` → 创建并绑定
 4. `testany_get_gatekeeper` → 获取 `hook_url`
 5. `testany_update_gatekeeper` → 配置 trigger_method / trigger_name / trigger_condition / watchers / owned_by
+   - 仅设置本轮要求的字段，不为凑流程覆盖默认值；没有额外字段目标时不调用 update
+6. 用 `testany_get_gatekeeper` / `testany_get_gatekeeper_pipelines` 核对本次配置与绑定；读回失败只说明已创建/已提交而核验受阻
 
 **方式二：先创建，再绑定**
 1. `testany_create_gatekeeper` → 创建 Gatekeeper
@@ -249,16 +261,19 @@ stage('Quality Gate') {
 
 ## 返回格式
 
-任务完成后，向用户汇报：
+按实际操作与证据汇报，不使用统一「MCP 直连完成」模板：
 - Trigger 类型：`Plan / Manual Trigger / Gatekeeper / Run Now`
 - 目标 pipelines 列表
-- MCP 直连完成
-- 关键配置（schedule_expr、timezone、watchers、trigger_name 等）
+- 实际结果：已配置且核验 / 已提交但核验受阻 / 已发起执行 / 尚待用户操作 / 操作失败
+- 支持该结果的对象 key、工具回包或读回；列出部分完成与未完成项，不因某一步成功隐藏后续失败
+- 关键配置（schedule_expr、timezone、watchers、trigger_name 等）；平台原枚举不改名
 - 如是 Run Now：
   - 返回 `execution_key`
-  - 明确下一步去 `testany-execution`
+  - 单凭 key 只声称已发起；用户已要求等终态则继续 `testany-execution`，仅启动请求不擅自等待，任何等待都不授权取消或重试
 - 如是 Gatekeeper：
   - 返回 Webhook URL（通过 testany_get_gatekeeper 获取；无权限时为 null）
+
+配置读回不能证明测试通过；回包不确定时先查状态，不自动重试创建或删除对象「回滚」。
 
 ---
 

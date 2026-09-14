@@ -5,8 +5,12 @@ argument-hint: <HLD 路径> [LLD 路径] [API Contract 路径] [Guardrails 路�
 
 # Runbook Writer
 
+执行前读取 [工作流执行约定](../references/workflow-execution.md)：先取证再提问、按实际工具能力回退，并从本次安装位置定位资源。
+
 启动 Runbook 撰写流程。基于 HLD/LLD 等上游文档，编写生产就绪的运维手册。
 
+
+先区分 `formal_design` 与 `bounded_change`/`amendment`；有限增量使用既有有效基线及 Owner 批准，只处理受影响范围，不回补全生命周期文档。详见 `../references/document-amendments.md`；完整流程只适用于正式新功能/全量准出。
 ## 使用方式
 
 提供上游文档路径：
@@ -51,3 +55,5 @@ Runbook 承接 LLD 的设计，输出可直接用于生产部署、故障处理�
 - **可执行优先**：每个步骤必须有验证命令，回滚路径必须可操作
 
 请提供 HLD 路径（必需），以及 LLD、API Contract、Guardrails 路径（可选）。
+
+审查/自检按 `../references/review-assurance.md` 绑定对象、覆盖和稳定问题 ID；无独立能力可交未批准草稿，不能将 Critical/Important 的 conditional_pass 认作生产就绪。

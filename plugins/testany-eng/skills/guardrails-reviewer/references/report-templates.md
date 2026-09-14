@@ -1,5 +1,7 @@
 # 审查报告模板
 
+每份报告和准出证书必须绑定对象/版本、范围、标准、模式（initial/delta/closeout）、已审/未审覆盖及真实证据。沿用稳定问题 ID，分列 kind（defect/evidence_gap/scope_decision/optional）、严重级别和准出影响。通过须无未关闭 P0/P1 且必要证据充分，P2 不按数量阻断。详见 [评审规则](../../../references/review-assurance.md)。
+
 ## 基线识别结果
 
 - Guardrails 路径：
@@ -40,7 +42,7 @@
 
 ## 准出证书（通过）
 
-- 结论：通过（P0:0, P1:0, P2≤2）
+- 结论：通过（P0:0, P1:0, 必要证据充分；P2 不按数量阻断）
 - Guardrails 版本：
 - 动作类型：
 - 生成模式：

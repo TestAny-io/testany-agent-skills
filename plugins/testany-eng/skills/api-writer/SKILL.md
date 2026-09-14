@@ -1,18 +1,28 @@
 ---
 name: api-writer
-description: 'Write API contract, 写接口契约。Use when: PRD 完成后、HLD 之前需要定义 OpenAPI/AsyncAPI/GraphQL/gRPC/WebSocket/SSE/Webhook/SDK/文件格式规范。'
+description: 'Write API contract, 写接口契约。Use when: PRD 完成后、HLD 之前需要定义 OpenAPI/AsyncAPI/GraphQL/gRPC/WebSocket/SSE/Webhook/SDK/文件格式规范。 也用于既有相关文档的有限增量更新。'
 ---
 
 # API Writer
+
+执行前读取 [工作流执行约定](../../references/workflow-execution.md)：先取证再提问、按实际工具能力回退，并从本次安装位置定位资源。
 
 > **语言规则**：默认跟随用户输入语言；用户显式指定时以用户指定为准；不要因为本 `SKILL.md` 是中文而强制输出中文；`TRACEABILITY-METADATA` 的字段名、枚举值、ID、comment markers 始终保持英文。若本 skill 使用模板或派发子任务，继续传递同一个 `output_language`。详见 `../../references/language-policy.md`。
 
 你是一个接口契约/协议文档写作助手。基于 PRD 与边界确认，输出可审查的 contract，降低前后端/多团队对接口认知漂移。
 
+## 先选工作模式
+
+- `formal_design`：用户要求完整新功能文档或正式全量准出，执行下文完整流程、模板、追溯和适用门禁。
+- `bounded_change`（`amendment`）：在已有有效基线和明确授权的变更范围内，读取 [有限增量规则](../../references/document-amendments.md)，直接执行“读取基线与授权 -> 核对影响边界 -> 修改获授权增量 -> 检查差异与验证 -> 交付范围限定的结果”。不回补全套历史文档，不把草稿或自检升级为批准。
+- 模式由实际职责、信任、契约、失败语义与批准范围决定，不按行数/文件数判断。“两行修改”改变权限边界仍需对应有权 Owner 决策。
+
+下文全量模板、全局覆盖矩阵与整套前置文档是 `formal_design` 的要求；有限增量沿用既有工件格式、有效批准及相关追溯，不因缺某种历史文件格式自动改成新项目启动。
+
 ## 核心原则
 
 1. **契约是事实源**：HLD/实现必须引用契约版本，禁止在 HLD 中新增接口。
-2. **有基线才产出**：没有 PRD 基线或边界确认时，必须 AskUserQuestion 并停止产出。
+2. **有依据才定案**：正式设计需相关批准需求；有限增量可用既有契约及有权 Owner 的具体决定。不要求同一种 PRD 文件格式，但真实行为或批准依据缺失时不自行定案。
 3. **基于证据，不猜测**：现有接口/服务/规范必须有文档依据；缺证据就问。
 4. **边界先行**：先确认服务/模块/数据所有权，再写接口。
 5. **复用优先**：优先复用已有接口/模块/第三方能力，避免重复造轮子。
@@ -23,12 +33,12 @@ description: 'Write API contract, 写接口契约。Use when: PRD 完成后、HL
 
 ## 执行进度清单
 
-**执行时使用 TodoWrite 工具跟踪以下进度，完成一项后立即标记为 completed：**
+**按任务需要跟踪以下进度；使用可用计划工具或简短清单，标记真实完成状态：**
 
 ```
 □ 阶段 0：上下文收集
   □ 0.1 使用 Glob 扫描 PRD/需求文档、已有 API 规范、现有服务说明
-  □ 0.2 AskUserQuestion 确认要读取的文档与最新批准基线
+  □ 0.2 读取并核验最新批准基线，仅询问剩余缺口
   □ 0.3 执行 Guardrails trigger check
 
 □ 阶段 1：边界/所有权确认
@@ -100,17 +110,17 @@ description: 'Write API contract, 写接口契约。Use when: PRD 完成后、HL
    - 错误码/状态码的跨协议映射
 5. **PRD → Contract 映射以 Index 为准**，确保全覆盖
 
-## 工作流程
+## 正式设计工作流程
 
 ### 阶段 0：上下文收集（强制）
 
-1. 使用 Glob 扫描并收集路径（不先读）：
+1. 先读取指定材料，再按需查找并读取相关 PRD、既有契约和服务边界证据：
    - PRD/需求文档、已有 API/规范（OpenAPI/AsyncAPI/Spec）、现有服务/模块说明、相关 ADR、现有 Guardrails
-2. AskUserQuestion 让用户确认要读取的文档与“最新批准基线”。
+2. 核验基线版本与批准依据；已明确项复用，只有具体冲突或必要批准缺口才提问。
 3. 基于 `../../references/guardrails-trigger-check.md` 执行一次 `Guardrails trigger check`：
    - `no_trigger`：继续阶段 1
    - `suggest_guardrails`：记录原因、影响域和推荐动作后继续
-   - `require_guardrails_before_design`：停止当前 contract 写作，明确建议先运行 `guardrails-writer`
+   - `require_guardrails_before_design`：暂停依赖缺失规则的定案；继续有依据的非依赖草稿，列明需责任方补齐的规则
 
 ### 阶段 1：边界/所有权确认（强制）
 
@@ -122,7 +132,7 @@ description: 'Write API contract, 写接口契约。Use when: PRD 完成后、HL
 
 ### 阶段 2：合同类型选择（强制）
 
-使用 AskUserQuestion 确认 contract 类型与输出格式：
+复用既有契约或当前请求已明确的类型和格式；无法确定时才提问：
 - HTTP / GraphQL / gRPC / Event / WebSocket-SSE / Webhook / SDK / File / IPC-CLI
 
 ### 阶段 3：契约撰写
@@ -140,7 +150,7 @@ description: 'Write API contract, 写接口契约。Use when: PRD 完成后、HL
 - 错误契约、权限、幂等性是否缺失
 - 多协议间的数据模型与错误码一致性
 
-## AskUserQuestion 模板（必须使用）
+## 未知决策的提问示例（按需使用）
 
 ### 1) 边界确认
 
@@ -192,13 +202,16 @@ options:
     description: "先读取现有 Guardrails 与批准基线再决定"
 ```
 
-## 输出要求（默认结构）
+## 正式设计输出要求（默认结构）
 
 - 单协议：契约文档（按模板）+ PRD → Contract 映射表 + 待确认问题清单 + 变更/兼容性说明
 - 多协议：Contract Index + 各协议契约文档 + PRD → Contract 映射表 + 待确认问题清单 + 变更/兼容性说明
 - 若命中 `suggest_guardrails`：在输出中附一段 `Guardrails Trigger Check` 摘要
 
 ## 使用示例
+
+有限增量：“按 Owner 已批准的范围，仅给既有 OpenAPI 响应新增一个可选字段，不改认证/required/错误语义。”读取契约与批准记录后仅改该增量，保留其他结构；不新写完整 PRD/HLD。
+
 
 **示例 1**：
 “根据 PRD 输出订单服务的 API contract（OpenAPI），并标注幂等与错误码。”

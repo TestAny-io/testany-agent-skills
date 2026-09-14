@@ -1,9 +1,15 @@
 # Test Strategy 审查模板
 
+每份报告和准出证书必须绑定对象/版本、范围、标准、模式（initial/delta/closeout）、已审/未审覆盖及真实证据。沿用稳定问题 ID，分列 kind（defect/evidence_gap/scope_decision/optional）、严重级别和准出影响。通过须无未关闭 P0/P1 且必要证据充分，P2 不按数量阻断。详见 [评审规则](../../../references/review-assurance.md)。
+
 ## 审查报告模板
 
 ```markdown
 # Test Strategy 审查报告
+
+- 评审绑定：[对象/版本/可得摘要；范围；标准/版本；initial/delta/closeout]
+- 覆盖状态：[已审；未审；复用证据及有效性]
+- 准出影响：[defect / evidence_gap / scope_decision / optional；稳定 ID 与关闭证据]
 
 ## 基本信息
 
@@ -21,8 +27,8 @@
 
 | 检查 | 命令 | 结果 | 备注 |
 |------|------|------|------|
-| Lint | `python3 plugins/testany-eng/scripts/trace_lint.py --format json {strategy_path}` | PASS / FAIL | {关键 issue / 无} |
-| RTM 聚合 | `python3 plugins/testany-eng/scripts/trace_build_rtm.py --format json {prd_path} {strategy_path}` | PASS / FAIL | {关键 issue / 无} |
+| Lint | `python3 "$TESTANY_ENG_ROOT/scripts/trace_lint.py" --format json {strategy_path}` | PASS / FAIL / NOT RUN / BLOCKED | {关键 issue / 无} |
+| RTM 聚合 | `python3 "$TESTANY_ENG_ROOT/scripts/trace_build_rtm.py" --format json {prd_path} {strategy_path}` | PASS / FAIL / NOT RUN / BLOCKED | {关键 issue / 无} |
 
 ## 问题统计
 
@@ -30,7 +36,7 @@
 |------|------|------|------|
 | P0 | {n} | = 0 | ✅/❌ |
 | P1 | {n} | = 0 | ✅/❌ |
-| P2 | {n} | ≤ 2 | ✅/❌ |
+| P2 | {n} | 不按数量阻断 | 记录 |
 
 ## Gate 1：基线与范围
 - {结论与证据}
@@ -67,6 +73,10 @@
 
 ```markdown
 # ✅ Test Strategy 准出证书
+
+- 评审绑定：[对象/版本/可得摘要；范围；标准/版本；initial/delta/closeout]
+- 覆盖状态：[已审；未审；复用证据及有效性]
+- 准出影响：[defect / evidence_gap / scope_decision / optional；稳定 ID 与关闭证据]
 
 - **Strategy 文档**：{路径}
 - **基线**：PRD/API/HLD/Guardrails

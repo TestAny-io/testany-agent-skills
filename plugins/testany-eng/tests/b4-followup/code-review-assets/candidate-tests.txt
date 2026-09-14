@@ -1,0 +1,21 @@
+
+
+class BatchTests(unittest.TestCase):
+    def test_batch_limits_and_results(self):
+        queue = JobQueue(["a", "b", "c"])
+        self.assertEqual(queue.run_batch(str.upper, 0), [])
+        self.assertEqual(queue.pending, ["a", "b", "c"])
+        self.assertEqual(queue.run_batch(str.upper, 2), ["A", "B"])
+        self.assertEqual(queue.pending, ["c"])
+        self.assertEqual(queue.run_batch(str.upper, 10), ["C"])
+        self.assertEqual(queue.run_batch(str.upper, 1), [])
+
+    def test_invalid_limit_has_no_effect(self):
+        for limit in (-1, True, False, 1.2, "2", None):
+            with self.subTest(limit=limit):
+                queue = JobQueue(["a", "b"])
+                calls = []
+                with self.assertRaises(ValueError):
+                    queue.run_batch(calls.append, limit)
+                self.assertEqual(calls, [])
+                self.assertEqual(queue.pending, ["a", "b"])

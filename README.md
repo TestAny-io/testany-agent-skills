@@ -9,6 +9,8 @@ Skills 是包含指令、脚本和资源的文件夹，Claude 可以动态加载
 
 # 关于本仓库
 
+维护 skill 或安装发现配置时，按任务范围使用 [开发与发布约定](docs/plugin-development.md)；普通局部编辑不自动安装、发布或改版本。
+
 本仓库包含 Testany 公司内部使用的 Agent Skills，覆盖产品研发流程中的各类专业场景。Skills 按领域分为多个 Plugin：
 
 | Plugin | 领域 | 命令 |
@@ -87,8 +89,8 @@ testany-agent-skills/
 | 命令 | 描述 |
 |------|------|
 | `/testany-eng:guide` | 按正式设计、有限修复、实现对象及决策层级分流，核实批准来源，推荐最小下一步 |
-| `/testany-eng:brd-interviewer` | 业务需求访谈专家，通过选择题引导 stakeholder 输出结构化 BRD |
-| `/testany-eng:uc-interviewer` | 用户旅程访谈专家，在 BRD 和 PRD 之间建立对齐检查点，确认最新 BRD baseline，并产出带 metadata 的 USER_JOURNEY 基线 |
+| `/testany-eng:brd-interviewer` | 按材料选择访谈、直接整理或缺口补问；区分实测、估算、测量计划和离散验收，草稿与批准分开 |
+| `/testany-eng:uc-interviewer` | 复用已知流程，仅补问未决分支，产出带 metadata、步骤级边界和真实 checkpoint 的 User Journey |
 | `/testany-eng:prd-writer` | PRD 写作技能，支持多种类型：新功能、第三方集成、重构、优化 |
 | `/testany-eng:prd-reviewer` | PRD 审查专家，作为「准出门禁」从多角色视角全面审查 |
 | `/testany-eng:prototype-designer` | 交互原型设计助手，在前端仓库中基于 PRD + User Journey 生成可交互原型 |
@@ -112,13 +114,13 @@ testany-agent-skills/
 
 | 命令 | 描述 |
 |------|------|
-| `/testany-llm:prompt-optimizer` | AI 提示词优化专家，支持 Claude、ChatGPT、DeepSeek、豆包、智谱、Gemini 等多平台 |
+| `/testany-llm:prompt-optimizer` | 先保留任务与调用方输出契约，不按模型品牌强制格式；有限自查后交付，不要求完整内部思维链 |
 
 ## testany-mrkt（营销内容）
 
 | 命令 | 描述 |
 |------|------|
-| `/testany-mrkt:media-writer` | 自媒体内容创作工作流，支持公众号、知乎、小红书、LinkedIn、Medium、Reddit |
+| `/testany-mrkt:media-writer` | 多平台写作，按请求连续完成、停在指定检查点或仅做单阶段；不默认发布 |
 
 ## testany-bot（测试平台 - 通用版）
 
@@ -136,6 +138,8 @@ testany-agent-skills/
 
 # 创建自定义 Skill
 
+本轮模型适配的已测范围、已知限制与本地测试入口见 [GPT-6 适配验证摘要](docs/gpt6-adaptation-validation.md)。源码合入不等于所有模型或宿主已通过验收，也不自动刷新已安装插件缓存。
+
 Skill 的创建很简单 - 只需一个包含 `SKILL.md` 文件的文件夹。`SKILL.md` 包含 YAML frontmatter 和 Markdown 指令：
 
 ```markdown
@@ -149,9 +153,11 @@ description: 清晰描述这个 skill 做什么，以及什么时候应该使用
 [在这里添加 Claude 执行此 skill 时需要遵循的指令]
 ```
 
-Frontmatter 只需要两个字段：
+Frontmatter 必须包含两个基础字段（不表示只允许这两个字段）：
 - `name` - skill 的唯一标识符（小写，用连字符分隔）
 - `description` - 完整描述 skill 的功能和使用场景
+
+可选字段及宿主扩展使用[分层 frontmatter 检查](docs/plugin-development.md#frontmatter-校验范围)：`python3 plugins/testany-eng/scripts/validate_codex_compat.py --profile repository --format json`。公共字段与 Claude 参数提示/Stop hook 分开验证和报告；严格公共字段检查使用 `--profile portable`。不要把通用 quick validator 的窄白名单当成所有宿主的 schema，也不要把静态通过当成已安装运行。
 
 本仓库当前不再内置 `skill-creator` scaffolding/打包工具。新增或维护 skill 时，请直接创建或编辑对应 plugin 下的 `SKILL.md` 与配套 `references/`、`assets/`、`scripts/`，并同步更新 `README`、`marketplace.json`、plugin `plugin.json` 和 `CHANGELOG.md`。
 

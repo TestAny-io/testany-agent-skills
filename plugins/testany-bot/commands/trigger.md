@@ -11,6 +11,8 @@ argument-hint: <操作> <描述>，如：立即执行 Y2K-0601、创建手动触
 
 $ARGUMENTS
 
+按 [整体目标交接](../skills/testany-guide/references/task-handoff.md)：仅启动返回真实 key 即止；要求等终态则继续 execution 工作流，沿用等待预算，不重试或取消。
+
 ## 支持的操作
 
 - **立即执行一次**：Run Now，直接发起一次 pipeline execution
@@ -33,3 +35,5 @@ $ARGUMENTS
 
 - 如果你要“现在立刻跑一次”，用 `/trigger`
 - 如果执行已经发起，后续看进度、查历史、取消、失败交接，请用 `/execution`
+- 配置入口不自动授权执行；Manual Trigger 的 UI 指导要标明尚未配置，不替换其他类型
+- 返回执行 key 只证明已发起，不证明成功；配置创建/更新后核对状态，读回失败标为部分完成/核验受阻

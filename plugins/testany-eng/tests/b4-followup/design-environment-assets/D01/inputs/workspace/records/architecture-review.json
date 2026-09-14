@@ -1,0 +1,10 @@
+{
+  "export_kind": "original_project_conversation",
+  "thread_id": "archive-architecture-19",
+  "attachments": [{"path": "../docs/HLD.md", "artifact": "HLD-ARCHIVE", "version": "1.3"}],
+  "messages": [
+    {"id": "a-201", "author": "陈宁", "role": "author", "at": "2026-09-11T09:00:00+08:00", "text": "提交附件 HLD-ARCHIVE v1.3，关联 PRD-ARCHIVE v1.1，申请同一迭代设计批准。"},
+    {"id": "a-202", "author": "周衡", "role": "architecture_owner", "at": "2026-09-11T10:00:00+08:00", "text": "批准附件 HLD-ARCHIVE v1.3 的组件职责、数据和失败边界，包括正文与元数据保留 30 日、满 30 日不可查询并在 1 小时内硬删除的清理流程。"},
+    {"id": "a-203", "author": "林岚", "role": "product_owner", "at": "2026-09-11T10:10:00+08:00", "text": "同意并批准该附件的数据处置和管理员查询行为：正文与元数据保留 30 日，满 30 日不可查询并在 1 小时内硬删除。批准对象为 HLD-ARCHIVE v1.3 的本次归档模块迭代。"}
+  ]
+}

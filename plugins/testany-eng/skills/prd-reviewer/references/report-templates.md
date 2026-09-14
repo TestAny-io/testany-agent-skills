@@ -1,15 +1,21 @@
 # PRD 审查报告与准出证书模板
 
+每份报告和准出证书必须绑定对象/版本、范围、标准、模式（initial/delta/closeout）、已审/未审覆盖及真实证据。沿用稳定问题 ID，分列 kind（defect/evidence_gap/scope_decision/optional）、严重级别和准出影响。通过须无未关闭 P0/P1 且必要证据充分，P2 不按数量阻断。详见 [评审规则](../../../references/review-assurance.md)。
+
 ## 审查报告模板
 
 ```markdown
 # PRD 审查报告
 
+- 评审绑定：[对象/版本/可得摘要；范围；标准/版本；initial/delta/closeout]
+- 覆盖状态：[已审；未审；复用证据及有效性]
+- 准出影响：[defect / evidence_gap / scope_decision / optional；稳定 ID 与关闭证据]
+
 ## 基本信息
 - **PRD 文档**：[路径]
 - **审查时间**：YYYY-MM-DD HH:MM
 - **审查轮次**：第 N 轮
-- **审查结论**：🔴 不通过 / 🟡 有条件通过 / 🟢 通过
+- **审查结论**：不通过 / 待补证据 / 通过
 
 ---
 
@@ -57,6 +63,10 @@
 
 ```markdown
 # ✅ PRD 准出证书
+
+- 评审绑定：[对象/版本/可得摘要；范围；标准/版本；initial/delta/closeout]
+- 覆盖状态：[已审；未审；复用证据及有效性]
+- 准出影响：[defect / evidence_gap / scope_decision / optional；稳定 ID 与关闭证据]
 
 ## 基本信息
 - **PRD 文档**：[路径]

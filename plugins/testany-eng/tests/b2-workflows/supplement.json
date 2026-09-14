@@ -1,0 +1,17 @@
+{
+  "purpose": "Post-implementation coverage supplement, frozen separately; does not replace or alter suite.json expectations.",
+  "cases": [
+    {
+      "id": "D06", "reuse": "C05",
+      "request": "仅修改 workspace/article.md 的第二段，让语句更通顺，保留其含义。标题、第一段和第三段逐字不动，不新增论点、数字或作者经历。不要重做选题、素材研究、配图、归档或发布。直接更新原文件并核对实际差异。",
+      "files": {"article.md": "# 工具与交接\n\n第一段：工具多少不是判断协作质量的唯一依据。\n\n第二段：任务状态是到处都记了，但是谁负责去更新它的这个事情，有时候没有说清楚，接手的人然后就还得再问一次。\n\n第三段：必要的批准仍需保留，不应为了速度取消。\n"},
+      "expect": "single_stage只改第二段语句，标题第一第三段逐字不变，无新增事实或其他产物/副作用，实际diff核查。"
+    },
+    {
+      "id": "B06", "reuse": "C03",
+      "request": "请只读判断当前契约 v1.0.2 是否可以复用 workspace/record-cosmetic.md 中 v1.0.1 的批准直接准出。请完成判断报告，不修改工件、不替 Owner 扩范围。",
+      "files": {"change.md": "# 当前 Candidate 变更\n候选版本 v1.0.2 在原有个人筛选 CRUD 之外增加共享给整个租户的公共筛选。删除筛选的权限从仅创建者改为任何租户 member。\n原 Owner 仅批准 v1.0.1 的个人筛选 CRUD；尚未批准本次共享和删除权限扩张。v1.0.2 本地测试 PASS，但未提供新范围批准或访问控制复审。\n"},
+      "expect": "识别对象/权限范围漂移，旧批准不能直接复用；本地测试PASS不授权新范围，完成未准出报告且不改文件。"
+    }
+  ]
+}

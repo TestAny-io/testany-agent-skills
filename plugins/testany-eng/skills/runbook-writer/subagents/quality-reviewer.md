@@ -4,17 +4,15 @@ Use this template when dispatching a quality reviewer subagent.
 
 **Purpose:** Verify Runbook is executable, complete, and production-ready
 
-**Only dispatch after spec compliance review passes.**
+**Normally dispatch after spec compliance passes. If that check is blocked, independent safety/executability checks may proceed with explicit unreviewed scope; do not claim overall approval.**
 
 ```
-Task tool (general-purpose):
+Available authorized independent-agent tool (example):
   description: "Review Runbook quality"
   prompt: |
     You are reviewing the quality and executability of a Runbook.
 
-    **Context:** This Runbook has already passed spec compliance review, meaning
-    it covers all upstream requirements. Your job is to verify it's well-built
-    and ready for production use.
+    **Context:** Record the actual spec-compliance result and its checked/unchecked scope. Never assume it passed. Check independent executability and safety; overall approval remains blocked by unresolved required coverage or evidence.
 
     ## Runbook to Review
 
@@ -34,6 +32,8 @@ Task tool (general-purpose):
     - Write the quality review in this language.
     - Do not fall back to Chinese because this prompt template contains Chinese notes.
     - Keep any `TRACEABILITY-METADATA` keys, enum values, IDs, and comment markers in English.
+
+    Verify the supplied summary against authorized source paths when needed. Do not invent missing constraints, executions, independent reviews, or approvals. A draft may mark specific gaps and complete unaffected sections; it is not production approval.
 
     ## Your Role
 
@@ -171,7 +171,7 @@ Task tool (general-purpose):
     #### Critical (Must Fix Before Production)
     [Bugs, safety issues, missing critical steps, impossible-to-execute steps]
 
-    #### Important (Should Fix)
+    #### Important (Must Fix Before Approval)
     [Ambiguities, missing verification, incomplete troubleshooting]
 
     #### Minor (Nice to Have)
@@ -214,7 +214,7 @@ Task tool (general-purpose):
        - Impact: Cannot recover if migration corrupts data
        - Fix: Add explicit backup step with verification before migration
 
-    #### Important (Should Fix)
+    #### Important (Must Fix Before Approval)
 
     1. **Vague verification in Step 7**
        - Location: Section 2.2, Step 7
@@ -261,11 +261,11 @@ Task tool (general-purpose):
 
     ### Assessment
 
-    **Production ready: With fixes**
+    **Production ready: No; fixes and re-review required**
 
     **Reasoning:** Core procedures are sound and well-structured, but Critical
     issues (rollback dependency, missing backup) must be fixed before production
-    use. Important issues should also be addressed to ensure executability.
+    use. Important issues must also be addressed to ensure executability.
     ```
 
     ## Critical Rules
@@ -281,7 +281,7 @@ Task tool (general-purpose):
     - Say "looks good" without testing executability
     - Mark nitpicks as Critical
     - Give vague feedback ("improve clarity")
-    - Review spec compliance (already done)
+    - Assume spec compliance was done without a valid record
     - Avoid giving clear verdict
 
     ## Severity Definitions
@@ -313,6 +313,8 @@ Task tool (general-purpose):
     - [ ] Suggested concrete fixes
     - [ ] Clear production-ready verdict
 
+    Before the result, bind object/version, scope, criteria, initial/delta mode, checked/unchecked coverage, stable issue IDs, and closure evidence. Missing required evidence blocks approval but is not automatically a product P0. Reuse delta only after reliable complete initial coverage. Never modify the Runbook as a reviewer.
+
     ## Structured Result (MANDATORY)
 
     After your review output, you MUST append the following block at the very end.
@@ -323,9 +325,9 @@ Task tool (general-purpose):
     role: quality-reviewer
     status: success
     output_files: []
-    verdict: pass            # pass | conditional_pass | fail
+    verdict: pass            # pass | fail
     p0_count: 0              # Critical (must fix before production)
-    p1_count: 0              # Important (should fix)
+    p1_count: 0              # Important (must fix before approval)
     p2_count: 0              # Minor (nice to have)
     blocking_issues: []
     warnings: []
@@ -336,7 +338,6 @@ Task tool (general-purpose):
     ```
 
     `verdict` mapping:
-    - `pass`: No Critical or Important issues → production ready
-    - `conditional_pass`: No Critical, has Important → production ready with caveats
-    - `fail`: Has Critical issues → must fix before production
+    - `pass`: No Critical/Important issues and required evidence is sufficient; document review passes, not deployment authorization.
+    - `fail`: Any Critical/Important issue or missing required evidence; deliver an unapproved draft/report. A legacy conditional_pass is not approval.
 ```

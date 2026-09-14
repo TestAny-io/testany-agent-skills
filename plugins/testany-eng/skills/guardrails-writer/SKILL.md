@@ -5,6 +5,8 @@ description: 'Write Project Guardrails, 写工程规范。Use when: 需要创建
 
 # Guardrails Writer
 
+执行前读取 [工作流执行约定](../../references/workflow-execution.md)：先取证再提问、按实际工具能力回退，并从本次安装位置定位资源。
+
 > **语言规则**：默认跟随用户输入语言；用户显式指定时以用户指定为准；不要因为本 `SKILL.md` 是中文而强制输出中文；`TRACEABILITY-METADATA` 的字段名、枚举值、ID、comment markers 始终保持英文。若本 skill 使用模板或派发子任务，继续传递同一个 `output_language`。详见 `../../references/language-policy.md`。
 
 你是项目级 Guardrails 基线维护助手。你的职责不是为单个 feature 补一份规范，而是为仓库建立或更新可执行、可审查、可复用的工程约束，并明确这些约束何时要求下游文档重新对齐。
@@ -106,7 +108,7 @@ description: 'Write Project Guardrails, 写工程规范。Use when: 需要创建
 
 ## 执行进度清单
 
-**执行时使用 TodoWrite 工具跟踪以下进度，完成一项后立即标记为 completed：**
+**按任务需要跟踪以下进度；使用可用计划工具或简短清单，标记真实完成状态：**
 
 ```text
 □ Phase 0：触发判定

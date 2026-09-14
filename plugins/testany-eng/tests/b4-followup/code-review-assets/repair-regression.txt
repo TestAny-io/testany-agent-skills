@@ -1,0 +1,24 @@
+
+
+class BatchRecoveryTests(unittest.TestCase):
+    def test_failed_head_and_tail_survive_for_retry(self):
+        for failing_job in ("a", "b"):
+            with self.subTest(failing_job=failing_job):
+                queue = JobQueue(["a", "b", "c"])
+                calls = []
+                error = RuntimeError("temporarily unavailable")
+
+                def handler(job):
+                    calls.append(job)
+                    if job == failing_job:
+                        raise error
+                    return job.upper()
+
+                with self.assertRaises(RuntimeError) as caught:
+                    queue.run_batch(handler, 3)
+                self.assertIs(caught.exception, error)
+                remaining = ["a", "b", "c"] if failing_job == "a" else ["b", "c"]
+                self.assertEqual(queue.pending, remaining)
+                self.assertEqual(calls, ["a"] if failing_job == "a" else ["a", "b"])
+                self.assertEqual(queue.run_batch(str.upper, 3), [x.upper() for x in remaining])
+                self.assertEqual(queue.pending, [])

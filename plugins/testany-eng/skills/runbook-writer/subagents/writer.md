@@ -5,10 +5,12 @@ Use this template when dispatching a Runbook writer subagent.
 **Purpose:** Write complete, executable Runbook based on upstream constraints
 
 ```
-Task tool (general-purpose):
+Available authorized independent-agent tool (example):
   description: "Write Runbook for [系统名称]"
   prompt: |
     You are writing a production-ready Runbook for [系统名称].
+
+    Verify the supplied summary against authorized source paths when needed. Do not invent missing constraints, executions, independent reviews, or approvals. A draft may mark specific gaps and complete unaffected sections; it is not production approval.
 
     ## Your Role
 

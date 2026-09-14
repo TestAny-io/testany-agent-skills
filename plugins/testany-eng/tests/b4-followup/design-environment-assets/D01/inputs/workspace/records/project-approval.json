@@ -1,0 +1,13 @@
+{
+  "export_kind": "original_project_conversation",
+  "thread_id": "archive-project-02",
+  "attachments": [
+    {"path": "../docs/API-contract.md", "artifact": "API-ARCHIVE", "version": "1.0"},
+    {"path": "../docs/Guardrails.md", "artifact": "GR-ARCHIVE", "version": "1.0"}
+  ],
+  "messages": [
+    {"id": "g-001", "author": "周衡", "role": "architecture_owner", "at": "2026-09-08T10:00:00+08:00", "text": "批准附件 API-ARCHIVE v1.0，归档查询 wire、身份和错误契约保持该版本。"},
+    {"id": "g-002", "author": "林岚", "role": "product_owner", "at": "2026-09-08T10:05:00+08:00", "text": "批准附件 GR-ARCHIVE v1.0 的职责授权与模块级数据处置规则，产品批准由我承担。"},
+    {"id": "g-003", "author": "周衡", "role": "architecture_owner", "at": "2026-09-08T10:10:00+08:00", "text": "批准附件 GR-ARCHIVE v1.0 的架构约束及职责授权，架构批准由我承担。"}
+  ]
+}

@@ -1,5 +1,7 @@
 # trace-build-rtm v1 输入输出契约
 
+命令中的 `TESTANY_ENG_ROOT` 须先按 [资源定位约定](../workflow-execution.md) 从实际加载位置确定，不是预置环境变量；工件路径则指向产品工作区。
+
 ## 1. 目标
 
 `trace-build-rtm` 用于把多个 traceability metadata 文档聚合成一份全局 RTM。
@@ -21,7 +23,7 @@
 ## 2. 脚本位置
 
 ```bash
-python3 plugins/testany-eng/scripts/trace_build_rtm.py
+python3 "$TESTANY_ENG_ROOT/scripts/trace_build_rtm.py"
 ```
 
 ## 3. 调用模型
@@ -37,7 +39,7 @@ trace-build-rtm <path...> [--format markdown|json] [--strict]
 聚合一组 PRD / Test Strategy / Test Spec 文档：
 
 ```bash
-python3 plugins/testany-eng/scripts/trace_build_rtm.py \
+python3 "$TESTANY_ENG_ROOT/scripts/trace_build_rtm.py" \
   docs/PRD-checkout.md \
   docs/Test-Strategy-checkout.md \
   docs/Test-Spec-checkout.md
@@ -46,7 +48,7 @@ python3 plugins/testany-eng/scripts/trace_build_rtm.py \
 输出机器可读 JSON：
 
 ```bash
-python3 plugins/testany-eng/scripts/trace_build_rtm.py \
+python3 "$TESTANY_ENG_ROOT/scripts/trace_build_rtm.py" \
   --format json \
   docs/PRD-checkout.md \
   docs/Test-Strategy-checkout.md \
@@ -56,7 +58,7 @@ python3 plugins/testany-eng/scripts/trace_build_rtm.py \
 在 CI / reviewer 场景中启用严格模式：
 
 ```bash
-python3 plugins/testany-eng/scripts/trace_build_rtm.py \
+python3 "$TESTANY_ENG_ROOT/scripts/trace_build_rtm.py" \
   --strict \
   --format json \
   docs/PRD-checkout.md \

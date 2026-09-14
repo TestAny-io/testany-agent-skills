@@ -2,8 +2,8 @@
 
 ## 预检：脚本化门禁
 
-- [ ] 是否先执行了 `python3 plugins/testany-eng/scripts/trace_lint.py --format json <Test Spec 路径>`？
-- [ ] 是否先执行了 `python3 plugins/testany-eng/scripts/trace_build_rtm.py --format json <PRD 路径> <Test Strategy 路径> <Test Spec 路径>`？
+- [ ] 是否先执行了 `python3 "$TESTANY_ENG_ROOT/scripts/trace_lint.py" --format json <Test Spec 路径>`？
+- [ ] 是否先执行了 `python3 "$TESTANY_ENG_ROOT/scripts/trace_build_rtm.py" --format json <PRD 路径> <Test Strategy 路径> <Test Spec 路径>`？
 - [ ] `trace-lint` 是否通过，且未留下 blocking issue？
 - [ ] `trace-build-rtm` 是否没有 `RTM001 / RTM002 / RTM003 / RTM004`？
 - [ ] `trace-build-rtm` 中的 orphan entity 是否已识别并纳入问题分级？

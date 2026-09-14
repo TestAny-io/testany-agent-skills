@@ -63,9 +63,9 @@
 
 ### managed_import
 
-1. `testany_preview_git_sync({import_history_id})` （可选）— 返回 `no_changes` + diff。
-2. `testany_confirm_git_sync({import_history_id})` — 由 mirror diff 决定变更，`file_selections` 会被忽略。
-3. 失败项：`testany_retry_git_sync` 仅对 sync_link 生效（managed 的 confirm 已在内部做 per-file 容错）。
+1. `testany_preview_git_sync({import_history_id})` — 取得本轮完整 diff；no_changes 则结束，按 [授权决策表](./sync-authorization.md) 核对实际影响。
+2. 已授权全部差异且提交前状态无冲突时调用 `testany_confirm_git_sync({import_history_id})`。由 mirror diff 决定变更，`file_selections` 会被忽略，不能用它做授权过滤；不自造 commit/snapshot 锁定参数。
+3. 核对 record、实际 commit 与失败项；部分失败照实报告。`testany_retry_git_sync` 仅对 sync_link 生效且需在本轮重试许可内（managed 的 confirm 已在内部做 per-file 容错）。
 
 ### sync_link（不走 confirm_git_sync）
 
@@ -94,6 +94,7 @@ MCP 已在 `preview_git_sync` / `confirm_git_sync` / `retry_git_sync` / `confirm
 - 前置条件：**`sync_mode=pinned_commit`**（`import_mode` 可以是 managed_import 或 sync_link）
 - Payload：`{ target_commit: "<sha>" }`（preview）/ `{ target_commit, file_selections? }`（confirm）
 - 对 sync_link，`file_selections` 从 preview.changes 派生；对 managed_import，不要传（会被拒绝）
+- 只提交本轮已授权目标和选择，漂移/新影响按授权决策表处理；不一律再问，也不一律直提
 - 前置条件不满足返回 `ERR_SWITCH_NOT_ALLOWED`
 
 ### switchMode — 解除 pinned，回到跟随 branch HEAD
@@ -117,10 +118,12 @@ MCP 已在 `preview_git_sync` / `confirm_git_sync` / `retry_git_sync` / `confirm
    - 返回 `{ snapshot_commit, items: [...] }`
 3. `testany_confirm_git_add_files({ snapshot_commit, selected_files })` — `idempotency_key` 由 MCP 自动生成
    - **`snapshot_commit` 必须原样回传** list 时拿到的值（防止 list 和 confirm 之间仓库又变了）
+   - selected_files 仅含本轮批准集合；并发冲突后重新 list、核对授权，不自动扩大集合或只换 snapshot 重试
 
 ### sourceDeleted
 
 同构于 addFiles，区别在候选单位是 `file_binding_id`（不是 `file_path`）。confirm 的参数叫 `file_binding_ids`。
+仅在对应删除/下线影响已授权时提交，原样保留候选 snapshot；脚本同步许可不包括删除。提交后核对每项实际结果。
 
 > 这条关系流是 sync_link 在 current phase 下**唯一**的 binding 演化路径（因为 confirm_git_sync 暂不支持 sync_link）。
 
@@ -165,6 +168,6 @@ MCP 已在 `preview_git_sync` / `confirm_git_sync` / `retry_git_sync` / `confirm
 | 仓库无法访问 | `ERR_REPO_UNREACHABLE` | 非 GitHub 平台 / installation 权限不足 |
 | Payload 不合法 | `ERR_PAYLOAD_INVALID` | 必填字段缺失、格式错（例如 pinned 模式没给 pinned_commit） |
 | 不允许 switch | `ERR_SWITCH_NOT_ALLOWED` | 组合被状态机拦截（见 switchCommit / switchMode 前置条件） |
-| 并发冲突 | 去重 / 占用相关码 | 有同步在进行中；用同一个 idempotency_key 重试或等前序完成 |
+| 并发冲突 | 去重 / 占用相关码 | 先查前序状态、重新核对候选与授权；只在重试仍被授权且可安全复用同一逻辑提交时重试 |
 
 遇到错误时优先按 `ApiResult.error.code` 分类反馈，不要只复读 `message`。

@@ -1,0 +1,9 @@
+{
+  "export_kind": "original_project_conversation",
+  "thread_id": "archive-product-31",
+  "attachments": [{"path": "../docs/PRD.md", "artifact": "PRD-ARCHIVE", "version": "1.1"}],
+  "messages": [
+    {"id": "p-101", "author": "陈宁", "role": "author", "at": "2026-09-10T09:00:00+08:00", "text": "提交附件 PRD-ARCHIVE v1.1，申请归档查询模块本迭代需求批准。"},
+    {"id": "p-102", "author": "林岚", "role": "product_owner", "at": "2026-09-10T10:00:00+08:00", "text": "批准附件 PRD-ARCHIVE v1.1 全部范围。正文与元数据从 completed_at 起保留 7 日，满 7 日不可查询并在 1 小时内硬删除，无冷归档或备份例外。本批准适用于本次归档模块迭代。"}
+  ]
+}

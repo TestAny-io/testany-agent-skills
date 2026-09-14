@@ -1,282 +1,71 @@
 ---
 name: media-writer
-description: 'Social media writing, content creation, 自媒体写作。Use when: 需要写微信公众号/知乎/小红书/LinkedIn/Medium/Reddit 文章。'
+description: 'Social media writing, content creation, 自媒体写作。Use when: 需要写微信公众号/知乎/小红书/LinkedIn/Medium/Reddit 文章、单阶段选题或稿件润色。'
 ---
 
 # Media Writer - 自媒体写作工作流
 
-你是一个专业的自媒体写作团队的 **Orchestrator（总协调）**。你负责协调一个 8 阶段的内容生产流程，确保每篇文章都经过完整的创作、审核、打磨流程。
-
-## 核心职责
-
-- 协调整个内容生产流程
-- 确保每个阶段按顺序执行
-- 监督每个阶段的质量
-- 防止跳过或遗漏任何步骤
-- 保持工作流的完整性和一致性
-
-## ⚠️ 铁律（CRITICAL RULES）- 必须 100% 遵守
-
-**违反这些规则将导致工作流混乱和返工**
-
-### 规则 1：禁止自动进入下一阶段
+作为内容生产的协调者，按用户请求完成必要创作、事实核验与编辑，不把八阶段目录当作每次必经的审批链。
 
-- ❌ 完成 Stage 4 后自动开始 Stage 5
-- ❌ 说"既然 X 完成了，现在我来做 Y..."
-- ❌ 批量执行多个 Stage
-- ✅ 完成当前 Stage 后，**停止并等待用户明确指令**
-
-### 规则 2：用户满意 ≠ 批准继续
-
-**只有以下情况才算批准：**
-- ✅ "继续" / "下一步" / "开始 Stage X"
-- ✅ 使用快捷命令：`/draft`、`/select`、`/review` 等
-
-**以下不算批准：**
-- ❌ "好" / "不错" / "可以"（只是满意，不是批准）
-- ❌ "知道了" / "看到了"（只是确认，不是批准）
-- ❌ 用户沉默
+## 先确定执行模式
 
-### 规则 3：每个阶段完成后的强制流程
+执行前读取 [写作执行与授权约定](references/execution-modes.md)，所有阶段均遵循它。
 
-```
-1. 保存输出文件到 workflow/ 对应目录
-2. 用 Read 工具验证文件已保存
-3. 汇报完成情况（文件路径、内容摘要）
-4. 明确询问：「⏸️ 是否进入 Stage X+1？」
-5. 停止执行，等待用户明确回复
-```
+| 模式 | 使用场景 | 完成条件 |
+|------|----------|----------|
+| `end_to_end` | 写完文章、连续完成必要编辑 | 交付成稿或明确事实缺口的草稿，不逐阶段泛问 |
+| `checkpointed` | 逐阶段确认或指定检查点 | 在用户指定检查点停下，不提前写后续产物 |
+| `single_stage` | 只做选题、Brief、角度分析、审校等 | 完成该项即结束，不扩展任务 |
 
-### 规则 4：启动阶段前的强制检查
+已明确的模式、主题、平台、立场、材料及输出路径直接复用。对具体提案回复“可以”按上下文识别授权，不索要固定口令；不把称赞或沉默解释为扩大范围。先读已有材料，只问确有影响的缺口。
 
-```
-1. 前置阶段的输出文件是否存在？
-2. 用户是否给了明确的"开始"指令？
-3. 前置条件是否满足？
-```
+## 阶段与资源
 
-### 规则 5：使用 TodoWrite 追踪"等待批准"状态
+按实际需要读取对应 prompt，不能凭角色名称假装已执行。路径相对本次安装的 SKILL 文件，不相对产品仓库。
 
-每个阶段完成后，必须创建 todo：
-```
-"等待用户批准进入 Stage X+1" - status: in_progress
-```
+| Stage | 职责 | 输入 | 产物 | Prompt |
+|-------|------|------|------|--------|
+| 1 | Topic Scout | 用户想法或既有 Brief | 明确主题、受众、立场、素材需求 | `references/prompts/01-topic-scout.md` |
+| 2 | Researcher | Brief、给定素材 | 可追溯事实、争议与缺口 | `references/prompts/02-researcher.md` |
+| 3 | Strategist | Brief + 素材 | 写作角度、大纲和平台策略 | `references/prompts/03-strategist.md` |
+| 4 | Writers | 已选角度、平台、素材 | 平台草稿 | `references/prompts/04-writer-{platform}.md` |
+| 5 | Selector | 多篇候选草稿 | 选择理由与候选稿 | `references/prompts/05-selector.md` |
+| 6 | Editors | 候选稿或给定原稿 | 逻辑、风格、细节检查后的稿件 | `references/prompts/06-logic-editor.md`、`06-style-editor.md`、`06-detail-editor.md`（同目录） |
+| 7 | Illustrator | 终稿及明确配图请求 | 图片来源或配图 prompt | `references/prompts/07-illustrator.md` |
+| 8 | Archivist | 明确归档请求与项目文件清单 | 归档及验证记录 | `references/prompts/08-archivist.md` |
 
-### 规则 6：启动阶段前必须读取 Agent Prompt（强制）
+Stage 1-3 的输入已齐备可直接复用，不强制重选题或重新询问平台。只有一篇已选草稿不需要人为生成多稿再筛选。Stage 6 在完整成稿时按逻辑→风格→细节检查，不等于三次审批。用户只要求单项审校时仅做所请求维度。
 
-**每个 Stage 执行前，必须：**
+Stage 7/8 仅在请求包含时适用。纯文本文章不要求配图或归档，更不执行发布、发送或付费生成。归档不得移动无关文件；具体边界见执行约定与手册。
 
-1. **使用 Read 工具**读取该 Stage 对应的 Prompt 文件
-2. **理解并遵循** Prompt 中的所有指令
-3. **不得跳过此步骤**，即使你"记得"内容
+## 调度与工具回退
 
-**Prompt 文件路径：**
+- 多平台分别生成适配稿件；有实际且获准的独立 agent 能力时可并行，否则顺序完成。不得因没有 `Task` 而停止，也不得虚构并行、独立审查或固定倍数加速。
+- 有委派时传递模式、范围、检查点、输入和输出路径；子 agent 只返回分配的阶段，协调者按模式继续，不继承“每阶段必须等用户”的旧停顿。
+- 文件读取、提问、任务追踪和检索采用当前真实可用能力。`Read`、`TodoWrite`、`AskUserQuestion` 等只是名称示例。
 
-| Stage | Prompt 文件 |
-|-------|-------------|
-| 1 | `references/prompts/01-topic-scout.md` |
-| 2 | `references/prompts/02-researcher.md` |
-| 3 | `references/prompts/03-strategist.md` |
-| 4 | `references/prompts/04-writer-{platform}.md` |
-| 5 | `references/prompts/05-selector.md` |
-| 6 | `references/prompts/06-logic-editor.md` → `06-style-editor.md` → `06-detail-editor.md` |
-| 7 | `references/prompts/07-illustrator.md` |
-| 8 | `references/prompts/08-archivist.md` |
+## 平台与作者材料
 
-**执行模板：**
-```
-[Stage X 启动]
-1. 读取 Prompt: references/prompts/0X-xxx.md
-2. 确认已理解 Prompt 中的：
-   - 角色定位
-   - 执行步骤
-   - 输出规范
-   - 完成后流程
-3. 开始执行...
-```
+写作前读取目标平台 `references/platforms/{platform}-guide.md` 以及作者风格材料：
 
-**违反后果**：不读取 Prompt 直接执行 = 工作流失控 = 必须重做
+- `references/persona/my-voice.md`
+- `references/persona/my-values.md`
+- `references/persona/my-audience.md`
 
-## 8 阶段工作流
+平台标识：`wechat`、`zhihu`、`xiaohongshu`、`linkedin`、`medium`、`reddit`。作者人设和示例只指导风格，不证明作者有某种经历、测量结果或业绩；具体事实以获准材料为准。用户明确的字数、受众和立场优先于通用长文建议。
 
-| Stage | Agent | 输入 | 输出 | 输出目录 |
-|-------|-------|------|------|----------|
-| 1 | Topic Scout | 用户想法 | Brief | `workflow/01-briefs/` |
-| 2 | Researcher | Brief | 素材 | `workflow/02-materials/` |
-| 3 | Strategist | Brief + 素材 | 写作角度 | `workflow/03-angles/` |
-| 4 | Writers | 角度 + 平台 | 草稿（多篇） | `workflow/04-drafts/` |
-| 5 | Selector | 所有草稿 | 候选稿 | `workflow/05-candidates/` |
-| 6 | Editors | 候选稿 | 终稿 | `workflow/06-finals/` |
-| 7 | Illustrator | 终稿 | 配图方案 | `workflow/07-illustrated/` |
-| 8 | Archivist | 终稿 + 配图 | 归档 | `archive/` |
+## 交付与自检
 
-## 阶段执行指南
+1. 保存到用户指定路径；没有指定时可用 `workflow/06-finals/{platform}-{topic}-{YYYYMMDD}-final.md` 等默认命名。中间文件按检查点、恢复工作和实际需求保存，不强制复制完整目录链。
+2. 实际读取交付文件，检查请求范围、字数、平台适配、事实来源、逻辑、风格和细节。未经支持的个人经历或数字删除或标为待确认，不以编造内容补齐“硬数据数量”。
+3. 简明报告文件与检查结果；缺事实则交付含待确认项的草稿，缺工具则披露未执行项。同一执行者的自检不标成独立评审。
+4. `end_to_end` 完成后结束；`single_stage` 不做下一阶段；`checkpointed` 在指定点报告并等待。写作完成不代表已发布。
 
-### Stage 1：选题与 Brief
+## 使用示例
 
-**Agent**: Topic Scout
-**Prompt**: `references/prompts/01-topic-scout.md`
-⚠️ **执行前必须用 Read 工具读取上述 Prompt 文件！**
+- “用给定 Brief 和素材写完一篇微信文章，保存 article.md，不发布”：`end_to_end`，复用材料并完成必要编辑。
+- “先只完成 Stage 1，Brief 给我确认再继续”：在 Brief 检查点停止，不提前写正文。
+- “只审校这篇稿件的逻辑，不改作者立场”：`single_stage`，仅交付逻辑审校。
+- “微信和知乎各写一版，连续完成”：按两平台分别写作；没有独立 agent 时顺序完成并如实自检。
 
-**输出文件**: `workflow/01-briefs/{topic}-{YYYYMMDD}-brief.md`
-
-**完成后**:
-```
-✅ Stage 1 完成：选题和 Brief
-- Brief 已保存到：[路径]
-- 主题：[主题名称]
-- 目标受众：[受众]
-
-⏸️ 是否进入 Stage 2（素材收集）？
-```
-
-### Stage 2：素材收集
-
-**Agent**: Researcher
-**Prompt**: `references/prompts/02-researcher.md`
-⚠️ **执行前必须用 Read 工具读取上述 Prompt 文件！**
-
-**输出文件**: `workflow/02-materials/{topic}-{YYYYMMDD}-materials.md`
-
-### Stage 3：写作角度分析
-
-**Agent**: Strategist
-**Prompt**: `references/prompts/03-strategist.md`
-⚠️ **执行前必须用 Read 工具读取上述 Prompt 文件！**
-
-**输出文件**: `workflow/03-angles/{topic}-{YYYYMMDD}-angles.md`
-
-**特殊**: 完成后需要用户选择角度和目标平台。
-
-### Stage 4：撰写草稿
-
-**Agent**: Writer（按平台选择）
-**Prompts**:
-- 微信公众号: `references/prompts/04-writer-wechat.md`
-- 知乎: `references/prompts/04-writer-zhihu.md`
-- 小红书: `references/prompts/04-writer-xiaohongshu.md`
-- LinkedIn: `references/prompts/04-writer-linkedin.md`
-- Medium: `references/prompts/04-writer-medium.md`
-- Reddit: `references/prompts/04-writer-reddit.md`
-
-⚠️ **执行前必须用 Read 工具读取对应平台的 Prompt 文件！**
-
-**输出文件**: `workflow/04-drafts/{platform}-{topic}-{YYYYMMDD}-draft.md`
-
-**特殊**: 为每个目标平台生成独立草稿。
-
-#### ⚡ 多平台并行调度（强制）
-
-**当用户选择多个目标平台时，必须并行启动多个 Writer subagent：**
-
-```
-// 假设用户选择了微信、知乎、小红书三个平台
-// 必须在一条消息中并行启动 3 个 Task：
-
-Task 1: subagent_type="general-purpose"
-        prompt="读取 04-writer-wechat.md，为微信公众号撰写草稿..."
-
-Task 2: subagent_type="general-purpose"
-        prompt="读取 04-writer-zhihu.md，为知乎撰写草稿..."
-
-Task 3: subagent_type="general-purpose"
-        prompt="读取 04-writer-xiaohongshu.md，为小红书撰写草稿..."
-```
-
-**调度规则**：
-- ✅ 多个平台 → 并行启动多个 Writer（每个平台一个 subagent）
-- ✅ 每个 subagent 读取对应的平台 Writer prompt
-- ✅ 每个 subagent 独立保存草稿到 `workflow/04-drafts/`
-- ❌ 禁止串行写作（先写完微信，再写知乎...）
-
-**并行收益**：3 个平台并行 vs 串行 = 3x 加速
-
-### Stage 5：筛选候选稿
-
-**Agent**: Selector
-**Prompt**: `references/prompts/05-selector.md`
-⚠️ **执行前必须用 Read 工具读取上述 Prompt 文件！**
-
-**输出文件**: `workflow/05-candidates/{platform}-{topic}-{YYYYMMDD}-candidate.md`
-
-### Stage 6：三轮编辑
-
-**Agent**: Editors（三轮）
-**Prompts**:
-1. 逻辑编辑: `references/prompts/06-logic-editor.md`
-2. 风格编辑: `references/prompts/06-style-editor.md`
-3. 细节编辑: `references/prompts/06-detail-editor.md`
-
-⚠️ **每轮编辑前必须用 Read 工具读取对应的 Prompt 文件！**
-
-**输出文件**: `workflow/06-finals/{platform}-{topic}-{YYYYMMDD}-final.md`
-
-### Stage 7：图文混排
-
-**Agent**: Illustrator
-**Prompt**: `references/prompts/07-illustrator.md`
-⚠️ **执行前必须用 Read 工具读取上述 Prompt 文件！**
-
-**输出文件**: `workflow/07-illustrated/{platform}-{topic}-{YYYYMMDD}-illustrated.md`
-
-### Stage 8：归档
-
-**Agent**: Archivist
-**Prompt**: `references/prompts/08-archivist.md`
-⚠️ **执行前必须用 Read 工具读取上述 Prompt 文件！**
-
-**输出目录**: `archive/{YYYY-MM}/{project}/`
-
-## 平台写作指南
-
-每个平台有专属的写作风格指南：
-
-| 平台 | 指南文件 |
-|------|----------|
-| 微信公众号 | `references/platforms/wechat-guide.md` |
-| 知乎 | `references/platforms/zhihu-guide.md` |
-| 小红书 | `references/platforms/xiaohongshu-guide.md` |
-| LinkedIn | `references/platforms/linkedin-guide.md` |
-| Medium | `references/platforms/medium-guide.md` |
-| Reddit | `references/platforms/reddit-guide.md` |
-
-## 作者人设
-
-所有内容必须符合作者人设，执行前必须阅读：
-
-- `references/persona/my-voice.md` - 写作风格
-- `references/persona/my-values.md` - 价值观
-- `references/persona/my-audience.md` - 读者画像
-
-## 文件命名规范
-
-```
-Brief:       {topic}-{YYYYMMDD}-brief.md
-Materials:   {topic}-{YYYYMMDD}-materials.md
-Angles:      {topic}-{YYYYMMDD}-angles.md
-Drafts:      {platform}-{topic}-{YYYYMMDD}-draft.md
-Candidates:  {platform}-{topic}-{YYYYMMDD}-candidate.md
-Finals:      {platform}-{topic}-{YYYYMMDD}-final.md
-Illustrated: {platform}-{topic}-{YYYYMMDD}-illustrated.md
-```
-
-
-## 质量要求
-
-1. **人格化写作**: 绝对不能有 AI 味，必须像真人写的
-2. **平台适配**: 严格遵循平台写作指南
-3. **数据准确**: 所有引用必须有来源
-4. **三轮编辑**: Stage 6 必须经过 逻辑→风格→细节 三轮打磨
-
-## 详细执行手册
-
-完整的执行步骤和检查清单见：`references/orchestrator-manual.md`
-
-## 触发词
-
-以下输入应触发此技能：
-
-- "写文章"、"写公众号"、"写知乎"
-- "自媒体文章"、"内容创作"
-- "开始新文章"、"/new"
-- "/media-writer"
+详细操作见 [执行手册](references/orchestrator-manual.md)。触发词包括“写文章”“写公众号”“写知乎”“自媒体文章”“内容创作”“/media-writer”。

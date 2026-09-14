@@ -1,67 +1,30 @@
 # AGENTS.md
 
-This file provides guidance to Codex (Codex.ai/code) when working with code in this repository.
+为 Codex 在本仓库工作提供全局约束；具体业务流程由本次任务适用的 skill 决定。
 
-## 仓库概述
+## 仓库与编辑边界
 
-Testany 公司的 Agent Skills 集合，为 Codex 提供产品研发流程中的专业技能。仓库按领域聚合 plugin（例如 `testany-eng`）；每个 plugin 可在自己的 `skills/` 目录中包含多个 skill。每个 skill 至少包含 `SKILL.md`，并可按需附带 `references/`、`scripts/`、`assets/`、`agents/` 等资源。
+Testany Agent Skills 按领域聚合 plugin（testany-eng / testany-llm / testany-mrkt / testany-bot）。
+技能位于 `plugins/<plugin>/skills/<skill>/SKILL.md`，slash 入口位于对应 `commands/`。
+先读取本次相关材料和当前差异，保留已有未提交修改。只改用户目标涉及的范围，不因普通编辑自动启动完整研发流程、安装、发布或远程操作。
 
-## 开发方式
+## Skill 规范
 
-当前仓库已不再内置 `skill-creator` 初始化 / 校验 / 打包脚本。
+- 英文 kebab-case 命名；必须有 SKILL.md，根文件少于 500 行，包含使用示例。
+- Frontmatter 包含 name 与带实际触发词/适用范围的 description；不要把局部任务扩大为整个工作流。
+- 维护指令默认中文，技术术语可保留英文；工件输出语言遵循具体 skill 与用户要求。
+- 根文件保留关键决策、授权边界和完成标准；细节按需放 references/scripts/assets，并保留明确读取条件。
+- 脚本/引用按实际安装位置解析；只依赖当前存在的工具能力，不假设旧 skill-creator 脚本或宿主专用工具必然存在。
+- 完成声明必须有实际证据；生成、静态检查、远程配置读回、执行终态与正式批准不能互相代替。
 
-- 新增或维护 skill 时，直接在对应 plugin 下编辑 `skills/<skill-name>/SKILL.md`
-- 如需暴露 slash command，同步维护对应 plugin 的 `commands/`
-- 发布前同步更新根目录 `README.md`、`.claude-plugin/marketplace.json`、plugin 级 `README.md` / `.claude-plugin/plugin.json` 与 `CHANGELOG.md`
+## 发现与文档不变量
 
-## 架构
+- 根 README 与各 plugin README 是对外事实源；marketplace、默认组件约定及存在时的 plugin.json 是发现事实源。
+- 同一领域新增 skill 不新增 marketplace plugin；新增/删除/重命名时同步相关入口、README、发现配置与 CHANGELOG。
+- Plugin version 只能有一个 authority；同一 marketplace 内可复用 symlink，但 dangling 或越出 marketplace root 必须 fail closed。
+- 修改或审查 manifest、组件发现路径、symlink、skill 增删改名，或准备安装/发布时，先读 [发现与发布维护](docs/plugin-development.md)，保留 strict/合并/路径/版本语义。
+- 普通局部编辑只执行相关本地验证，不强制读完整发布手册，不自动改版本、安装、提交或推送。
 
-```
-.claude-plugin/marketplace.json    # 插件注册与发现层描述
-plugins/
-├── testany-eng/                   # 研发流程聚合 plugin
-│   ├── .claude-plugin/plugin.json # 本仓库保留的 plugin 元数据；宿主允许省略
-│   ├── skills/<skill-name>/      # 同一领域内的多个 skill
-│   └── commands/                  # 可选 slash command 入口
-├── testany-llm/                   # AI/LLM 聚合 plugin
-├── testany-mrkt/                  # 营销内容聚合 plugin
-└── testany-bot/                   # Testany 测试平台聚合 plugin
-```
+## 输出位置
 
-## Skill 编写规范
-
-| 规范项 | 要求 |
-|--------|------|
-| 命名 | 英文 kebab-case |
-| 必须文件 | SKILL.md |
-| 行数限制 | < 500 行 |
-| 语言 | 中文（技术术语可保留英文） |
-| Frontmatter | 必须包含触发词 |
-| 示例 | 必须有使用示例 |
-
-## Plugin 注册与 Skill 发现
-
-`.claude-plugin/marketplace.json` 按领域注册聚合 plugin，`source` 指向对应的 `plugins/<plugin-name>`：
-
-```json
-{
-  "plugins": [
-    {
-      "name": "testany-eng",
-      "description": "研发流程与导航工具集……",
-      "source": "./plugins/testany-eng"
-    }
-  ]
-}
-```
-
-Claude Code 会自动发现 plugin 根目录 `skills/<skill-name>/SKILL.md`；`plugin.json` 本身在上游规范中可选，本仓库为版本、描述和明确组件配置而保留。`plugin.json.skills` 通常在默认 `skills/` 之外**追加**发现范围；marketplace entry 在默认 `strict: true` 下可继续补充并合并组件。`strict: false` 时 marketplace entry 是完整组件 authority，若 `plugin.json` 同时声明组件则冲突并 fail closed。只有当 marketplace entry 的 `source` 解析到 marketplace root，且该 entry 自身 `skills` 列出实际存在的特定子目录时，这些路径才按官方例外成为完整集合；列 `./skills/`/plugin root 保持全量扫描，全部列出路径均不存在时回退默认扫描。一旦显式声明，路径必须是 `.`（plugin root）或以 `./` 开头的非空相对路径/路径数组，`null` 不是“未声明”。同一 marketplace 内可用 symlink 复用 skill/resource；dangling target 或越出 marketplace root 的 target 必须 fail closed。`commands` 等其他组件遵循各自合并规则。在既有领域中新增 skill 时，应增加 `skills/<skill-name>/`，而不是新增 marketplace plugin；只有新建独立领域级 plugin 时才增加 marketplace 条目。上游规则见 [Claude Code Plugins reference](https://code.claude.com/docs/en/plugins-reference) 与 [Plugin marketplace strict mode](https://code.claude.com/docs/en/plugin-marketplaces#strict-mode)。
-
-Plugin version 只能保留一个 authority，三选一：仅在 marketplace entry 声明、仅在 `plugin.json` 声明，或两处都省略并使用 source resolved version；绝不能同时在 marketplace entry 与 `plugin.json` 声明。显式版本每次发布必须递增，否则安装端会继续复用旧 cache。
-
-## 文档维护
-
-- 以仓库根目录 `README.md` 与各 plugin README 为对外说明事实源
-- 以 `.claude-plugin/marketplace.json`、plugin 根目录默认组件约定和存在时的 `plugin.json` 为安装发现层事实源
-- 新增、删除或重命名 skill 后，必须同步更新上述文档与 `CHANGELOG.md`
-- 根目录 `/output/` 只放本机生成的临时交付物并保持 Git ignored；可复用资产进入对应 skill 的 `assets/`，可复现测试样本进入该 skill 的 tests/references
+根 `/output/` 只放本机临时交付物并保持 Git ignored；可复用资产放对应 skill 的 assets，可复现样本进入相关 tests/references。

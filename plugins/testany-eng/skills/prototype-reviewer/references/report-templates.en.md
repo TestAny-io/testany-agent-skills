@@ -1,5 +1,7 @@
 # Review report and Approval Certificate Template
 
+Every report and certificate must bind the reviewed object/version, scope, criteria, review mode (initial/delta/closeout), checked and unchecked coverage, and actual evidence. Keep stable issue IDs and separate kind (defect/evidence_gap/scope_decision/optional), severity, and approval impact. A pass requires no open P0/P1 and sufficient required evidence; P2 count does not block. Read [review assurance](../../../references/review-assurance.md).
+
 This document defines the output format template of prototype-reviewer.
 
 ---
@@ -31,7 +33,7 @@ This document defines the output format template of prototype-reviewer.
 | REQ-01 | [Description] | [Page Name] | [S1/S2] | ✅/⚠️/❌ | [Reason for Not Covered/Partially Covered] |
 
 - Journey step coverage: X / Y (Z%)
-- Gate 1 conclusion: [No P0 to continue/P0 blocking exists]
+- Gate 1 conclusion: [assessed result / evidence gap and unreviewed scope]; continue independent checks even when this gate cannot pass. A missing delivery summary is not automatically P1; a scoped isolation review does not require completing Gate 4.
 
 ## Gate 2: Prototype Integrity
 
@@ -82,6 +84,10 @@ This document defines the output format template of prototype-reviewer.
 
 ```markdown
 # Prototype approval certificate
+
+- Review binding: [object/version/digest if available; scope; criteria/version; initial/delta/closeout]
+- Coverage: [checked; unchecked; reused evidence and validity]
+- Approval impact: [defect / evidence_gap / scope_decision / optional; stable IDs and closure evidence]
 
 ## Basic Information
 

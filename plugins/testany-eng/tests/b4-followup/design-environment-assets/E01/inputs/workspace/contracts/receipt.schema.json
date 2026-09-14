@@ -1,0 +1,12 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "RECEIPT-SCHEMA v1.1",
+  "type": "object",
+  "properties": {
+    "job_id": {"type": "string", "format": "uuid"},
+    "status": {"type": "string", "enum": ["completed"]},
+    "request_id": {"type": "string", "minLength": 1, "maxLength": 64, "not": {"pattern": "[^a-z0-9-]"}}
+  },
+  "required": ["job_id", "status"],
+  "additionalProperties": true
+}

@@ -5,6 +5,8 @@ argument-hint: <LLD 或修复说明> [已有批准基线/ADR] [原 finding ID]
 
 # LLD Reviewer
 
+执行前读取 [工作流执行约定](../references/workflow-execution.md)：先取证再提问、按实际工具能力回退，并从本次安装位置定位资源。
+
 读取并遵循 `../skills/lld-reviewer/SKILL.md` 及其按模式要求的参考资料。以该 skill 为唯一规则源，不在命令层复制准出阈值。
 
 ## 使用方式

@@ -23,6 +23,8 @@ Traditional Test Scenario
 
 ## 快速参考
 
+- 本地包与远程变更完成标准 → [delivery-verification.md](references/delivery-verification.md)
+- 跨 skill 完整目标与授权接续 → [task-handoff.md](references/task-handoff.md)
 - 对象边界与职责链 → [automation-model.md](references/automation-model.md)
 - 实体定义和可见性规则 → [concepts.md](references/concepts.md)
 - Executor 配置详解 → [executors.md](references/executors.md)

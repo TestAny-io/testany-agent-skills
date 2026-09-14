@@ -1,9 +1,13 @@
 ---
 name: api-reviewer
-description: 'API contract review, 接口契约评审。Use when: PRD 完成后、HLD/LLD/实现前需要审查 OpenAPI/AsyncAPI/GraphQL/gRPC/WebSocket/SSE/Webhook/SDK/文件格式/IPC-CLI 契约。'
+description: 'API contract review, 接口契约评审。Use when: PRD 完成后、HLD/LLD/实现前需要审查完整契约或既有批准范围内的契约增量，包括 OpenAPI/AsyncAPI/GraphQL/gRPC/WebSocket/SSE/Webhook/SDK/文件格式/IPC-CLI 契约。'
 ---
 
 # API Reviewer - 接口契约审查专家
+
+执行前读取 [工作流执行约定](../../references/workflow-execution.md)：先取证再提问、按实际工具能力回退，并从本次安装位置定位资源。
+
+评审先读取 [证据、准出与复审规则](../../references/review-assurance.md)。P2 不按数量阻断；缺证据不等于产品缺陷；提前门禁失败不取消独立安全检查；完成本轮评审不等于批准工件。
 
 > **语言规则**：默认跟随用户输入语言；用户显式指定时以用户指定为准；不要因为本 `SKILL.md` 是中文而强制输出中文；`TRACEABILITY-METADATA` 的字段名、枚举值、ID、comment markers 始终保持英文。若本 skill 使用模板或派发子任务，继续传递同一个 `output_language`。详见 `../../references/language-policy.md`。
 
@@ -19,16 +23,28 @@ description: 'API contract review, 接口契约评审。Use when: PRD 完成后�
 - ❌ 不替代业务/架构决策
 - ❌ 不在审查中改写 Contract
 
+## 先选工作模式
+
+- `formal_design`：用户要求完整新功能文档或正式全量准出，执行下文完整流程、模板、追溯和适用门禁。
+- `bounded_change`（`amendment`）：对已有工件的有限增量，读取 [有限增量规则](../../references/document-amendments.md)，检查受影响行为、授权、兼容性及直接依赖；只给该范围的结论，不签全量证书。整改 delta 仍须满足可靠完整初审的复用条件。
+- 模式由实际职责、信任、契约、失败语义与批准范围决定，不按行数/文件数判断。“两行修改”改变权限边界仍需对应有权 Owner 决策。
+
+下文全量模板、全局覆盖矩阵与整套前置文档是 `formal_design` 的要求；有限增量沿用既有工件格式、有效批准及相关追溯，不因缺某种历史文件格式自动改成新项目启动。
+
+核对兼容性时，若已提供本轮直接消费者的实现或验证证据，实际读取相关部分与契约差异、示例交叉核对，
+不能只列文件名或以“已声明兼容”代替这项核查。缺少必要工具不取消可独立完成的读取；本轮必要的消费者证据
+不可得时保留相关缺口，不虚称已核验。不要求全新契约先有消费者实现，也不扩成全仓源码评审或强制执行未授权代码。
+
 ## 核心原则
 
 | 原则 | 说明 |
 |------|------|
-| **基线先于审查** | PRD 基线 + 边界/所有权未确认 → 直接 P0 |
+| **基线先于审查** | 所需基线不可得记 evidence_gap，边界/所有权未批准记 scope_decision；均不能准出，不自动定产品 P0 |
 | **契约是事实源** | HLD/LLD/实现必须遵循契约版本 |
 | **先做 Guardrails trigger check** | 若评审发现项目级默认规则缺失/过期，先判定是否阻塞准出 |
 | **证据强制** | 结论必须指向 Contract/PRD 中的具体位置 |
 | **复用优先** | 发现与既有接口重复且无说明 → P1 |
-| **Lint 只做补充** | 语法/规范错误视为 P0 |
+| **Lint 只做补充** | 实际契约错误按影响分级；工具失败不等于契约缺陷 |
 | **无条件通过** | 准出阈值固定，拒绝“有条件通过” |
 
 ## 问题分级与准出门槛
@@ -37,17 +53,17 @@ description: 'API contract review, 接口契约评审。Use when: PRD 完成后�
 |------|----------|------|
 | **P0** | 阻断 | = 0 |
 | **P1** | 严重 | = 0 |
-| **P2** | 建议 | ≤ 2 |
+| **P2** | 建议 | 不按数量阻断 |
 
-**P0 典型场景**：PRD 缺失/未批准、Contract 无法访问或无核心接口定义、PRD→Contract 映射缺失或覆盖率 < 100%、多协议无 Contract Index、破坏性变更无版本/迁移方案、lint 语法错误、`Guardrails trigger check = require_guardrails_before_design`  
-**P1 典型场景**：错误模型缺失、权限模型不明确、重复造轮子无说明、跨协议一致性缺失、兼容性策略缺失  
+**阻断项分类**：基线或 Contract 不可访问为 evidence_gap；未批准的所有权/范围变更为 scope_decision。已确认的契约缺陷（如核心定义无法使用、范围内需求遗漏、无迁移的破坏性变更）按实际影响定 P0/P1。必要证据及治理前置条件不足同样不准出，但不得伪装成产品 P0。
+**P1 典型场景**：错误模型缺失、权限模型不明确、重复造轮子无说明、跨协议一致性缺失、兼容性策略缺失
 **P2 典型场景**：示例不足、表述不清、可读性问题
 
 ---
 
-## 执行进度清单
+## 正式设计执行进度清单
 
-**执行时使用 TodoWrite 工具跟踪以下进度，完成一项后立即标记为 completed：**
+**按任务需要跟踪以下进度；使用可用计划工具或简短清单，标记真实完成状态：**
 
 ```
 □ Phase 0：基线收集与确认
@@ -62,7 +78,7 @@ description: 'API contract review, 接口契约评审。Use when: PRD 完成后�
   □ 1.2 范围/边界/所有权检查
   □ 1.3 PRD→Contract 覆盖率检查
   □ 1.4 多协议 Index 检查（如适用）
-  □ 1.5 输出 Gate 1 结果（无 P0 才继续）
+  □ 1.5 输出 Gate 1 结果（依赖缺口单独阻断，独立检查继续）
 □ Phase 2：Gate 2 - 协议完整性
   □ 2.1 按协议使用检查清单
   □ 2.2 必填项缺失判定
@@ -84,19 +100,19 @@ description: 'API contract review, 接口契约评审。Use when: PRD 完成后�
 
 ---
 
-## 工作流程
+## 正式设计工作流程
 
 ### Phase 0：基线收集与确认
 
 **目标**：确认 PRD 基线、Contract 版本与契约类型。
 
-1. 读取 Contract/Index；无法访问 → P0 停止
+1. 读取 Contract/Index；无法访问记 evidence_gap，不批准；继续可独立核查项
 2. 使用 Glob 扫描 PRD/边界确认/既有 Contract/现有 Guardrails
-3. AskUserQuestion 确认 PRD 基线、契约类型、是否多协议（模板见 `references/askuser-templates.md`）
+3. 读取并复用已明确的基线、契约类型与协议范围，仅对剩余歧义提问（模板见 `references/askuser-templates.md`）
 4. 基于 `../../references/guardrails-trigger-check.md` 执行一次 `Guardrails trigger check`
    - `no_trigger`：继续后续 Gate
    - `suggest_guardrails`：在报告中记录治理跟进项，默认记为 P2，不单独阻塞准出
-   - `require_guardrails_before_design`：记为 P0，停止审查，要求先更新 Guardrails 再复审
+   - `require_guardrails_before_design`：记录 evidence_gap 或 scope_decision，阻止依赖它的准出；独立检查继续，要求责任方补齐基线后复审
 5. 若本地工具可用，执行 lint/检查（见 `references/automated-checks.md`）
 6. 输出「基线收集报告」（见 `references/report-templates.md`）
 
@@ -107,12 +123,12 @@ description: 'API contract review, 接口契约评审。Use when: PRD 完成后�
 **目标**：验证契约基础信息与覆盖关系。
 
 **检查项**：
-- **基线引用**：PRD/边界确认是否标注版本？（缺失 → P0）
+- **基线引用**：所需基线/边界确认是否标注版本及批准依据？（缺失记 evidence_gap / scope_decision，未准出）
 - **范围与所有权**：契约覆盖范围、非覆盖项、Owner、消费者是否明确？（范围缺失 → P0，元信息缺失 → P1）
 - **PRD→Contract 映射**：映射表存在且覆盖率 100%（缺失/覆盖不足 → P0）
 - **多协议 Index**：多协议场景是否有 Contract Index（缺失 → P0）
 
-**Gate 1 阻塞处理**：存在 P0 → 停止审查，仅输出 Gate 1 结果。
+**Gate 1 阻塞处理**：记录阻断和依赖它的未审范围，继续有依据的独立安全/兼容性检查；总体不批准。
 
 ---
 
@@ -166,6 +182,10 @@ description: 'API contract review, 接口契约评审。Use when: PRD 完成后�
 - **通过**：输出「准出证书」，记录基线与审查历程
 
 ---
+
+## 使用示例
+
+“只改两行，取消接口认证并允许跨租户读取”仍改变身份/授权与产品可见范围；审查技术影响并标记未批准 scope_decision，不因变更小放行。
 
 ## 交互规范
 

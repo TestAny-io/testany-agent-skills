@@ -14,6 +14,8 @@ review_routing:
   shared_reference: ../../../references/review-boundaries.md
   first_classify: [user_objective, artifact_or_candidate, decision_layer, approved_scope_source]
   modes: [formal_design, bounded_change]
+  bounded_alias: amendment
+  document_amendments_reference: ../../../references/document-amendments.md
   rules:
     - when: exact_implementation_review
       command: /code-reviewer
@@ -28,7 +30,12 @@ review_routing:
       constraints: "Review only the architecture increment; verify scope authority separately from technical merit."
     - when: contract_wire_identity_permission_or_compatibility_change
       command: /api-reviewer
+      mode: bounded_change
       constraints: "Affected contract only; design/code comments do not approve new wire."
+    - when: authorized_existing_contract_amendment
+      command: /api-writer
+      mode: bounded_change
+      constraints: "Use existing contract and authorized change; preserve unaffected behavior, no full historical PRD/HLD backfill."
     - when: formal_design_submission
       constraints: "Use the corresponding HLD/LLD artifact route and full applicable coverage."
     - when: mixed_request
@@ -193,6 +200,9 @@ nodes:
     requires:
       - BRD: approved_or_exists
       - USER_JOURNEY: preferred
+    requires_apply_to: formal_design
+    bounded_inputs: [existing_artifact, scoped_change_request, relevant_approved_baseline_or_owner_decision]
+    bounded_next: affected_artifact_only
     produces: PRD
     next: [prd-reviewer]
 
@@ -202,6 +212,9 @@ nodes:
     command: /prd-reviewer
     requires:
       - PRD: exists
+    requires_apply_to: formal_design
+    bounded_inputs: [existing_artifact, scoped_change_request, relevant_approved_baseline_or_owner_decision]
+    bounded_next: affected_artifact_only
     approves: PRD
     next: [api-writer]
 
@@ -235,6 +248,9 @@ nodes:
     command: /api-writer
     requires:
       - PRD: approved
+    requires_apply_to: formal_design
+    bounded_inputs: [existing_artifact, scoped_change_request, relevant_approved_baseline_or_owner_decision]
+    bounded_next: affected_artifact_only
     produces: API_CONTRACT
     next: [api-reviewer]
 
@@ -245,6 +261,9 @@ nodes:
     requires:
       - API_CONTRACT: exists
       - PRD: preferred
+    requires_apply_to: formal_design
+    bounded_inputs: [existing_artifact, scoped_change_request, relevant_approved_baseline_or_owner_decision]
+    bounded_next: affected_artifact_only
     approves: API_CONTRACT
     next: [hld-writer]
 
@@ -255,6 +274,9 @@ nodes:
     requires:
       - PRD: approved
       - API_CONTRACT: approved
+    requires_apply_to: formal_design
+    bounded_inputs: [existing_artifact, scoped_change_request, relevant_approved_baseline_or_owner_decision]
+    bounded_next: affected_artifact_only
     produces: HLD
     next: [hld-reviewer]
 
@@ -280,6 +302,9 @@ nodes:
       - API_CONTRACT: approved
       - HLD: approved
       - GUARDRAILS: optional
+    requires_apply_to: formal_design
+    bounded_inputs: [existing_artifact, scoped_change_request, relevant_approved_baseline_or_owner_decision]
+    bounded_next: affected_artifact_only
     produces: TEST_STRATEGY
     next: [test-strategy-reviewer]
 
@@ -292,6 +317,9 @@ nodes:
       - PRD: preferred
       - API_CONTRACT: preferred
       - HLD: preferred
+    requires_apply_to: formal_design
+    bounded_inputs: [existing_artifact, scoped_change_request, relevant_approved_baseline_or_owner_decision]
+    bounded_next: affected_artifact_only
     approves: TEST_STRATEGY
     next: [lld-writer]
 
@@ -305,6 +333,9 @@ nodes:
       - HLD: approved
       - TEST_STRATEGY: approved
       - GUARDRAILS: optional
+    requires_apply_to: formal_design
+    bounded_inputs: [existing_artifact, scoped_change_request, relevant_approved_baseline_or_owner_decision]
+    bounded_next: affected_artifact_only
     produces: LLD
     next: [lld-reviewer]
 
@@ -348,6 +379,9 @@ nodes:
       - LLD: approved
       - TEST_STRATEGY: approved
       - GUARDRAILS: optional
+    requires_apply_to: formal_design
+    bounded_inputs: [existing_artifact, scoped_change_request, relevant_approved_baseline_or_owner_decision]
+    bounded_next: affected_artifact_only
     produces: TEST_SPEC
     next: [test-reviewer]
 
@@ -358,6 +392,9 @@ nodes:
     requires:
       - TEST_SPEC: exists
       - TEST_STRATEGY: preferred
+    requires_apply_to: formal_design
+    bounded_inputs: [existing_artifact, scoped_change_request, relevant_approved_baseline_or_owner_decision]
+    bounded_next: affected_artifact_only
     approves: TEST_SPEC
     next: [runbook-writer, case-writing]
 
@@ -370,6 +407,9 @@ nodes:
       - LLD: preferred
       - TEST_SPEC: preferred
       - GUARDRAILS: optional
+    requires_apply_to: formal_design
+    bounded_inputs: [existing_artifact, scoped_change_request, relevant_approved_baseline_or_owner_decision]
+    bounded_next: affected_artifact_only
     produces: RUNBOOK
     next: []
 

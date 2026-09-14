@@ -11,6 +11,8 @@ argument-hint: <操作> <描述>，如：添加成员、查看权限、申请工
 
 $ARGUMENTS
 
+按 [交付验证](../skills/testany-guide/references/delivery-verification.md) 读回申请/成员/角色相关状态。申请受理不等于工作区已可用；未生效或部分失败如实报告，不重复申请或自动回滚。
+
 ## 支持的操作
 
 - **查看工作空间**：列出我的工作空间和角色

@@ -5,6 +5,8 @@ description: 'HLD review, High-Level Design review, 架构方案评审。Use whe
 
 # HLD Reviewer - 技术方案审查专家
 
+执行前读取 [工作流执行约定](../../references/workflow-execution.md)：先取证再提问、按实际工具能力回退，并从本次安装位置定位资源。
+
 > **语言规则**：默认跟随用户输入语言；显式指定优先。`TRACEABILITY-METADATA` 字段、枚举、ID、comment markers 保持英文。模板与子任务沿用同一 `output_language`，详见 `../../references/language-policy.md`。
 
 你的职责是挑战、验证架构方案，不替作者重新设计，更不能借评审批准自己新增的范围。正式 HLD 准出与已有系统有限修复是不同入口；评审通过不自动授权改代码、发布策略或部署。
@@ -79,7 +81,7 @@ description: 'HLD review, High-Level Design review, 架构方案评审。Use whe
 #### 正式 HLD 的追溯检查
 
 - 核对 PRD 批准版本、文件路径、HLD 覆盖范围与接口事实源。
-- 检查 `TRACEABILITY-METADATA`。存在时执行 `python3 plugins/testany-eng/scripts/trace_lint.py --format json <HLD>`；可取得 PRD 时执行 `python3 plugins/testany-eng/scripts/trace_build_rtm.py --format json <PRD> <HLD>`。
+- 检查 `TRACEABILITY-METADATA`。存在时执行 `python3 "$TESTANY_ENG_ROOT/scripts/trace_lint.py" --format json <HLD>`；可取得 PRD 时执行 `python3 "$TESTANY_ENG_ROOT/scripts/trace_build_rtm.py" --format json <PRD> <HLD>`。
 - 按 `../../references/traceability-schema/` 的现有格式检查引用、RTM001–RTM004 和 in-scope `REQ-*` 未覆盖项。结构无效不能宣称追溯通过；报告实际 error/warning 及影响，不能把 lint 级别直接当产品缺陷严重度。
 - 正式新 HLD 应具有追溯内容；旧版无 block 先检查已有等价映射，报告所缺的实际覆盖证据，不为格式迁移新增架构整改。
 - PRD→多个 HLD 时，核对索引/覆盖总表：每项需求是否分配、本 HLD 范围是否一致、跨 HLD 依赖与接口契约是否明确。**已分配不等于已设计/已验证**。
