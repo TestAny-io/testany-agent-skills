@@ -1,0 +1,19 @@
+:root {
+  color-scheme: light;
+  --canvas: #f6f7f5;
+  --ink: #202621;
+  --muted: #58665d;
+  --green: #304e3c;
+  --orange: #be4d28;
+  --line: #e3e8df;
+}
+
+:root[data-theme="dark"] {
+  color-scheme: dark;
+  --canvas: #141a16;
+  --ink: #e2eae1;
+  --muted: #b4c1b3;
+  --green: #b8d5b9;
+  --orange: #be4d28;
+  --line: #344036;
+}

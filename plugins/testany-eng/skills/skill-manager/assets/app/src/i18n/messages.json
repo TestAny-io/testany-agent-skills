@@ -1,0 +1,1122 @@
+{
+  "个人技能": {
+    "en": "Personal skills",
+    "ja": "個人スキル"
+  },
+  "项目技能": {
+    "en": "Project skills",
+    "ja": "プロジェクトスキル"
+  },
+  "系统内置": {
+    "en": "Built-in",
+    "ja": "システム内蔵"
+  },
+  "插件技能": {
+    "en": "Plugin skills",
+    "ja": "プラグインのスキル"
+  },
+  "插件缓存": {
+    "en": "Plugin cache",
+    "ja": "プラグインキャッシュ"
+  },
+  "技能库": {
+    "en": "Skills",
+    "ja": "スキル"
+  },
+  "在一个地方，整理你的 Codex 能力。": {
+    "en": "Organize your Codex capabilities in one place.",
+    "ja": "Codex の機能を一か所で整理。"
+  },
+  "插件": {
+    "en": "Plugins",
+    "ja": "プラグイン"
+  },
+  "按功能扩展你的工作台，管理插件及其技能。": {
+    "en": "Extend your workspace and manage plugins with their skills.",
+    "ja": "プラグインとスキルでワークスペースを拡張。"
+  },
+  "市场来源": {
+    "en": "Marketplaces",
+    "ja": "マーケット"
+  },
+  "连接值得信任的来源，发现更多好用的能力。": {
+    "en": "Connect trusted sources and discover useful capabilities.",
+    "ja": "信頼できる配布元から便利な機能を探す。"
+  },
+  "更新": {
+    "en": "Updates",
+    "ja": "更新"
+  },
+  "先了解变化，再把新的能力带进工作流。": {
+    "en": "Review changes before bringing them into your workflow.",
+    "ja": "変更を確認してからワークフローに取り入れる。"
+  },
+  "操作记录": {
+    "en": "Activity",
+    "ja": "操作履歴"
+  },
+  "每一次变化都有记录，需要时也能回到之前。": {
+    "en": "Follow every change and restore earlier content when needed.",
+    "ja": "変更を記録し、必要に応じて以前の内容に戻す。"
+  },
+  "调整技能状态": {
+    "en": "Change skill state",
+    "ja": "スキルの状態を変更"
+  },
+  "安装技能": {
+    "en": "Install skill",
+    "ja": "スキルを追加"
+  },
+  "更新技能": {
+    "en": "Update skill",
+    "ja": "スキルを更新"
+  },
+  "移除技能": {
+    "en": "Remove skill",
+    "ja": "スキルを削除"
+  },
+  "恢复内容": {
+    "en": "Restore content",
+    "ja": "内容を復元"
+  },
+  "安装插件": {
+    "en": "Install plugin",
+    "ja": "プラグインを追加"
+  },
+  "卸载插件": {
+    "en": "Uninstall plugin",
+    "ja": "プラグインを削除"
+  },
+  "调整插件状态": {
+    "en": "Change plugin state",
+    "ja": "プラグインの状態を変更"
+  },
+  "添加来源": {
+    "en": "Add source",
+    "ja": "配布元を追加"
+  },
+  "刷新来源": {
+    "en": "Refresh source",
+    "ja": "配布元を更新"
+  },
+  "移除来源": {
+    "en": "Remove source",
+    "ja": "配布元を削除"
+  },
+  "尚未记录": {
+    "en": "Not recorded",
+    "ja": "記録なし"
+  },
+  "服务返回了无法读取的响应，请检查服务是否仍在运行。": {
+    "en": "The response could not be read. Check that the local service is running.",
+    "ja": "応答を読み取れません。ローカルサービスが動作しているか確認してください。"
+  },
+  "未核实": {
+    "en": "Unverified",
+    "ja": "未確認"
+  },
+  "此项目由原管理器维护": {
+    "en": "Managed by its original owner",
+    "ja": "元の管理元が管理します"
+  },
+  "关闭对话框": {
+    "en": "Close dialog",
+    "ja": "ダイアログを閉じる"
+  },
+  " 新的 Codex 会话或重载后生效。": {
+    "en": " Takes effect in a new Codex session or after reloading.",
+    "ja": " 新しい Codex セッションまたは再読み込み後に反映されます。"
+  },
+  "移除这个技能？": {
+    "en": "Remove this skill?",
+    "ja": "このスキルを削除しますか？"
+  },
+  "技能将移到本应用的可恢复区。之后可以在「操作记录」恢复；如果它是链接，来源目录会保留。": {
+    "en": "The skill will move to recoverable storage. Restore it from Activity. If it is a link, its source directory stays intact.",
+    "ja": "スキルを復元可能な領域へ移動します。操作履歴から復元できます。リンクの場合、リンク先は保持されます。"
+  },
+  "移至可恢复区": {
+    "en": "Move to recovery storage",
+    "ja": "復元領域へ移動"
+  },
+  "路径已复制。": {
+    "en": "Path copied.",
+    "ja": "パスをコピーしました。"
+  },
+  "浏览器暂时无法复制，请选中路径手动复制。": {
+    "en": "Copy is unavailable. Select the path and copy it manually.",
+    "ja": "コピーできません。パスを選択して手動でコピーしてください。"
+  },
+  "SkillDock 首页": {
+    "en": "SkillDock home",
+    "ja": "SkillDock ホーム"
+  },
+  "工作空间": {
+    "en": "Workspace",
+    "ja": "ワークスペース"
+  },
+  "主导航": {
+    "en": "Main navigation",
+    "ja": "メインナビゲーション"
+  },
+  "留在你的电脑上": {
+    "en": "Stays on your computer",
+    "ja": "データはこの端末に"
+  },
+  "本地运行，直接管理。": {
+    "en": "Runs locally. You stay in control.",
+    "ja": "ローカルで直接管理。"
+  },
+  "外观与语言": {
+    "en": "Appearance & language",
+    "ja": "外観と言語"
+  },
+  "刷新清单": {
+    "en": "Refresh inventory",
+    "ja": "一覧を再読み込み"
+  },
+  "刷新": {
+    "en": "Refresh",
+    "ja": "再読み込み"
+  },
+  "收起目录": {
+    "en": "Hide paths",
+    "ja": "パスを閉じる"
+  },
+  "查看目录": {
+    "en": "Show paths",
+    "ja": "パスを表示"
+  },
+  "技能目录": {
+    "en": "Skills directory",
+    "ja": "スキルディレクトリ"
+  },
+  "配置文件": {
+    "en": "Configuration",
+    "ja": "設定ファイル"
+  },
+  "应用数据": {
+    "en": "App data",
+    "ja": "アプリデータ"
+  },
+  "当前项目": {
+    "en": "Current project",
+    "ja": "現在のプロジェクト"
+  },
+  "复制{v0}路径": {
+    "en": "Copy {v0} path",
+    "ja": "{v0}のパスをコピー"
+  },
+  "正在处理操作，请稍候…": {
+    "en": "Working on your request…",
+    "ja": "処理中です…"
+  },
+  "无法刷新清单": {
+    "en": "Could not refresh inventory",
+    "ja": "一覧を更新できません"
+  },
+  "重试": {
+    "en": "Retry",
+    "ja": "再試行"
+  },
+  "条来源提示": {
+    "en": " source notices",
+    "ja": " 件の配布元に関する通知"
+  },
+  "部分来源需要关注": {
+    "en": "Some sources need review",
+    "ja": "確認が必要な配布元があります"
+  },
+  "正在读取清单": {
+    "en": "Loading inventory",
+    "ja": "一覧を読み込み中"
+  },
+  "正在读取技能与来源…": {
+    "en": "Loading skills and sources…",
+    "ja": "スキルと配布元を読み込み中…"
+  },
+  "暂时无法打开工作空间": {
+    "en": "Workspace is unavailable",
+    "ja": "ワークスペースを開けません"
+  },
+  "请确认本地 SkillDock 服务正在运行，然后重新读取清单。": {
+    "en": "Check that the local SkillDock service is running, then try again.",
+    "ja": "ローカルの SkillDock サービスを確認して、再読み込みしてください。"
+  },
+  "重新读取": {
+    "en": "Reload",
+    "ja": "再読み込み"
+  },
+  "全部技能": {
+    "en": "All skills",
+    "ja": "すべてのスキル"
+  },
+  "已启用": {
+    "en": "Enabled",
+    "ja": "有効"
+  },
+  "个人与项目": {
+    "en": "Personal & project",
+    "ja": "個人・プロジェクト"
+  },
+  "状态待确认": {
+    "en": "Needs verification",
+    "ja": "要確認"
+  },
+  "个技能": {
+    "en": " skills",
+    "ja": " 件のスキル"
+  },
+  "项提示": {
+    "en": " notices",
+    "ja": " 件の通知"
+  },
+  "个": {
+    "en": " items",
+    "ja": " 件"
+  },
+  "个人与项目：": {
+    "en": "Personal & project: ",
+    "ja": "個人・プロジェクト："
+  },
+  "按技能管理；插件附带技能随所属插件管理与更新。": {
+    "en": "Managed per skill. Bundled skills are managed and updated through their plugin.",
+    "ja": "スキル単位で管理します。プラグインに含まれるスキルは所属プラグイン経由で管理・更新します。"
+  },
+  "状态待确认：": {
+    "en": "Needs verification: ",
+    "ja": "要確認："
+  },
+  "只包含安装状态未知或存在同名技能的项目；系统或宿主管理本身不代表异常。": {
+    "en": "Only unknown installation states or duplicate names are included. Host management alone is not an issue.",
+    "ja": "インストール状態が不明、または同名スキルがある項目のみです。システム管理自体は異常ではありません。"
+  },
+  "搜索名称、用途或路径…": {
+    "en": "Search name, purpose or path…",
+    "ja": "名前・用途・パスで検索…"
+  },
+  "筛选技能来源": {
+    "en": "Filter skill source",
+    "ja": "スキルの配布元で絞り込み"
+  },
+  "全部来源": {
+    "en": "All sources",
+    "ja": "すべての配布元"
+  },
+  "显示方式": {
+    "en": "Display mode",
+    "ja": "表示方法"
+  },
+  "卡片视图": {
+    "en": "Card view",
+    "ja": "カード表示"
+  },
+  "列表视图": {
+    "en": "List view",
+    "ja": "リスト表示"
+  },
+  "你的技能": {
+    "en": "Your skills",
+    "ja": "あなたのスキル"
+  },
+  "已启用的技能": {
+    "en": "Enabled skills",
+    "ja": "有効なスキル"
+  },
+  "个人与项目技能": {
+    "en": "Personal and project skills",
+    "ja": "個人・プロジェクトのスキル"
+  },
+  "状态待确认的技能": {
+    "en": "Skills needing verification",
+    "ja": "確認が必要なスキル"
+  },
+  "名称 · 来源 · 状态": {
+    "en": "Name · Source · State",
+    "ja": "名前・配布元・状態"
+  },
+  "查看 {v0} 详情": {
+    "en": "View {v0} details",
+    "ja": "{v0} の詳細を表示"
+  },
+  "这个技能尚未提供描述。打开详情查看 SKILL.md。": {
+    "en": "No description provided. Open details to read SKILL.md.",
+    "ja": "説明はありません。詳細で SKILL.md を確認してください。"
+  },
+  "有同名技能": {
+    "en": "Duplicate skill name",
+    "ja": "同名のスキルがあります"
+  },
+  "禁用": {
+    "en": "Disable",
+    "ja": "無効にする"
+  },
+  "启用": {
+    "en": "Enable",
+    "ja": "有効にする"
+  },
+  "没有找到匹配的技能": {
+    "en": "No matching skills",
+    "ja": "一致するスキルがありません"
+  },
+  "你的技能库，准备就绪": {
+    "en": "Your skill library is ready",
+    "ja": "スキルライブラリの準備ができました"
+  },
+  "试试其他关键词，或调整来源与状态筛选。": {
+    "en": "Try another keyword or change source and state filters.",
+    "ja": "別の検索語や配布元・状態フィルターを試してください。"
+  },
+  "从本地文件夹或 Git 仓库安装第一个技能。": {
+    "en": "Install your first skill from a local folder or Git repository.",
+    "ja": "ローカルフォルダーや Git リポジトリから最初のスキルを追加しましょう。"
+  },
+  "清除筛选": {
+    "en": "Clear filters",
+    "ja": "絞り込みを解除"
+  },
+  "安装第一个技能": {
+    "en": "Install your first skill",
+    "ja": "最初のスキルを追加"
+  },
+  "Codex CLI 暂不可用": {
+    "en": "Codex CLI is unavailable",
+    "ja": "Codex CLI を利用できません"
+  },
+  "插件操作需要可工作的 Codex CLI。独立技能仍可照常管理。": {
+    "en": "Plugin actions require a working Codex CLI. Individual skills remain available.",
+    "ja": "プラグイン操作には Codex CLI が必要です。個別スキルは引き続き管理できます。"
+  },
+  "已安装": {
+    "en": "Installed",
+    "ja": "インストール済み"
+  },
+  "未安装": {
+    "en": "Not installed",
+    "ja": "未インストール"
+  },
+  "全部插件": {
+    "en": "All plugins",
+    "ja": "すべてのプラグイン"
+  },
+  "搜索插件或市场…": {
+    "en": "Search plugins or marketplaces…",
+    "ja": "プラグイン・マーケットを検索…"
+  },
+  "筛选插件市场": {
+    "en": "Filter marketplace",
+    "ja": "マーケットで絞り込み"
+  },
+  "全部市场": {
+    "en": "All marketplaces",
+    "ja": "すべてのマーケット"
+  },
+  "发现插件": {
+    "en": "Discover plugins",
+    "ja": "プラグインを探す"
+  },
+  "插件清单": {
+    "en": "Plugin inventory",
+    "ja": "プラグイン一覧"
+  },
+  "已显示": {
+    "en": "Showing ",
+    "ja": "表示中："
+  },
+  "个 · 搜索覆盖全部结果": {
+    "en": " items · Search covers all results",
+    "ja": " 件・検索は全件が対象"
+  },
+  "安装这个插件？": {
+    "en": "Install this plugin?",
+    "ja": "このプラグインを追加しますか？"
+  },
+  "将从 {v0} 安装插件及其附带技能。插件通过当前环境的包管理入口安装。": {
+    "en": "Install this plugin and its skills from {v0} through this environment's package manager.",
+    "ja": "{v0} から、この環境のパッケージ管理機能でプラグインとスキルを追加します。"
+  },
+  "确认安装": {
+    "en": "Confirm installation",
+    "ja": "追加を確定"
+  },
+  "卸载这个插件？": {
+    "en": "Uninstall this plugin?",
+    "ja": "このプラグインを削除しますか？"
+  },
+  "该插件及其 {v0} 个已发现技能将通过包管理入口卸载。此操作不能通过技能恢复记录撤销，需要从市场重新安装。": {
+    "en": "The package manager will remove this plugin and its {v0} discovered skills. To undo this, reinstall it from its marketplace; skill recovery does not apply.",
+    "ja": "プラグインと検出された {v0} 件のスキルを削除します。スキルの復元機能では元に戻せないため、必要に応じてマーケットから再追加してください。"
+  },
+  "确认卸载": {
+    "en": "Confirm uninstall",
+    "ja": "削除を確定"
+  },
+  "/ 共": {
+    "en": " / of ",
+    "ja": " / 全"
+  },
+  "个插件": {
+    "en": " plugins",
+    "ja": " 件のプラグイン"
+  },
+  "显示更多": {
+    "en": "Show more",
+    "ja": "さらに表示"
+  },
+  "当前筛选结果已全部显示": {
+    "en": "All matching results are shown",
+    "ja": "該当する結果をすべて表示しています"
+  },
+  "这里还没有插件": {
+    "en": "No plugins here yet",
+    "ja": "プラグインがありません"
+  },
+  "调整筛选，或在市场来源中添加一个插件市场。": {
+    "en": "Change your filters or add a marketplace under Sources.",
+    "ja": "絞り込みを変更するか、マーケットを追加してください。"
+  },
+  "管理市场来源": {
+    "en": "Manage marketplaces",
+    "ja": "マーケットを管理"
+  },
+  "让好的能力，有迹可循。": {
+    "en": "Know where your capabilities come from.",
+    "ja": "機能の配布元を把握しましょう。"
+  },
+  "来源记录告诉你插件来自哪里。刷新 Git 市场只更新目录信息，插件更新由各自管理入口处理。": {
+    "en": "Source records show where plugins come from. Refreshing a Git marketplace updates its catalog; plugin updates use their own management path.",
+    "ja": "配布元からプラグインの出所を確認できます。Git マーケットの更新はカタログのみで、プラグインの更新は各管理元で行います。"
+  },
+  "已连接来源": {
+    "en": "Connected sources",
+    "ja": "登録済みの配布元"
+  },
+  "本地目录与 Git 仓库": {
+    "en": "Local folders and Git repositories",
+    "ja": "ローカルフォルダー・Git リポジトリ"
+  },
+  "移除这个市场来源？": {
+    "en": "Remove this marketplace source?",
+    "ja": "このマーケットの配布元を削除しますか？"
+  },
+  "此操作会取消该来源的注册。已经安装的插件不会因此全部卸载；需要时可以重新添加来源。": {
+    "en": "This unregisters the source. Installed plugins are not automatically removed. You can add this source again later.",
+    "ja": "配布元の登録を解除します。インストール済みプラグインは自動削除されません。後から再登録できます。"
+  },
+  "连接你的第一个来源": {
+    "en": "Connect your first source",
+    "ja": "最初の配布元を登録"
+  },
+  "添加本地或 Git 市场，统一浏览其中的插件。": {
+    "en": "Add a local or Git marketplace to browse its plugins.",
+    "ja": "ローカルまたは Git のマーケットを追加して、プラグインをまとめて確認できます。"
+  },
+  "{v0} 个技能有新变化": {
+    "en": "{v0} skills have changes",
+    "ja": "{v0} 件のスキルに変更があります"
+  },
+  "让每次更新都心中有数": {
+    "en": "Review every update with confidence",
+    "ja": "内容を把握してから更新"
+  },
+  "个技能有可追踪来源，检查后可查看具体文件变化。": {
+    "en": " skills have tracked sources. Check them to review file changes.",
+    "ja": " 件のスキルに追跡可能な配布元があります。確認するとファイルの変更を表示します。"
+  },
+  "保留前版恢复": {
+    "en": "Previous version retained",
+    "ja": "以前の版を保持"
+  },
+  "已追踪技能": {
+    "en": "Tracked skills",
+    "ja": "追跡中のスキル"
+  },
+  "逐项检查与确认": {
+    "en": "Check and confirm each item",
+    "ja": "項目ごとに確認"
+  },
+  "{v0} · 尚未检查来源变化": {
+    "en": "{v0} · Not checked yet",
+    "ja": "{v0}・変更は未確認"
+  },
+  "{v0} 个文件变化": {
+    "en": "{v0} changed files",
+    "ja": "{v0} ファイルに変更"
+  },
+  "与来源一致": {
+    "en": "Matches source",
+    "ja": "配布元と一致"
+  },
+  "再次检查": {
+    "en": "Check again",
+    "ja": "再確認"
+  },
+  "检查更新": {
+    "en": "Check for updates",
+    "ja": "更新を確認"
+  },
+  "查看变化": {
+    "en": "Review changes",
+    "ja": "変更を見る"
+  },
+  "更新，从一个明确的来源开始": {
+    "en": "Updates start with a known source",
+    "ja": "更新には明確な配布元が必要です"
+  },
+  "通过 SkillDock 安装的独立技能会记录来源，之后可在这里检查变化。": {
+    "en": "Skills installed through SkillDock keep their source, so you can check for changes here.",
+    "ja": "SkillDock で追加した個別スキルは配布元が記録され、ここで変更を確認できます。"
+  },
+  "安装并追踪技能": {
+    "en": "Install and track a skill",
+    "ja": "スキルを追加して追跡"
+  },
+  "还有": {
+    "en": "Another ",
+    "ja": "ほかに"
+  },
+  "个技能由系统、插件或其他方式管理，初版不自动更新它们。查看技能详情可以了解所属来源与操作范围。": {
+    "en": " skills use system, plugin or external management. See details for their owner and available actions.",
+    "ja": " 件のスキルはシステム、プラグイン、その他の方法で管理されます。詳細で管理元と操作範囲を確認できます。"
+  },
+  "查看技能库": {
+    "en": "View skills",
+    "ja": "スキルを表示"
+  },
+  "最近的变化": {
+    "en": "Recent changes",
+    "ja": "最近の変更"
+  },
+  "当前": {
+    "en": "Current ",
+    "ja": "現在の"
+  },
+  "环境": {
+    "en": " environment",
+    "ja": "環境"
+  },
+  "已完成": {
+    "en": "Completed",
+    "ja": "完了"
+  },
+  "未完成": {
+    "en": "Failed",
+    "ja": "失敗"
+  },
+  "恢复这次操作之前的内容？": {
+    "en": "Restore the content before this action?",
+    "ja": "この操作前の内容を復元しますか？"
+  },
+  "恢复前会检查目标位置。如果已有新内容或后续改动，应用会保留当前文件并提示冲突。": {
+    "en": "The target is checked first. New content or later edits are preserved, and any conflict is reported.",
+    "ja": "復元前に保存先を確認します。新しい内容や後からの変更は保持し、競合を通知します。"
+  },
+  "确认恢复": {
+    "en": "Confirm restore",
+    "ja": "復元を確定"
+  },
+  "恢复": {
+    "en": "Restore",
+    "ja": "復元"
+  },
+  "清爽的开始": {
+    "en": "A fresh start",
+    "ja": "新しいスタート"
+  },
+  "安装、启禁、移除和恢复的结果都会保存在这里。先从浏览技能库开始吧。": {
+    "en": "Installations, state changes, removals and restores are recorded here. Start by exploring your skills.",
+    "ja": "追加、有効・無効の変更、削除、復元の結果を記録します。まずスキルを見てみましょう。"
+  },
+  "浏览技能库": {
+    "en": "Browse skills",
+    "ja": "スキルを見る"
+  },
+  "正在刷新…": {
+    "en": "Refreshing…",
+    "ja": "更新中…"
+  },
+  "上次读取 {v0}": {
+    "en": "Last scanned {v0}",
+    "ja": "最終読み込み {v0}"
+  },
+  "关闭通知": {
+    "en": "Dismiss notification",
+    "ja": "通知を閉じる"
+  },
+  "搜索": {
+    "en": "Search",
+    "ja": "検索"
+  },
+  "清空搜索": {
+    "en": "Clear search",
+    "ja": "検索をクリア"
+  },
+  "可发现": {
+    "en": "Available",
+    "ja": "利用可能"
+  },
+  "这个插件尚未提供描述。请根据来源与附带技能判断是否适合你的工作流。": {
+    "en": "No description provided. Review its source and bundled skills to decide whether it fits your workflow.",
+    "ja": "説明はありません。配布元と含まれるスキルを確認してください。"
+  },
+  "版本未提供": {
+    "en": "Version not provided",
+    "ja": "バージョン情報なし"
+  },
+  "{v0}插件 {v1}": {
+    "en": "{v0} plugin {v1}",
+    "ja": "プラグイン {v1} を{v0}"
+  },
+  "已禁用": {
+    "en": "Disabled",
+    "ja": "無効"
+  },
+  "卸载": {
+    "en": "Uninstall",
+    "ja": "削除"
+  },
+  "最近刷新：": {
+    "en": "Last refreshed: ",
+    "ja": "最終更新："
+  },
+  "浏览插件": {
+    "en": "Browse plugins",
+    "ja": "プラグインを見る"
+  },
+  "刷新来源 {v0}": {
+    "en": "Refresh source {v0}",
+    "ja": "配布元 {v0} を更新"
+  },
+  "此来源不支持刷新": {
+    "en": "This source does not support refresh",
+    "ja": "この配布元は更新操作に対応していません"
+  },
+  "刷新市场目录": {
+    "en": "Refresh marketplace catalog",
+    "ja": "マーケットのカタログを更新"
+  },
+  "移除来源 {v0}": {
+    "en": "Remove source {v0}",
+    "ja": "配布元 {v0} を削除"
+  },
+  "此来源由宿主管理": {
+    "en": "This source is managed by the host",
+    "ja": "この配布元はホストが管理します"
+  },
+  "技能详情": {
+    "en": "Skill details",
+    "ja": "スキルの詳細"
+  },
+  "未提供描述": {
+    "en": "No description provided",
+    "ja": "説明なし"
+  },
+  "已记录来源": {
+    "en": "Source recorded",
+    "ja": "配布元を記録済み"
+  },
+  "启用状态": {
+    "en": "Enabled state",
+    "ja": "有効・無効の状態"
+  },
+  "尚未核实": {
+    "en": "Not verified yet",
+    "ja": "まだ未確認です"
+  },
+  "配置已启用": {
+    "en": "Enabled in configuration",
+    "ja": "設定で有効"
+  },
+  "配置已禁用": {
+    "en": "Disabled in configuration",
+    "ja": "設定で無効"
+  },
+  "来源与位置": {
+    "en": "Source and location",
+    "ja": "配布元と場所"
+  },
+  "来源": {
+    "en": "Source",
+    "ja": "配布元"
+  },
+  "所属插件": {
+    "en": "Owning plugin",
+    "ja": "所属プラグイン"
+  },
+  "文件路径": {
+    "en": "File path",
+    "ja": "ファイルパス"
+  },
+  "复制技能路径": {
+    "en": "Copy skill path",
+    "ja": "スキルのパスをコピー"
+  },
+  "状态证据": {
+    "en": "State evidence",
+    "ja": "状態の根拠"
+  },
+  "发现同名技能": {
+    "en": "Duplicate skill names found",
+    "ja": "同名のスキルがあります"
+  },
+  "请根据完整路径区分，操作只作用于当前技能。": {
+    "en": "Use full paths to distinguish them. Actions affect only this skill.",
+    "ja": "完全なパスで区別してください。操作はこのスキルのみが対象です。"
+  },
+  "个路径别名": {
+    "en": " path aliases",
+    "ja": " 件のパス別名"
+  },
+  "只读预览": {
+    "en": "Read-only preview",
+    "ja": "読み取り専用プレビュー"
+  },
+  "重试读取": {
+    "en": "Retry loading",
+    "ja": "読み込みを再試行"
+  },
+  "正在读取技能正文…": {
+    "en": "Loading skill content…",
+    "ja": "スキルの本文を読み込み中…"
+  },
+  "仅对本应用追踪来源的独立技能提供更新": {
+    "en": "Updates require a tracked source for this individual skill",
+    "ja": "個別スキルの更新には配布元の追跡が必要です"
+  },
+  "此技能由所属插件或宿主管理": {
+    "en": "This skill is managed by its plugin or host",
+    "ja": "このスキルは所属プラグインまたはホストが管理します"
+  },
+  "确认安装技能": {
+    "en": "Confirm skill installation",
+    "ja": "スキルの追加を確認"
+  },
+  "给工作流添一点能力": {
+    "en": "Add a capability to your workflow",
+    "ja": "ワークフローに機能を追加"
+  },
+  "选择来源": {
+    "en": "Choose source",
+    "ja": "配布元を選択"
+  },
+  "预览与安装": {
+    "en": "Preview and install",
+    "ja": "確認して追加"
+  },
+  "个文件 ·": {
+    "en": " files · ",
+    "ja": " ファイル・"
+  },
+  "来自": {
+    "en": "From",
+    "ja": "配布元"
+  },
+  "安装到": {
+    "en": "Install to",
+    "ja": "インストール先"
+  },
+  "安装前会再次核验文件。已存在的同名目录会保留，不会被覆盖。": {
+    "en": "Files are checked again before installation. Existing directories with the same name are never overwritten.",
+    "ja": "追加前に再確認します。同名の既存ディレクトリは上書きされません。"
+  },
+  "本地目录": {
+    "en": "Local folder",
+    "ja": "ローカルフォルダー"
+  },
+  "导入已有技能": {
+    "en": "Import an existing skill",
+    "ja": "既存のスキルを取り込む"
+  },
+  "Git 仓库": {
+    "en": "Git repository",
+    "ja": "Git リポジトリ"
+  },
+  "追踪来源变化": {
+    "en": "Track source changes",
+    "ja": "配布元の変更を追跡"
+  },
+  "技能目录路径": {
+    "en": "Skill directory path",
+    "ja": "スキルディレクトリのパス"
+  },
+  "Git 仓库地址": {
+    "en": "Git repository address",
+    "ja": "Git リポジトリのアドレス"
+  },
+  "填写包含 SKILL.md 的目录，或通过下方子路径指定。": {
+    "en": "Enter a folder containing SKILL.md, or specify a subdirectory below.",
+    "ja": "SKILL.md を含むフォルダーを入力するか、下でサブディレクトリを指定してください。"
+  },
+  "支持受允许的 Git 来源。请使用不含账号密码的地址。": {
+    "en": "Use a supported Git source without credentials in the address.",
+    "ja": "対応する Git 配布元を指定してください。アドレスに認証情報を含めないでください。"
+  },
+  "技能子目录": {
+    "en": "Skill subdirectory",
+    "ja": "スキルのサブディレクトリ"
+  },
+  "可选": {
+    "en": "Optional",
+    "ja": "任意"
+  },
+  "分支或标签": {
+    "en": "Branch or tag",
+    "ja": "ブランチ・タグ"
+  },
+  "默认分支": {
+    "en": "Default branch",
+    "ja": "既定のブランチ"
+  },
+  "修改来源": {
+    "en": "Change source",
+    "ja": "配布元を変更"
+  },
+  "取消": {
+    "en": "Cancel",
+    "ja": "キャンセル"
+  },
+  "预览技能": {
+    "en": "Preview skill",
+    "ja": "スキルを確認"
+  },
+  "连接一个市场来源": {
+    "en": "Connect a marketplace source",
+    "ja": "マーケットの配布元を登録"
+  },
+  "添加包含 marketplace manifest 的目录或 Git 仓库。应用会核验来源，再读取其中的插件。": {
+    "en": "Add a folder or Git repository containing a marketplace manifest. Its source is validated before reading plugins.",
+    "ja": "マーケットのマニフェストを含むフォルダーか Git リポジトリを追加します。配布元を検証してからプラグインを読み込みます。"
+  },
+  "本地市场": {
+    "en": "Local marketplace",
+    "ja": "ローカルマーケット"
+  },
+  "Git 市场": {
+    "en": "Git marketplace",
+    "ja": "Git マーケット"
+  },
+  "市场目录路径": {
+    "en": "Marketplace directory path",
+    "ja": "マーケットディレクトリのパス"
+  },
+  "添加来源后，可以前往「插件」浏览并选择要安装的内容。": {
+    "en": "After adding the source, browse Plugins and choose what to install.",
+    "ja": "配布元を追加したら、プラグインのページで追加する内容を選べます。"
+  },
+  "受影响的技能（": {
+    "en": "Affected skills (",
+    "ja": "影響を受けるスキル（"
+  },
+  "查看这次更新": {
+    "en": "Review this update",
+    "ja": "今回の更新を確認"
+  },
+  "已与来源保持一致": {
+    "en": "Already matches the source",
+    "ja": "配布元と一致しています"
+  },
+  "新增": {
+    "en": "Added",
+    "ja": "追加"
+  },
+  "修改": {
+    "en": "Modified",
+    "ja": "変更"
+  },
+  "移除": {
+    "en": "Removed",
+    "ja": "削除"
+  },
+  "更新前保留旧版本。若本地文件已被修改，会停止更新并提示冲突。": {
+    "en": "The previous version is retained. Local modifications stop the update and produce a conflict notice.",
+    "ja": "以前の版を保持します。ローカルに変更がある場合は更新を停止し、競合を通知します。"
+  },
+  "暂不更新": {
+    "en": "Not now",
+    "ja": "後で更新"
+  },
+  "完成": {
+    "en": "Done",
+    "ja": "完了"
+  },
+  "确认更新": {
+    "en": "Confirm update",
+    "ja": "更新を確定"
+  },
+  "外观": {
+    "en": "Appearance",
+    "ja": "外観"
+  },
+  "浅色界面保持原有配色，也可以切换深色或跟随系统。": {
+    "en": "Keep the original light palette, use dark mode, or follow your system.",
+    "ja": "従来のライト配色、ダーク配色、システム設定から選べます。"
+  },
+  "浅色": {
+    "en": "Light",
+    "ja": "ライト"
+  },
+  "深色": {
+    "en": "Dark",
+    "ja": "ダーク"
+  },
+  "跟随系统": {
+    "en": "System",
+    "ja": "システム"
+  },
+  "界面语言": {
+    "en": "Interface language",
+    "ja": "表示言語"
+  },
+  "技能名称、描述、正文及外部来源内容保留原文。": {
+    "en": "Skill names, descriptions, content and external source material remain in their original language.",
+    "ja": "スキル名、説明、本文、外部配布元の内容は原文のまま表示します。"
+  },
+  "选择语言": {
+    "en": "Choose language",
+    "ja": "言語を選択"
+  },
+  "中文": {
+    "en": "中文",
+    "ja": "中文"
+  },
+  "日本語": {
+    "en": "日本語",
+    "ja": "日本語"
+  },
+  "偏好自动保存在当前浏览器，重新打开后继续生效。": {
+    "en": "Preferences are saved in this browser and restored when you reopen the app.",
+    "ja": "設定はこのブラウザーに保存され、次回も反映されます。"
+  },
+  "开放源代码": {
+    "en": "Open source",
+    "ja": "オープンソース"
+  },
+  "本软件使用 AGPL-3.0-only 许可证。源码包仅包含本软件，不包含本机技能、配置或应用数据。": {
+    "en": "Licensed under AGPL-3.0-only. The source archive contains this software only, not your local skills, configuration or app data.",
+    "ja": "本ソフトウェアは AGPL-3.0-only です。ソースアーカイブには本ソフトウェアのみを含み、端末のスキル・設定・アプリデータは含みません。"
+  },
+  "许可证": {
+    "en": "License",
+    "ja": "ライセンス"
+  },
+  "对应源码": {
+    "en": "Corresponding source",
+    "ja": "対応するソースコード"
+  },
+  "存在同名技能，请按路径区分。": {
+    "en": "Duplicate names: identify this skill by its path.",
+    "ja": "同名のスキルがあります。パスで区別してください。"
+  },
+  "安装或启用状态尚未核实。": {
+    "en": "Installation or enabled state is unverified.",
+    "ja": "インストールまたは有効状態が未確認です。"
+  },
+  "随所属插件统一管理。": {
+    "en": "Managed through its owning plugin.",
+    "ja": "所属プラグインを通じて管理します。"
+  },
+  "由系统或宿主管理。": {
+    "en": "Managed by the system or host.",
+    "ja": "システムまたはホストが管理します。"
+  },
+  "查看所属插件": {
+    "en": "View owning plugin",
+    "ja": "所属プラグインを表示"
+  },
+  "查看路径与状态证据": {
+    "en": "Review path and state evidence",
+    "ja": "パスと状態の根拠を確認"
+  },
+  "详细原因": {
+    "en": "Detailed reason",
+    "ja": "詳しい理由"
+  },
+  "YOUR CAPABILITIES": {
+    "en": "YOUR CAPABILITIES",
+    "ja": "スキルを管理"
+  },
+  "PLUGINS": {
+    "en": "PLUGINS",
+    "ja": "プラグイン"
+  },
+  "MARKETPLACES": {
+    "en": "MARKETPLACES",
+    "ja": "マーケット"
+  },
+  "KEEP IT FRESH": {
+    "en": "KEEP IT FRESH",
+    "ja": "更新を確認"
+  },
+  "ACTIVITY": {
+    "en": "ACTIVITY",
+    "ja": "操作履歴"
+  },
+  "INSTALL A SKILL": {
+    "en": "INSTALL A SKILL",
+    "ja": "スキルを追加"
+  },
+  "ADD A MARKETPLACE": {
+    "en": "ADD A MARKETPLACE",
+    "ja": "マーケットを追加"
+  },
+  "REVIEW YOUR ACTION": {
+    "en": "REVIEW YOUR ACTION",
+    "ja": "操作内容を確認"
+  },
+  "REVIEW CHANGES": {
+    "en": "REVIEW CHANGES",
+    "ja": "変更を確認"
+  },
+  "PREFERENCES": {
+    "en": "PREFERENCES",
+    "ja": "環境設定"
+  },
+  "YOUR SKILLS, ORGANIZED.": {
+    "en": "YOUR SKILLS, ORGANIZED.",
+    "ja": "スキルを、わかりやすく。"
+  },
+  "预览版": {
+    "en": "Preview",
+    "ja": "プレビュー版"
+  },
+  "本软件不提供担保。你可以依照 AGPL-3.0-only 的条款复制、修改和再分发；完整条款见许可证。": {
+    "en": "This software comes without warranty. You may copy, modify and redistribute it under AGPL-3.0-only; see the license for the full terms.",
+    "ja": "本ソフトウェアは無保証です。AGPL-3.0-only の条件に従って複製・改変・再配布できます。詳しい条件はライセンスを参照してください。"
+  },
+  "服务返回了无效的会话配置，请刷新重试。": {
+    "en": "The service returned an invalid session configuration. Refresh and try again.",
+    "ja": "サービスから無効なセッション設定が返されました。ページを再読み込みして、もう一度お試しください。"
+  },
+  "工作空间尚未就绪，请重新读取清单。": {
+    "en": "The workspace is not ready. Refresh the inventory and try again.",
+    "ja": "ワークスペースの準備ができていません。一覧を再読み込みしてください。"
+  },
+  "工作空间已变化，请重新读取清单后重试。": {
+    "en": "The workspace has changed. Refresh the inventory before trying again.",
+    "ja": "ワークスペースが変更されました。一覧を再読み込みしてから、もう一度お試しください。"
+  },
+  "SkillDock 正在重新连接，请稍后再操作。": {
+    "en": "SkillDock is reconnecting. Please try again shortly.",
+    "ja": "SkillDock は再接続中です。しばらくしてから操作してください。"
+  },
+  "正在准备新版 SkillDock…": {
+    "en": "Preparing the new version of SkillDock…",
+    "ja": "新しいバージョンの SkillDock を準備中…"
+  },
+  "正在重启，界面将自动恢复…": {
+    "en": "Restarting. This page will reconnect automatically…",
+    "ja": "再起動中です。画面は自動的に再接続されます…"
+  },
+  "新版未能启动，请重新打开 SkillDock 后重试。": {
+    "en": "The new version could not start. Reopen SkillDock to retry.",
+    "ja": "新しいバージョンを起動できませんでした。SkillDock を開き直して再試行してください。"
+  },
+  "连接已中断，正在自动重连…": {
+    "en": "Connection lost. Reconnecting automatically…",
+    "ja": "接続が切れました。自動的に再接続しています…"
+  },
+  "SkillDock 正在准备重启，请等待界面自动重连。": {
+    "en": "SkillDock is preparing to restart. Please wait for this page to reconnect.",
+    "ja": "SkillDock は再起動の準備中です。画面が再接続されるまでお待ちください。"
+  }
+}

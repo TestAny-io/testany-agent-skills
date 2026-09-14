@@ -15,7 +15,7 @@ Skills 是包含指令、脚本和资源的文件夹，Claude 可以动态加载
 
 | Plugin | 领域 | 命令 |
 |--------|------|------|
-| **testany-eng** | 研发流程 | `/testany-eng:guide`, `/testany-eng:brd-interviewer`, `/testany-eng:uc-interviewer`, `/testany-eng:prd-writer`, `/testany-eng:prd-reviewer`, `/testany-eng:prototype-designer`, `/testany-eng:prototype-reviewer`, `/testany-eng:api-writer`, `/testany-eng:api-reviewer`, `/testany-eng:guardrails-writer`, `/testany-eng:guardrails-reviewer`, `/testany-eng:hld-writer`, `/testany-eng:hld-reviewer`, `/testany-eng:test-strategy-writer`, `/testany-eng:test-strategy-reviewer`, `/testany-eng:lld-writer`, `/testany-eng:lld-reviewer`, `/testany-eng:code-reviewer`, `/testany-eng:test-spec-writer`, `/testany-eng:test-reviewer`, `/testany-eng:runbook-writer` |
+| **testany-eng** | 研发流程 | `/testany-eng:guide`, `/testany-eng:brd-interviewer`, `/testany-eng:uc-interviewer`, `/testany-eng:prd-writer`, `/testany-eng:prd-reviewer`, `/testany-eng:prototype-designer`, `/testany-eng:prototype-reviewer`, `/testany-eng:api-writer`, `/testany-eng:api-reviewer`, `/testany-eng:guardrails-writer`, `/testany-eng:guardrails-reviewer`, `/testany-eng:hld-writer`, `/testany-eng:hld-reviewer`, `/testany-eng:test-strategy-writer`, `/testany-eng:test-strategy-reviewer`, `/testany-eng:lld-writer`, `/testany-eng:lld-reviewer`, `/testany-eng:code-reviewer`, `/testany-eng:test-spec-writer`, `/testany-eng:test-reviewer`, `/testany-eng:runbook-writer`, `/testany-eng:skill-manager` |
 | **testany-llm** | AI/LLM 工具 | `/testany-llm:prompt-optimizer` |
 | **testany-mrkt** | 营销内容 | `/testany-mrkt:media-writer` |
 | **testany-bot** | 测试平台（通用版，按宿主能力适配） | `/testany-bot:case`, `/testany-bot:case-writing`, `/testany-bot:pipeline`, `/testany-bot:execution`, `/testany-bot:debug`, `/testany-bot:trigger`, `/testany-bot:workspace` |
@@ -39,6 +39,52 @@ testany-agent-skills/
 │       └── skills/
 └── CHANGELOG.md               # 版本变更记录
 ```
+
+# 在 Codex 中使用 SkillDock
+
+SkillDock 0.1.0 随 `testany-eng` 2.4.0 分发。安装的是整个研发工具集；在 Codex 中用 `$skill-manager` 打开本地 GUI。当前已验证 macOS；安装需要可用的 Codex 插件安装能力和 Git。用户无需先手动安装 Node.js/npm：启动器优先复用 Codex 的运行环境，缺失时准备应用专用环境，首次启动会下载锁定依赖。
+
+无需手动 clone，也无需先打开本仓库。可以直接在 Codex 中提出安装请求：
+
+> 请从 https://github.com/TestAny-io/testany-agent-skills 安装 SkillDock，按照仓库 README 添加 GitHub marketplace 来源并安装，然后打开技能管理面板。
+
+Codex 应读取本节与 marketplace 声明，检查依赖和当前客户端的插件安装能力，再执行：
+
+```bash
+codex plugin marketplace add TestAny-io/testany-agent-skills
+codex plugin add testany-eng@testany-agent-skills
+```
+
+安装入口由 README 与 marketplace 提供，不依赖 `AGENTS.md`。如果提供的是仓库内 `plugins/testany-eng/skills/skill-manager` 的 GitHub 子目录链接，也应读取完整应用说明、按上述插件分发方式安装，以保留可更新的 GitHub 来源；只下载一个 `SKILL.md` 不包含运行应用所需的脚本与资源。
+
+如果已经 clone 本仓库，也可在 Codex 中打开该目录，输入“请按照 README 安装 SkillDock，并打开技能管理面板”。根目录 `AGENTS.md` 仅为这种场景提供附加提示。从本地 clone 安装时，在仓库根目录运行：
+
+```bash
+codex plugin marketplace add .
+codex plugin add testany-eng@testany-agent-skills
+```
+
+Clone 只下载源码，不会自动安装。GitHub 来源可由更新器拉取新版本；本地来源只检查 clone 当前已有的文件，需要用户自行更新该工作区。
+
+安装后开启新的 Codex 任务，输入 `$skill-manager 打开技能管理面板`。应用启动后在右侧浏览器面板显示。CLI 版本没有 `plugin add` 时，在 Codex 的插件页面选择该市场中的 `testany-eng` 安装；实际能力以当前客户端为准。
+
+从 GitHub 来源安装的用户，更新时先刷新市场，再更新安装副本：
+
+```bash
+codex plugin marketplace upgrade testany-agent-skills
+codex plugin add testany-eng@testany-agent-skills
+```
+
+从本地 clone 安装的用户，在该仓库拉取新版本后，再安装一次以刷新 Codex 中的副本：
+
+```bash
+git pull --ff-only
+codex plugin add testany-eng@testany-agent-skills
+```
+
+本地来源需要保留这个 clone 目录以供后续更新；仅执行 `git pull` 不会自动刷新已安装的插件。以上两种来源选择一种即可。
+
+已有实例可再次调用 `$skill-manager`，启动器会重建变化的源码并保留应用数据。将所属插件加入自动更新计划并启用自动应用后，SkillDock 会在整批更新完成后自动重启，浏览器自动重连；构建失败保留旧服务，启动失败尝试恢复旧运行目录。详细操作与目录说明见 [SkillDock 使用说明](plugins/testany-eng/skills/skill-manager/assets/app/README.md)。这是 Git 仓库 marketplace 分发；官方目录上架留待后续。
 
 # 在 Claude Code 中使用
 
@@ -89,6 +135,7 @@ testany-agent-skills/
 | 命令 | 描述 |
 |------|------|
 | `/testany-eng:guide` | 按正式设计、有限修复、实现对象及决策层级分流，核实批准来源，推荐最小下一步 |
+| `/testany-eng:skill-manager` | 打开 [SkillDock](plugins/testany-eng/skills/skill-manager/assets/app/README.md) 本地 GUI，管理本机 Codex 技能、插件和市场来源 |
 | `/testany-eng:brd-interviewer` | 按材料选择访谈、直接整理或缺口补问；区分实测、估算、测量计划和离散验收，草稿与批准分开 |
 | `/testany-eng:uc-interviewer` | 复用已知流程，仅补问未决分支，产出带 metadata、步骤级边界和真实 checkpoint 的 User Journey |
 | `/testany-eng:prd-writer` | PRD 写作技能，支持多种类型：新功能、第三方集成、重构、优化 |
@@ -163,7 +210,7 @@ Frontmatter 必须包含两个基础字段（不表示只允许这两个字段�
 
 # 许可证
 
-MIT License - 详见 [LICENSE](LICENSE)
+本仓库默认采用 [MIT License](LICENSE)。例外：`plugins/testany-eng/skills/skill-manager/` 下的 SkillDock 自有软件、启动器、测试和文档采用 [GNU AGPL v3，仅第 3 版](plugins/testany-eng/skills/skill-manager/LICENSE)（`AGPL-3.0-only`）；第三方依赖保留各自的许可证和版权声明，详见 [SkillDock 许可与第三方声明](plugins/testany-eng/skills/skill-manager/THIRD_PARTY_NOTICES.md)。其他现有 skills 的 MIT 许可不变，已按 MIT 合法取得的历史版本授权不追溯撤销。
 
 # 联系方式
 
