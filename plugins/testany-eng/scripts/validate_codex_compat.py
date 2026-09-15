@@ -397,6 +397,11 @@ def discover_active_skills(repo_root: Path) -> SkillDiscovery:
             continue
         plugin_name = plugin.get("name")
         source = plugin.get("source")
+        if isinstance(source, dict):
+            if source.get("source") != "local" or set(source) - {"source", "path"}:
+                errors.append(f"{label} unsupported local source descriptor")
+                continue
+            source = source.get("path")
         if not isinstance(plugin_name, str) or not plugin_name.strip():
             errors.append(f"{label} missing non-empty name")
             continue
@@ -414,7 +419,12 @@ def discover_active_skills(repo_root: Path) -> SkillDiscovery:
             errors.append(f"{plugin_name}: plugin source target escapes marketplace root")
             continue
 
-        manifest_path = plugin_root / ".claude-plugin" / "plugin.json"
+        manifest_paths = [plugin_root / folder / "plugin.json" for folder in (".codex-plugin", ".claude-plugin")]
+        existing_manifests = [item for item in manifest_paths if item.exists() or item.is_symlink()]
+        if len(existing_manifests) > 1:
+            errors.append(f"{plugin_name}: multiple plugin manifests; keep one manifest authority")
+            continue
+        manifest_path = existing_manifests[0] if existing_manifests else manifest_paths[0]
         if manifest_path.exists() or manifest_path.is_symlink():
             if not _target_within(manifest_path, repo_root):
                 errors.append(

@@ -60,6 +60,37 @@ class ValidateCodexCompatTests(unittest.TestCase):
         )
         return plugin_root
 
+    def test_codex_local_descriptor_and_manifest_discover_independent_plugin(self) -> None:
+        with tempfile.TemporaryDirectory() as tmpdir:
+            root = Path(tmpdir)
+            self.write_json(root, ".claude-plugin/marketplace.json", {"plugins": [{"name": "skilldock", "source": {"source": "local", "path": "./plugins/skilldock"}}]})
+            self.write_json(root, "plugins/skilldock/.codex-plugin/plugin.json", {"name": "skilldock", "version": "0.2.0", "skills": "./skills/"})
+            skill = self.write_skill(root, "plugins/skilldock/skills/skill-manager", "skill-manager")
+            result = VALIDATOR.discover_active_skills(root)
+            self.assertEqual(result.errors, ())
+            self.assertEqual(result.active, (skill,))
+            self.write_json(root, ".claude-plugin/marketplace.json", {"plugins": [{"name": "skilldock", "version": "0.2.0", "source": {"source": "local", "path": "./plugins/skilldock"}}]})
+            self.assertTrue(any("one authority" in error for error in VALIDATOR.discover_active_skills(root).errors))
+
+    def test_codex_source_descriptor_rejects_remote_and_escaped_paths(self) -> None:
+        with tempfile.TemporaryDirectory() as tmpdir:
+            root = Path(tmpdir)
+            for source in [{"source": "git", "path": "./plugins/skilldock"}, {"source": "local", "path": "../outside"}, {"source": "local", "path": "./plugins/skilldock", "unknown": True}]:
+                self.write_json(root, ".claude-plugin/marketplace.json", {"plugins": [{"name": "skilldock", "source": source}]})
+                result = VALIDATOR.discover_active_skills(root)
+                self.assertTrue(result.errors)
+                self.assertEqual(result.active, ())
+
+    def test_dual_manifests_are_not_silently_selected(self) -> None:
+        with tempfile.TemporaryDirectory() as tmpdir:
+            root = Path(tmpdir)
+            self.write_marketplace_plugin(root)
+            self.write_json(root, "plugins/acme-tools/.codex-plugin/plugin.json", {"name": "acme-tools", "version": "0.2.0"})
+            self.write_skill(root, "plugins/acme-tools/skills/demo", "demo")
+            result = VALIDATOR.discover_active_skills(root)
+            self.assertTrue(any("multiple plugin manifests" in error for error in result.errors))
+            self.assertEqual(result.active, ())
+
     def test_discovery_uses_marketplace_and_declared_skills_path(self) -> None:
         with tempfile.TemporaryDirectory() as tmpdir:
             root = Path(tmpdir)

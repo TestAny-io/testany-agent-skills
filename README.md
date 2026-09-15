@@ -15,7 +15,8 @@ Skills 是包含指令、脚本和资源的文件夹，Claude 可以动态加载
 
 | Plugin | 领域 | 命令 |
 |--------|------|------|
-| **testany-eng** | 研发流程 | `/testany-eng:guide`, `/testany-eng:brd-interviewer`, `/testany-eng:uc-interviewer`, `/testany-eng:prd-writer`, `/testany-eng:prd-reviewer`, `/testany-eng:prototype-designer`, `/testany-eng:prototype-reviewer`, `/testany-eng:api-writer`, `/testany-eng:api-reviewer`, `/testany-eng:guardrails-writer`, `/testany-eng:guardrails-reviewer`, `/testany-eng:hld-writer`, `/testany-eng:hld-reviewer`, `/testany-eng:test-strategy-writer`, `/testany-eng:test-strategy-reviewer`, `/testany-eng:lld-writer`, `/testany-eng:lld-reviewer`, `/testany-eng:code-reviewer`, `/testany-eng:test-spec-writer`, `/testany-eng:test-reviewer`, `/testany-eng:runbook-writer`, `/testany-eng:skill-manager` |
+| **testany-eng** | 研发流程 | `/testany-eng:guide`, `/testany-eng:brd-interviewer`, `/testany-eng:uc-interviewer`, `/testany-eng:prd-writer`, `/testany-eng:prd-reviewer`, `/testany-eng:prototype-designer`, `/testany-eng:prototype-reviewer`, `/testany-eng:api-writer`, `/testany-eng:api-reviewer`, `/testany-eng:guardrails-writer`, `/testany-eng:guardrails-reviewer`, `/testany-eng:hld-writer`, `/testany-eng:hld-reviewer`, `/testany-eng:test-strategy-writer`, `/testany-eng:test-strategy-reviewer`, `/testany-eng:lld-writer`, `/testany-eng:lld-reviewer`, `/testany-eng:code-reviewer`, `/testany-eng:test-spec-writer`, `/testany-eng:test-reviewer`, `/testany-eng:runbook-writer` |
+| **skilldock** | 本机技能管理应用（独立安装） | `/skilldock:skill-manager` |
 | **testany-llm** | AI/LLM 工具 | `/testany-llm:prompt-optimizer` |
 | **testany-mrkt** | 营销内容 | `/testany-mrkt:media-writer` |
 | **testany-bot** | 测试平台（通用版，按宿主能力适配） | `/testany-bot:case`, `/testany-bot:case-writing`, `/testany-bot:pipeline`, `/testany-bot:execution`, `/testany-bot:debug`, `/testany-bot:trigger`, `/testany-bot:workspace` |
@@ -28,6 +29,8 @@ testany-agent-skills/
 │   ├── testany-eng/           # 研发流程工具集
 │   │   ├── commands/          # CLI 命令（/testany-eng:xxx）
 │   │   └── skills/            # 完整实现
+│   ├── skilldock/             # 独立 Codex 技能管理应用
+│   │   └── skills/skill-manager/
 │   ├── testany-llm/           # AI/LLM 工具集
 │   │   ├── commands/
 │   │   └── skills/
@@ -42,49 +45,67 @@ testany-agent-skills/
 
 # 在 Codex 中使用 SkillDock
 
-SkillDock 0.1.0 随 `testany-eng` 2.4.0 分发。安装的是整个研发工具集；在 Codex 中用 `$skill-manager` 打开本地 GUI。当前已验证 macOS；安装需要可用的 Codex 插件安装能力和 Git。用户无需先手动安装 Node.js/npm：启动器优先复用 Codex 的运行环境，缺失时准备应用专用环境，首次启动会下载锁定依赖。
+**安装 `skilldock` 只会添加一个 SkillDock 应用入口，不会安装 testany-eng 的研发 skills。** SkillDock 0.2.0 是独立插件；旧版 testany-eng 2.4.0 所带的 SkillDock 0.1.0 用户请按下方迁移说明接续数据。
 
-无需手动 clone，也无需先打开本仓库。可以直接在 Codex 中提出安装请求：
+无需用户手动 clone。可以在 Codex 中提出：
 
-> 请从 https://github.com/TestAny-io/testany-agent-skills 安装 SkillDock，按照仓库 README 添加 GitHub marketplace 来源并安装，然后打开技能管理面板。
+> 请从 https://github.com/TestAny-io/testany-agent-skills 安装独立的 SkillDock 插件，并打开技能管理面板。
 
-Codex 应读取本节与 marketplace 声明，检查依赖和当前客户端的插件安装能力，再执行：
+安装需要 Git 和支持 plugin 管理的 Codex CLI。macOS 用户无需预装 Node.js/npm，应用启动器会自动选择或准备运行环境。
 
-```bash
-codex plugin marketplace add TestAny-io/testany-agent-skills
-codex plugin add testany-eng@testany-agent-skills
-```
+先运行 `codex --version` 和 `codex plugin --help`。仅 `command -v codex` 成功不能证明 CLI 可用：旧 npm wrapper 可能已经损坏。如果 PATH 命令失败或没有 plugin 管理能力，依次检查以下位置的真实可执行文件，并对每个候选执行相同的版本和能力检查：
 
-安装入口由 README 与 marketplace 提供，不依赖 `AGENTS.md`。如果提供的是仓库内 `plugins/testany-eng/skills/skill-manager` 的 GitHub 子目录链接，也应读取完整应用说明、按上述插件分发方式安装，以保留可更新的 GitHub 来源；只下载一个 `SKILL.md` 不包含运行应用所需的脚本与资源。
+- `/Applications/ChatGPT.app/Contents/Resources/codex`
+- `/Applications/Codex.app/Contents/Resources/codex`
+- 用户 `~/Applications` 下对应应用的 `Contents/Resources/codex`
+- `${CODEX_HOME:-$HOME/.codex}/plugins/.plugin-appserver/codex`
 
-如果已经 clone 本仓库，也可在 Codex 中打开该目录，输入“请按照 README 安装 SkillDock，并打开技能管理面板”。根目录 `AGENTS.md` 仅为这种场景提供附加提示。从本地 clone 安装时，在仓库根目录运行：
-
-```bash
-codex plugin marketplace add .
-codex plugin add testany-eng@testany-agent-skills
-```
-
-Clone 只下载源码，不会自动安装。GitHub 来源可由更新器拉取新版本；本地来源只检查 clone 当前已有的文件，需要用户自行更新该工作区。
-
-安装后开启新的 Codex 任务，输入 `$skill-manager 打开技能管理面板`。应用启动后在右侧浏览器面板显示。CLI 版本没有 `plugin add` 时，在 Codex 的插件页面选择该市场中的 `testany-eng` 安装；实际能力以当前客户端为准。
-
-从 GitHub 来源安装的用户，更新时先刷新市场，再更新安装副本：
+应用内位置是经过实测的发现候选，不是所有客户端都保证提供的固定接口；应用装在其他位置时使用其实际路径。不要修改旧 wrapper、全局 Node、shell 配置或应用签名。确认后把绝对路径保存在 `CODEX_CLI`，打印最终路径与版本，并在整个安装过程中使用同一个文件：
 
 ```bash
-codex plugin marketplace upgrade testany-agent-skills
-codex plugin add testany-eng@testany-agent-skills
+# 替换为上一步实际验证通过的路径
+CODEX_CLI="/Applications/ChatGPT.app/Contents/Resources/codex"
+printf 'Using Codex CLI: %s\n' "$CODEX_CLI"
+"$CODEX_CLI" --version
+"$CODEX_CLI" plugin marketplace add TestAny-io/testany-agent-skills
+"$CODEX_CLI" plugin add skilldock@testany-agent-skills
 ```
 
-从本地 clone 安装的用户，在该仓库拉取新版本后，再安装一次以刷新 Codex 中的副本：
+已有源码目录时，可以让依赖无关的启动引导自动完成候选验证，输出最终 CLI 路径：
 
 ```bash
-git pull --ff-only
-codex plugin add testany-eng@testany-agent-skills
+CODEX_CLI="$(/bin/sh plugins/skilldock/skills/skill-manager/scripts/launch.sh cli --print-path)"
 ```
 
-本地来源需要保留这个 clone 目录以供后续更新；仅执行 `git pull` 不会自动刷新已安装的插件。以上两种来源选择一种即可。
+从本地 clone 安装时，在仓库根目录把 marketplace add 的来源替换成 `.`；clone 或添加 marketplace 都不代表插件已安装。安装后读回 `plugin list --marketplace testany-agent-skills --json`，确认 skilldock 已启用且仅含 `skill-manager`。已添加同名来源时先核对来源，无需重复添加。
 
-已有实例可再次调用 `$skill-manager`，启动器会重建变化的源码并保留应用数据。将所属插件加入自动更新计划并启用自动应用后，SkillDock 会在整批更新完成后自动重启，浏览器自动重连；构建失败保留旧服务，启动失败尝试恢复旧运行目录。详细操作与目录说明见 [SkillDock 使用说明](plugins/testany-eng/skills/skill-manager/assets/app/README.md)。这是 Git 仓库 marketplace 分发；官方目录上架留待后续。
+新建 Codex 任务，用 `$skill-manager 打开技能管理面板` 打开。启动前先确定用户要扫描的项目绝对路径，不能把下载目录或 skill 安装目录误当用户项目：
+
+```bash
+/bin/sh "/实际安装位置/skill-manager/scripts/launch.sh" start --project "/用户项目的绝对路径"
+```
+
+核对启动输出中的请求目录、最终扫描目录和 CLI 路径，再把返回 URL 打开在 Codex 右侧浏览器面板。界面“当前项目”旁的“切换项目”可以修改扫描范围。中断启动调用不一定会停止后台服务；用同一启动入口的 `status` 核实，只有 `stop` 确认结束才表示服务已停止。
+
+GitHub 来源更新：先执行 `"$CODEX_CLI" plugin marketplace upgrade testany-agent-skills`，再执行 `"$CODEX_CLI" plugin add skilldock@testany-agent-skills`。本地来源先自行更新 clone，再刷新安装副本；定时计划不会替用户执行本地仓库的 `git pull`。
+
+在应用的“更新”页面，将独立的 `skilldock` 插件加入计划，启用计划和“自动应用”，后台服务运行时就会按设定周期检查并更新自身，更新后自动重启、重连。关闭浏览器不影响后台计划；电脑休眠或服务停止时暂停，下次启动补一次检查。重启电脑后需再次打开 SkillDock。
+
+## 从旧版 testany-eng 迁移
+
+安装独立 skilldock 后，用其实际安装路径启动，并加 `--migrate-from testany-eng`。启动器仅允许接续同一 Codex 根、同一 testany-agent-skills marketplace 中旧 testany-eng 的 SkillDock 数据；保留计划、历史和来源记录，构建成功后才替换运行实例。
+
+```bash
+/bin/sh "/独立skilldock安装位置/skills/skill-manager/scripts/launch.sh" start --project "/用户项目的绝对路径" --migrate-from testany-eng
+```
+
+更新 testany-eng 到 2.4.1 后旧的 SkillDock skill 会移除，其余 21 个研发 skills 保留。若已授权升级旧工具集，可刷新其安装副本；不要为了迁移而自动卸载整套工具集。两个旧新副本同时存在时，使用独立 skilldock 的实际路径打开。
+
+**这次拆包需要一次显式迁移，等待旧版定时更新不会自动完成迁移。** 原更新计划对 testany-eng 的选择保持原意；迁移后需将新 `skilldock` 插件加入计划，并启用计划和“自动应用”。旧版用户可以直接在 Codex 中提出：
+
+> 请按 https://github.com/TestAny-io/testany-agent-skills 的 README，把 testany-eng 2.4.0 内的 SkillDock 迁移到独立 skilldock 插件，保留现有计划、历史和来源记录，打开面板，并将新 skilldock 加入原更新计划、启用定时检查和自动应用。保留原计划的周期与其他目标，不卸载研发工具集。
+
+详见 [SkillDock 使用说明](plugins/skilldock/skills/skill-manager/assets/app/README.md)。本次采用 Git 仓库分发，官方目录上架留待后续。
 
 # 在 Claude Code 中使用
 
@@ -135,7 +156,6 @@ codex plugin add testany-eng@testany-agent-skills
 | 命令 | 描述 |
 |------|------|
 | `/testany-eng:guide` | 按正式设计、有限修复、实现对象及决策层级分流，核实批准来源，推荐最小下一步 |
-| `/testany-eng:skill-manager` | 打开 [SkillDock](plugins/testany-eng/skills/skill-manager/assets/app/README.md) 本地 GUI，管理本机 Codex 技能、插件和市场来源 |
 | `/testany-eng:brd-interviewer` | 按材料选择访谈、直接整理或缺口补问；区分实测、估算、测量计划和离散验收，草稿与批准分开 |
 | `/testany-eng:uc-interviewer` | 复用已知流程，仅补问未决分支，产出带 metadata、步骤级边界和真实 checkpoint 的 User Journey |
 | `/testany-eng:prd-writer` | PRD 写作技能，支持多种类型：新功能、第三方集成、重构、优化 |
@@ -210,7 +230,7 @@ Frontmatter 必须包含两个基础字段（不表示只允许这两个字段�
 
 # 许可证
 
-本仓库默认采用 [MIT License](LICENSE)。例外：`plugins/testany-eng/skills/skill-manager/` 下的 SkillDock 自有软件、启动器、测试和文档采用 [GNU AGPL v3，仅第 3 版](plugins/testany-eng/skills/skill-manager/LICENSE)（`AGPL-3.0-only`）；第三方依赖保留各自的许可证和版权声明，详见 [SkillDock 许可与第三方声明](plugins/testany-eng/skills/skill-manager/THIRD_PARTY_NOTICES.md)。其他现有 skills 的 MIT 许可不变，已按 MIT 合法取得的历史版本授权不追溯撤销。
+本仓库默认采用 [MIT License](LICENSE)。例外：`plugins/skilldock/` 下的 SkillDock 自有软件、启动器、测试和文档采用 [GNU AGPL v3，仅第 3 版](plugins/skilldock/skills/skill-manager/LICENSE)（`AGPL-3.0-only`）；第三方依赖保留各自的许可证和版权声明，详见 [SkillDock 许可与第三方声明](plugins/skilldock/skills/skill-manager/THIRD_PARTY_NOTICES.md)。其他现有 skills 的 MIT 许可不变，已按 MIT 合法取得的历史版本授权不追溯撤销。
 
 # 联系方式
 

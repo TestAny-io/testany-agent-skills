@@ -9,7 +9,7 @@
   "plugins": [
     {
       "name": "testany-eng",
-      "description": "研发流程与导航工具集：BRD、UC、PRD、Prototype、API、分层及有限变更 HLD/LLD Review、授权溯源 Code Review、Test、Runbook。命令：/testany-eng:guide, /testany-eng:brd-interviewer, /testany-eng:uc-interviewer, /testany-eng:prd-writer, /testany-eng:prd-reviewer, /testany-eng:prototype-designer, /testany-eng:prototype-reviewer, /testany-eng:api-writer, /testany-eng:api-reviewer, /testany-eng:guardrails-writer, /testany-eng:guardrails-reviewer, /testany-eng:hld-writer, /testany-eng:hld-reviewer, /testany-eng:test-strategy-writer, /testany-eng:test-strategy-reviewer, /testany-eng:lld-writer, /testany-eng:lld-reviewer, /testany-eng:code-reviewer, /testany-eng:test-spec-writer, /testany-eng:test-reviewer, /testany-eng:runbook-writer, /testany-eng:skill-manager",
+      "description": "研发流程与导航工具集：BRD、UC、PRD、Prototype、API、分层及有限变更 HLD/LLD Review、授权溯源 Code Review、Test、Runbook。命令：/testany-eng:guide, /testany-eng:brd-interviewer, /testany-eng:uc-interviewer, /testany-eng:prd-writer, /testany-eng:prd-reviewer, /testany-eng:prototype-designer, /testany-eng:prototype-reviewer, /testany-eng:api-writer, /testany-eng:api-reviewer, /testany-eng:guardrails-writer, /testany-eng:guardrails-reviewer, /testany-eng:hld-writer, /testany-eng:hld-reviewer, /testany-eng:test-strategy-writer, /testany-eng:test-strategy-reviewer, /testany-eng:lld-writer, /testany-eng:lld-reviewer, /testany-eng:code-reviewer, /testany-eng:test-spec-writer, /testany-eng:test-reviewer, /testany-eng:runbook-writer",
       "source": "./plugins/testany-eng",
       "category": "productivity",
       "homepage": "https://github.com/TestAny-io/testany-agent-skills"
@@ -34,6 +34,15 @@
       "source": "./plugins/testany-bot",
       "category": "automation",
       "homepage": "https://github.com/TestAny-io/testany-agent-skills"
+    },
+    {
+      "name": "skilldock",
+      "source": "./plugins/skilldock",
+      "policy": {
+        "installation": "AVAILABLE",
+        "authentication": "ON_INSTALL"
+      },
+      "category": "Productivity"
     }
   ]
 }
