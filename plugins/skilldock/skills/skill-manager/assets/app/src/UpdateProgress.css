@@ -1,0 +1,21 @@
+.update-progress { border: 1px solid color-mix(in srgb, var(--green) 25%, var(--line)); background: color-mix(in srgb, var(--green) 4%, var(--canvas)); border-radius: 14px; padding: 20px 22px; margin: 0 0 22px; }
+.update-progress-heading, .update-progress-caption { display: flex; justify-content: space-between; align-items: center; gap: 12px; }
+.update-progress-heading strong { display: flex; align-items: center; gap: 9px; font-size: 14px; }
+.update-progress-heading > span { font-size: 22px; color: var(--green); font-variant-numeric: tabular-nums; }
+.update-progress-track { height: 7px; background: color-mix(in srgb, var(--green) 14%, var(--canvas)); border-radius: 10px; overflow: hidden; margin: 16px 0 10px; }
+.update-progress-track > span { display: block; height: 100%; border-radius: inherit; background: var(--green); transition: width 250ms ease; }
+.update-progress-track.is-indeterminate > span { width: 30%; animation: progress-moving 1.5s ease-in-out infinite; }
+@keyframes progress-moving { from { transform: translateX(-100%); } to { transform: translateX(435%); } }
+.update-progress-caption { font-size: 12px; color: var(--muted); font-variant-numeric: tabular-nums; }
+.update-progress-current { font-size: 13px; color: var(--muted); margin: 13px 0; overflow-wrap: anywhere; }
+.update-progress-current strong { color: var(--ink); font-weight: 500; }
+.update-progress-counts { display: flex; flex-wrap: wrap; gap: 9px 20px; margin-top: 15px; font-size: 12px; color: var(--muted); }
+.update-progress-counts b { margin-left: 6px; color: var(--ink); font-variant-numeric: tabular-nums; }
+.update-progress small { display: block; margin-top: 13px; font-size: 11px; line-height: 1.6; color: var(--muted); }
+.update-progress .progress-error { color: light-dark(#a33724, #ffa38c); font-size: 12px; }
+.update-progress.has-issues { border-color: color-mix(in srgb, var(--orange) 30%, var(--line)); }
+.uw-focused-plugin { padding: 14px 16px; border: 1px solid var(--line); border-radius: 10px; margin: 0 0 16px; display: flex; align-items: center; gap: 14px; flex-wrap: wrap; }
+.uw-focused-plugin p { font-size: 12px; color: var(--muted); margin: 4px 0 0; }
+.uw-focused-plugin .text-button { margin-left: auto; }
+@media (max-width: 520px) { .update-progress { padding: 16px; } .update-progress-heading > span { font-size: 19px; } .update-progress-counts { gap: 8px 12px; } }
+@media (prefers-reduced-motion: reduce) { .update-progress-track > span { animation: none; transition: none; } }

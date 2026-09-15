@@ -1,6 +1,20 @@
 import { useState } from "react";
 import { t } from "./i18n";
 
+export function GitAccessHelp() {
+  return <details className="git-access-help">
+    <summary>{t("私有仓库访问设置")}</summary>
+    <p>{t("使用这台电脑已有的 Git 登录或 SSH 密钥。仅在浏览器登录并不够；SkillDock 不保存密码或 token。")}</p>
+    <strong>HTTPS</strong>
+    <p>{t("仓库地址和 GitHub 目录链接使用本机 Git credential helper，例如 macOS Keychain。已安装 GitHub CLI 的用户可先在终端完成：")}</p>
+    <pre><code>{"gh auth login\ngh auth setup-git"}</code></pre>
+    <strong>SSH</strong>
+    <p>{t("也可使用 SSH 仓库地址，例如 git@github.com:owner/repo.git。先在终端验证主机，并将密钥解锁到 ssh-agent。")}</p>
+    <p>{t("定时更新使用相同凭据。凭据过期、密钥未解锁或组织授权不足时，会记录失败；完成授权后可重新检查。不要把 token 放进仓库地址。")}</p>
+    <a href="https://docs.github.com/en/get-started/git-basics/caching-your-github-credentials-in-git" target="_blank" rel="noreferrer">{t("查看 GitHub 认证说明")}</a>
+  </details>;
+}
+
 export function GitSourceFields({ source, subpath, gitRef, setSource, setSubpath, setRef }: {
   source: string; subpath: string; gitRef: string;
   setSource: (value: string) => void; setSubpath: (value: string) => void; setRef: (value: string) => void;
@@ -24,6 +38,7 @@ export function GitSourceFields({ source, subpath, gitRef, setSource, setSubpath
         <small>{t("仅仓库根地址或其他 Git 托管服务需要；目录链接无需填写。")}</small>
       </label>
     </details>
+    <GitAccessHelp />
   </>;
 }
 

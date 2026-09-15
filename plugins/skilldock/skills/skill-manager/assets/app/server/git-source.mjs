@@ -5,6 +5,7 @@ export function githubDirectory(source) {
   if (typeof source !== 'string' || source.length > 2000) return null;
   let url;
   try { url = new URL(source); } catch { return null; }
+  if (url.protocol === 'ssh:') return null;
   if (!['github.com', 'www.github.com'].includes(url.hostname.toLowerCase())) return null;
   if (url.protocol !== 'https:' || url.port || url.username || url.password || url.search)
     fail(400, 'INVALID_GITHUB_URL', 'GitHub 来源请使用不含凭证或查询参数的 HTTPS 仓库或目录链接。');

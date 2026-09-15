@@ -1374,5 +1374,249 @@
   "移除预览已准备好，请核对每份路径。": {
     "en": "Removal preview is ready. Review each path.",
     "ja": "削除プレビューを用意しました。各パスを確認してください。"
+  },
+  "编辑 {v0} 的标签": {
+    "en": "Edit tags for {v0}",
+    "ja": "{v0} のタグを編集"
+  },
+  "添加标签": {
+    "en": "Add tag",
+    "ja": "タグを追加"
+  },
+  "编辑标签": {
+    "en": "Edit tags",
+    "ja": "タグを編集"
+  },
+  "修改标签": {
+    "en": "Update tag",
+    "ja": "タグを変更"
+  },
+  "编辑": {
+    "en": "Edit",
+    "ja": "編集"
+  },
+  "标签筛选": {
+    "en": "Filter by tags",
+    "ja": "タグで絞り込む"
+  },
+  "搜索标签": {
+    "en": "Search tags",
+    "ja": "タグを検索"
+  },
+  "匹配任一选中标签": {
+    "en": "Match any selected tag",
+    "ja": "選択したいずれかのタグに一致"
+  },
+  "未添加标签": {
+    "en": "Untagged",
+    "ja": "タグなし"
+  },
+  "没有匹配的标签": {
+    "en": "No matching tags",
+    "ja": "一致するタグはありません"
+  },
+  "还没有标签，可在卡片上添加。": {
+    "en": "No tags yet. Add them on a card.",
+    "ja": "タグはまだありません。カードから追加できます。"
+  },
+  "输入更多文字以缩小标签范围。": {
+    "en": "Type more to narrow the tag list.",
+    "ja": "文字を追加してタグを絞り込んでください。"
+  },
+  "完成选择": {
+    "en": "Done selecting",
+    "ja": "選択を完了"
+  },
+  "已选标签": {
+    "en": "Selected tags",
+    "ja": "選択したタグ"
+  },
+  "取消筛选 {v0}": {
+    "en": "Remove filter {v0}",
+    "ja": "{v0} の絞り込みを解除"
+  },
+  "清空标签筛选": {
+    "en": "Clear tag filters",
+    "ja": "タグの絞り込みを解除"
+  },
+  "每个标签需要 1 至 32 个字符，不能包含控制字符。": {
+    "en": "Use 1–32 characters per tag, without control characters.",
+    "ja": "タグは制御文字を含まない1〜32文字で入力してください。"
+  },
+  "这个标签已经添加。": {
+    "en": "This tag has already been added.",
+    "ja": "このタグは追加済みです。"
+  },
+  "每个对象最多设置 12 个标签。": {
+    "en": "Each item can have up to 12 tags.",
+    "ja": "各項目には最大12個のタグを設定できます。"
+  },
+  "标签只保存在 SkillDock 本机数据中，更新后保留。点击标签文字可以修改。": {
+    "en": "Tags are stored locally in SkillDock and kept after updates. Click a tag to edit it.",
+    "ja": "タグはSkillDockのローカルデータに保存され、更新後も保持されます。タグの文字をクリックすると編集できます。"
+  },
+  "移除标签 {v0}": {
+    "en": "Remove tag {v0}",
+    "ja": "タグ {v0} を削除"
+  },
+  "尚未添加标签": {
+    "en": "No tags added yet",
+    "ja": "タグはまだ追加されていません"
+  },
+  "标签名称": {
+    "en": "Tag name",
+    "ja": "タグ名"
+  },
+  "例如：研发、常用、写作": {
+    "en": "For example: Engineering, Favorites, Writing",
+    "ja": "例：開発、よく使う、執筆"
+  },
+  "最多 12 个标签，每个最多 32 个字符。": {
+    "en": "Up to 12 tags, with up to 32 characters each.",
+    "ja": "最大12個、各タグは32文字まで。"
+  },
+  "已有标签": {
+    "en": "Existing tags",
+    "ja": "既存のタグ"
+  },
+  "正在保存…": {
+    "en": "Saving…",
+    "ja": "保存中…"
+  },
+  "保存标签": {
+    "en": "Save tags",
+    "ja": "タグを保存"
+  },
+  "标签已保存。": {
+    "en": "Tags saved.",
+    "ja": "タグを保存しました。"
+  },
+  "正在准备更新清单": {
+    "en": "Preparing the update list",
+    "ja": "更新一覧を準備しています"
+  },
+  "正在检查": {
+    "en": "Checking",
+    "ja": "確認中"
+  },
+  "正在应用更新": {
+    "en": "Applying update",
+    "ja": "更新を適用中"
+  },
+  "正在保存检查结果": {
+    "en": "Saving results",
+    "ja": "結果を保存中"
+  },
+  "检查结束": {
+    "en": "Check finished",
+    "ja": "確認終了"
+  },
+  "更新检查进行中": {
+    "en": "Update check in progress",
+    "ja": "更新の確認中"
+  },
+  "更新检查已完成": {
+    "en": "Update check complete",
+    "ja": "更新の確認が完了しました"
+  },
+  "更新检查部分完成": {
+    "en": "Update check partially complete",
+    "ja": "更新の確認は一部完了しました"
+  },
+  "更新检查未完成": {
+    "en": "Update check did not complete",
+    "ja": "更新の確認は完了していません"
+  },
+  "更新进度": {
+    "en": "Update progress",
+    "ja": "更新の進捗"
+  },
+  "已处理 {v0} / {v1} 个更新对象": {
+    "en": "Processed {v0} / {v1} update targets",
+    "ja": "更新対象 {v0} / {v1} 件を処理済み"
+  },
+  "已是最新": {
+    "en": "Up to date",
+    "ja": "最新です"
+  },
+  "有可用更新": {
+    "en": "Update available",
+    "ja": "更新あり"
+  },
+  "已更新": {
+    "en": "Updated",
+    "ja": "更新済み"
+  },
+  "已跳过": {
+    "en": "Skipped",
+    "ja": "スキップ"
+  },
+  "失败": {
+    "en": "Failed",
+    "ja": "失敗"
+  },
+  "按更新对象计数；一个插件及其附带技能算一个对象。": {
+    "en": "Counts update targets; a plugin and its bundled skills count as one target.",
+    "ja": "更新対象ごとの件数です。プラグインと同梱スキルは1件として数えます。"
+  },
+  "暂时无法读取进度，正在重试；后台任务可能仍在运行。": {
+    "en": "Progress is temporarily unavailable. Retrying; the background task may still be running.",
+    "ja": "進捗を取得できないため再試行しています。バックグラウンド処理は継続している可能性があります。"
+  },
+  "更新整个插件及其附带技能": {
+    "en": "Update the whole plugin and its bundled skills",
+    "ja": "プラグイン全体と同梱スキルをまとめて更新"
+  },
+  "管理更新": {
+    "en": "Manage updates",
+    "ja": "更新を管理"
+  },
+  "查看全部更新对象": {
+    "en": "Show all update targets",
+    "ja": "すべての更新対象を表示"
+  },
+  "耗时 {v0} 分 {v1} 秒": {
+    "en": "Elapsed {v0}m {v1}s",
+    "ja": "経過 {v0}分 {v1}秒"
+  },
+  "已处理 {v0} 个更新对象": {
+    "en": "Processed {v0} update targets",
+    "ja": "更新対象 {v0} 件を処理済み"
+  },
+  "私有仓库访问设置": {
+    "en": "Private repository access",
+    "ja": "プライベートリポジトリへのアクセス"
+  },
+  "使用这台电脑已有的 Git 登录或 SSH 密钥。仅在浏览器登录并不够；SkillDock 不保存密码或 token。": {
+    "en": "Use the Git credentials or SSH keys configured on this computer. Browser sign-in alone is not enough; SkillDock does not store passwords or tokens.",
+    "ja": "このコンピューターに設定済みの Git 認証情報または SSH 鍵を使用します。ブラウザーへのログインだけでは不十分です。SkillDock はパスワードやトークンを保存しません。"
+  },
+  "仓库地址和 GitHub 目录链接使用本机 Git credential helper，例如 macOS Keychain。已安装 GitHub CLI 的用户可先在终端完成：": {
+    "en": "Repository URLs and GitHub directory links use your local Git credential helper, such as macOS Keychain. If GitHub CLI is installed, run these commands in a terminal first:",
+    "ja": "リポジトリ URL と GitHub ディレクトリリンクには、macOS Keychain などのローカル Git credential helper を使用します。GitHub CLI がインストール済みの場合、先にターミナルで実行してください："
+  },
+  "定时更新使用相同凭据。凭据过期、密钥未解锁或组织授权不足时，会记录失败；完成授权后可重新检查。不要把 token 放进仓库地址。": {
+    "en": "Scheduled updates use the same credentials. Expired credentials, locked keys or missing organization authorization are recorded as failures; retry after restoring access. Do not put tokens in repository URLs.",
+    "ja": "定期更新も同じ認証情報を使用します。認証情報の期限切れ、鍵のロック、組織の承認不足は失敗として記録されます。アクセスを復旧して再確認してください。URL にトークンを含めないでください。"
+  },
+  "查看 GitHub 认证说明": {
+    "en": "GitHub authentication guide",
+    "ja": "GitHub の認証ガイド"
+  },
+  "Git 认证失败或当前账号无权访问。请先在这台电脑配置 HTTPS 登录或 SSH 密钥，并确认私有仓库及组织授权，再重试。定时更新也使用同一凭据。": {
+    "en": "Git authentication failed or this account lacks access. Set up HTTPS credentials or SSH keys on this computer, confirm repository and organization access, then retry. Scheduled updates use the same credentials.",
+    "ja": "Git 認証に失敗したか、現在のアカウントにアクセス権がありません。このコンピューターで HTTPS 認証または SSH 鍵を設定し、リポジトリと組織の承認を確認して再試行してください。定期更新も同じ認証情報を使用します。"
+  },
+  "仓库不存在，或当前 Git 账号没有访问权限。请核对仓库地址和本机 Git 授权；浏览器中能打开仓库并不代表 Git 已登录。": {
+    "en": "The repository does not exist or the current Git account lacks access. Check the URL and local Git authorization; opening it in a browser does not mean Git is signed in.",
+    "ja": "リポジトリが存在しないか、現在の Git アカウントにアクセス権がありません。URL とローカル Git の認証を確認してください。ブラウザーで開けても Git にログイン済みとは限りません。"
+  },
+  "SSH 主机尚未验证或主机密钥已变化。请先在终端核验该主机，再重试；SkillDock 不自动信任新的主机密钥。": {
+    "en": "The SSH host is unverified or its host key has changed. Verify the host in a terminal before retrying; SkillDock does not automatically trust new host keys.",
+    "ja": "SSH ホストが未確認か、ホスト鍵が変更されています。先にターミナルでホストを確認して再試行してください。SkillDock は新しいホスト鍵を自動で信頼しません。"
+  },
+  "也可使用 SSH 仓库地址，例如 git@github.com:owner/repo.git。先在终端验证主机，并将密钥解锁到 ssh-agent。": {
+    "en": "You can also use an SSH repository URL, such as git@github.com:owner/repo.git. Verify the host in a terminal first and unlock your key in ssh-agent.",
+    "ja": "git@github.com:owner/repo.git などの SSH URL も使用できます。先にターミナルでホストを確認し、ssh-agent で鍵を利用できる状態にしてください。"
   }
 }

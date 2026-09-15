@@ -422,5 +422,21 @@
   "REMOVAL_OVERLAP": {
     "en": "This directory contains other discovered skills. Manage those locations separately.",
     "ja": "このディレクトリには他の検出済みスキルが含まれます。それぞれの場所を個別に管理してください。"
+  },
+  "INVALID_TAGS": {
+    "en": "Use up to 12 tags, with 1–32 characters per tag and no control characters.",
+    "ja": "タグは最大12個、各タグは制御文字を含まない1〜32文字で入力してください。"
+  },
+  "GIT_AUTH_REQUIRED": {
+    "en": "Git authentication failed or this account lacks access. Set up HTTPS credentials or SSH keys on this computer, confirm repository and organization access, then retry. Scheduled updates use the same credentials.",
+    "ja": "Git 認証に失敗したか、現在のアカウントにアクセス権がありません。このコンピューターで HTTPS 認証または SSH 鍵を設定し、リポジトリと組織の承認を確認して再試行してください。定期更新も同じ認証情報を使用します。"
+  },
+  "GIT_REPOSITORY_UNAVAILABLE": {
+    "en": "The repository does not exist or the current Git account lacks access. Check the URL and local Git authorization; opening it in a browser does not mean Git is signed in.",
+    "ja": "リポジトリが存在しないか、現在の Git アカウントにアクセス権がありません。URL とローカル Git の認証を確認してください。ブラウザーで開けても Git にログイン済みとは限りません。"
+  },
+  "GIT_HOST_UNVERIFIED": {
+    "en": "The SSH host is unverified or its host key has changed. Verify the host in a terminal before retrying; SkillDock does not automatically trust new host keys.",
+    "ja": "SSH ホストが未確認か、ホスト鍵が変更されています。先にターミナルでホストを確認して再試行してください。SkillDock は新しいホスト鍵を自動で信頼しません。"
   }
 }

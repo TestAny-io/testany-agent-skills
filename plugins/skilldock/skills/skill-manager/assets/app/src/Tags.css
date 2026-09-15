@@ -1,0 +1,38 @@
+.tag-strip { display: flex; align-items: center; gap: 6px; flex-wrap: wrap; color: var(--muted); font: inherit; font-size: 12px; text-align: left; background: none; border: 0; padding: 8px 0; cursor: pointer; min-height: 34px; }
+.skill-card > .tag-strip { margin: 0 21px 8px; }
+.tag-strip:hover { color: var(--green); }
+.tag-chip { display: inline-flex; align-items: center; gap: 5px; min-width: 0; max-width: 100%; padding: 4px 9px; border: 1px solid color-mix(in srgb, var(--green) 18%, var(--line)); background: color-mix(in srgb, var(--green) 7%, var(--canvas)); color: var(--green); border-radius: 7px; font: inherit; font-size: 12px; overflow-wrap: anywhere; }
+.tag-edit-caption { font-size: 11px; margin-left: auto; }
+.tag-filter-bar { position: relative; display: flex; align-items: center; gap: 10px; margin: 12px 0 22px; flex-wrap: wrap; }
+.tag-filter { position: relative; }
+.tag-filter summary { list-style: none; display: flex; align-items: center; gap: 8px; border: 1px solid var(--line); padding: 9px 12px; border-radius: 9px; cursor: pointer; font-size: 13px; color: var(--muted); }
+.tag-filter summary::-webkit-details-marker { display: none; }
+.tag-filter[open] summary { border-color: var(--green); color: var(--green); }
+.tag-filter summary b { font-size: 11px; border-radius: 4px; padding: 1px 5px; background: color-mix(in srgb, var(--green) 12%, var(--canvas)); }
+.tag-filter-popover { position: absolute; top: calc(100% + 7px); left: 0; z-index: 12; width: min(310px, calc(100vw - 58px)); padding: 14px; background: var(--canvas); border: 1px solid var(--line); border-radius: 12px; box-shadow: 0 12px 32px #0002; }
+.tag-search { display: flex; gap: 7px; align-items: center; border: 1px solid var(--line); border-radius: 7px; padding: 8px; }
+.tag-search input { width: 100%; min-width: 0; border: 0; outline: 0; background: none; color: var(--ink); font: inherit; font-size: 13px; }
+.tag-filter-popover p { font-size: 12px; color: var(--muted); margin: 10px 0; }
+.tag-filter-options { max-height: 245px; overflow-y: auto; }
+.tag-filter-options label { display: flex; gap: 8px; padding: 9px 4px; align-items: center; cursor: pointer; font-size: 13px; }
+.tag-filter-options label span { flex: 1; min-width: 0; overflow-wrap: anywhere; }
+.tag-filter-options small { color: var(--muted); }
+.tag-filter-options input { accent-color: var(--green); }
+.tag-selected { display: flex; flex-wrap: wrap; gap: 6px; }
+.tag-selected button, .tag-suggestions button { cursor: pointer; }
+.tags-editor h3 { margin-top: 0; }
+.tags-editor > p, .tags-editor small, .tags-empty { color: var(--muted); font-size: 13px; line-height: 1.7; }
+.tags-subject-path { display: block; overflow-wrap: anywhere; font-size: 11px; color: var(--muted); }
+.tags-edit-list { display: flex; flex-wrap: wrap; gap: 8px; min-height: 52px; padding: 12px; border: 1px solid var(--line); border-radius: 10px; margin: 16px 0; }
+.tags-edit-list .tag-chip { padding: 0; }
+.tags-edit-list button { padding: 5px 7px; background: none; border: 0; color: inherit; font: inherit; cursor: pointer; overflow-wrap: anywhere; }
+.tags-edit-list .is-editing { outline: 2px solid var(--green); }
+.tag-input-row { display: flex; gap: 8px; align-items: stretch; }
+.tag-input-row input { min-width: 0; flex: 1; width: 100%; }
+.tag-input-row .button { white-space: nowrap; flex: 0 0 auto; }
+.tag-suggestions { display: flex; gap: 7px; align-items: center; flex-wrap: wrap; margin-top: 18px; }
+.tag-suggestions > span { color: var(--muted); font-size: 12px; margin-right: 3px; }
+.tag-strip:focus-visible, .tag-chip button:focus-visible, .tag-chip:focus-visible, .tag-filter summary:focus-visible { outline: 2px solid var(--green); outline-offset: 3px; }
+.skill-list .skill-card > .tag-strip { min-width: 0; max-width: 260px; margin: 0 20px 7px; flex-shrink: 1; }
+.plugin-actions { flex-wrap: wrap; }
+@media (max-width: 520px) { .tag-input-row { flex-wrap: wrap; } .tag-input-row input { flex-basis: 100%; } .tag-edit-caption { display: none; } }

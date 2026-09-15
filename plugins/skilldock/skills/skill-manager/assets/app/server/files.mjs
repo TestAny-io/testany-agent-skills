@@ -115,6 +115,6 @@ export function redact(message) {
 }
 export function publicSource(source) {
   if (typeof source !== 'string') return '';
-  try { const url = new URL(source); if (['https:', 'http:', 'ssh:'].includes(url.protocol)) { url.username = ''; url.password = ''; url.search = ''; url.hash = ''; return url.toString(); } } catch { /* Local paths and scp-style Git URLs are ordinary labels. */ }
+  try { const url = new URL(source); if (['https:', 'http:', 'ssh:'].includes(url.protocol)) { if (url.protocol !== 'ssh:') url.username = ''; url.password = ''; url.search = ''; url.hash = ''; return url.toString(); } } catch { /* Local paths and scp-style Git URLs are ordinary labels. */ }
   return redact(source);
 }
