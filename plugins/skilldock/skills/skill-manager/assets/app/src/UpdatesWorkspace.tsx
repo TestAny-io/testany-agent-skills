@@ -18,7 +18,8 @@ import type {
   UpdateTarget,
 } from "../shared/contracts";
 import { Modal } from "./Modal";
-import { ServiceMessage } from "./i18n";
+import { ServiceMessage, t as translate } from "./i18n";
+import { UpdateProgress } from "./UpdateProgress";
 import { SourceProvenance } from "./SourceProvenance";
 import { DiffBrowser } from "./DiffBrowser";
 import { GitSourceFields, ResolvedGitSource } from "./GitSourceFields";
@@ -422,6 +423,9 @@ function minutesForHours(value: string): number | undefined {
 }
 interface Props {
   data: Snapshot;
+  runPending: boolean;
+  focusTarget?: string;
+  onClearFocus: () => void;
   busy: boolean;
   language: Language;
   execute: (
@@ -433,6 +437,9 @@ interface Props {
 
 export function UpdatesWorkspace({
   data,
+  runPending,
+  focusTarget,
+  onClearFocus,
   busy,
   language,
   execute,
@@ -441,6 +448,7 @@ export function UpdatesWorkspace({
 }: Props) {
   const t = (key: Key) => copy[language][key];
   const [search, setSearch] = useState("");
+  const [batchRunning, setBatchRunning] = useState(data.updateProgress?.status === "running");
   const [editing, setEditing] = useState(false);
   const [form, setForm] = useState<ScheduleInput>();
   const [intervalChoice, setIntervalChoice] = useState<IntervalChoice>("24");
@@ -475,11 +483,11 @@ export function UpdatesWorkspace({
   const shown = useMemo(
     () =>
       items.filter((item) =>
-        `${item.name} ${item.owner} ${item.installedPath || ""} ${item.sourceInfo?.source || ""}`
+        (!focusTarget || item.target.kind === "plugin" && item.target.id === focusTarget) && `${item.name} ${item.owner} ${item.installedPath || ""} ${item.sourceInfo?.source || ""}`
           .toLowerCase()
           .includes(search.toLowerCase()),
       ),
-    [items, search],
+    [items, search, focusTarget],
   );
   useEffect(() => {
     setEditing(false);
@@ -605,7 +613,7 @@ export function UpdatesWorkspace({
           <span
             className={`badge badge-${data.schedule?.enabled ? "green" : "neutral"}`}
           >
-            {data.schedule?.running
+            {batchRunning
               ? t("running")
               : data.schedule?.enabled
                 ? t("on")
@@ -656,7 +664,7 @@ export function UpdatesWorkspace({
         </div>
         <button
           className="button button-secondary"
-          disabled={busy || !items.some((item) => item.canCheck)}
+          disabled={busy || batchRunning || !items.some((item) => item.canCheck)}
           onClick={() =>
             void safeRun({ action: "updates.run", autoApply: false })
           }
@@ -665,6 +673,9 @@ export function UpdatesWorkspace({
           {t("checkAll")}
         </button>
       </div>
+      <UpdateProgress key={data.mode} mode={data.mode} seed={data.updateProgress} pending={runPending} onComplete={() => refreshRef.current()} onRunningChange={setBatchRunning} />
+      {focusTarget && <div className="uw-focused-plugin"><div><strong>{data.plugins.find(plugin => plugin.id === focusTarget)?.name || focusTarget}</strong>
+        <p>{translate("更新整个插件及其附带技能")}</p></div><button className="text-button" onClick={onClearFocus}>{translate("查看全部更新对象")}</button></div>}
       <label className="uw-search">
         <Search size={17} />
         <input

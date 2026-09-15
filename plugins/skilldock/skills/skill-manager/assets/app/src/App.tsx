@@ -1,4 +1,5 @@
 import { useEffect, useMemo, useRef, useState, type ReactNode } from "react";
+import packageInfo from "../package.json";
 import {
   ArrowDownToLine,
   ArrowLeft,
@@ -69,12 +70,14 @@ import { Modal } from "./Modal";
 import { UpdatesWorkspace } from "./UpdatesWorkspace";
 import { DiffBrowser } from "./DiffBrowser";
 import { DuplicateSkillsDialog } from "./DuplicateSkillsDialog";
-import { GitSourceFields, ResolvedGitSource } from "./GitSourceFields";
+import { GitSourceFields, ResolvedGitSource, GitAccessHelp } from "./GitSourceFields";
 import { useRuntimeConnection } from "./useRuntimeConnection";
+import { TagStrip, TagFilter, TagsDialog, matchesTags, type TagSubject } from "./Tags";
 
 type Page = "skills" | "plugins" | "markets" | "updates" | "activity";
 type Metric = "all" | "enabled" | "standalone" | "attention";
 type Dialog =
+  | { type: "tags"; subject: TagSubject }
   | { type: "duplicates"; name: string }
   | { type: "detail"; skill: Skill }
   | { type: "install" }
@@ -329,6 +332,9 @@ export default function App() {
   const [loadError, setLoadError] = useState("");
   const [query, setQuery] = useState("");
   const [scope, setScope] = useState("all");
+  const [skillTags, setSkillTags] = useState<string[]>([]);
+  const [pluginTags, setPluginTags] = useState<string[]>([]);
+  const [updateFocus, setUpdateFocus] = useState<string>();
   const [metric, setMetric] = useState<Metric>("all");
   const [view, setView] = useState<"grid" | "list">("grid");
   const [pluginFilter, setPluginFilter] = useState<
@@ -340,6 +346,7 @@ export default function App() {
     query,
     marketFilter,
     pluginFilter,
+    pluginTags,
   ]);
   const [pluginWindow, setPluginWindow] = useState({
     key: pluginScopeKey,
@@ -406,6 +413,7 @@ export default function App() {
   function navigate(next: Page) {
     setPage(next);
     setQuery("");
+    setUpdateFocus(undefined);
     setDialog(null);
   }
   async function action(
@@ -462,9 +470,9 @@ export default function App() {
           ? `已启用固定 ${savedSchedule.intervalMinutes / 60} 小时周期，${savedSchedule.targets.length} 个明确目标；${savedSchedule.autoApply ? "自动应用已验证更新。" : "仅检查。"}`
           : result.message;
         setToast({
-          kind: "success",
+          kind: result.run && result.run.status !== "success" ? "error" : "success",
           message:
-            message +
+            (result.run ? t(result.run.status === "success" ? "更新检查已完成" : result.run.status === "partial" ? "更新检查部分完成" : "更新检查未完成") : message) +
             (result.needsReload ? " 新的 Codex 会话或重载后生效。" : ""),
         });
         await refresh();
@@ -484,6 +492,9 @@ export default function App() {
   }
   function run(request: Omit<ActionRequest, "mode">) {
     void action(request).catch(() => {});
+  }
+  function editTags(kind: "skill" | "plugin", item: Skill | Plugin) {
+    setDialog({ type: "tags", subject: { kind, id: item.id, name: item.name, tags: item.tags, path: "path" in item ? item.path : item.id } });
   }
   function toggleSkill(skill: Skill) {
     run({ action: "skill.toggle", id: skill.id, enabled: !skill.enabled });
@@ -546,6 +557,7 @@ export default function App() {
           `${skill.name} ${skill.description} ${t(skill.sourceLabel)} ${skill.path}`.toLowerCase();
         return (
           words.includes(query.toLowerCase()) &&
+          matchesTags(skill.tags, skillTags) &&
           (scope === "all" || skill.scope === scope) &&
           (metric !== "enabled" || skill.enabled === true) &&
           (metric !== "standalone" ||
@@ -556,7 +568,7 @@ export default function App() {
             (skill.duplicateNames?.length || 0) > 0)
         );
       }),
-    [skills, query, scope, metric],
+    [skills, query, scope, metric, skillTags],
   );
   const filteredPlugins = (data?.plugins || []).filter(
     (plugin) =>
@@ -565,6 +577,7 @@ export default function App() {
           ? plugin.installed
           : !plugin.installed)) &&
       (marketFilter === "all" || plugin.marketplace === marketFilter) &&
+      matchesTags(plugin.tags, pluginTags) &&
       `${plugin.name} ${plugin.description} ${plugin.marketplace}`
         .toLowerCase()
         .includes(query.toLowerCase()),
@@ -614,14 +627,13 @@ export default function App() {
               {item.id === "updates" && availableUpdates > 0 && (
                 <span className="nav-count">{availableUpdates}</span>
               )}
-              {page === item.id && <span className="nav-active-dot" />}
             </button>
           ))}
         </nav>
         <div className="sidebar-bottom">
           <div className="sidebar-version">
             <span className="tiny-dot" />
-            A Testany Product <span>v0.2 · {t("预览版")}</span>
+            A Testany Product <span>v{packageInfo.version} · {t("预览版")}</span>
           </div>
         </div>
       </aside>
@@ -925,6 +937,7 @@ export default function App() {
                       </button>
                     </div>
                   </div>
+                  <TagFilter items={skills} selected={skillTags} onChange={setSkillTags} />
                   <div className="collection-heading">
                     <h2>
                       {metric === "all"
@@ -984,6 +997,7 @@ export default function App() {
                                   )}
                               </p>
                             </button>
+                            <TagStrip subject={{ ...skill, kind: "skill" }} disabled={!!busy} onEdit={() => editTags("skill", skill)} />
                             {!!skill.duplicateNames?.length && <code className="skill-instance-path">{skill.path}</code>}
                             <SkillReason
                               skill={skill}
@@ -1055,6 +1069,7 @@ export default function App() {
                             setQuery("");
                             setScope("all");
                             setMetric("all");
+                            setSkillTags([]);
                           } else setDialog({ type: "install" });
                         }}
                       >
@@ -1135,6 +1150,7 @@ export default function App() {
                       <ChevronDown size={13} />
                     </label>
                   </div>
+                  <TagFilter items={data.plugins} selected={pluginTags} onChange={setPluginTags} />
                   <div className="collection-heading">
                     <h2>
                       {pluginFilter === "available"
@@ -1155,6 +1171,8 @@ export default function App() {
                           <PluginCard
                             key={plugin.id}
                             plugin={plugin}
+                            onEditTags={() => editTags("plugin", plugin)}
+                            onUpdates={() => { navigate("updates"); setUpdateFocus(plugin.id); }}
                             busy={busy}
                             onToggle={() =>
                               run({
@@ -1332,6 +1350,9 @@ export default function App() {
               {page === "updates" && (
                 <UpdatesWorkspace
                   data={data}
+                  runPending={busy === "updates.run:"}
+                  focusTarget={updateFocus}
+                  onClearFocus={() => setUpdateFocus(undefined)}
                   busy={!!busy}
                   language={language}
                   execute={action}
@@ -1448,6 +1469,8 @@ export default function App() {
         </main>
       </div>
 
+      {dialog?.type === "tags" && data && <TagsDialog key={`${mode}:${dialog.subject.kind}:${dialog.subject.id}`} subject={dialog.subject}
+        suggestions={[...data.skills, ...data.plugins].flatMap(item => item.tags || [])} busy={!!busy} execute={action} onClose={() => setDialog(null)} />}
       {dialog?.type === "project" && data && <ProjectDialog project={data.paths.project} busy={busy} action={action} onClose={() => setDialog(null)} />}
       {dialog?.type === "preferences" && (
         <PreferencesDialog onClose={() => setDialog(null)} />
@@ -1466,6 +1489,7 @@ export default function App() {
           onClose={() =>
             setDialog((current) => (current === dialog ? null : current))
           }
+          onEditTags={() => editTags("skill", displaySkill)}
           onToggle={() => toggleSkill(displaySkill)}
           onRemove={() => confirmRemoveSkill(displaySkill)}
           onUpdate={() => void checkUpdate(displaySkill)}
@@ -1580,6 +1604,8 @@ function SearchField({
   );
 }
 function PluginCard({
+  onEditTags,
+  onUpdates,
   plugin,
   busy,
   onToggle,
@@ -1587,6 +1613,8 @@ function PluginCard({
   onRemove,
 }: {
   plugin: Plugin;
+  onEditTags: () => void;
+  onUpdates: () => void;
   busy: string | null;
   onToggle: () => void;
   onInstall: () => void;
@@ -1609,6 +1637,7 @@ function PluginCard({
             "这个插件尚未提供描述。请根据来源与附带技能判断是否适合你的工作流。",
           )}
       </p>
+      <TagStrip subject={{ ...plugin, kind: "plugin" }} disabled={!!busy} onEdit={onEditTags} />
       <div className="plugin-meta">
         <span>
           <Globe2 size={13} />
@@ -1642,6 +1671,7 @@ function PluginCard({
                     : t("已禁用")}
               </span>
             </div>
+            <Button variant="ghost" onClick={onUpdates} disabled={!!busy} title={t("更新整个插件及其附带技能")}><RefreshCw size={14} />{t("管理更新")}</Button>
             <Button
               variant="ghost"
               onClick={onRemove}
@@ -1785,6 +1815,7 @@ function SkillDetail({
   onCopy,
   onPlugin,
   onDuplicates,
+  onEditTags,
 }: {
   skill: Skill;
   mode: Mode;
@@ -1796,6 +1827,7 @@ function SkillDetail({
   onCopy: (value: string) => void;
   onPlugin: () => void;
   onDuplicates: () => void;
+  onEditTags: () => void;
 }) {
   const [content, setContent] = useState<string | null>(null);
   const [error, setError] = useState("");
@@ -1830,6 +1862,7 @@ function SkillDetail({
             {skill.canUpdate && <Badge tone="green">{t("已记录来源")}</Badge>}
           </div>
         </div>
+        <TagStrip subject={{ ...skill, kind: "skill" }} disabled={!!busy} onEdit={onEditTags} />
         <div className="detail-state">
           <div>
             <strong>{t("启用状态")}</strong>
@@ -2258,6 +2291,7 @@ function MarketDialog({
               />
             </label>
           )}
+          {sourceType === "git" && <GitAccessHelp />}
           <div className="dialog-note">
             <Package size={16} />
             <p>{t("添加来源后，可以前往「插件」浏览并选择要安装的内容。")}</p>

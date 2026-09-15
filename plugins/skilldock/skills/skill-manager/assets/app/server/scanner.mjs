@@ -70,6 +70,7 @@ export async function scan(environment, registry, catalog) {
     const id = identity(directory);
     const record = {
       id, name: detail.name, description: detail.description, path: entry, scope, sourceLabel: extra.label || (scope === 'system' ? '系统内置' : root.label), enabled,
+      packagePath: packagePlugin ? path.relative(extra.boundary, entry) : undefined,
       pluginId: packagePlugin?.id || extra.pluginId, version: packagePlugin?.version || extra.version, managed: !owned, isLink,
       canToggle: configValid && (owned || !!packagePlugin?.canToggle), canRemove: owned, canUpdate: owned && !isLink && !!registry.sources[id],
       reason: !configValid ? '配置无法解析，启用状态未知；配置开关暂不可用。' : !owned ? packagePlugin ? '插件附带技能，请按所属插件管理。' : scope === 'cache' ? '仅发现缓存，当前安装和启用状态待核实。' : '系统或托管内容受保护。' : undefined,
@@ -80,7 +81,7 @@ export async function scan(environment, registry, catalog) {
       prior.aliases = [...(prior.aliases || []), entry];
       // A path that resolves to a protected entity cannot gain write access through an alias.
       if (!owned && !packagePlugin) { prior.canToggle = false; prior.canRemove = false; prior.canUpdate = false; prior.managed = true; }
-      if (packagePlugin) Object.assign(prior, { scope: 'plugin', managed: true, pluginId: packagePlugin.id, version: packagePlugin.version, sourceLabel: packagePlugin.name, enabled: packagePlugin.enabled, canToggle: configValid && !!packagePlugin.canToggle, canRemove: false, canUpdate: false, reason: '插件附带技能，请按所属插件管理。', statusEvidence: 'Codex CLI / 已安装包状态' });
+      if (packagePlugin) Object.assign(prior, { scope: 'plugin', packagePath: path.relative(extra.boundary, entry), managed: true, pluginId: packagePlugin.id, version: packagePlugin.version, sourceLabel: packagePlugin.name, enabled: packagePlugin.enabled, canToggle: configValid && !!packagePlugin.canToggle, canRemove: false, canUpdate: false, reason: '插件附带技能，请按所属插件管理。', statusEvidence: 'Codex CLI / 已安装包状态' });
       return;
     }
     byReal.set(real, record); records.push(record);

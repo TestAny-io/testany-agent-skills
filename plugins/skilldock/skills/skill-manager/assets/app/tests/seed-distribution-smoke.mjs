@@ -8,6 +8,7 @@ import { runProcess } from '../server/cli.mjs';
 
 const skill = fileURLToPath(new URL('../../../', import.meta.url));
 const repository = path.resolve(skill, '../../../..');
+const manifest = JSON.parse(await fs.readFile(path.join(repository, 'plugins/skilldock/.codex-plugin/plugin.json'), 'utf8'));
 const fixture = await fs.mkdtemp(path.join(os.tmpdir(), 'skilldock-standalone-install-'));
 const codexHome = path.join(fixture, 'codex'); const bin = path.join(fixture, 'broken-bin');
 await fs.mkdir(codexHome); await fs.mkdir(bin);
@@ -21,7 +22,7 @@ try {
   const command = async args => JSON.parse((await runProcess(cli, args, { env, cwd: fixture, timeout: 90000 })).stdout);
   const marketplace = await command(['plugin', 'marketplace', 'add', repository, '--json']);
   const installed = await command(['plugin', 'add', 'skilldock@testany-agent-skills', '--json']);
-  assert.equal(installed.version, '0.2.0');
+  assert.equal(installed.version, manifest.version);
   const list = await command(['plugin', 'list', '--marketplace', 'testany-agent-skills', '--json']);
   assert.equal(list.installed.length, 1); assert.equal(list.installed[0].name, 'skilldock'); assert.equal(list.installed[0].enabled, true);
   const installedSkills = await fs.readdir(path.join(installed.installedPath, 'skills'));

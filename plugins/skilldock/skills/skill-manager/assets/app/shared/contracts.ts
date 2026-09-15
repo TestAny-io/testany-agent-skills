@@ -58,6 +58,18 @@ export interface UpdateItem {
   installedPath?: string;
   affectedSkillIds?: string[];
 }
+export interface UpdateProgress {
+  id: string;
+  trigger: UpdateRun["trigger"];
+  startedAt: string;
+  finishedAt?: string;
+  status: UpdateRun["status"];
+  phase: "preparing" | "checking" | "applying" | "finalizing" | "finished";
+  total: number | null;
+  completed: number;
+  current?: { target: UpdateTarget; name: string };
+  counts: Record<"current" | "updated" | "available" | "skipped" | "error", number>;
+}
 export interface UpdateRun {
   id: string;
   trigger: "manual" | "scheduled" | "catch-up";
@@ -109,6 +121,9 @@ export interface Skill {
   sourceLabel: string;
   enabled: boolean | null;
   pluginId?: string;
+  /** Path within a verified plugin, independent of its versioned installation directory. */
+  packagePath?: string;
+  tags?: string[];
   version?: string;
   /** Owned by a plugin/host or otherwise protected; this does not indicate provenance tracking. */
   managed: boolean;
@@ -125,6 +140,7 @@ export interface Skill {
 }
 export interface Plugin {
   id: string;
+  tags?: string[];
   name: string;
   description: string;
   marketplace: string;
@@ -188,6 +204,7 @@ export interface Snapshot {
   updates?: UpdateItem[];
   schedule?: UpdateSchedule;
   updateRuns?: UpdateRun[];
+  updateProgress?: UpdateProgress | null;
 }
 export interface InstallPreview {
   id: string;
@@ -216,6 +233,7 @@ export interface RemovalPreview {
   keep: Skill[];
 }
 export type Action =
+  | "tags.set"
   | "skill.previewRemoval"
   | "skill.removeSelected"
   | "preview.diff"
@@ -245,6 +263,7 @@ export interface ActionRequest {
   id?: string;
   ids?: string[];
   groupName?: string;
+  tags?: string[];
   enabled?: boolean;
   projectDir?: string;
   path?: string;

@@ -78,13 +78,29 @@ class PrepareTests(unittest.TestCase):
                     if path.is_file() and path.suffix in {".md", ".json"} and prepare.INSTALL not in relative.parents:
                         content = path.read_text()
                         self.assertFalse(any(text in content for text in expected_strings), relative)
-                    self.assertNotIn(path.name, {"suite.json", "evaluation.md", "expected.frozen.json", "manifest.json"})
+                    self.assertNotIn(path.name, {"suite.json", "evaluation.md", "expected.frozen.json"})
+                    if path.name == "manifest.json":
+                        self.assertTrue(relative.is_relative_to(prepare.INSTALL), relative)
+                        source_path = relative.relative_to(prepare.INSTALL).as_posix()
+                        self.assertIn(source_path, self.actual["resources"])
+                        self.assertEqual(path.read_bytes(), self.actual["resources"][source_path]["data"])
                     self.assertNotIn(path.name, {".DS_Store", "__pycache__"})
                 for path in (root / prepare.INSTALL).rglob("*"):
                     self.assertFalse(prepare.excluded(path.relative_to(root / prepare.INSTALL)), path)
         self.assertEqual(len(set(roots)), 18)
         fixtures.write(roots[0] / "workspace/unique.txt", "isolated")
         self.assertTrue(all(not (root / "workspace/unique.txt").exists() for root in roots[1:]))
+
+    def test_runtime_manifest_is_preserved_without_exporting_task_manifest(self):
+        source = self.small_source()
+        relative = "plugins/testany-eng/skills/sample/assets/site/manifest.json"
+        fixtures.write(source / relative, '{"name":"local runtime asset"}\n')
+        snapshot = prepare.snapshot("candidate", source_root=source)
+        receipt = prepare.materialize(self.case("E02"), destination=self.root / "task", frozen_source=snapshot)
+        root = Path(receipt["directory"])
+        self.assertEqual((root / prepare.INSTALL / relative).read_bytes(), (source / relative).read_bytes())
+        self.assertFalse((root / "manifest.json").exists())
+        self.assertFalse((root / "expected.frozen.json").exists())
 
     def test_business_materials_cover_measurement_and_exactly_two_open_branches(self):
         for case_id in ("B02", "C01"):

@@ -184,13 +184,6 @@ code {
   color: var(--green);
   font-weight: 650;
 }
-.nav-active-dot {
-  width: 5px;
-  height: 5px;
-  margin-left: auto;
-  background: var(--orange);
-  border-radius: 50%;
-}
 .nav-count {
   margin-left: auto;
   background: var(--green);
@@ -2123,16 +2116,6 @@ main {
     justify-content: center;
     position: relative;
   }
-  .nav-item.active:after {
-    content: "";
-    position: absolute;
-    width: 4px;
-    height: 4px;
-    background: var(--orange);
-    border-radius: 50%;
-    right: 6px;
-    top: 6px;
-  }
   .topbar {
     height: 65px;
     padding: 0 24px;
@@ -2318,20 +2301,11 @@ main {
     font-size: 10px;
     white-space: nowrap;
   }
-  .nav-item > span:not(.nav-active-dot):not(.nav-count) {
+  .nav-item > span:not(.nav-count) {
     display: block;
   }
   .nav-item svg {
     width: 14px;
-  }
-  .nav-item.active:after {
-    top: auto;
-    right: 25%;
-    left: 25%;
-    height: 2px;
-    width: auto;
-    bottom: 0;
-    border-radius: 0;
   }
   .topbar {
     position: absolute;
@@ -2944,3 +2918,11 @@ main {
 .project-current { display: grid; gap: 8px; margin: 16px 0 24px; padding: 14px; border: 1px solid var(--line); border-radius: 10px; }
 .project-current span { font-size: 12px; color: var(--muted); }
 .project-current code { overflow-wrap: anywhere; font-size: 12px; }
+
+.git-access-help { margin: 16px 0; padding: 13px 15px; border: 1px solid var(--line); border-radius: 10px; color: var(--muted); font-size: 12px; line-height: 1.7; }
+.git-access-help summary { cursor: pointer; color: var(--green); font-weight: 600; }
+.git-access-help summary:focus-visible { outline: 2px solid var(--green); outline-offset: 3px; }
+.git-access-help p { margin: 10px 0; overflow-wrap: anywhere; }
+.git-access-help strong { color: var(--ink); }
+.git-access-help pre { padding: 10px 12px; border-radius: 7px; background: color-mix(in srgb, var(--green) 6%, var(--canvas)); overflow-wrap: anywhere; white-space: pre-wrap; }
+.git-access-help a { color: var(--green); }

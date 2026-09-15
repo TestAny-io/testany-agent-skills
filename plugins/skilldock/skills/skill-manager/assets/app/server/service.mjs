@@ -13,8 +13,10 @@ import { createScheduler, validateTarget, validateSchedule } from './scheduler.m
 import { resolveProject, projectContext, validateProjectPath } from './project-context.mjs';
 import { githubDirectory } from './git-source.mjs';
 import { previewFileDiff } from './preview-diff.mjs';
+import { normalizeTags, tagKey, enrichTags } from './tags.mjs';
 
 const ACTION_FIELDS = {
+  'tags.set': ['target', 'tags'],
   'skill.previewRemoval': ['ids', 'groupName'], 'skill.removeSelected': ['previewId'],
   'preview.diff': ['previewId', 'path'],
   'project.select': ['projectDir'],
@@ -48,6 +50,10 @@ export function validateAction(input) {
   if (fields.includes('path') && (typeof input.path !== 'string' || !input.path || input.path.length > 2000 || path.isAbsolute(input.path) || input.path.split(/[\\/]/).some(part => !part || part === '..' || part === '.') || /[\x00-\x1f]/.test(input.path))) fail(400, 'INVALID_DIFF_PATH', '请选择预览中的有效文件路径。');
   if (input.name !== undefined && !safeName(input.name)) fail(400, 'INVALID_NAME', '安装名称只支持小写字母、数字、点、短横线和下划线。');
   if (fields.includes('target')) validateTarget(input.target);
+  if (fields.includes('tags')) {
+    if (!['skill', 'plugin'].includes(input.target.kind)) fail(400, 'INVALID_TARGET', '标签只适用于技能或插件。');
+    normalizeTags(input.tags);
+  }
   if (input.targets !== undefined) { if (!Array.isArray(input.targets) || input.targets.length > 1000) fail(400, 'INVALID_TARGET', '目标列表无效。'); input.targets.forEach(validateTarget); }
   if (fields.includes('autoApply') && typeof input.autoApply !== 'boolean') fail(400, 'INVALID_ACTION', 'autoApply 必须显式为布尔值。');
   if (fields.includes('schedule')) validateSchedule(input.schedule);
@@ -145,6 +151,7 @@ export async function createService(options = {}) {
     const started = performance.now(); const env = { ...environment(mode) }; const currentProjectInfo = projectInfo; await verifyDirectoryRoot(env.stateBoundary); const registry = await registryFor(env);
     await cleanupTemporary(env).catch(() => {});
     const result = await enrichSources(await scan(env, registry, await catalogFor(env, registry, force)), env, registry);
+    enrichTags(result, registry);
     if (scheduler) { const { extraActivity, ...updateState } = scheduler.data(mode, result); Object.assign(result, updateState); result.activity = [...result.activity, ...extraActivity].sort((a, b) => b.createdAt.localeCompare(a.createdAt)).slice(0, 200); }
     else result.updates = buildUpdateItems(result, {}, hasPreview);
     for (const file of (await fs.readdir(env.root)).filter(name => /^pending-plugin-update-[a-f0-9-]+\.json$/.test(name)).slice(0, 20)) result.diagnostics.push(`存在未确认的包更新记录 ${file}；请核对插件版本和启用状态，旧写请求不会自动重放。`);
@@ -332,6 +339,16 @@ export async function createService(options = {}) {
       await verifyDirectoryRoot(env.stateBoundary);
       registry = await registryFor(env); originalRegistry = structuredClone(registry);
       switch (request.action) {
+        case 'tags.set': {
+          const current = await snapshot(env.mode);
+          const item = current[request.target.kind === 'skill' ? 'skills' : 'plugins'].find(item => item.id === request.target.id);
+          if (!item) fail(404, 'NOT_FOUND', '未找到该对象，请刷新清单后重试。');
+          const tags = normalizeTags(request.tags); const key = tagKey(request.target.kind, item);
+          registry.tags ||= {};
+          if (tags.length) registry.tags[key] = tags; else delete registry.tags[key];
+          target = item.name; activityPath = item.path;
+          result = { message: '标签已保存。' }; break;
+        }
         case 'plugin.checkUpdate': {
           const item = await preparePluginUpdate(env, registry, request.id); target = item.name; result = { message: item.message, updateItem: item }; break;
         }
@@ -697,7 +714,7 @@ export async function createService(options = {}) {
   }
   const isBusy = () => busy || requestBusy || restarting || closing || scheduler.isRunning();
   scheduler = await createScheduler({ environments, snapshot, perform: request => action(request, true), signature: targetSignature, hasPreview, coreBusy: () => busy || requestBusy || restarting || closing, clock: options.now, pollMs: options.schedulerPollMs, startTimer: options.scheduler !== false });
-  return { stateDir, get project() { return project; }, launchProject, get projectContext() { return projectInfo; }, defaultMode, environments, adapter, snapshot, skill, action, tickScheduler: () => scheduler.tick(), isBusy,
+  return { stateDir, get project() { return project; }, launchProject, get projectContext() { return projectInfo; }, defaultMode, environments, adapter, snapshot, skill, action, updateProgress: mode => { environment(mode); return scheduler.progress(mode); }, tickScheduler: () => scheduler.tick(), isBusy,
     pauseForRestart: () => { if (isBusy()) return false; restarting = true; return true; }, resumeAfterRestart: () => { restarting = false; },
     close: () => { closing = true; return scheduler.close(); } };
 }

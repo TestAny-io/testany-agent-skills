@@ -20,6 +20,7 @@ test('GitHub directory URLs resolve branch/tag paths, slash refs, encoded direct
   assert.equal(resolveGithubDirectory(githubDirectory('https://github.com/team/repo/tree/release%2F2026/a'), undefined, refs).ref, 'release/2026');
   assert.deepEqual(resolveGithubDirectory(githubDirectory('https://github.com/team/repo/tree/abcdef123/a#readme'), undefined, []), { ref: 'abcdef123', subpath: 'a' });
   assert.equal(githubDirectory('git@github.com:team/repo.git'), null);
+  assert.equal(githubDirectory('ssh://git@github.com/team/repo.git'), null);
   assert.equal(githubDirectory('https://github.com/team/repo.git'), null);
   for (const bad of ['https://github.com/team/repo/blob/main/SKILL.md', 'https://github.com/team/repo/tree', 'https://x:secret@github.com/team/repo/tree/main/a', 'https://github.com/team/repo/tree/main/a%5Cb', 'https://github.com/team/repo/tree/main/%FF']) assert.throws(() => githubDirectory(bad), { code: 'INVALID_GITHUB_URL' });
   assert.throws(() => resolveGithubDirectory(githubDirectory('https://github.com/team/repo/tree/missing/a'), undefined, refs), { code: 'GITHUB_REF_NOT_FOUND' });

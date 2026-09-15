@@ -5,6 +5,7 @@ import { AppError, fail, redact, exists, inside, safeSegment, publicSource } fro
 import { pluginSourceInfo } from './sources.mjs';
 import { resolveCodexCli } from './codex-runtime.mjs';
 import { resolveGithubDirectory } from './git-source.mjs';
+import { gitNetworkEnvironment, gitAccessError } from './git-access.mjs';
 
 export function runProcess(binary, args, options = {}) {
   return new Promise((resolve, reject) => {
@@ -42,11 +43,17 @@ export function validateRef(value) {
 
 export async function checkoutGit(source, ref, destination, options = {}) {
   validateSource(source, 'git'); validateRef(ref);
-  const env = { ...process.env, GIT_CONFIG_NOSYSTEM: '1', GIT_CONFIG_GLOBAL: '/dev/null', GIT_TERMINAL_PROMPT: '0', GIT_LFS_SKIP_SMUDGE: '1' };
-  for (const key of Object.keys(env)) if (/^GIT_CONFIG_(KEY|VALUE|COUNT|PARAMETERS)|^GIT_SSH|^GIT_ASKPASS|^GIT_PROXY_COMMAND|^GIT_(DIR|WORK_TREE|INDEX_FILE|OBJECT_DIRECTORY|ALTERNATE_OBJECT_DIRECTORIES|EXEC_PATH)$/.test(key)) delete env[key];
-  const config = ['-c', 'core.hooksPath=/dev/null', '-c', 'protocol.ext.allow=never', '-c', `protocol.file.allow=${path.isAbsolute(source) ? 'always' : 'never'}`, '-c', 'submodule.recurse=false'];
+  const network = { ...gitNetworkEnvironment(options.env), GIT_ALLOW_PROTOCOL: path.isAbsolute(source) ? 'https:ssh:file' : 'https:ssh' };
+  const config = ['-c', 'core.hooksPath=/dev/null', '-c', 'protocol.allow=never', '-c', 'protocol.https.allow=always', '-c', 'protocol.ssh.allow=always', '-c', 'protocol.ext.allow=never', '-c', `protocol.file.allow=${path.isAbsolute(source) ? 'always' : 'never'}`, '-c', 'submodule.recurse=false'];
+  // Clone reads trusted user/system configuration for credentials, CA/proxy and
+  // SSH settings. No checkout or template can execute a configured file filter.
+  const parent = path.dirname(path.resolve(destination));
+  try {
+    await runProcess('git', [...config, 'clone', '--no-hardlinks', '--no-checkout', '--no-recurse-submodules', '--template=', '--origin', 'origin', '--', source, destination],
+      { env: { ...network, GIT_CEILING_DIRECTORIES: parent }, cwd: parent, timeout: options.timeout ?? 45000 });
+  } catch (error) { throw gitAccessError(error); }
+  const env = { ...network, GIT_CONFIG_NOSYSTEM: '1', GIT_CONFIG_GLOBAL: '/dev/null' };
   const run = args => runProcess('git', [...config, ...args], { env, timeout: options.timeout ?? 45000 });
-  await run(['clone', '--no-hardlinks', '--no-checkout', '--', source, destination]);
   if (options.githubDirectory) {
     const refs = (await run(['-C', destination, 'for-each-ref', '--format=%(refname)', 'refs/remotes/origin', 'refs/tags'])).stdout.trim().split('\n');
     const location = resolveGithubDirectory(options.githubDirectory, ref, refs);
@@ -60,16 +67,16 @@ export async function checkoutGit(source, ref, destination, options = {}) {
     resolved = (await run(['-C', destination, 'rev-parse', '--verify', `refs/remotes/origin/${ref}^{commit}`])).stdout.trim();
   }
   if (!/^[a-f0-9]{40,64}$/.test(resolved)) fail(422, 'INVALID_COMMIT', '无法解析 Git commit。');
-  // checkout -f does not run project-provided scripts; hooks and global filters are disabled.
+  // Materialize files with hooks, system/global filters and submodules disabled.
   await run(['-C', destination, 'checkout', '--detach', resolved]);
   return resolved;
 }
 
 export class CodexAdapter {
-  constructor({ codexHome, codexBin, timeout = 20000 }) { this.codexHome = codexHome; this.explicit = codexBin; this.timeout = timeout; this.info = { available: false }; this.probePromise = null; }
+  constructor({ codexHome, codexBin, timeout = 20000, env = process.env }) { this.codexHome = codexHome; this.explicit = codexBin; this.timeout = timeout; this.env = env; this.info = { available: false }; this.probePromise = null; }
   async probe() {
     if (this.probePromise) return this.probePromise;
-    this.probePromise = resolveCodexCli({ codexHome: this.codexHome, explicit: this.explicit })
+    this.probePromise = resolveCodexCli({ codexHome: this.codexHome, explicit: this.explicit, env: this.env })
       .then(info => { this.info = info; return info; });
     return this.probePromise;
   }
@@ -78,7 +85,9 @@ export class CodexAdapter {
     if (!this.info.available) fail(422, 'CLI_UNAVAILABLE', this.info.error);
     const allowed = ['plugin list', 'plugin add', 'plugin remove', 'plugin marketplace list', 'plugin marketplace add', 'plugin marketplace upgrade', 'plugin marketplace remove'];
     if (!allowed.some(prefix => args.slice(0, prefix.split(' ').length).join(' ') === prefix)) fail(403, 'CLI_COMMAND', '不支持该 CLI 操作。');
-    const result = await runProcess(this.info.path, args, { timeout: mutation ? Math.max(this.timeout, 45000) : this.timeout, env: { ...process.env, CODEX_HOME: this.codexHome } });
+    let result;
+    try { result = await runProcess(this.info.path, args, { timeout: mutation ? Math.max(this.timeout, 45000) : this.timeout, env: { ...gitNetworkEnvironment(this.env), CODEX_HOME: this.codexHome } }); }
+    catch (error) { throw gitAccessError(error); }
     try { return JSON.parse(result.stdout); } catch { fail(502, 'CLI_JSON', 'CLI 没有返回有效 JSON，无法确认实际状态。'); }
   }
   async list() {

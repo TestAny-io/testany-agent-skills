@@ -18,7 +18,7 @@ export function validateSchedule(schedule) {
 }
 
 export async function createScheduler({ environments, snapshot, perform, signature, hasPreview, coreBusy, clock = () => Date.now(), pollMs = 1000, startTimer = true }) {
-  const states = {}; const writes = {}; const configuring = new Set(); let running = false; let closed = false; let runningPromise; let timer;
+  const states = {}; const writes = {}; const configuring = new Set(); let running = false; let activeMode; let closed = false; let runningPromise; let timer;
   const timestamp = () => new Date(clock()).toISOString();
   const defaultSchedule = () => ({ enabled: false, intervalMinutes: 1440, timezone: Intl.DateTimeFormat().resolvedOptions().timeZone || 'UTC', autoApply: false, targets: [], running: false });
   async function persist(mode) {
@@ -37,9 +37,22 @@ export async function createScheduler({ environments, snapshot, perform, signatu
     }
     if (interrupted) { state.schedule.lastOutcome = 'error'; if (state.schedule.enabled) state.schedule.nextRunAt = timestamp(); await persist(mode); }
   }
+  function progress(mode) {
+    const record = states[mode].runs[0];
+    if (!record) return null;
+    const active = running && activeMode === mode;
+    const counts = { current: 0, updated: 0, available: 0, skipped: 0, error: 0 };
+    for (const item of record.items) if (Object.hasOwn(counts, item.status)) counts[item.status]++;
+    const completed = record.items.filter(item => !['update-run', 'interrupted-run'].includes(item.target.id)).length;
+    return structuredClone({ id: record.id, trigger: record.trigger, startedAt: record.startedAt,
+      finishedAt: active ? undefined : record.finishedAt, status: active ? 'running' : record.status,
+      phase: active ? record.phase || 'preparing' : 'finished', total: record.total ?? null,
+      completed: record.total === undefined ? completed : Math.min(completed, record.total),
+      current: active ? record.current : undefined, counts });
+  }
   function data(mode, currentSnapshot) {
     const state = states[mode];
-    return { updates: buildUpdateItems(currentSnapshot, state.observations, hasPreview), schedule: { ...state.schedule, running: state.schedule.running }, updateRuns: state.runs.slice(0, 50), extraActivity: state.activity.slice(0, 100) };
+    return { updateProgress: progress(mode), updates: buildUpdateItems(currentSnapshot, state.observations, hasPreview), schedule: { ...state.schedule, running: state.schedule.running }, updateRuns: state.runs.slice(0, 50), extraActivity: state.activity.slice(0, 100) };
   }
   function canonicalTarget(target, current) {
     validateTarget(target);
@@ -123,17 +136,21 @@ export async function createScheduler({ environments, snapshot, perform, signatu
   async function run(mode, { targets, autoApply, trigger = 'manual' }) {
     if (typeof autoApply !== 'boolean') fail(400, 'INVALID_ACTION', 'autoApply 必须显式为布尔值。');
     if (closed || running || coreBusy()) fail(409, 'BUSY', '已有写操作或更新批次正在执行，请稍后重试。');
-    running = true;
+    running = true; activeMode = mode;
     const operation = (async () => {
-      const state = states[mode]; const current = await snapshot(mode);
-      const selected = await normalize(mode, targets || current.updates.map(item => item.target), current);
-      const record = { id: crypto.randomUUID(), trigger, startedAt: timestamp(), status: 'running', items: [] };
+      const state = states[mode];
+      const record = { id: crypto.randomUUID(), trigger, startedAt: timestamp(), status: 'running', phase: 'preparing', items: [] };
       state.runs.unshift(record); state.runs = state.runs.slice(0, 50); state.schedule.running = true;
       let stopped = false;
       try {
         await persist(mode);
+        const current = await snapshot(mode);
+        const selected = await normalize(mode, targets || current.updates.map(item => item.target), current);
+        record.total = selected.length;
         for (const target of selected) {
           if (closed || trigger !== 'manual' && !state.schedule.enabled) { stopped = true; break; }
+          record.phase = 'checking';
+          record.current = { target, name: current.updates.find(item => targetKey(item.target) === targetKey(target))?.name || target.id };
           const currentState = await snapshot(mode); const item = currentState.updates.find(candidate => targetKey(candidate.target) === targetKey(target));
           const name = item?.name || target.id;
           if (!item) { record.items.push({ target, name, status: 'skipped', message: '原目标已不存在；重新选择目标后才会纳入计划。', reasonCode: 'TARGET_MISSING' }); await persist(mode); continue; }
@@ -153,6 +170,7 @@ export async function createScheduler({ environments, snapshot, perform, signatu
                   record.items.push({ target, name, status: 'skipped', reasonCode: 'TARGET_BINDING_CHANGED', message: '检查期间来源或安装身份发生变化；重新选择后才会自动应用。' }); await persist(mode); continue;
                 }
               }
+              record.phase = 'applying';
               await perform({ mode, action: 'update.apply', target, previewId: checked.previewId });
               record.items.push({ target, name, status: 'updated', message: '已更新并确认结果。' });
             } else record.items.push({ target, name, status: checked.status === 'current' ? 'current' : checked.status === 'available' ? 'available' : checked.status === 'error' ? 'error' : 'skipped', message: checked.message, reasonCode: checked.reasonCode });
@@ -164,15 +182,16 @@ export async function createScheduler({ environments, snapshot, perform, signatu
       } catch (error) {
         record.status = 'error'; record.items.push({ target: { kind: 'host', id: 'update-run' }, name: 'Update run', status: 'error', reasonCode: error.code || 'UPDATE_FAILED', message: redact(error.message) });
       } finally {
+        record.phase = 'finalizing'; delete record.current;
         record.finishedAt = timestamp(); state.schedule.running = false; state.schedule.lastRunAt = record.startedAt; state.schedule.lastOutcome = record.status;
         if (state.schedule.enabled) state.schedule.nextRunAt = new Date(clock() + state.schedule.intervalMinutes * 60000).toISOString();
         else delete state.schedule.nextRunAt;
-        await persist(mode);
+        try { await persist(mode); } catch (error) { record.status = 'error'; throw error; }
       }
       return { message: `更新批次结束：${record.items.filter(item => item.status === 'updated').length} 项已更新。`, run: structuredClone(record) };
     })();
     runningPromise = operation;
-    try { return await operation; } finally { running = false; runningPromise = undefined; }
+    try { return await operation; } finally { running = false; activeMode = undefined; runningPromise = undefined; }
   }
   let initialTick = true;
   async function tick() {
@@ -187,5 +206,5 @@ export async function createScheduler({ environments, snapshot, perform, signatu
     initialTick = false;
   }
   if (startTimer) { timer = setInterval(() => { tick().catch(() => {}); }, pollMs); timer.unref(); setTimeout(() => { tick().catch(() => {}); }, 0).unref(); }
-  return { data, configure, observe, observeError, beforeOwnUpdate, afterOwnUpdate, afterOwnerRefresh, run, tick, canonicalTarget, isRunning: () => running, close: async () => { closed = true; clearInterval(timer); if (runningPromise) await runningPromise.catch(() => {}); await Promise.all(Object.values(writes).map(promise => promise.catch(() => {}))); } };
+  return { data, progress, configure, observe, observeError, beforeOwnUpdate, afterOwnUpdate, afterOwnerRefresh, run, tick, canonicalTarget, isRunning: () => running, close: async () => { closed = true; clearInterval(timer); if (runningPromise) await runningPromise.catch(() => {}); await Promise.all(Object.values(writes).map(promise => promise.catch(() => {}))); } };
 }
