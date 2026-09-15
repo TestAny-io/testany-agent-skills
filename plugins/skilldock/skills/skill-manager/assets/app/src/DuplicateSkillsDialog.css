@@ -1,0 +1,47 @@
+.duplicate-modal { display: flex; flex-direction: column; overflow: hidden; }
+.duplicate-modal > .modal-header, .duplicate-modal > .modal-footer { flex-shrink: 0; }
+.duplicate-body { min-width: 0; min-height: 0; overflow-y: auto; }
+.duplicate-heading { display: flex; align-items: center; gap: 12px; margin-bottom: 14px; }
+.duplicate-heading > svg { color: var(--green); flex-shrink: 0; }
+.duplicate-heading h3 { margin: 0 0 5px; font-size: 20px; overflow-wrap: anywhere; }
+.duplicate-heading p { margin: 0; color: var(--muted); font-size: 12px; }
+.duplicate-tools { display: flex; justify-content: flex-end; flex-wrap: wrap; gap: 18px; margin: 18px 0 12px; }
+.duplicate-list { display: grid; gap: 12px; }
+.duplicate-copy { border: 1px solid var(--line); border-radius: 10px; padding: 16px; min-width: 0; background: light-dark(#fafbf9, #1b231d); }
+.duplicate-copy-selected { border-color: light-dark(#d48c88, #a26769); background: light-dark(#fff9f8, #302123); }
+.duplicate-copy-heading { display: flex; align-items: center; flex-wrap: wrap; gap: 10px; font-size: 12px; margin-bottom: 12px; }
+.duplicate-choice { display: inline-flex; align-items: center; gap: 9px; cursor: pointer; font-weight: 600; }
+.duplicate-choice input { width: 17px; height: 17px; accent-color: #af4840; margin: 0; flex-shrink: 0; }
+.duplicate-state { color: var(--muted); font-size: 11px; }
+.duplicate-decision { display: inline-flex; align-items: center; gap: 5px; border-radius: 20px; padding: 4px 9px; margin-left: auto; font-size: 11px; white-space: nowrap; }
+.duplicate-decision.keep { color: light-dark(#396146, #bad9bf); background: light-dark(#eaf1e8, #263c2c); }
+.duplicate-decision.remove { color: light-dark(#9c322b, #f0beb7); background: light-dark(#f9e6e1, #522d2d); }
+.duplicate-path, .duplicate-aliases code { display: block; overflow-wrap: anywhere; font-size: 11px; line-height: 1.7; }
+.duplicate-source { color: var(--muted); font-size: 11px; line-height: 1.6; margin: 7px 0 0; overflow-wrap: anywhere; }
+.duplicate-note, .duplicate-protection { display: flex; align-items: flex-start; gap: 7px; color: var(--muted); font-size: 12px; line-height: 1.6; margin: 12px 0 0; }
+.duplicate-note svg, .duplicate-protection > svg { flex-shrink: 0; margin-top: 3px; }
+.duplicate-protection { border-top: 1px solid var(--line); padding-top: 10px; }
+.duplicate-protection p { margin: 0 0 6px; }
+.duplicate-aliases { color: var(--muted); font-size: 11px; margin-top: 12px; }
+.duplicate-aliases summary { cursor: pointer; }
+.duplicate-review-list { margin-top: 20px; border: 1px solid var(--line); border-radius: 9px; overflow: hidden; }
+.duplicate-review-list h4 { display: flex; gap: 8px; align-items: center; margin: 0; padding: 12px 16px; background: light-dark(#f0f5ed, #233226); font-size: 13px; }
+.duplicate-review-list h4 span { color: var(--muted); font-size: 12px; }
+.duplicate-review-list ul { margin: 0; padding: 0; list-style: none; }
+.duplicate-review-list li { display: flex; gap: 10px; padding: 13px 16px; border-top: 1px solid var(--line); }
+.duplicate-review-list li > svg { flex-shrink: 0; margin-top: 3px; }
+.duplicate-review-list li > div { min-width: 0; }
+.duplicate-review-list code { display: block; overflow-wrap: anywhere; font-size: 11px; line-height: 1.6; }
+.duplicate-review-list li span, .duplicate-review-list p { color: var(--muted); font-size: 11px; line-height: 1.6; }
+.duplicate-review-list > p { padding: 0 16px; }
+.duplicate-review-remove h4 { background: light-dark(#faeeeb, #3c292a); }
+.duplicate-review-remove li > svg { color: light-dark(#a8463a, #e8afa6); }
+.duplicate-summary { margin-right: auto; color: var(--muted); font-size: 12px; }
+.duplicate-footer { align-items: center; flex-wrap: wrap; }
+.skill-instance-path { margin: 0 18px 12px; color: var(--muted); font-size: 10px; line-height: 1.6; overflow-wrap: anywhere; }
+.activity-path { display: block; overflow-wrap: anywhere; font-size: 11px; line-height: 1.6; margin: 6px 0; color: var(--muted); }
+@media (max-width: 520px) {
+  .duplicate-copy { padding: 13px; }
+  .duplicate-summary { flex-basis: 100%; }
+  .duplicate-state { order: 3; flex-basis: 100%; margin-left: 26px; }
+}

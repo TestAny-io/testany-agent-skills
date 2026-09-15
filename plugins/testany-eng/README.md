@@ -4,9 +4,7 @@
 
 研发流程工具集：从业务需求、设计到源码评审、测试设计与运维准备的完整链路。
 
-附带 [SkillDock 本地技能管理器](skills/skill-manager/assets/app/README.md)：通过 `/testany-eng:skill-manager` 或 `$skill-manager` 启动，在浏览器面板中查看技能来源、安装更新、启禁、移除恢复，以及维护插件和 marketplace。支持浅色/深色、中英日界面及按所选对象定时更新，打开即加载本机技能库；实际可操作项按对象归属和当前 Codex CLI 能力显示。SkillDock 0.1.0 随本插件 2.4.0 通过仓库分发；应用源代码随 skill 提供，采用 AGPL-3.0-only，开发验证与用户 UAT 分开记录。安装与更新命令见上方应用说明。
-
-macOS 启动器自动选择 Codex 的 Node.js/npm；缺失时准备应用专用环境，用户无需预装全局 Node.js。自身更新后的重启也使用同一入口。
+SkillDock 已迁移为独立的 [skilldock 插件](../skilldock/README.md)。testany-eng 2.4.1 包含 21 个研发 skills；需要图形管理器时单独安装 SkillDock。
 
 ## 概述
 

@@ -187,6 +187,17 @@
   - `testany-llm` 的命令列表和 plugin 描述改为仅保留 `prompt-optimizer`
   - 根 README、`AGENTS.md`、`CLAUDE.md` 不再引用已删除的 `skill-creator` 脚本与路径
 
+## [skilldock 0.2.0 / testany-eng 2.4.1] - 2026-09-15
+
+- SkillDock 移至独立 skilldock 插件，新安装只含一个应用 skill；testany-eng 移除应用入口，保留 21 个研发 skills。
+- 增加旧包到独立插件的显式数据接续，保留原计划与历史，不自动卸载整套研发工具。
+- CLI 按版本与插件能力验证 PATH、桌面应用和 Codex 管理的候选，打印最终绝对路径；安装说明加入损坏 wrapper 回退。
+- 增加 --project、请求/最终目录说明、GUI 项目切换与保存；中断调用后提示核实后台服务状态。
+- Git 来源支持直接粘贴 GitHub tree 目录链接，自动解析真实分支、标签和子目录；保留显式 ref 覆盖与高级子目录选项。
+- 技能/插件更新及关联来源预览新增默认折叠的逐行 diff，显示行号和增删内容，对二进制、大文件及过期预览明确反馈。
+- 删除侧栏底部宣传文案，产品署名改为 A Testany Product。
+- 同名技能新增按安装路径单选/多选移除，默认全部保留；确认页明确移除和保留清单，每份独立记录与恢复，组成员或内容变化拒绝旧预览。
+
 ## [testany-eng 2.4.0 / SkillDock 0.1.0] - 2026-09-14
 
 - 新增 `skill-manager` 与本地 SkillDock GUI，管理 Codex 技能、插件、市场来源、安装更新、启禁和可恢复移除。

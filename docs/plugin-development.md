@@ -4,7 +4,7 @@
 
 ## 事实源与结构
 
-仓库按领域聚合 plugin：testany-eng、testany-llm、testany-mrkt、testany-bot。
+仓库按领域聚合 plugin：testany-eng、testany-llm、testany-mrkt、testany-bot。SkillDock 按用户确认作为独立软件分发于 skilldock 插件，仅包含一个应用入口；其他领域规则不变。
 技能位于 `plugins/<plugin>/skills/<skill>/SKILL.md`，slash 入口位于同 plugin 的 `commands/`。
 仓库不再内置 skill-creator 初始化/校验/打包脚本；使用已有资源和实际可用校验器，不假设存在旧工具。
 
@@ -30,6 +30,8 @@
 Claude Code 会自动发现 plugin 根目录 `skills/<skill-name>/SKILL.md`；`plugin.json` 本身在上游规范中可选，本仓库为版本、描述和明确组件配置而保留。`plugin.json.skills` 通常在默认 `skills/` 之外**追加**发现范围；marketplace entry 在默认 `strict: true` 下可继续补充并合并组件。`strict: false` 时 marketplace entry 是完整组件 authority，若 `plugin.json` 同时声明组件则冲突并 fail closed。只有当 marketplace entry 的 `source` 解析到 marketplace root，且该 entry 自身 `skills` 列出实际存在的特定子目录时，这些路径才按官方例外成为完整集合；列 `./skills/`/plugin root 保持全量扫描，全部列出路径均不存在时回退默认扫描。一旦显式声明，路径必须是 `.`（plugin root）或以 `./` 开头的非空相对路径/路径数组，`null` 不是“未声明”。同一 marketplace 内可用 symlink 复用 skill/resource；dangling target 或越出 marketplace root 的 target 必须 fail closed。`commands` 等其他组件遵循各自合并规则。在既有领域中新增 skill 时，应增加 `skills/<skill-name>/`，而不是新增 marketplace plugin；只有新建独立领域级 plugin 时才增加 marketplace 条目。上游规则见 [Claude Code Plugins reference](https://code.claude.com/docs/en/plugins-reference) 与 [Plugin marketplace strict mode](https://code.claude.com/docs/en/plugin-marketplaces#strict-mode)。
 
 Plugin version 只能保留一个 authority，三选一：仅在 marketplace entry 声明、仅在 `plugin.json` 声明，或两处都省略并使用 source resolved version；绝不能同时在 marketplace entry 与 `plugin.json` 声明。显式版本每次发布必须递增，否则安装端会继续复用旧 cache。
+
+SkillDock 使用 Codex 的 `.codex-plugin/plugin.json`；其他插件保留 `.claude-plugin/plugin.json`。仓库校验器同时识别两种位置，但同一个插件若同时存在两份 manifest 则拒绝，避免重复 authority。校验器也接受 Codex 的 `{"source":"local","path":"./plugins/example"}` 来源描述，保留相同的相对路径及越界检查。共享的 `.claude-plugin/marketplace.json` 继续使用两种宿主都支持的字符串相对来源：Claude 的本机校验器不接受 Codex 的 local 对象。Codex 的 `policy` 字段在 Claude 中会被忽略；不能把 Codex 实际安装通过表述成 Claude 全部能力通过。格式依据 [OpenAI plugin 文档](https://learn.chatgpt.com/docs/plugins) 和 [Claude plugin sources](https://code.claude.com/docs/en/plugin-marketplaces#plugin-sources)，安装行为以本轮真实 CLI 证据为准。
 
 ## 变更与本地检查
 
