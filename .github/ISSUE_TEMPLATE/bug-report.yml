@@ -1,0 +1,58 @@
+name: Bug report / 故障反馈
+description: Report a problem with any plugin, skill, SkillDock, or its documentation.
+title: "[Bug] "
+body:
+  - type: markdown
+    attributes:
+      value: |
+        中文 / English 都可以。不确定怎么使用？也可以先到 [Q&A](https://github.com/TestAny-io/testany-agent-skills/discussions/categories/q-a)。
+        English and Chinese are welcome. Usage questions can start in Q&A.
+        Please remove credentials and private project details from logs or screenshots. 请去掉凭据和私有项目信息。
+  - type: dropdown
+    id: component
+    attributes:
+      label: Plugin or component / 插件或组件
+      options:
+        - testany-eng
+        - testany-llm
+        - testany-mrkt
+        - testany-bot
+        - SkillDock (skilldock)
+        - Installation or documentation / 安装或文档
+        - Not sure / 不确定
+    validations:
+      required: true
+  - type: textarea
+    id: problem
+    attributes:
+      label: What happened? / 遇到了什么问题？
+      description: What did you want to do, and what happened instead? 你想做什么，实际发生了什么？
+      placeholder: Describe the problem. Screenshots are welcome. / 描述问题，也可以附截图。
+    validations:
+      required: true
+  - type: textarea
+    id: steps
+    attributes:
+      label: Steps to reproduce / 复现步骤
+      description: Add the steps or request that triggered it, if you know. 知道的话，补充操作步骤或触发问题的请求。
+      placeholder: |
+        1.
+        2.
+    validations:
+      required: false
+  - type: input
+    id: environment
+    attributes:
+      label: Environment and version / 环境与版本
+      description: OS, Codex or Claude Code version, plugin version, and installation method if available. 系统、宿主版本、插件版本与安装方式；不清楚可留空。
+      placeholder: "macOS … / Codex … / SkillDock … / GitHub marketplace"
+    validations:
+      required: false
+  - type: textarea
+    id: logs
+    attributes:
+      label: Relevant logs / 相关日志
+      description: Optional; remove secrets and private information. 可选，请先删除凭据和私有信息。
+      render: text
+    validations:
+      required: false

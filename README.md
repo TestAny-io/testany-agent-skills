@@ -1,49 +1,73 @@
 # Testany Agent Skills
 
-Skills 是包含指令、脚本和资源的文件夹，Claude 可以动态加载它们以提升特定任务的表现。Skills 教会 Claude 以可重复的方式完成特定任务，无论是按照公司规范撰写文档、使用特定工作流分析数据，还是自动化日常任务。
+**把需求、设计、评审、内容创作与测试中的工作方法，交给你的 AI Agent。**
 
-更多信息请参考：
-- [What are skills?](https://support.anthropic.com/en/articles/12512176-what-are-skills)
-- [Using skills in Claude](https://support.anthropic.com/en/articles/12512180-using-skills-in-claude)
-- [How to create custom skills](https://support.anthropic.com/en/articles/12512198-creating-custom-skills)
+[Testany](https://testany.io) 出品的开源工具集：四组按领域组织的 plugin / skills，以及用于管理 Codex 本机技能的 **SkillDock** 图形应用。每个插件独立安装，按你要做的事选择。
 
-# 关于本仓库
+[English](README.en.md) · [选择插件](#选择适合你的插件) · [SkillDock 界面与安装](plugins/skilldock/README.md) · [交流与反馈](#交流与反馈) · [了解 Testany](https://testany.io)
 
-维护 skill 或安装发现配置时，按任务范围使用 [开发与发布约定](docs/plugin-development.md)；普通局部编辑不自动安装、发布或改版本。
+## 选择适合你的插件
 
-本仓库包含 Testany 公司内部使用的 Agent Skills，覆盖产品研发流程中的各类专业场景。Skills 按领域分为多个 Plugin：
+| 你想做什么 | Plugin | 从这里开始 |
+| --- | --- | --- |
+| 把业务想法推进到需求、设计、评审、测试与交付准备 | **[testany-eng](plugins/testany-eng/README.md)** | 从 `guide` 判断下一步，或直接使用 21 个研发 skills 中的一项 |
+| 改写和优化提示词 | **[testany-llm](plugins/testany-llm/README.md)** | 把原提示词和目标交给 `prompt-optimizer` |
+| 创作多平台营销内容 | **[testany-mrkt](plugins/testany-mrkt/README.md)** | 用 `media-writer` 说明受众、平台和写作目标 |
+| 在 Testany 上编写、编排、执行和诊断测试 | **[testany-bot](plugins/testany-bot/README.md)** | 连接 Testany MCP，按用例、流水线或执行结果选择入口 |
+| 在图形界面中整理、安装和更新 Codex skills / plugins | **[SkillDock](plugins/skilldock/README.md)** | 安装独立 `skilldock` 插件，用 `$skill-manager` 打开面板 |
 
-| Plugin | 领域 | 命令 |
-|--------|------|------|
-| **testany-eng** | 研发流程 | `/testany-eng:guide`, `/testany-eng:brd-interviewer`, `/testany-eng:uc-interviewer`, `/testany-eng:prd-writer`, `/testany-eng:prd-reviewer`, `/testany-eng:prototype-designer`, `/testany-eng:prototype-reviewer`, `/testany-eng:api-writer`, `/testany-eng:api-reviewer`, `/testany-eng:guardrails-writer`, `/testany-eng:guardrails-reviewer`, `/testany-eng:hld-writer`, `/testany-eng:hld-reviewer`, `/testany-eng:test-strategy-writer`, `/testany-eng:test-strategy-reviewer`, `/testany-eng:lld-writer`, `/testany-eng:lld-reviewer`, `/testany-eng:code-reviewer`, `/testany-eng:test-spec-writer`, `/testany-eng:test-reviewer`, `/testany-eng:runbook-writer` |
-| **skilldock** | 本机技能管理应用（独立安装） | `/skilldock:skill-manager` |
-| **testany-llm** | AI/LLM 工具 | `/testany-llm:prompt-optimizer` |
-| **testany-mrkt** | 营销内容 | `/testany-mrkt:media-writer` |
-| **testany-bot** | 测试平台（通用版，按宿主能力适配） | `/testany-bot:case`, `/testany-bot:case-writing`, `/testany-bot:pipeline`, `/testany-bot:execution`, `/testany-bot:debug`, `/testany-bot:trigger`, `/testany-bot:workspace` |
+研发、AI、营销与测试插件的命令和说明见下方[技能目录](#包含的-skills)。SkillDock 当前面向 macOS 上的 Codex；其他插件的宿主能力与前置条件见各自 README。
 
-# 仓库结构
+## 在 Codex 中使用领域插件
 
-```
-testany-agent-skills/
-├── plugins/                    # 按领域分组的 Plugins
-│   ├── testany-eng/           # 研发流程工具集
-│   │   ├── commands/          # CLI 命令（/testany-eng:xxx）
-│   │   └── skills/            # 完整实现
-│   ├── skilldock/             # 独立 Codex 技能管理应用
-│   │   └── skills/skill-manager/
-│   ├── testany-llm/           # AI/LLM 工具集
-│   │   ├── commands/
-│   │   └── skills/
-│   ├── testany-mrkt/          # 营销内容工具集
-│   │   ├── commands/
-│   │   └── skills/
-│   └── testany-bot/           # Testany 测试平台（通用版，交互原语按宿主能力适配）
-│       ├── commands/
-│       └── skills/
-└── CHANGELOG.md               # 版本变更记录
+可以让 Codex 从本仓库安装你选中的插件，以研发工具集为例：
+
+```text
+请从 https://github.com/TestAny-io/testany-agent-skills 安装 testany-eng 插件，确认安装并启用成功。
 ```
 
-# 在 Codex 中使用 SkillDock
+安装后，在新任务中用 `$guide 帮我判断这个项目下一步该做什么` 开始。安装其他领域插件时，把请求中的插件名换成 `testany-llm`、`testany-mrkt` 或 `testany-bot`，然后按其 README 使用对应 skill。若 CLI 不可用，沿用下方 [CLI 发现与回退说明](#在-codex-中使用-skilldock)，但安装目标仍是你选择的领域插件。
+
+## 在 Claude Code 中使用
+
+### 安装
+
+在 Claude Code 对话中添加本仓库，然后安装你需要的一组插件。下面以研发工具集为例：
+
+```text
+/plugin marketplace add TestAny-io/testany-agent-skills
+/plugin install testany-eng@testany-agent-skills
+```
+
+把第二行中的 `testany-eng` 换成 `testany-llm`、`testany-mrkt` 或 `testany-bot` 即可分别安装。也可以打开 `/plugin`，在 Discover 中选择本 marketplace 的插件。添加 marketplace 只添加目录，不会自动安装所有插件。
+
+### 使用
+
+```text
+/testany-eng:guide 帮我扫一下这个项目下一步该做什么
+/testany-eng:prd-writer 写一个用户登录功能的 PRD
+/testany-eng:prd-reviewer ./docs/prd-login.md
+/testany-eng:code-reviewer . main abc123 ./docs/LLD-login.md
+/testany-llm:prompt-optimizer 帮我优化这个提示词...
+/testany-mrkt:media-writer 写一篇关于 AI 的公众号文章
+```
+
+`testany-bot` 的平台操作需要先配置 [Testany MCP 及访问权限](plugins/testany-bot/README.md#前置要求)。
+
+### 更新
+
+在终端中刷新 marketplace，再更新指定插件；以默认 user 安装范围的研发插件为例：
+
+```bash
+claude plugin marketplace update testany-agent-skills
+claude plugin update testany-eng@testany-agent-skills
+```
+
+其他插件替换插件名即可；使用 project 或 local 安装范围时，为第二条命令添加对应的 `--scope project` 或 `--scope local`。回到已打开的 Claude Code 对话后运行 `/reload-plugins`，或新建会话加载更新。[Claude Code 官方插件说明](https://code.claude.com/docs/en/plugins-reference#plugin-update)。
+
+## 在 Codex 中使用 SkillDock
+
+查看 [SkillDock 产品页与界面](plugins/skilldock/README.md)，了解标签筛选、同名技能管理、更新 diff 与自动更新。
 
 **安装 `skilldock` 只会添加一个 SkillDock 应用入口，不会安装 testany-eng 的研发 skills。** 当前版本为 SkillDock 0.3.0，自 0.2.0 起独立分发；旧版 testany-eng 2.4.0 所带的 SkillDock 0.1.0 用户请按下方迁移说明接续数据。
 
@@ -52,6 +76,9 @@ testany-agent-skills/
 > 请从 https://github.com/TestAny-io/testany-agent-skills 安装独立的 SkillDock 插件，并打开技能管理面板。
 
 安装需要 Git 和支持 plugin 管理的 Codex CLI。macOS 用户无需预装 Node.js/npm，应用启动器会自动选择或准备运行环境。
+
+<details>
+<summary>手动安装、CLI 回退与启动目录排查</summary>
 
 先运行 `codex --version` 和 `codex plugin --help`。仅 `command -v codex` 成功不能证明 CLI 可用：旧 npm wrapper 可能已经损坏。如果 PATH 命令失败或没有 plugin 管理能力，依次检查以下位置的真实可执行文件，并对每个候选执行相同的版本和能力检查：
 
@@ -87,11 +114,23 @@ CODEX_CLI="$(/bin/sh plugins/skilldock/skills/skill-manager/scripts/launch.sh cl
 
 核对启动输出中的请求目录、最终扫描目录和 CLI 路径，再把返回 URL 打开在 Codex 右侧浏览器面板。界面“当前项目”旁的“切换项目”可以修改扫描范围。中断启动调用不一定会停止后台服务；用同一启动入口的 `status` 核实，只有 `stop` 确认结束才表示服务已停止。
 
+</details>
+
+安装后，新建 Codex 任务，输入 `$skill-manager 打开技能管理面板`。在 Codex 右侧浏览器中确认“当前项目”，再开始管理。
+
+<details>
+<summary>如何更新与设置自动更新</summary>
+
 GitHub 来源更新：先执行 `"$CODEX_CLI" plugin marketplace upgrade testany-agent-skills`，再执行 `"$CODEX_CLI" plugin add skilldock@testany-agent-skills`。本地来源先自行更新 clone，再刷新安装副本；定时计划不会替用户执行本地仓库的 `git pull`。
 
 在应用的“更新”页面，将独立的 `skilldock` 插件加入计划，启用计划和“自动应用”，后台服务运行时就会按设定周期检查并更新自身，更新后自动重启、重连。关闭浏览器不影响后台计划；电脑休眠或服务停止时暂停，下次启动补一次检查。重启电脑后需再次打开 SkillDock。
 
-## 从旧版 testany-eng 迁移
+</details>
+
+### 从旧版 testany-eng 迁移
+
+<details>
+<summary>仅适用于曾随 testany-eng 2.4.0 安装 SkillDock 0.1.0 的用户</summary>
 
 安装独立 skilldock 后，用其实际安装路径启动，并加 `--migrate-from testany-eng`。启动器仅允许接续同一 Codex 根、同一 testany-agent-skills marketplace 中旧 testany-eng 的 SkillDock 数据；保留计划、历史和来源记录，构建成功后才替换运行实例。
 
@@ -105,49 +144,15 @@ GitHub 来源更新：先执行 `"$CODEX_CLI" plugin marketplace upgrade testany
 
 > 请按 https://github.com/TestAny-io/testany-agent-skills 的 README，把 testany-eng 2.4.0 内的 SkillDock 迁移到独立 skilldock 插件，保留现有计划、历史和来源记录，打开面板，并将新 skilldock 加入原更新计划、启用定时检查和自动应用。保留原计划的周期与其他目标，不卸载研发工具集。
 
+</details>
+
 详见 [SkillDock 使用说明](plugins/skilldock/skills/skill-manager/assets/app/README.md)。本次采用 Git 仓库分发，官方目录上架留待后续。
 
-# 在 Claude Code 中使用
+## 包含的 Skills
 
-## 安装
+### testany-eng（研发流程）
 
-```
-/plugin marketplace add TestAny-io/testany-agent-skills
-```
-
-然后选择要安装的 plugin：
-1. 选择 `Browse and install plugins`
-2. 选择 `testany-agent-skills`
-3. 选择需要的 plugin：
-   - `testany-eng` - 研发流程（BRD/UC/PRD/Prototype/API/Guardrails/HLD/LLD/Code Review/Test/Runbook）
-   - `testany-llm` - AI 工具（Prompt 优化）
-   - `testany-mrkt` - 营销内容（自媒体）
-   - `testany-bot` - 测试平台（通用版，按宿主能力适配）
-4. 选择 `Install now`
-
-## 使用
-
-安装后，可以通过 `/` 命令调用：
-
-```
-/testany-eng:prd-writer 写一个用户登录功能的 PRD
-/testany-eng:guide 帮我扫一下这个项目下一步该做什么
-/testany-eng:prd-reviewer ./docs/prd-login.md
-/testany-eng:code-reviewer . main abc123 ./docs/LLD-login.md
-/testany-llm:prompt-optimizer 帮我优化这个提示词...
-/testany-mrkt:media-writer 写一篇关于 AI 的公众号文章
-```
-
-## 更新
-
-```
-/plugin marketplace remove testany-eng
-/plugin marketplace add TestAny-io/testany-agent-skills
-```
-
-# 包含的 Skills
-
-## testany-eng（研发流程）
+[插件说明与工作流](plugins/testany-eng/README.md) · 21 个研发 skills
 
 `testany-eng` 默认跟随用户输入语言输出；用户显式指定语言时以用户指定为准；`TRACEABILITY-METADATA` 的字段名、枚举值与稳定 ID 保持英文。
 
@@ -177,19 +182,25 @@ GitHub 来源更新：先执行 `"$CODEX_CLI" plugin marketplace upgrade testany
 | `/testany-eng:test-reviewer` | 测试评审门禁，检查测试包覆盖、证据与残余风险 |
 | `/testany-eng:runbook-writer` | 运维手册（Runbook）编写协调器，基于 HLD/LLD 产出生产就绪的运维手册 |
 
-## testany-llm（AI/LLM 工具）
+### testany-llm（AI/LLM 工具）
+
+[插件说明](plugins/testany-llm/README.md)
 
 | 命令 | 描述 |
 |------|------|
 | `/testany-llm:prompt-optimizer` | 先保留任务与调用方输出契约，不按模型品牌强制格式；有限自查后交付，不要求完整内部思维链 |
 
-## testany-mrkt（营销内容）
+### testany-mrkt（营销内容）
+
+[插件说明](plugins/testany-mrkt/README.md)
 
 | 命令 | 描述 |
 |------|------|
 | `/testany-mrkt:media-writer` | 多平台写作，按请求连续完成、停在指定检查点或仅做单阶段；不默认发布 |
 
-## testany-bot（测试平台 - 通用版）
+### testany-bot（测试平台 - 通用版）
+
+[插件说明与连接要求](plugins/testany-bot/README.md) · [Testany MCP](https://github.com/TestAny-io/testany-mcp)
 
 通用版，适用于 VS Code Copilot、GitHub Copilot、Claude Code 等 AI 平台。Skill 格式与 MCP workflow 跨平台复用；结构化问答与 slash command 会按宿主能力自动适配。需要配置 Testany MCP Server。
 
@@ -203,7 +214,55 @@ GitHub 来源更新：先执行 `"$CODEX_CLI" plugin marketplace upgrade testany
 | `/testany-bot:trigger` | 测试触发 - 为 Pipeline 配置 Plan、Manual Trigger、Gatekeeper，或立即执行一次 |
 | `/testany-bot:workspace` | 工作空间管理 - 成员管理、权限配置 |
 
-# 创建自定义 Skill
+## 交流与反馈
+
+中文和 English 都欢迎。不必写完整报告：告诉我们你想完成什么、卡在哪一步，就能开始交流。
+
+- **使用疑问、安装求助** → [Discussions · Q&A](https://github.com/TestAny-io/testany-agent-skills/discussions/categories/q-a)
+- **功能建议、试用感受** → [Discussions · Ideas](https://github.com/TestAny-io/testany-agent-skills/discussions/categories/ideas)
+- **分享工作流与成果** → [Discussions · Show and tell](https://github.com/TestAny-io/testany-agent-skills/discussions/categories/show-and-tell)
+- **可复现的故障** → [提交 Bug](https://github.com/TestAny-io/testany-agent-skills/issues/new?template=bug-report.yml)
+
+试用 SkillDock 后，我们尤其想知道：是否顺利安装并打开、哪项管理功能最有用、哪一步最困惑。其他 plugin / skills 的体验同样欢迎。需要附哪些信息，见[反馈指南](.github/SUPPORT.md)。
+
+## 认识 Testany
+
+[Testany](https://testany.io) 面向人类测试人员与 AI 测试 Agent，围绕测试编排、执行与结果反馈构建协作平台。这些开源工具来自我们自己的研发与使用场景。
+
+如果你希望把测试工作接到平台上，可以继续了解 [Testany 产品](https://testany.io)、[使用文档](https://docs.testany.io) 和 [testany-bot](plugins/testany-bot/README.md)；也可以通过 [engineering@testany.io](mailto:engineering@testany.io) 联系团队。
+
+## 关于本仓库
+
+Skills 是包含指令、脚本和资源的文件夹，Agent 可以按需加载它们来完成特定任务。维护本仓库的 skill 或安装发现配置时，按任务范围使用[开发与发布约定](docs/plugin-development.md)；普通局部编辑不自动安装、发布或改版本。
+
+<a id="仓库结构"></a>
+
+<details>
+<summary>仓库结构</summary>
+
+```
+testany-agent-skills/
+├── plugins/                    # 按领域分组的 Plugins
+│   ├── testany-eng/           # 研发流程工具集
+│   │   ├── commands/          # CLI 命令（/testany-eng:xxx）
+│   │   └── skills/            # 完整实现
+│   ├── skilldock/             # 独立 Codex 技能管理应用
+│   │   └── skills/skill-manager/
+│   ├── testany-llm/           # AI/LLM 工具集
+│   │   ├── commands/
+│   │   └── skills/
+│   ├── testany-mrkt/          # 营销内容工具集
+│   │   ├── commands/
+│   │   └── skills/
+│   └── testany-bot/           # Testany 测试平台（通用版，交互原语按宿主能力适配）
+│       ├── commands/
+│       └── skills/
+└── CHANGELOG.md               # 版本变更记录
+```
+
+</details>
+
+## 创建自定义 Skill
 
 本轮模型适配的已测范围、已知限制与本地测试入口见 [GPT-6 适配验证摘要](docs/gpt6-adaptation-validation.md)。源码合入不等于所有模型或宿主已通过验收，也不自动刷新已安装插件缓存。
 
@@ -217,10 +276,11 @@ description: 清晰描述这个 skill 做什么，以及什么时候应该使用
 
 # My Skill Name
 
-[在这里添加 Claude 执行此 skill 时需要遵循的指令]
+[在这里添加 Agent 执行此 skill 时需要遵循的指令]
 ```
 
 Frontmatter 必须包含两个基础字段（不表示只允许这两个字段）：
+
 - `name` - skill 的唯一标识符（小写，用连字符分隔）
 - `description` - 完整描述 skill 的功能和使用场景
 
@@ -228,11 +288,14 @@ Frontmatter 必须包含两个基础字段（不表示只允许这两个字段�
 
 本仓库当前不再内置 `skill-creator` scaffolding/打包工具。新增或维护 skill 时，请直接创建或编辑对应 plugin 下的 `SKILL.md` 与配套 `references/`、`assets/`、`scripts/`，并同步更新 `README`、`marketplace.json`、plugin `plugin.json` 和 `CHANGELOG.md`。
 
-# 许可证
+了解 Skills：[Agent Skills 规范](https://agentskills.io/specification) · [在 Claude 中使用 Skills](https://support.anthropic.com/en/articles/12512180-using-skills-in-claude) · [创建自定义 Skills](https://support.anthropic.com/en/articles/12512198-creating-custom-skills)。
+
+## 许可证
 
 本仓库默认采用 [MIT License](LICENSE)。例外：`plugins/skilldock/` 下的 SkillDock 自有软件、启动器、测试和文档采用 [GNU AGPL v3，仅第 3 版](plugins/skilldock/skills/skill-manager/LICENSE)（`AGPL-3.0-only`）；第三方依赖保留各自的许可证和版权声明，详见 [SkillDock 许可与第三方声明](plugins/skilldock/skills/skill-manager/THIRD_PARTY_NOTICES.md)。其他现有 skills 的 MIT 许可不变，已按 MIT 合法取得的历史版本授权不追溯撤销。
 
-# 联系方式
+## 联系方式
 
-- Email: engineering@testany.io
-- Website: https://testany.io
+- 社区：[GitHub Discussions](https://github.com/TestAny-io/testany-agent-skills/discussions)
+- Email：[engineering@testany.io](mailto:engineering@testany.io)
+- Website：[testany.io](https://testany.io)

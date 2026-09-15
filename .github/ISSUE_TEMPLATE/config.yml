@@ -1,0 +1,11 @@
+blank_issues_enabled: true
+contact_links:
+  - name: Questions & help / 使用与安装求助
+    url: https://github.com/TestAny-io/testany-agent-skills/discussions/categories/q-a
+    about: Ask about any Testany plugin or SkillDock. / 所有插件和 SkillDock 的使用问题都欢迎。
+  - name: Ideas & feedback / 建议与试用反馈
+    url: https://github.com/TestAny-io/testany-agent-skills/discussions/categories/ideas
+    about: Tell us what helped and what could improve. / 分享有用的地方、困惑和改进建议。
+  - name: Show and tell / 分享你的工作流
+    url: https://github.com/TestAny-io/testany-agent-skills/discussions/categories/show-and-tell
+    about: Share workflows and things you made. / 展示你的用法与成果。
