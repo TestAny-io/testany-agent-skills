@@ -16,6 +16,14 @@ const execute = promisify(execFile);
 const runtime = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');
 const xml = value => String(value).replace(/[&<>"']/g, char => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&apos;' })[char]);
 const quote = value => `'${String(value).replace(/'/g, "'\\''")}'`;
+export function normalizeBackgroundStatus(status = {}) {
+  // 0.4.0 mixed update-batch messages into worker health. Its real worker
+  // exceptions always included retryAt; entry failures had no app version.
+  // Keep both genuine failure forms, including before the first upgraded wake.
+  if (status.format === undefined && status.version === '0.4.0' && !status.retryAt)
+    return { ...status, error: undefined, errorAt: undefined };
+  return status;
+}
 export const backgroundPaths = (stateDir, home = os.homedir()) => {
   const label = `io.testany.skilldock.update.${crypto.createHash('sha256').update(stateDir).digest('hex').slice(0, 16)}`;
   const root = path.join(stateDir, 'background');
@@ -116,9 +124,9 @@ export function createBackgroundManager({ stateDir, home = os.homedir(), codexHo
     fail(422, 'BACKGROUND_REMOVE_FAILED', '后台任务尚未卸载，请重试。');
   }
   async function status(enabled) {
-    const last = await readJson(paths.status, null);
+    const last = normalizeBackgroundStatus(await readJson(paths.status, {}));
     const common = { provider: 'launchd', lastWakeAt: last?.lastWakeAt, lastFinishedAt: last?.finishedAt,
-      lastError: last?.error, outcome: last?.outcome, retryAt: last?.retryAt };
+      lastError: last?.error, lastErrorAt: last?.error ? last.errorAt || last.finishedAt : undefined, outcome: last?.outcome, retryAt: last?.retryAt };
     if (platform !== 'darwin') return { ...common, status: 'unsupported' };
     try {
       if (await disabled()) return { ...common, status: enabled ? 'blocked' : 'off' };

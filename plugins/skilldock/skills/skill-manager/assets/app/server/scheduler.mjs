@@ -40,7 +40,7 @@ export async function createScheduler({ environments, snapshot, perform, signatu
       let interrupted = false;
       for (const run of state.runs.filter(item => item.status === 'running')) {
         run.status = 'error'; run.finishedAt = timestamp(); interrupted = true;
-        run.items.push({ target: { kind: 'host', id: 'interrupted-run' }, name: 'Interrupted update run', status: 'error', reasonCode: 'RUN_INTERRUPTED', message: '上次服务在运行中停止，执行结果未确认。恢复后重新检查实际状态，不重放旧的写请求。' });
+        run.items.push({ target: { kind: 'host', id: 'interrupted-run' }, name: 'Interrupted update run', status: 'error', occurredAt: timestamp(), reasonCode: 'RUN_INTERRUPTED', message: '上次服务在运行中停止，执行结果未确认。恢复后重新检查实际状态，不重放旧的写请求。' });
       }
       if (interrupted) { state.schedule.lastOutcome = 'error'; if (state.schedule.enabled) state.schedule.nextRunAt = timestamp(); await persist(mode); }
     }
@@ -166,35 +166,39 @@ export async function createScheduler({ environments, snapshot, perform, signatu
           await persist(mode);
           const currentState = await snapshot(mode); const item = currentState.updates.find(candidate => targetKey(candidate.target) === targetKey(target));
           const name = item?.name || target.id;
-          if (!item) { record.items.push({ target, name, status: 'skipped', message: '原目标已不存在；重新选择目标后才会纳入计划。', reasonCode: 'TARGET_MISSING' }); await persist(mode); continue; }
+          let checked;
+          const appendResult = result => record.items.push({ target, name, occurredAt: timestamp(),
+            ...(checked?.installedVersion || item?.installedVersion ? { installedVersion: checked?.installedVersion || item.installedVersion } : {}),
+            ...(checked?.availableVersion ? { availableVersion: checked.availableVersion } : {}), ...result });
+          if (!item) { appendResult({ status: 'skipped', message: '原目标已不存在；重新选择目标后才会纳入计划。', reasonCode: 'TARGET_MISSING' }); await persist(mode); continue; }
           if (trigger !== 'manual') {
             let actual; try { actual = await signature(mode, target, currentState); } catch { actual = null; }
-            if (!actual || JSON.stringify(actual) !== JSON.stringify(state.bindings[targetKey(target)])) { record.items.push({ target, name, status: 'skipped', reasonCode: 'TARGET_BINDING_CHANGED', message: '来源、所有者、安装目录或内容已变化；旧计划不接管新对象，请重新选择。' }); await persist(mode); continue; }
+            if (!actual || JSON.stringify(actual) !== JSON.stringify(state.bindings[targetKey(target)])) { appendResult({ status: 'skipped', reasonCode: 'TARGET_BINDING_CHANGED', message: '来源、所有者、安装目录或内容已变化；旧计划不接管新对象，请重新选择。' }); await persist(mode); continue; }
           }
-          if (!item.canCheck) { record.items.push({ target, name, status: 'skipped', message: item.message, reasonCode: item.reasonCode }); await persist(mode); continue; }
+          if (!item.canCheck) { appendResult({ status: 'skipped', message: item.message, reasonCode: item.reasonCode }); await persist(mode); continue; }
           try {
-            const checked = (await perform({ mode, action: 'update.check', target })).updateItem;
+            checked = (await perform({ mode, action: 'update.check', target })).updateItem;
             if (checked.updatedDuringCheck) {
-              record.items.push({ target, name, status: 'updated', message: checked.message });
+              appendResult({ status: 'updated', message: checked.message });
             } else if (checked.status === 'available' && autoApply && checked.canAutoApply && checked.canApply && (trigger === 'manual' || !await disabledSchedule(mode))) {
               if (trigger !== 'manual') {
                 const actual = await signature(mode, target);
                 if (JSON.stringify(actual) !== JSON.stringify(state.bindings[targetKey(target)])) {
-                  record.items.push({ target, name, status: 'skipped', reasonCode: 'TARGET_BINDING_CHANGED', message: '检查期间来源或安装身份发生变化；重新选择后才会自动应用。' }); await persist(mode); continue;
+                  appendResult({ status: 'skipped', reasonCode: 'TARGET_BINDING_CHANGED', message: '检查期间来源或安装身份发生变化；重新选择后才会自动应用。' }); await persist(mode); continue;
                 }
               }
               record.phase = 'applying';
               await persist(mode);
               await perform({ mode, action: 'update.apply', target, previewId: checked.previewId });
-              record.items.push({ target, name, status: 'updated', message: '已更新并确认结果。' });
-            } else record.items.push({ target, name, status: checked.status === 'current' ? 'current' : checked.status === 'available' ? 'available' : checked.status === 'error' ? 'error' : 'skipped', message: checked.message, reasonCode: checked.reasonCode });
-          } catch (error) { record.items.push({ target, name, status: 'error', message: redact(error.message), reasonCode: error.code || 'UPDATE_FAILED' }); }
+              appendResult({ status: 'updated', message: '已更新并确认结果。' });
+            } else appendResult({ status: checked.status === 'current' ? 'current' : checked.status === 'available' ? 'available' : checked.status === 'error' ? 'error' : 'skipped', message: checked.message, reasonCode: checked.reasonCode });
+          } catch (error) { appendResult({ status: 'error', message: redact(error.message), reasonCode: error.code || 'UPDATE_FAILED' }); }
           await persist(mode);
         }
         const failures = record.items.filter(item => ['error', 'skipped'].includes(item.status));
         record.status = stopped || failures.length ? record.items.length && failures.length === record.items.length && record.items.every(item => item.status === 'error') ? 'error' : 'partial' : 'success';
       } catch (error) {
-        record.status = 'error'; record.items.push({ target: { kind: 'host', id: 'update-run' }, name: 'Update run', status: 'error', reasonCode: error.code || 'UPDATE_FAILED', message: redact(error.message) });
+        record.status = 'error'; record.items.push({ target: { kind: 'host', id: 'update-run' }, name: 'Update run', status: 'error', occurredAt: timestamp(), reasonCode: error.code || 'UPDATE_FAILED', message: redact(error.message) });
       } finally {
         record.phase = 'finalizing'; delete record.current;
         record.finishedAt = timestamp(); state.schedule.running = false; state.schedule.lastRunAt = record.startedAt; state.schedule.lastOutcome = record.status;

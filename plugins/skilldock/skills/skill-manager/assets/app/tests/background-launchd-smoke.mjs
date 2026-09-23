@@ -19,6 +19,7 @@ const home = path.join(root, 'home'); const codexHome = path.join(home, '.codex'
 const stateDir = path.join(root, 'state');
 await fs.mkdir(codexHome, { recursive: true }); await fs.mkdir(projectDir);
 const sourceApp = fileURLToPath(new URL('../', import.meta.url));
+const testedVersion = (await readJson(path.join(sourceApp, 'package.json'))).version;
 const snapshot = await captureSource(sourceApp);
 const installed = path.join(root, 'installed-skill');
 for (const entry of snapshot.entries) { const file = path.join(installed, entry.path); await fs.mkdir(path.dirname(file), { recursive: true }); await fs.writeFile(file, entry.bytes, { mode: entry.mode }); }
@@ -52,6 +53,7 @@ try {
   }
   const log = await fs.readFile(path.join(manager.paths.root, 'launchd.log'), 'utf8').catch(() => '');
   assert.equal(result?.outcome, 'success', JSON.stringify({ result, log }));
+  assert.equal(result.version, testedVersion, 'the first system invocation runs the version under test');
   assert.match(await fs.readFile(skill.path, 'utf8'), /updated by launchd/);
   const disk = await readJson(stateFile); assert.equal(disk.runs.length, 1); assert.equal(disk.schedule.running, false);
   let job;
@@ -99,7 +101,7 @@ try {
   assert.equal((await readJson(stateFile)).schedule.enabled, false);
   assert.equal((await manager.status(false)).status, 'off');
   assert.equal((await readJson(manager.paths.status)).outcome, 'uninstalled');
-  process.stdout.write(JSON.stringify({ result: 'PASS', version: '0.4.0', checks: ['real launchd bootstrap', 'overdue catch-up', 'file update', 'worker exit 0', 'self-update prepares a new runtime', 'next system invocation runs 0.5.0', 'worker self-unregisters after source removal'], firstRun: disk.runs[0], finalWorkerVersion: result.version }, null, 2) + '\n');
+  process.stdout.write(JSON.stringify({ result: 'PASS', version: testedVersion, checks: ['real launchd bootstrap', 'overdue catch-up', 'file update', 'worker exit 0', 'self-update prepares a new runtime', 'next system invocation runs 0.5.0', 'worker self-unregisters after source removal'], firstRun: disk.runs[0], finalWorkerVersion: result.version }, null, 2) + '\n');
 } finally {
   await service?.close(); await manager?.remove(); await fs.rm(root, { recursive: true, force: true });
 }

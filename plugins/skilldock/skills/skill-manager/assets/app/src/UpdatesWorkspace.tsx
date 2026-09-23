@@ -15,6 +15,7 @@ import type {
   Snapshot,
   SourcePreview,
   UpdateItem,
+  UpdateRun,
   UpdateTarget,
 } from "../shared/contracts";
 import { Modal } from "./Modal";
@@ -64,14 +65,18 @@ const copy = {
     backgroundUnsupported: "此系统暂不支持后台任务",
     backgroundWake: "最近唤起",
     backgroundConsent: "开启后会注册当前用户的 macOS 后台任务。关闭计划会移除任务，当前单项完成后停止。",
-    lastSuccess: "上次成功检查",
+    lastSuccess: "上次完整完成的更新检查",
     retrying: "失败后将按退避时间重试",
+    backgroundIdle: "计划尚未到期，本次唤起未执行更新。",
+    occurredAt: "记录时间",
+    previousIssues: "上次更新检查有未完成项",
+    previousIssuesHelp: "以下结果来自标注时间的更新检查。",
 
     on: "已启用",
     off: "未启用",
     running: "正在运行",
     next: "下次运行",
-    last: "上次运行",
+    last: "上次更新检查",
     none: "尚未记录",
     lifecycle:
       "由 macOS 在后台按需执行，完成即退出；无需打开 SkillDock 或 Codex。重启并登录后自动恢复，休眠或离线错过的检查会补做。实际开始时间可能比计划晚最多约 5 分钟。",
@@ -198,14 +203,18 @@ const copy = {
     backgroundUnsupported: "Background tasks are not supported on this system yet",
     backgroundWake: "Last wake",
     backgroundConsent: "Enabling registers a macOS background task for your user account. Disabling removes it after the current item safely finishes.",
-    lastSuccess: "Last successful check",
+    lastSuccess: "Last fully completed update check",
     retrying: "Failures retry with increasing delays",
+    backgroundIdle: "The schedule is not due. No updates ran during this wake.",
+    occurredAt: "Recorded at",
+    previousIssues: "Skipped or failed items in the last update check",
+    previousIssuesHelp: "These results belong to the update check at the time shown.",
 
     on: "Enabled",
     off: "Disabled",
     running: "Running",
     next: "Next run",
-    last: "Last run",
+    last: "Last update check",
     none: "Not recorded",
     lifecycle:
       "macOS runs updates on demand, then the task exits. SkillDock and Codex can stay closed. Scheduling resumes after restarting and signing in, with catch-up after sleep or offline periods. Runs may start up to about 5 minutes after the planned time.",
@@ -337,14 +346,18 @@ const copy = {
     backgroundUnsupported: "このOSのバックグラウンドタスクは未対応です",
     backgroundWake: "最終起動",
     backgroundConsent: "有効にすると、このユーザーのmacOSバックグラウンドタスクを登録します。無効にすると現在の項目の処理を終えて停止・登録解除します。",
-    lastSuccess: "前回の確認成功",
+    lastSuccess: "すべて完了した最終の更新確認",
     retrying: "失敗時は間隔を延ばして再試行します",
+    backgroundIdle: "予定時刻前のため、今回の起動では更新を実行していません。",
+    occurredAt: "記録日時",
+    previousIssues: "前回の更新確認に未完了の項目があります",
+    previousIssuesHelp: "以下は、表示された日時の更新確認の結果です。",
 
     on: "有効",
     off: "無効",
     running: "実行中",
     next: "次回の実行",
-    last: "前回の実行",
+    last: "前回の更新確認",
     none: "未記録",
     lifecycle:
       "macOSが必要なときだけ更新を実行し、完了後に終了します。SkillDockやCodexを開く必要はありません。再起動・ログイン後に自動再開し、スリープやオフライン中の確認を補います。予定時刻から約5分遅れる場合があります。",
@@ -646,8 +659,19 @@ export function UpdatesWorkspace({
     error: "backgroundError", unsupported: "backgroundUnsupported",
   };
   const needsAttention = data.schedule?.enabled && background && !["ready", "off", "stopping"].includes(background.status);
+  const lastCompletedRun = data.updateRuns?.find((run) => run.status !== "running");
+  const previousIssues = lastCompletedRun?.items.filter((item) => item.status === "error" || item.status === "skipped") || [];
   const statusLabel = (status: string) =>
     status in copy.zh ? t(status as Key) : status;
+  const runContext = (item: UpdateRun["items"][number], fallback: string) => (
+    <div className="uw-run-context">
+      <time dateTime={item.occurredAt || fallback}>{t("occurredAt")}: {date(item.occurredAt || fallback)}</time>
+      <code>{item.target.id}</code>
+      {(item.target.kind === "plugin" || item.installedVersion || item.availableVersion) && (
+        <span>{t("version")}: {item.installedVersion || t("none")} · {t("latest")}: {item.availableVersion || t("none")}</span>
+      )}
+    </div>
+  );
   return (
     <div className="updates-workspace">
       <section className="uw-schedule" aria-label={t("schedule")}>
@@ -709,8 +733,28 @@ export function UpdatesWorkspace({
             <div><span>{t("backgroundWake")}</span><span>{date(background.lastWakeAt)}</span></div>
             <div><span>{t("lastSuccess")}</span><span>{date(data.schedule?.lastSuccessAt)}</span></div>
             {!!data.schedule?.failureCount && <p>{t("retrying")}</p>}
-            {background.lastError && <ServiceMessage value={background.lastError} />}
+            {background.status === "ready" && background.outcome === "idle" && <p>{t("backgroundIdle")}</p>}
+            {background.status === "error" && background.lastError && <>
+              <div><span>{t("occurredAt")}</span><span>{date(background.lastErrorAt)}</span></div>
+              <ServiceMessage value={background.lastError} />
+            </>}
           </div>
+        )}
+        {!!previousIssues.length && lastCompletedRun && (
+          <section className="uw-previous-issues" aria-label={t("previousIssues")}>
+            <div className="uw-previous-issues-heading">
+              <strong>{t("previousIssues")}</strong>
+              <span>{statusLabel(lastCompletedRun.trigger)} · {date(lastCompletedRun.finishedAt || lastCompletedRun.startedAt)}</span>
+            </div>
+            <p className="uw-hint">{t("previousIssuesHelp")}</p>
+            <ul>{previousIssues.map((item, i) => (
+              <li key={`${targetKey(item.target)}:${i}`}>
+                <div><strong>{item.name}</strong><span className="badge badge-orange">{statusLabel(item.status)}</span></div>
+                {runContext(item, lastCompletedRun.finishedAt || lastCompletedRun.startedAt)}
+                {technical(item.message)}
+              </li>
+            ))}</ul>
+          </section>
         )}
         <p className="uw-service-note">{t("lifecycle")}</p>
       </section>
@@ -920,6 +964,7 @@ export function UpdatesWorkspace({
                   <li key={`${targetKey(item.target)}:${i}`}>
                     <strong>{item.name}</strong>
                     <span>{statusLabel(item.status)}</span>
+                    {runContext(item, run.finishedAt || run.startedAt)}
                     {technical(item.message)}
                   </li>
                 ))}

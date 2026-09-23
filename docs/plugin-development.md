@@ -56,5 +56,6 @@ SkillDock 使用 Codex 的 `.codex-plugin/plugin.json`；其他插件保留 `.cl
 
 - 发布前核对根 README、marketplace、plugin README/plugin.json 与 CHANGELOG 的实际变化；仅更新本次相关内容，不无条件重写所有字段。
 - 显式版本每次发布递增，仍只能有一个 authority。日常源文件修改和本地验证不等于发布，不自动 bump version。
+- 发布时即使只修改插件目录内随包分发的 README、图片等内容，也需要递增该插件版本；同版本内容变化会与安装缓存产生差异，不能作为不升版本的文档例外。
 - 发布、安装、缓存刷新、远程测试、commit/push 各自按用户授权执行；只做源码整改时停在源码和验证证据，不宣称安装端已生效。
 - 当前工作区已有未提交修改时保留其内容；报告区分本轮变更与已有变更，不用 reset/checkout 覆盖。

@@ -23,7 +23,8 @@ try {
   if (context?.stateDir) {
     const status = path.join(context.stateDir, 'background/status.json'); const temporary = `${status}.${process.pid}.tmp`;
     try {
-      await fs.writeFile(temporary, JSON.stringify({ lastWakeAt: new Date().toISOString(), finishedAt: new Date().toISOString(), outcome: 'error', error: message }), { mode: 0o600 });
+      const stamp = new Date().toISOString();
+      await fs.writeFile(temporary, JSON.stringify({ format: 2, lastWakeAt: stamp, finishedAt: stamp, outcome: 'error', error: message, errorAt: stamp }), { mode: 0o600 });
       await fs.rename(temporary, status);
     } finally { await fs.rm(temporary, { force: true }).catch(() => {}); }
   }

@@ -82,6 +82,9 @@ export interface UpdateRun {
     status: "current" | "updated" | "available" | "skipped" | "error";
     message: string;
     reasonCode?: string;
+    occurredAt?: string;
+    installedVersion?: string;
+    availableVersion?: string;
   }[];
 }
 export interface BackgroundUpdateStatus {
@@ -91,6 +94,7 @@ export interface BackgroundUpdateStatus {
   retryAt?: string;
   lastFinishedAt?: string;
   lastError?: string;
+  lastErrorAt?: string;
   outcome?: string;
 }
 export interface UpdateSchedule {
