@@ -69,13 +69,55 @@ test('a not-due wake performs no CLI scan and does not move the deadline', async
   assert.doesNotMatch(await fs.readFile(f.skill.path, 'utf8'), /version two/);
 });
 
+test('the first plugin wake does not present a historical skipped update as a new background failure', async t => {
+  const f = await fixture(t); await f.service.close();
+  const snapshot = await captureSource(app);
+  const pluginRoot = path.join(f.context.codexHome, 'plugins/cache/test-market/skilldock/0.4.0');
+  const skillRoot = path.join(pluginRoot, 'skills/skill-manager');
+  for (const entry of snapshot.entries) {
+    const file = path.join(skillRoot, entry.path); await fs.mkdir(path.dirname(file), { recursive: true }); await fs.writeFile(file, entry.bytes, { mode: entry.mode });
+  }
+  await writeJson(path.join(pluginRoot, '.codex-plugin/plugin.json'), { name: 'skilldock', version: '0.4.0' });
+  const historical = { id: 'september-15', trigger: 'manual', status: 'partial', startedAt: '2026-09-15T07:48:00Z', finishedAt: '2026-09-15T07:48:01Z', items: [
+    { target: { kind: 'plugin', id: 'skilldock@test-market' }, name: 'skilldock', status: 'skipped', reasonCode: 'VERSION_UNCHANGED', message: '来源内容变化但版本未递增；Codex 可能复用旧缓存，请维护者递增版本。' },
+  ] };
+  const state = await readJson(f.stateFile); state.runs = [historical]; state.schedule.lastRunAt = historical.startedAt;
+  await writeJson(f.stateFile, state); const before = await fs.readFile(f.stateFile, 'utf8');
+  // 0.4.0 stored a batch warning as if it were the current worker error.
+  await writeJson(f.paths.status, { version: '0.4.0', outcome: 'partial', error: historical.items[0].message });
+  const context = { ...f.context, source: path.join(skillRoot, 'assets/app'), installation: { kind: 'plugin', codexHome: f.context.codexHome, marketplace: 'test-market', plugin: 'skilldock', appPath: 'skills/skill-manager/assets/app' } };
+  const installed = { list: async () => ({ ...await adapter.list(), plugins: [{ id: 'skilldock@test-market', name: 'skilldock', installed: true, enabled: true, version: '0.4.0' }] }) };
+  const result = await runBackground(context, { adapter: installed });
+  assert.equal(result.outcome, 'idle'); assert.equal(result.error, undefined); assert.equal(result.lastRunId, undefined);
+  assert.equal(await fs.readFile(f.stateFile, 'utf8'), before, 'maintenance must preserve deadlines and historical results without creating an update run');
+  // Subsequent no-op wakes must keep the corrected status without scanning.
+  const next = await runBackground(context, { adapter: { list: () => { throw new Error('unexpected scan'); } } });
+  assert.equal(next.outcome, 'idle'); assert.equal(next.error, undefined);
+});
+
+test('real runtime failures retain their timestamp during backoff and clear only after recovery', async t => {
+  const f = await fixture(t); await f.service.close();
+  await writeJson(f.paths.status, { runtimePending: true });
+  const context = { ...f.context, digest: 'outdated', runtime: path.join(f.root, 'old-runtime') };
+  const time = Date.now();
+  const failed = await runBackground(context, { adapter, now: () => time, prepare: async () => { throw new Error('Runtime build failed'); } });
+  assert.equal(failed.error, 'Runtime build failed'); assert.equal(failed.errorAt, new Date(time).toISOString());
+  const waiting = await runBackground(context, { adapter: { list: () => { throw new Error('unexpected scan'); } }, now: () => time + 60000 });
+  assert.equal(waiting.outcome, 'retry-pending'); assert.equal(waiting.errorAt, failed.errorAt); assert.equal(waiting.error, failed.error);
+  const recovered = await runBackground(context, { adapter, now: () => time + 6 * 60000, prepare: async () => app });
+  assert.equal(recovered.outcome, 'idle'); assert.equal(recovered.error, undefined); assert.equal(recovered.errorAt, undefined); assert.equal(recovered.retryAt, undefined);
+});
+
 test('source failures are visible, retry after five minutes, and retain the selected project', async t => {
   const f = await fixture(t); await f.overdue(); await fs.rm(f.source, { recursive: true });
   const time = Date.now();
   await runBackground(f.context, { adapter, now: () => time });
   const disk = await readJson(f.stateFile); assert.equal(disk.runs[0].status, 'error');
   assert.equal(disk.schedule.failureCount, 1); assert.equal(disk.schedule.nextRunAt, new Date(time + 5 * 60000).toISOString());
-  assert.ok((await readJson(f.paths.status)).error);
+  const background = await readJson(f.paths.status);
+  assert.equal(background.lastRunId, disk.runs[0].id); assert.equal(background.outcome, 'error');
+  assert.equal(background.error, undefined, 'target failures belong to the dated update run, not the worker health');
+  assert.ok(disk.runs[0].items[0].message); assert.ok(disk.runs[0].items[0].occurredAt);
   assert.equal((await readJson(f.paths.context)).projectDir, f.settings.projectDir);
   assert.doesNotMatch(await fs.readFile(f.skill.path, 'utf8'), /version two/);
 });
@@ -140,6 +182,25 @@ test('launchd registers a fixed one-shot entry, verifies it, reports OS disablem
   await assert.rejects(denied.ensure(), { code: 'BACKGROUND_DISABLED' });
   assert.equal((await denied.status(true)).status, 'blocked');
   assert.ok(!blocked.calls.some(args => args[0] === 'enable' || args[0] === 'bootstrap'));
+});
+
+test('status readback discards legacy batch warnings but preserves real worker and entry failures', async t => {
+  const f = await fixture(t); const fake = systemCommand(); await fake.command(['bootstrap']);
+  const manager = createBackgroundManager({ ...f.settings, project: () => f.settings.projectDir, platform: 'darwin', uid: 501, command: fake.command });
+  const stamp = new Date().toISOString();
+  for (const outcome of ['partial', 'error']) {
+    await writeJson(f.paths.status, { version: '0.4.0', lastWakeAt: stamp, outcome, error: 'Old update result' });
+    const status = await manager.status(true); assert.equal(status.status, 'ready'); assert.equal(status.lastError, undefined);
+  }
+  for (const status of [
+    { version: '0.4.0', retryAt: stamp }, // Legacy worker catch: an actual runtime failure.
+    {}, // Legacy standalone entry catch has no application version.
+    { format: 2, version: '0.4.1' },
+    { format: 3, version: '0.4.2' }, // Unknown formats must not lose their errors.
+  ]) {
+    await writeJson(f.paths.status, { ...status, lastWakeAt: stamp, finishedAt: stamp, outcome: 'error', error: 'Runtime failure' });
+    const result = await manager.status(true); assert.equal(result.status, 'error'); assert.equal(result.lastError, 'Runtime failure'); assert.equal(result.lastErrorAt, stamp);
+  }
 });
 
 test('failed OS registration leaves a new plan disabled and removes a partial registration', async t => {

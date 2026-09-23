@@ -414,3 +414,12 @@
 .uw-background-status > div { display: flex; justify-content: space-between; flex-wrap: wrap; gap: 8px 16px; }
 .uw-background-status p { margin: 0; }
 .uw-background-status.needs-attention { border-color: var(--orange); }
+.uw-previous-issues { margin-top: 16px; padding: 14px 16px; border: 1px solid var(--orange); border-radius: 12px; font-size: 12px; overflow-wrap: anywhere; }
+.uw-previous-issues-heading, .uw-previous-issues li > div:first-child { display: flex; justify-content: space-between; flex-wrap: wrap; gap: 8px 16px; }
+.uw-previous-issues .uw-hint { margin: 8px 0 12px; }
+.uw-previous-issues ul { display: grid; gap: 14px; padding: 0; margin: 0; list-style: none; max-height: 320px; overflow-y: auto; }
+.uw-previous-issues li { display: grid; gap: 8px; }
+.uw-previous-issues li + li { padding-top: 12px; border-top: 1px solid var(--line); }
+.uw-previous-issues p { margin: 0; }
+.uw-run-context { display: flex; flex-wrap: wrap; gap: 4px 16px; color: var(--muted); font-size: 11px; overflow-wrap: anywhere; min-width: 0; }
+.uw-run-context > code { font-size: inherit; white-space: normal; }

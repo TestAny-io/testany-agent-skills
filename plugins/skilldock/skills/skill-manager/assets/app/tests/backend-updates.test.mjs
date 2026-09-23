@@ -75,6 +75,21 @@ test('plugin update preserves disabled state, reports true installed version/pat
   const opaque = (await act(service, 'update.check', { target })).updateItem; assert.equal(opaque.canApply, true); assert.equal(opaque.canAutoApply, false);
 });
 
+test('blocked plugin results retain the target, compared versions and occurrence time in update history', async t => {
+  const time = Date.parse('2026-09-23T01:34:00Z'); const { service } = await fixture(t, { now: () => time });
+  const id = 'starter-tools@starter-market'; await act(service, 'plugin.install', { id });
+  const source = (await service.snapshot('sandbox')).plugins.find(item => item.id === id).sourceInfo.source;
+  await sourceVersion(source, '1.0.0', 'changed without a new version');
+  const target = { kind: 'plugin', id };
+  await act(service, 'updates.run', { targets: [target], autoApply: true });
+  const run = (await service.snapshot('sandbox')).updateRuns[0];
+  assert.equal(run.status, 'partial'); assert.equal(run.items[0].reasonCode, 'VERSION_UNCHANGED');
+  assert.deepEqual(run.items[0].target, target); assert.equal(run.items[0].installedVersion, '1.0.0'); assert.equal(run.items[0].availableVersion, '1.0.0');
+  assert.equal(run.items[0].occurredAt, new Date(time).toISOString());
+  const persisted = await readJson(path.join(service.environments.sandbox.root, 'updates.json'));
+  assert.deepEqual(persisted.runs[0], run);
+});
+
 test('scheduler persists static bindings, runs while no browser exists, skips replaced installs and refreshes own update bindings', async t => {
   let time = Date.parse('2026-09-14T00:00:00Z'); const { service, options } = await fixture(t, { now: () => time });
   const writing = (await service.snapshot('sandbox')).skills.find(s => s.name === 'writing-assistant'); const target = skillTarget(writing);
