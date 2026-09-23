@@ -76,6 +76,6 @@ $skill-manager 打开技能管理面板
 
 ## 版本、许可与开发
 
-当前版本 **0.4.1**，通过 Git 仓库分发。[变更记录](../../CHANGELOG.md) · [AGPL-3.0-only](LICENSE) · [第三方许可](skills/skill-manager/THIRD_PARTY_NOTICES.md)。仓库中其他现有 skills 的 MIT 许可不变。
+当前版本 **0.4.2**，通过 Git 仓库分发。[变更记录](../../CHANGELOG.md) · [AGPL-3.0-only](LICENSE) · [第三方许可](skills/skill-manager/THIRD_PARTY_NOTICES.md)。仓库中其他现有 skills 的 MIT 许可不变。
 
-开发、启动与验证命令见[应用 README](skills/skill-manager/assets/app/README.md)。实现边界与验证记录：[种子反馈](skills/skill-manager/references/19-seed-feedback.md)、[来源链接与 diff](skills/skill-manager/references/20-source-links-and-diff.md)、[同名技能管理](skills/skill-manager/references/21-duplicate-selection.md)、[更新进度与标签](skills/skill-manager/references/22-progress-and-tags.md)、[导航与私仓](skills/skill-manager/references/23-navigation-and-private-git.md)、[独立后台更新](skills/skill-manager/references/24-background-updates.md)、[后台状态修复](skills/skill-manager/references/25-background-status.md)。
+开发、启动与验证命令见[应用 README](skills/skill-manager/assets/app/README.md)。实现边界与验证记录：[种子反馈](skills/skill-manager/references/19-seed-feedback.md)、[来源链接与 diff](skills/skill-manager/references/20-source-links-and-diff.md)、[同名技能管理](skills/skill-manager/references/21-duplicate-selection.md)、[更新进度与标签](skills/skill-manager/references/22-progress-and-tags.md)、[导航与私仓](skills/skill-manager/references/23-navigation-and-private-git.md)、[独立后台更新](skills/skill-manager/references/24-background-updates.md)、[后台状态修复](skills/skill-manager/references/25-background-status.md)、[外部同步恢复](skills/skill-manager/references/26-baseline-recovery.md)。

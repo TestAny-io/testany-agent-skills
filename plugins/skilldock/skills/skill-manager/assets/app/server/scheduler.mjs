@@ -17,7 +17,14 @@ export function validateSchedule(schedule) {
   return schedule;
 }
 
-export async function createScheduler({ environments, snapshot, perform, signature, hasPreview, coreBusy, clock = () => Date.now(), pollMs = 1000, startTimer = false, recover = true, beforeConfigure, disabledSchedule = async () => null }) {
+function sameBindingIdentity(before, after) {
+  if (!before || !after || typeof before.fingerprint !== 'string' || typeof after.fingerprint !== 'string') return false;
+  const { fingerprint: oldContent, ...oldIdentity } = before;
+  const { fingerprint: newContent, ...newIdentity } = after;
+  return JSON.stringify(oldIdentity) === JSON.stringify(newIdentity);
+}
+
+export async function createScheduler({ environments, snapshot, perform, signature, verifySynchronized, hasPreview, coreBusy, clock = () => Date.now(), pollMs = 1000, startTimer = false, recover = true, beforeConfigure, disabledSchedule = async () => null }) {
   const states = {}; const writes = {}; const configuring = new Set(); let running = false; let activeMode; let closed = false; let runningPromise; let timer; let readGeneration = 0;
   const timestamp = () => new Date(clock()).toISOString();
   const defaultSchedule = () => ({ enabled: false, intervalMinutes: 1440, timezone: Intl.DateTimeFormat().resolvedOptions().timeZone || 'UTC', autoApply: false, targets: [], running: false });
@@ -124,6 +131,25 @@ export async function createScheduler({ environments, snapshot, perform, signatu
   async function observeError(mode, target, error) {
     states[mode].observations[targetKey(target)] = { status: 'error', canApply: false, message: redact(error.message), reasonCode: error.code || 'UPDATE_FAILED', checkedAt: timestamp() }; await persist(mode);
   }
+  async function reconcileBinding(mode, target, actual) {
+    const state = states[mode], key = targetKey(target), expected = state.bindings[key];
+    if (!expected) return false;
+    try { actual ||= await signature(mode, target); } catch { return false; }
+    if (JSON.stringify(actual) === JSON.stringify(expected)) return true;
+    // Only content drift can be reconciled. Changing owner, source, path,
+    // directory identity or generation still requires explicit selection.
+    if (!state.schedule.enabled || target.kind !== 'plugin' || !verifySynchronized || !sameBindingIdentity(expected, actual)) return false;
+    try {
+      if (!await verifySynchronized(mode, target, actual)) return false;
+      if (JSON.stringify(await signature(mode, target)) !== JSON.stringify(actual)) return false;
+    } catch { return false; }
+    if (await disabledSchedule(mode) || JSON.stringify(state.bindings[key]) !== JSON.stringify(expected)) return false;
+    state.bindings[key] = actual;
+    state.activity.unshift({ id: crypto.randomUUID(), action: 'schedule.reconcile', target: target.id, createdAt: timestamp(), status: 'success', message: '已核实插件外部同步，已恢复原定时计划绑定。', canRestore: false });
+    state.activity = state.activity.slice(0, 100);
+    await persist(mode);
+    return true;
+  }
   async function beforeOwnUpdate(mode, target) {
     const binding = states[mode].bindings[targetKey(target)];
     if (!binding) return null;
@@ -173,7 +199,7 @@ export async function createScheduler({ environments, snapshot, perform, signatu
           if (!item) { appendResult({ status: 'skipped', message: '原目标已不存在；重新选择目标后才会纳入计划。', reasonCode: 'TARGET_MISSING' }); await persist(mode); continue; }
           if (trigger !== 'manual') {
             let actual; try { actual = await signature(mode, target, currentState); } catch { actual = null; }
-            if (!actual || JSON.stringify(actual) !== JSON.stringify(state.bindings[targetKey(target)])) { appendResult({ status: 'skipped', reasonCode: 'TARGET_BINDING_CHANGED', message: '来源、所有者、安装目录或内容已变化；旧计划不接管新对象，请重新选择。' }); await persist(mode); continue; }
+            if (!actual || !await reconcileBinding(mode, target, actual)) { appendResult({ status: 'skipped', reasonCode: 'TARGET_BINDING_CHANGED', message: '来源、所有者、安装目录或内容已变化；旧计划不接管新对象，请重新选择。' }); await persist(mode); continue; }
           }
           if (!item.canCheck) { appendResult({ status: 'skipped', message: item.message, reasonCode: item.reasonCode }); await persist(mode); continue; }
           try {
@@ -230,5 +256,5 @@ export async function createScheduler({ environments, snapshot, perform, signatu
     initialTick = false;
   }
   if (startTimer) { timer = setInterval(() => { tick().catch(() => {}); }, pollMs); timer.unref(); setTimeout(() => { tick().catch(() => {}); }, 0).unref(); }
-  return { reload, data, progress, configure, observe, observeError, beforeOwnUpdate, afterOwnUpdate, afterOwnerRefresh, run, tick, canonicalTarget, isRunning: () => running, close: async () => { closed = true; clearInterval(timer); if (runningPromise) await runningPromise.catch(() => {}); await Promise.all(Object.values(writes).map(promise => promise.catch(() => {}))); } };
+  return { reload, data, progress, configure, observe, observeError, reconcileBinding, beforeOwnUpdate, afterOwnUpdate, afterOwnerRefresh, run, tick, canonicalTarget, isRunning: () => running, close: async () => { closed = true; clearInterval(timer); if (runningPromise) await runningPromise.catch(() => {}); await Promise.all(Object.values(writes).map(promise => promise.catch(() => {}))); } };
 }

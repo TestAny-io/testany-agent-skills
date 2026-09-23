@@ -462,5 +462,9 @@
   "BACKGROUND_RUNTIME_UNAVAILABLE": {
     "en": "A usable npm runtime was not found for background builds. Reopen SkillDock through launch.sh, then save the schedule again.",
     "ja": "バックグラウンドビルド用のnpmが見つかりません。launch.shでSkillDockを開き直してから設定を再保存してください。"
+  },
+  "EXTERNAL_SYNC_UNVERIFIED": {
+    "en": "Installed contents could not be verified against the source. The existing schedule binding was retained.",
+    "ja": "インストール済みの内容と更新元の一致を確認できませんでした。既存のスケジュールの関連付けは変更していません。"
   }
 }

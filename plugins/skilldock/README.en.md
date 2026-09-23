@@ -71,6 +71,6 @@ Explore [Testany](https://testany.io), read the [platform docs](https://docs.tes
 
 ## Version, license, and development
 
-Current version: **0.4.1**, distributed through this Git repository. [Changelog](../../CHANGELOG.md) · [AGPL-3.0-only](LICENSE) · [Third-party notices](skills/skill-manager/THIRD_PARTY_NOTICES.md).
+Current version: **0.4.2**, distributed through this Git repository. [Changelog](../../CHANGELOG.md) · [AGPL-3.0-only](LICENSE) · [Third-party notices](skills/skill-manager/THIRD_PARTY_NOTICES.md).
 
 See the [application README](skills/skill-manager/assets/app/README.md) for development and verification commands, and the [Chinese product page](README.md#版本许可与开发) for implementation and UAT records. Other existing skills in this repository remain MIT-licensed.

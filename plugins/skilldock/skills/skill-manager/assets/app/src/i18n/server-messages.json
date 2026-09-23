@@ -311,6 +311,22 @@
     "en": "Change update schedule",
     "ja": "更新スケジュールを変更"
   },
+  "恢复更新计划绑定": {
+    "en": "Restore update schedule binding",
+    "ja": "更新スケジュールの関連付けを復元"
+  },
+  "已核实插件外部同步，已恢复原定时计划绑定。": {
+    "en": "The externally synchronized plugin was verified and its existing schedule binding was restored.",
+    "ja": "外部で同期されたプラグインを検証し、既存の更新スケジュールの関連付けを復元しました。"
+  },
+  "已核实插件外部同步，安装版本和内容与来源一致；已恢复检查基线，未修改安装文件。": {
+    "en": "External synchronization was verified: the installed version and contents match the source. The check baseline was restored without changing installed files.",
+    "ja": "外部同期を検証しました。インストール済みのバージョンと内容が更新元と一致しています。ファイルを変更せず、確認用の基準を復元しました。"
+  },
+  "无法确认安装内容与来源一致，原定时计划绑定保持不变。": {
+    "en": "Installed contents could not be verified against the source. The existing schedule binding was retained.",
+    "ja": "インストール済みの内容と更新元の一致を確認できませんでした。既存のスケジュールの関連付けは変更していません。"
+  },
   "关联更新来源": {
     "en": "Connect update source",
     "ja": "更新元を関連付け"

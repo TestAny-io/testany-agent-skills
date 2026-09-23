@@ -302,14 +302,14 @@ export async function createService(options = {}) {
     try { await fs.rename(from, to); }
     catch (e) { if (e.code === 'EXDEV') fail(422, 'CROSS_DEVICE', '来源与备份区不在同一文件系统，未移动原目录；请把 SKILLDOCK_STATE_DIR 放在同一磁盘。'); throw e; }
   }
-  async function preparePluginUpdate(env, registry, id) {
+  async function preparePluginUpdate(env, registry, id, { refreshMarketplace = true, requireCurrent = false, expectedSignature } = {}) {
     let catalog = await catalogFor(env, registry, true); let plugin = catalog.plugins.find(item => item.id === id && item.installed);
     if (!plugin) fail(404, 'NOT_FOUND', '未找到已安装插件。');
     const initialVersion = plugin.version;
     if (!plugin._updateSourcePath || plugin.sourceInfo?.confidence !== 'verified' || !Array.isArray(plugin._componentRoots)) fail(422, 'OWNER_MANAGED', '没有已核实的本地包来源；请在 Codex 插件管理器更新，再刷新状态。');
     if (typeof plugin.enabled !== 'boolean') fail(422, 'STATE_UNKNOWN', '无法确认原启用状态，不能安全执行包更新。');
     const market = catalog.marketplaces.find(item => item.id === plugin.marketplace);
-    if (market?.type === 'git' && market.canRefresh) {
+    if (refreshMarketplace && market?.type === 'git' && market.canRefresh) {
       if (env.mode === 'local') await adapter.command(['plugin', 'marketplace', 'upgrade', market.name, '--json'], { mutation: true });
       else {
         const entry = registry.marketplaces[market.id]; assertSandboxSource(env, entry.source);
@@ -319,6 +319,15 @@ export async function createService(options = {}) {
       catalog = await catalogFor(env, registry, true); plugin = catalog.plugins.find(item => item.id === id && item.installed);
       if (!plugin?._updateSourcePath) fail(422, 'SOURCE_MISSING', '刷新后未找到该插件来源。');
     }
+    if (plugin.sourceInfo?.confidence !== 'verified' || !Array.isArray(plugin._componentRoots)) fail(422, 'OWNER_MANAGED', '没有已核实的本地包来源；请在 Codex 插件管理器更新，再刷新状态。');
+    if (![plugin.marketplace, plugin.name, plugin.version].every(safeSegment)) fail(422, 'PLUGIN_IDENTITY', '无法绑定插件安装身份。');
+    const origin = (value, catalog) => {
+      const owner = catalog.marketplaces.find(item => item.id === value?.marketplace);
+      return JSON.stringify({ id: value?.id, name: value?.name, version: value?.version, marketplace: value?.marketplace,
+        source: value?._updateSourcePath, sourceInfo: value?.sourceInfo, components: value?._componentRoots,
+        market: owner && { source: owner.source, type: owner.type, root: owner._root, ref: owner.ref } });
+    };
+    const originalOrigin = origin(plugin, catalog);
     const source = plugin._updateSourcePath;
     const marketRoot = env.mode === 'sandbox' ? registry.marketplaces[plugin.marketplace]?.root || registry.marketplaces[plugin.marketplace]?.source : catalog.marketplaces.find(item => item.id === plugin.marketplace)?._root;
     if (!marketRoot) fail(422, 'SOURCE_MISSING', '所属市场未配置，无法核实更新来源。');
@@ -330,28 +339,47 @@ export async function createService(options = {}) {
     const installedPath = path.join(env.codexHome, 'plugins/cache', plugin.marketplace, plugin.name, plugin.version);
     await verifyDescendantDirectory(env.codexBoundary, installedPath);
     if (!(await exists(installedPath))) fail(422, 'INSTALLATION_UNVERIFIED', 'CLI 对应的已安装缓存不存在，不能验证更新前内容。');
+    const sourceBoundary = await captureDirectoryRoot(source), targetBoundary = await captureDirectoryRoot(installedPath);
     const installed = await inspectTree(installedPath);
     const prior = registry.pluginBaselines?.[id] || registry.plugins?.[id];
-    if (prior?.version === plugin.version && prior.fingerprint && prior.fingerprint !== installed.fingerprint) fail(409, 'LOCAL_CHANGES', '已安装包相对已记录基线发生本地变化，请先保留修改。');
+    const drifted = prior?.version === plugin.version && prior.fingerprint && prior.fingerprint !== installed.fingerprint;
     const staging = path.join(env.root, 'staging', crypto.randomUUID()); await verifyDescendantDirectory(env.stateBoundary, staging); await fs.mkdir(staging, { recursive: true, mode: 0o700 });
-    const candidate = path.join(staging, 'candidate'); const tree = await copySkill(source, candidate);
-    const sourceReal = await fs.realpath(source); const componentRoots = (await discoverSkillRoots(source, { marketRoot, entry })).map(root => path.relative(sourceReal, root) || '.');
-    if (componentRoots.some(relative => !inside(candidate, path.resolve(candidate, relative)))) fail(422, 'UNSUPPORTED_COMPONENTS', '来源组件在包根之外，无法证明安装缓存映射。');
-    const changes = diffFiles(installed.entries, tree.entries); const order = compareVersions(availableVersion, plugin.version);
-    const current = availableVersion === plugin.version && installed.fingerprint === tree.fingerprint;
-    const updatedDuringCheck = current && market?.type === 'git' && compareVersions(plugin.version, initialVersion) === 1;
-    const blocked = !current && (availableVersion === plugin.version || order !== null && order < 0);
-    const previewId = crypto.randomUUID();
-    const item = { target: { kind: 'plugin', id }, name: plugin.name, owner: plugin.sourceInfo.owner, route: 'plugin-reinstall', status: current ? 'current' : blocked ? 'blocked' : 'available', canCheck: true, canApply: !current && !blocked, canAutoApply: !blocked && order === 1,
-      message: current ? '已安装版本和内容与来源一致。' : blocked ? availableVersion === plugin.version ? '来源内容变化但版本未递增；Codex 可能复用旧缓存，请维护者递增版本。' : '来源版本低于已安装版本，自动更新不会降级。' : order === null || order === 0 ? '来源版本不同但无法证明先后；可手动确认更新，定时计划不会自动应用。' : '发现新包版本；通过 Codex 重新安装并恢复原启用状态。', reasonCode: current ? undefined : blocked ? availableVersion === plugin.version ? 'VERSION_UNCHANGED' : 'DOWNGRADE_BLOCKED' : order !== 1 ? 'MANUAL_VERSION_ORDER' : undefined,
-      checkedAt: now(), installedVersion: plugin.version, availableVersion, changes, sourceInfo: plugin.sourceInfo, installedPath, ...(updatedDuringCheck ? { updatedDuringCheck: true } : {}), ...(!current && !blocked ? { previewId } : {}) };
-    if (updatedDuringCheck) item.message = 'Codex 已在刷新市场时更新包，已核对版本和内容。';
-    registry.pluginBaselines ||= {}; registry.pluginBaselines[id] = { version: plugin.version, fingerprint: installed.fingerprint };
-    if (!current && !blocked) previews.set(previewId, { id: previewId, kind: 'plugin-update', mode: env.mode, created: previewNow(), source, sourceType: 'local', originalDirectory: source, sourceBoundary: await captureDirectoryRoot(source), candidate, staging, tree, target: installedPath, targetBoundary: await captureDirectoryRoot(installedPath), baseline: installed.fingerprint, pluginId: id, installedVersion: plugin.version, availableVersion, componentRoots, item });
-    else await fs.rm(staging, { recursive: true, force: true });
-    return item;
+    let keepPreview = false;
+    try {
+      const candidate = path.join(staging, 'candidate'); const tree = await copySkill(source, candidate);
+      const sourceReal = await fs.realpath(source); const componentRoots = (await discoverSkillRoots(source, { marketRoot, entry })).map(root => path.relative(sourceReal, root) || '.');
+      if (componentRoots.some(relative => !inside(candidate, path.resolve(candidate, relative)))) fail(422, 'UNSUPPORTED_COMPONENTS', '来源组件在包根之外，无法证明安装缓存映射。');
+      const changes = diffFiles(installed.entries, tree.entries); const order = compareVersions(availableVersion, plugin.version);
+      const current = availableVersion === plugin.version && installed.fingerprint === tree.fingerprint;
+      if (drifted && !current) fail(409, 'LOCAL_CHANGES', '已安装包相对已记录基线发生本地变化，请先保留修改。');
+      if (requireCurrent && !current) fail(409, 'EXTERNAL_SYNC_UNVERIFIED', '无法确认安装内容与来源一致，原定时计划绑定保持不变。');
+      if (current && (drifted || requireCurrent)) {
+        // Equality is evidence only for this exact source and installation.
+        // Re-read after staging so a concurrent change cannot become a baseline.
+        const live = await catalogFor(env, registry, true);
+        if (origin(live.plugins.find(item => item.id === id && item.installed), live) !== originalOrigin) fail(409, 'INSTALLATION_CHANGED', '插件安装或来源身份发生变化，请重新检查。');
+        await verifyDirectoryRoot(sourceBoundary); await verifyDirectoryRoot(targetBoundary);
+        await verifyDescendantDirectory(env.codexBoundary, installedPath);
+        if (JSON.stringify(await readComponentEntry(marketRoot, plugin.name, source)) !== JSON.stringify(entry)
+          || JSON.stringify(await readPluginManifest(candidate)) !== JSON.stringify(manifest)
+          || (await inspectTree(source)).fingerprint !== tree.fingerprint) fail(409, 'SOURCE_CHANGED', '来源在复制期间发生变化，请重新预览。');
+        if ((await inspectTree(installedPath)).fingerprint !== installed.fingerprint) fail(409, 'LOCAL_CHANGES', '已安装包在预览后发生变化。');
+        if (expectedSignature && JSON.stringify(await targetSignature(env.mode, { kind: 'plugin', id })) !== JSON.stringify(expectedSignature)) fail(409, 'TARGET_BINDING_CHANGED', '来源、所有者、安装目录或内容已变化；旧计划不接管新对象，请重新选择。');
+      }
+      const updatedDuringCheck = current && market?.type === 'git' && compareVersions(plugin.version, initialVersion) === 1;
+      const blocked = !current && (availableVersion === plugin.version || order !== null && order < 0);
+      const previewId = crypto.randomUUID();
+      const item = { target: { kind: 'plugin', id }, name: plugin.name, owner: plugin.sourceInfo.owner, route: 'plugin-reinstall', status: current ? 'current' : blocked ? 'blocked' : 'available', canCheck: true, canApply: !current && !blocked, canAutoApply: !blocked && order === 1,
+        message: current ? '已安装版本和内容与来源一致。' : blocked ? availableVersion === plugin.version ? '来源内容变化但版本未递增；Codex 可能复用旧缓存，请维护者递增版本。' : '来源版本低于已安装版本，自动更新不会降级。' : order === null || order === 0 ? '来源版本不同但无法证明先后；可手动确认更新，定时计划不会自动应用。' : '发现新包版本；通过 Codex 重新安装并恢复原启用状态。', reasonCode: current ? undefined : blocked ? availableVersion === plugin.version ? 'VERSION_UNCHANGED' : 'DOWNGRADE_BLOCKED' : order !== 1 ? 'MANUAL_VERSION_ORDER' : undefined,
+        checkedAt: now(), installedVersion: plugin.version, availableVersion, changes, sourceInfo: plugin.sourceInfo, installedPath, ...(updatedDuringCheck ? { updatedDuringCheck: true } : {}), ...(!current && !blocked ? { previewId } : {}) };
+      if (updatedDuringCheck) item.message = 'Codex 已在刷新市场时更新包，已核对版本和内容。';
+      if (current && (drifted || requireCurrent)) { item.message = '已核实插件外部同步，安装版本和内容与来源一致；已恢复检查基线，未修改安装文件。'; item.reasonCode = 'EXTERNAL_SYNC_VERIFIED'; }
+      registry.pluginBaselines ||= {}; registry.pluginBaselines[id] = { version: plugin.version, fingerprint: installed.fingerprint };
+      if (!current && !blocked) { previews.set(previewId, { id: previewId, kind: 'plugin-update', mode: env.mode, created: previewNow(), source, sourceType: 'local', originalDirectory: source, sourceBoundary, candidate, staging, tree, target: installedPath, targetBoundary, baseline: installed.fingerprint, pluginId: id, installedVersion: plugin.version, availableVersion, componentRoots, item }); keepPreview = true; }
+      return item;
+    } finally { if (!keepPreview) await removeStaging(env, staging); }
   }
-  async function executeAction(request) {
+  async function executeAction(request, { pluginCheckOptions } = {}) {
     const env = environment(request.mode);
     if (busy) fail(409, 'BUSY', '另一个操作正在进行，请等待后重试。');
     busy = true; let registry; let originalRegistry;
@@ -371,7 +399,7 @@ export async function createService(options = {}) {
           result = { message: '标签已保存。' }; break;
         }
         case 'plugin.checkUpdate': {
-          const item = await preparePluginUpdate(env, registry, request.id); target = item.name; result = { message: item.message, updateItem: item }; break;
+          const item = await preparePluginUpdate(env, registry, request.id, pluginCheckOptions); target = item.name; result = { message: item.message, updateItem: item }; break;
         }
         case 'plugin.update': {
           const preview = await assertPreview(env, request.previewId, 'plugin-update');
@@ -717,11 +745,13 @@ export async function createService(options = {}) {
       } else if (['skill.checkUpdate', 'skill.update'].includes(request.action)) {
         target = { kind: 'skill', id: request.id }; applying = request.action === 'skill.update';
       }
+      if (target?.kind === 'plugin' && !applying) await scheduler.reconcileBinding(mode, target);
       const binding = target && (applying || target.kind === 'plugin') ? await scheduler.beforeOwnUpdate(mode, target) : null;
       const result = await executeAction(translated);
       if (target && applying) await scheduler.afterOwnUpdate(mode, target, binding);
       else if (target) {
         let updateItem = result.updateItem;
+        if (updateItem?.reasonCode === 'EXTERNAL_SYNC_VERIFIED') await scheduler.reconcileBinding(mode, target);
         if (updateItem?.updatedDuringCheck) await scheduler.afterOwnerRefresh(mode, target, binding);
         if (!updateItem && result.update) {
           base ||= buildUpdateItems(await snapshot(mode), {}, hasPreview).find(item => targetKey(item.target) === targetKey(target));
@@ -772,6 +802,14 @@ export async function createService(options = {}) {
   }
   const isBusy = () => busy || requestBusy || operationActive || restarting || closing || scheduler.isRunning();
   scheduler = await createScheduler({ environments, snapshot, perform: request => action(request, true), signature: targetSignature, hasPreview,
+    verifySynchronized: async (mode, target, expectedSignature) => {
+      if (target.kind !== 'plugin') return false;
+      // A marketplace refresh can install packages itself. Verify existing
+      // contents first, without asking the CLI to mutate an unbound target.
+      const result = await executeAction({ mode, action: 'plugin.checkUpdate', id: target.id },
+        { pluginCheckOptions: { refreshMarketplace: false, requireCurrent: true, expectedSignature } });
+      return result.updateItem.status === 'current';
+    },
     coreBusy: () => busy || requestBusy || restarting || closing, clock: options.now, startTimer: false, recover: false, disabledSchedule,
     beforeConfigure: async (mode, input) => {
       if (input.enabled) { if (mode === 'local') { await background?.ensure(); migrationError = undefined; } }
