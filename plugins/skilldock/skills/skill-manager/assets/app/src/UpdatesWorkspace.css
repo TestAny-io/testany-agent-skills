@@ -409,3 +409,8 @@
     flex: 1 1 auto;
   }
 }
+
+.uw-background-status { display: grid; gap: 8px; margin-top: 16px; padding: 14px 16px; border: 1px solid var(--line); border-radius: 12px; font-size: 12px; overflow-wrap: anywhere; }
+.uw-background-status > div { display: flex; justify-content: space-between; flex-wrap: wrap; gap: 8px 16px; }
+.uw-background-status p { margin: 0; }
+.uw-background-status.needs-attention { border-color: var(--orange); }

@@ -84,6 +84,15 @@ export interface UpdateRun {
     reasonCode?: string;
   }[];
 }
+export interface BackgroundUpdateStatus {
+  provider: "launchd";
+  status: "ready" | "off" | "stopping" | "blocked" | "unregistered" | "unverified" | "error" | "unsupported";
+  lastWakeAt?: string;
+  retryAt?: string;
+  lastFinishedAt?: string;
+  lastError?: string;
+  outcome?: string;
+}
 export interface UpdateSchedule {
   enabled: boolean;
   intervalMinutes: number;
@@ -94,6 +103,9 @@ export interface UpdateSchedule {
   nextRunAt?: string;
   lastRunAt?: string;
   lastOutcome?: UpdateRun["status"];
+  lastSuccessAt?: string;
+  failureCount?: number;
+  background?: BackgroundUpdateStatus;
   running: boolean;
 }
 export type ScheduleInput = Pick<

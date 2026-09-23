@@ -17,30 +17,39 @@ export function validateSchedule(schedule) {
   return schedule;
 }
 
-export async function createScheduler({ environments, snapshot, perform, signature, hasPreview, coreBusy, clock = () => Date.now(), pollMs = 1000, startTimer = true }) {
-  const states = {}; const writes = {}; const configuring = new Set(); let running = false; let activeMode; let closed = false; let runningPromise; let timer;
+export async function createScheduler({ environments, snapshot, perform, signature, hasPreview, coreBusy, clock = () => Date.now(), pollMs = 1000, startTimer = false, recover = true, beforeConfigure, disabledSchedule = async () => null }) {
+  const states = {}; const writes = {}; const configuring = new Set(); let running = false; let activeMode; let closed = false; let runningPromise; let timer; let readGeneration = 0;
   const timestamp = () => new Date(clock()).toISOString();
   const defaultSchedule = () => ({ enabled: false, intervalMinutes: 1440, timezone: Intl.DateTimeFormat().resolvedOptions().timeZone || 'UTC', autoApply: false, targets: [], running: false });
   async function persist(mode) {
-    writes[mode] = (writes[mode] || Promise.resolve()).catch(() => {}).then(async () => { await verifyDirectoryRoot(environments[mode].stateBoundary); await writeJson(path.join(environments[mode].root, 'updates.json'), states[mode]); });
+    writes[mode] = (writes[mode] || Promise.resolve()).catch(() => {}).then(async () => { await verifyDirectoryRoot(environments[mode].stateBoundary); const disabled = await disabledSchedule(mode); if (disabled) { Object.assign(states[mode].schedule, disabled, { enabled: false }); delete states[mode].schedule.nextRunAt; } await writeJson(path.join(environments[mode].root, 'updates.json'), states[mode]); });
     return writes[mode];
   }
-  for (const mode of Object.keys(environments)) {
-    const state = await readJson(path.join(environments[mode].root, 'updates.json'), { version: 1, schedule: defaultSchedule(), bindings: {}, observations: {}, runs: [], activity: [] });
-    if (!state || state.version !== 1 || !Array.isArray(state.runs) || typeof state.bindings !== 'object' || !state.schedule || !state.observations) fail(422, 'INVALID_UPDATE_STATE', '更新状态文件格式无效，未启用自动更新。');
-    validateSchedule({ enabled: state.schedule.enabled, intervalMinutes: state.schedule.intervalMinutes, timezone: state.schedule.timezone, autoApply: state.schedule.autoApply, targets: state.schedule.targets });
-    state.activity ||= []; state.schedule.running = false; states[mode] = state;
-    let interrupted = false;
-    for (const run of state.runs.filter(item => item.status === 'running')) {
-      run.status = 'error'; run.finishedAt = timestamp(); interrupted = true;
-      run.items.push({ target: { kind: 'host', id: 'interrupted-run' }, name: 'Interrupted update run', status: 'error', reasonCode: 'RUN_INTERRUPTED', message: '上次服务在运行中停止，执行结果未确认。恢复后重新检查实际状态，不重放旧的写请求。' });
+  async function reload({ recover = false } = {}) {
+    if (running) return;
+    const generation = ++readGeneration;
+    for (const mode of Object.keys(environments)) {
+      const state = await readJson(path.join(environments[mode].root, 'updates.json'), { version: 1, schedule: defaultSchedule(), bindings: {}, observations: {}, runs: [], activity: [] });
+      if (!state || state.version !== 1 || !Array.isArray(state.runs) || typeof state.bindings !== 'object' || !state.schedule || !state.observations) fail(422, 'INVALID_UPDATE_STATE', '更新状态文件格式无效，未启用自动更新。');
+      validateSchedule({ enabled: state.schedule.enabled, intervalMinutes: state.schedule.intervalMinutes, timezone: state.schedule.timezone, autoApply: state.schedule.autoApply, targets: state.schedule.targets });
+      if (running || generation !== readGeneration) return;
+      state.activity ||= []; states[mode] = state;
+      const disabled = await disabledSchedule(mode); if (disabled) { Object.assign(state.schedule, disabled, { enabled: false }); delete state.schedule.nextRunAt; }
+      if (!recover) continue;
+      state.schedule.running = false;
+      let interrupted = false;
+      for (const run of state.runs.filter(item => item.status === 'running')) {
+        run.status = 'error'; run.finishedAt = timestamp(); interrupted = true;
+        run.items.push({ target: { kind: 'host', id: 'interrupted-run' }, name: 'Interrupted update run', status: 'error', reasonCode: 'RUN_INTERRUPTED', message: '上次服务在运行中停止，执行结果未确认。恢复后重新检查实际状态，不重放旧的写请求。' });
+      }
+      if (interrupted) { state.schedule.lastOutcome = 'error'; if (state.schedule.enabled) state.schedule.nextRunAt = timestamp(); await persist(mode); }
     }
-    if (interrupted) { state.schedule.lastOutcome = 'error'; if (state.schedule.enabled) state.schedule.nextRunAt = timestamp(); await persist(mode); }
   }
+  await reload({ recover });
   function progress(mode) {
     const record = states[mode].runs[0];
     if (!record) return null;
-    const active = running && activeMode === mode;
+    const active = record.status === 'running';
     const counts = { current: 0, updated: 0, available: 0, skipped: 0, error: 0 };
     for (const item of record.items) if (Object.hasOwn(counts, item.status)) counts[item.status]++;
     const completed = record.items.filter(item => !['update-run', 'interrupted-run'].includes(item.target.id)).length;
@@ -86,13 +95,14 @@ export async function createScheduler({ environments, snapshot, perform, signatu
         bindings[targetKey(target)] = await signature(mode, target, current);
       }
     }
+    await beforeConfigure?.(mode, input);
     const event = { id: crypto.randomUUID(), action: 'schedule.configure', target: mode, createdAt: timestamp(), status: 'success', message: input.enabled ? `已启用固定 ${input.intervalMinutes} 分钟周期，${targets.length} 个明确目标；${input.autoApply ? '自动应用已验证更新' : '仅检查'}。` : '已关闭自动更新；在途单项安全结束后不启动后续对象。', canRestore: false };
     // Commit the proposed configuration before exposing it to the timer. Failed
     // saves must never leave an unacknowledged plan enabled in memory.
     writes[mode] = (writes[mode] || Promise.resolve()).catch(() => {}).then(async () => {
       const proposed = structuredClone(state);
       proposed.schedule = { ...proposed.schedule, ...structuredClone(input), targets };
-      if (input.enabled) proposed.schedule.nextRunAt = new Date(clock() + input.intervalMinutes * 60000).toISOString();
+      if (input.enabled) { proposed.schedule.nextRunAt = new Date(clock() + input.intervalMinutes * 60000).toISOString(); proposed.schedule.failureCount = 0; }
       else delete proposed.schedule.nextRunAt;
       if (input.enabled) proposed.bindings = bindings;
       proposed.activity.unshift(event); proposed.activity = proposed.activity.slice(0, 100);
@@ -148,9 +158,12 @@ export async function createScheduler({ environments, snapshot, perform, signatu
         const selected = await normalize(mode, targets || current.updates.map(item => item.target), current);
         record.total = selected.length;
         for (const target of selected) {
+          const disabled = await disabledSchedule(mode);
+          if (disabled) Object.assign(state.schedule, disabled, { enabled: false });
           if (closed || trigger !== 'manual' && !state.schedule.enabled) { stopped = true; break; }
           record.phase = 'checking';
           record.current = { target, name: current.updates.find(item => targetKey(item.target) === targetKey(target))?.name || target.id };
+          await persist(mode);
           const currentState = await snapshot(mode); const item = currentState.updates.find(candidate => targetKey(candidate.target) === targetKey(target));
           const name = item?.name || target.id;
           if (!item) { record.items.push({ target, name, status: 'skipped', message: '原目标已不存在；重新选择目标后才会纳入计划。', reasonCode: 'TARGET_MISSING' }); await persist(mode); continue; }
@@ -163,7 +176,7 @@ export async function createScheduler({ environments, snapshot, perform, signatu
             const checked = (await perform({ mode, action: 'update.check', target })).updateItem;
             if (checked.updatedDuringCheck) {
               record.items.push({ target, name, status: 'updated', message: checked.message });
-            } else if (checked.status === 'available' && autoApply && checked.canAutoApply && checked.canApply) {
+            } else if (checked.status === 'available' && autoApply && checked.canAutoApply && checked.canApply && (trigger === 'manual' || !await disabledSchedule(mode))) {
               if (trigger !== 'manual') {
                 const actual = await signature(mode, target);
                 if (JSON.stringify(actual) !== JSON.stringify(state.bindings[targetKey(target)])) {
@@ -171,6 +184,7 @@ export async function createScheduler({ environments, snapshot, perform, signatu
                 }
               }
               record.phase = 'applying';
+              await persist(mode);
               await perform({ mode, action: 'update.apply', target, previewId: checked.previewId });
               record.items.push({ target, name, status: 'updated', message: '已更新并确认结果。' });
             } else record.items.push({ target, name, status: checked.status === 'current' ? 'current' : checked.status === 'available' ? 'available' : checked.status === 'error' ? 'error' : 'skipped', message: checked.message, reasonCode: checked.reasonCode });
@@ -184,8 +198,14 @@ export async function createScheduler({ environments, snapshot, perform, signatu
       } finally {
         record.phase = 'finalizing'; delete record.current;
         record.finishedAt = timestamp(); state.schedule.running = false; state.schedule.lastRunAt = record.startedAt; state.schedule.lastOutcome = record.status;
-        if (state.schedule.enabled) state.schedule.nextRunAt = new Date(clock() + state.schedule.intervalMinutes * 60000).toISOString();
-        else delete state.schedule.nextRunAt;
+        if (record.status === 'success') state.schedule.lastSuccessAt = record.finishedAt;
+        if (trigger !== 'manual') {
+          const retry = record.items.some(item => item.status === 'error');
+          state.schedule.failureCount = retry ? (state.schedule.failureCount || 0) + 1 : 0;
+          const delay = retry ? Math.min(state.schedule.intervalMinutes, 5 * 2 ** Math.min(state.schedule.failureCount - 1, 6)) : state.schedule.intervalMinutes;
+          if (state.schedule.enabled) state.schedule.nextRunAt = new Date(clock() + delay * 60000).toISOString();
+          else delete state.schedule.nextRunAt;
+        }
         try { await persist(mode); } catch (error) { record.status = 'error'; throw error; }
       }
       return { message: `更新批次结束：${record.items.filter(item => item.status === 'updated').length} 项已更新。`, run: structuredClone(record) };
@@ -198,7 +218,7 @@ export async function createScheduler({ environments, snapshot, perform, signatu
     if (closed || running || coreBusy()) return;
     for (const mode of Object.keys(environments)) {
       const schedule = states[mode].schedule;
-      if (schedule.enabled && (!schedule.nextRunAt || Date.parse(schedule.nextRunAt) <= clock())) {
+      if (schedule.enabled && (!schedule.nextRunAt || !Number.isFinite(Date.parse(schedule.nextRunAt)) || Date.parse(schedule.nextRunAt) <= clock())) {
         try { await run(mode, { targets: structuredClone(schedule.targets), autoApply: schedule.autoApply, trigger: initialTick ? 'catch-up' : 'scheduled' }); } catch (error) { if (error.code !== 'BUSY') { schedule.lastOutcome = 'error'; schedule.nextRunAt = new Date(clock() + schedule.intervalMinutes * 60000).toISOString(); await persist(mode); } }
         break;
       }
@@ -206,5 +226,5 @@ export async function createScheduler({ environments, snapshot, perform, signatu
     initialTick = false;
   }
   if (startTimer) { timer = setInterval(() => { tick().catch(() => {}); }, pollMs); timer.unref(); setTimeout(() => { tick().catch(() => {}); }, 0).unref(); }
-  return { data, progress, configure, observe, observeError, beforeOwnUpdate, afterOwnUpdate, afterOwnerRefresh, run, tick, canonicalTarget, isRunning: () => running, close: async () => { closed = true; clearInterval(timer); if (runningPromise) await runningPromise.catch(() => {}); await Promise.all(Object.values(writes).map(promise => promise.catch(() => {}))); } };
+  return { reload, data, progress, configure, observe, observeError, beforeOwnUpdate, afterOwnUpdate, afterOwnerRefresh, run, tick, canonicalTarget, isRunning: () => running, close: async () => { closed = true; clearInterval(timer); if (runningPromise) await runningPromise.catch(() => {}); await Promise.all(Object.values(writes).map(promise => promise.catch(() => {}))); } };
 }

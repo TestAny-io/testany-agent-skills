@@ -39,7 +39,7 @@ export async function createApp(options = {}) {
       }
       if (request.method === 'GET' && url.pathname === '/api/session') return send(response, 200, { token, defaultMode: service.defaultMode });
       if (request.method === 'GET' && url.pathname === '/api/state') return send(response, 200, await service.snapshot(url.searchParams.get('mode') || 'local', url.searchParams.get('refresh') === 'true'));
-      if (request.method === 'GET' && url.pathname === '/api/updates/progress') return send(response, 200, { progress: service.updateProgress(url.searchParams.get('mode') || 'local') });
+      if (request.method === 'GET' && url.pathname === '/api/updates/progress') return send(response, 200, { progress: await service.updateProgress(url.searchParams.get('mode') || 'local') });
       if (request.method === 'GET' && url.pathname === '/api/skill') return send(response, 200, await service.skill(url.searchParams.get('mode') || 'local', url.searchParams.get('id')));
       if (request.method === 'POST' && url.pathname === '/api/actions') {
         const supplied = request.headers['x-skilldock-token'];

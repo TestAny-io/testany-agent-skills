@@ -3,10 +3,8 @@ import path from 'node:path';
 import crypto from 'node:crypto';
 import { parse as parseYaml } from 'yaml';
 
-export class AppError extends Error {
-  constructor(status, code, message) { super(message); this.status = status; this.code = code; }
-}
-export const fail = (status, code, message) => { throw new AppError(status, code, message); };
+import { AppError, fail } from './errors.mjs';
+export { AppError, fail };
 export const hash = value => crypto.createHash('sha256').update(value).digest('hex');
 export const identity = value => hash(path.resolve(value)).slice(0, 24);
 export const exists = async value => { try { await fs.lstat(value); return true; } catch (e) { if (e.code === 'ENOENT') return false; throw e; } };

@@ -53,7 +53,7 @@ $skill-manager 打开技能管理面板
 
 需要定时更新时，在“更新”里配置周期、目标，并明确选择是否“自动应用”。把 `skilldock` 自身加入计划后，也可以自动更新应用并重启重连。
 
-计划依赖本机后台服务运行。关闭面板不影响计划；电脑休眠或服务停止时暂停，下次启动补一次检查。重启电脑后需要再打开 SkillDock。本地 clone 来源不会被自动 `git pull`。
+启用计划后，macOS 会按需启动独立更新任务，完成后退出；关闭 SkillDock 网页服务和 Codex 不影响计划。电脑重启并登录后自动恢复，休眠或离线错过的检查会补做一次；任务每五分钟判断是否到期，实际运行可能晚于设定时间最多约五分钟。失败会记录原因并退避重试。更新页显示真实后台状态，若 macOS 禁止后台运行，需要恢复系统权限。关闭计划会移除系统任务。旧版已启用的计划在首次启动 0.4.0 时自动迁移，更新后的自动重启也会完成迁移；仅更新了插件文件、尚未运行新版时，才需手动启动一次。本地 clone 来源不会被自动 `git pull`。
 
 ## 告诉我们你的使用体验
 
@@ -76,6 +76,6 @@ $skill-manager 打开技能管理面板
 
 ## 版本、许可与开发
 
-当前版本 **0.3.0**，通过 Git 仓库分发。[变更记录](../../CHANGELOG.md) · [AGPL-3.0-only](LICENSE) · [第三方许可](skills/skill-manager/THIRD_PARTY_NOTICES.md)。仓库中其他现有 skills 的 MIT 许可不变。
+当前版本 **0.4.0**，通过 Git 仓库分发。[变更记录](../../CHANGELOG.md) · [AGPL-3.0-only](LICENSE) · [第三方许可](skills/skill-manager/THIRD_PARTY_NOTICES.md)。仓库中其他现有 skills 的 MIT 许可不变。
 
-开发、启动与验证命令见[应用 README](skills/skill-manager/assets/app/README.md)。实现边界与验证记录：[种子反馈](skills/skill-manager/references/19-seed-feedback.md)、[来源链接与 diff](skills/skill-manager/references/20-source-links-and-diff.md)、[同名技能管理](skills/skill-manager/references/21-duplicate-selection.md)、[更新进度与标签](skills/skill-manager/references/22-progress-and-tags.md)、[导航与私仓](skills/skill-manager/references/23-navigation-and-private-git.md)。
+开发、启动与验证命令见[应用 README](skills/skill-manager/assets/app/README.md)。实现边界与验证记录：[种子反馈](skills/skill-manager/references/19-seed-feedback.md)、[来源链接与 diff](skills/skill-manager/references/20-source-links-and-diff.md)、[同名技能管理](skills/skill-manager/references/21-duplicate-selection.md)、[更新进度与标签](skills/skill-manager/references/22-progress-and-tags.md)、[导航与私仓](skills/skill-manager/references/23-navigation-and-private-git.md)、[独立后台更新](skills/skill-manager/references/24-background-updates.md)。

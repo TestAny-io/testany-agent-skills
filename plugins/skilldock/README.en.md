@@ -53,7 +53,7 @@ If the `codex` command on your PATH fails, the [installation guide](../../README
 
 To schedule updates, choose an interval, select targets, and decide whether to enable automatic application. Include `skilldock` itself to update the app and restart it automatically.
 
-Scheduling requires the local background service. Closing the panel is fine; checks pause while your computer sleeps or the service is stopped, with one catch-up check after starting again. Reopen SkillDock after restarting your computer. Local-clone sources are not automatically pulled with Git.
+Enabling a schedule registers a per-user macOS background task that runs on demand and exits. SkillDock’s web service and Codex can stay closed. Scheduling resumes after reboot and sign-in; missed checks are coalesced into one catch-up. The system checks whether work is due every five minutes, so a run may start up to about five minutes after its planned time. Failures are recorded and retried with backoff. The Updates page shows actual background status; if macOS blocks background activity, restore that permission. Disabling the schedule removes the task. Existing enabled plans migrate when 0.4.0 first starts, including an automatic restart after updating. A manual launch is only needed if the plugin files were updated while the app was stopped and the new version has not run yet. Local-clone sources are not automatically pulled with Git.
 
 ## Tell us how it went
 
@@ -71,6 +71,6 @@ Explore [Testany](https://testany.io), read the [platform docs](https://docs.tes
 
 ## Version, license, and development
 
-Current version: **0.3.0**, distributed through this Git repository. [Changelog](../../CHANGELOG.md) · [AGPL-3.0-only](LICENSE) · [Third-party notices](skills/skill-manager/THIRD_PARTY_NOTICES.md).
+Current version: **0.4.0**, distributed through this Git repository. [Changelog](../../CHANGELOG.md) · [AGPL-3.0-only](LICENSE) · [Third-party notices](skills/skill-manager/THIRD_PARTY_NOTICES.md).
 
 See the [application README](skills/skill-manager/assets/app/README.md) for development and verification commands, and the [Chinese product page](README.md#版本许可与开发) for implementation and UAT records. Other existing skills in this repository remain MIT-licensed.

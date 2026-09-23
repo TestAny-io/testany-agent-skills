@@ -69,7 +69,7 @@ claude plugin update testany-eng@testany-agent-skills
 
 查看 [SkillDock 产品页与界面](plugins/skilldock/README.md)，了解标签筛选、同名技能管理、更新 diff 与自动更新。
 
-**安装 `skilldock` 只会添加一个 SkillDock 应用入口，不会安装 testany-eng 的研发 skills。** 当前版本为 SkillDock 0.3.0，自 0.2.0 起独立分发；旧版 testany-eng 2.4.0 所带的 SkillDock 0.1.0 用户请按下方迁移说明接续数据。
+**安装 `skilldock` 只会添加一个 SkillDock 应用入口，不会安装 testany-eng 的研发 skills。** 当前版本为 SkillDock 0.4.0，自 0.2.0 起独立分发；旧版 testany-eng 2.4.0 所带的 SkillDock 0.1.0 用户请按下方迁移说明接续数据。
 
 无需用户手动 clone。可以在 Codex 中提出：
 
@@ -123,7 +123,7 @@ CODEX_CLI="$(/bin/sh plugins/skilldock/skills/skill-manager/scripts/launch.sh cl
 
 GitHub 来源更新：先执行 `"$CODEX_CLI" plugin marketplace upgrade testany-agent-skills`，再执行 `"$CODEX_CLI" plugin add skilldock@testany-agent-skills`。本地来源先自行更新 clone，再刷新安装副本；定时计划不会替用户执行本地仓库的 `git pull`。
 
-在应用的“更新”页面，将独立的 `skilldock` 插件加入计划，启用计划和“自动应用”，后台服务运行时就会按设定周期检查并更新自身，更新后自动重启、重连。关闭浏览器不影响后台计划；电脑休眠或服务停止时暂停，下次启动补一次检查。重启电脑后需再次打开 SkillDock。
+在应用的“更新”页面，将独立的 `skilldock` 插件加入计划，启用计划和“自动应用”。自 0.4.0 起，macOS 会按需启动更新任务并在完成后退出，SkillDock 网页服务和 Codex 无需打开；重启并登录后自动恢复。睡眠或离线错过的检查补做一次，失败退避重试；系统每五分钟判断是否到期。自身更新后，下次任务使用新版；已经打开的网页服务会自动重启、重连。旧版已开启的计划在新版首次启动时迁移，更新后的自动重启也会完成迁移；只有插件文件已更新、应用尚未运行过新版时，才需手动启动一次。系统禁用后台运行时，更新页会明确提示。
 
 </details>
 

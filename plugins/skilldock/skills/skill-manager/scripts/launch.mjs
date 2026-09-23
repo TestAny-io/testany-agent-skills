@@ -4,9 +4,9 @@ import path from 'node:path';
 import os from 'node:os';
 import { fileURLToPath } from 'node:url';
 import { spawn } from 'node:child_process';
-import { captureSource, materializeRuntime, verifySourceArtifacts } from '../assets/app/scripts/source-bundle.mjs';
+import { captureSource } from '../assets/app/scripts/source-bundle.mjs';
 import { canonicalPath, installationIdentity, sameInstallation, readRestart, writeRestart } from '../assets/app/server/installation.mjs';
-import { findNpm, buildEnvironment } from '../assets/app/server/toolchain.mjs';
+import { prepareRuntime, verifyRuntime } from '../assets/app/server/runtime.mjs';
 import { resolveProject, parseLaunchArguments } from '../assets/app/server/project-context.mjs';
 import { resolveCodexCli } from '../assets/app/server/codex-runtime.mjs';
 
@@ -35,41 +35,6 @@ function matches(health, record) {
     && (!health.sourceDigest || health.sourceDigest === record.digest);
 }
 
-async function run(command, args, cwd, env) {
-  await new Promise((resolve, reject) => {
-    const child = spawn(command, args, { cwd, shell: false, env, stdio: ['ignore', 2, 2] });
-    child.once('error', reject);
-    child.once('exit', code => code === 0 ? resolve() : reject(new Error(`${command} ${args[0]} 失败（${code}）`)));
-  });
-}
-
-async function verifyRuntime(runtime, digest) {
-  const result = await verifySourceArtifacts(runtime);
-  if (result.manifest.sourceDigest !== digest) throw new Error('运行目录源码摘要与启动记录不一致。');
-  for (const [name, expected] of [['skilldock-source.tar.gz', result.bundle], ['LICENSE.txt', result.license]]) {
-    if (!(await fs.readFile(path.join(runtime, 'dist', name))).equals(expected)) throw new Error('运行目录中的公开源码或许可证与构建快照不一致。');
-  }
-}
-
-async function prepare(stateDir, snapshot) {
-  const digest = snapshot.sourceDigest;
-  const runtime = path.join(stateDir, 'runtimes', digest.slice(0, 20));
-  const marker = path.join(runtime, '.build-complete');
-  try { if ((await fs.readFile(marker, 'utf8')) === digest) { await verifyRuntime(runtime, digest); return runtime; } } catch {}
-  // An incomplete or mismatched runtime contains generated files, never user state.
-  await fs.rm(runtime, { recursive: true, force: true });
-  await materializeRuntime(snapshot, runtime);
-  process.stderr.write('SkillDock：准备隔离运行目录与锁定的依赖…\n');
-  const npm = await findNpm(process.execPath);
-  if (!npm) throw new Error('未找到 npm，请使用 /bin/sh scripts/launch.sh 自动选择运行环境。');
-  const env = await buildEnvironment(runtime, process.execPath, npm.npmCli);
-  await run(process.execPath, [npm.npmCli, 'ci', '--ignore-scripts', '--no-audit', '--no-fund'], runtime, env);
-  await run(process.execPath, [npm.npmCli, 'run', 'build'], runtime, env);
-  await verifyRuntime(runtime, digest);
-  await fs.writeFile(marker, digest, { mode: 0o600 });
-  return runtime;
-}
-
 async function stop(record, recordFile) {
   const health = await probe(record.url);
   if (!matches(health, record)) {
@@ -86,7 +51,7 @@ async function stop(record, recordFile) {
     try { process.kill(record.pid, 0); } catch (error) { if (error.code === 'ESRCH') running = false; else throw error; }
     if (!running) {
       await fs.rm(recordFile, { force: true });
-      return { status: 'stopped', message: 'SkillDock 已停止。' };
+      return { status: 'stopped', message: 'SkillDock 网页服务已停止。已启用的独立自动更新不受影响，可在更新页关闭计划。' };
     }
   }
   throw new Error('服务尚未停止；保留启动记录，请稍后检查状态。');
@@ -96,7 +61,7 @@ async function startRuntime(record, recordFile) {
   const fd = openSync(path.join(record.state, 'server.log'), 'a', 0o600);
   const env = { ...process.env, PORT: String(new URL(record.url).port), CODEX_HOME: record.codexHome,
     SKILLDOCK_STATE_DIR: record.state, SKILLDOCK_PROJECT_DIR: record.project,
-    SKILLDOCK_SOURCE_DIGEST: record.digest, SKILLDOCK_PROJECT_CONTEXT: JSON.stringify(record.projectContext || null),
+    SKILLDOCK_SOURCE_DIGEST: record.digest, SKILLDOCK_APP_SOURCE: record.source, SKILLDOCK_PROJECT_CONTEXT: JSON.stringify(record.projectContext || null),
     ...(record.cli?.available ? { SKILLDOCK_CODEX_BIN: record.cli.path } : {}) };
   delete env.SKILLDOCK_RESTART_JOB;
   const child = spawn(process.execPath, [path.join(record.runtime, 'server/index.mjs')], {
@@ -210,7 +175,7 @@ export async function launch(action = 'start', options = {}) {
     for (const attempt of cli.attempts) process.stderr.write(`SkillDock：跳过 CLI ${attempt.path}：${attempt.error}\n`);
     process.stderr.write(cli.available ? `SkillDock：Codex CLI ${cli.path}（${cli.version}）\n` : `SkillDock：${cli.error}\n`);
     await report('preparing');
-    const runtime = await prepare(state, snapshot);
+    const runtime = await prepareRuntime(state, snapshot);
     if (JSON.stringify(await readRecord(recordFile)) !== JSON.stringify(live ? current : null))
       throw new Error('运行实例已变化，已取消本次重启。');
     if (live) { await report('restarting'); await stop(current, recordFile); stopped = true; }

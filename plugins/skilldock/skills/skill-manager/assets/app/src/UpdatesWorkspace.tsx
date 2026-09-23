@@ -53,6 +53,20 @@ const copy = {
     schedule: "自动更新",
     scheduleIntro: "选好对象与周期，后台会定时检查，并按你的设置自动应用更新。",
     configure: "设置计划",
+    background: "后台任务",
+    backgroundReady: "运行正常",
+    backgroundOff: "未注册",
+    backgroundStopping: "正在停止",
+    backgroundBlocked: "已被 macOS 禁用",
+    backgroundUnregistered: "未成功注册，请重新保存计划",
+    backgroundUnverified: "尚未确认执行，请检查后台权限或重新保存计划",
+    backgroundError: "执行失败，需要处理",
+    backgroundUnsupported: "此系统暂不支持后台任务",
+    backgroundWake: "最近唤起",
+    backgroundConsent: "开启后会注册当前用户的 macOS 后台任务。关闭计划会移除任务，当前单项完成后停止。",
+    lastSuccess: "上次成功检查",
+    retrying: "失败后将按退避时间重试",
+
     on: "已启用",
     off: "未启用",
     running: "正在运行",
@@ -60,7 +74,7 @@ const copy = {
     last: "上次运行",
     none: "尚未记录",
     lifecycle:
-      "关闭此页面后后台服务继续运行。电脑休眠或服务停止期间暂停；恢复后补检查一次。重启电脑后需要再次启动 SkillDock。",
+      "由 macOS 在后台按需执行，完成即退出；无需打开 SkillDock 或 Codex。重启并登录后自动恢复，休眠或离线错过的检查会补做。实际开始时间可能比计划晚最多约 5 分钟。",
     interval: "检查周期（小时）",
     customInterval: "自定义间隔（小时）",
     hours: "小时",
@@ -171,8 +185,22 @@ const copy = {
     empty: "No matching update targets",
     schedule: "Automatic updates",
     scheduleIntro:
-      "Choose targets and a frequency. The background service checks and applies updates according to your settings.",
+      "Choose targets and a frequency. The background task checks and applies updates according to your settings.",
     configure: "Configure schedule",
+    background: "Background task",
+    backgroundReady: "Working normally",
+    backgroundOff: "Not registered",
+    backgroundStopping: "Stopping",
+    backgroundBlocked: "Disabled by macOS",
+    backgroundUnregistered: "Not registered. Save the schedule again.",
+    backgroundUnverified: "Execution not confirmed. Check background permissions or save the schedule again.",
+    backgroundError: "Execution failed — action needed",
+    backgroundUnsupported: "Background tasks are not supported on this system yet",
+    backgroundWake: "Last wake",
+    backgroundConsent: "Enabling registers a macOS background task for your user account. Disabling removes it after the current item safely finishes.",
+    lastSuccess: "Last successful check",
+    retrying: "Failures retry with increasing delays",
+
     on: "Enabled",
     off: "Disabled",
     running: "Running",
@@ -180,7 +208,7 @@ const copy = {
     last: "Last run",
     none: "Not recorded",
     lifecycle:
-      "The service keeps running when this page closes. Checks pause while the computer sleeps or the service is stopped, with one catch-up after resuming. Start SkillDock again after restarting your computer.",
+      "macOS runs updates on demand, then the task exits. SkillDock and Codex can stay closed. Scheduling resumes after restarting and signing in, with catch-up after sleep or offline periods. Runs may start up to about 5 minutes after the planned time.",
     interval: "Check interval (hours)",
     customInterval: "Custom interval (hours)",
     hours: "hours",
@@ -298,6 +326,20 @@ const copy = {
     scheduleIntro:
       "対象と間隔を選択すると、バックグラウンドで確認し、設定に従って更新を適用します。",
     configure: "スケジュール設定",
+    background: "バックグラウンドタスク",
+    backgroundReady: "正常に動作中",
+    backgroundOff: "未登録",
+    backgroundStopping: "停止中",
+    backgroundBlocked: "macOSにより無効化されています",
+    backgroundUnregistered: "未登録です。設定を再保存してください。",
+    backgroundUnverified: "実行を未確認です。バックグラウンド権限を確認するか設定を再保存してください。",
+    backgroundError: "実行失敗・対応が必要です",
+    backgroundUnsupported: "このOSのバックグラウンドタスクは未対応です",
+    backgroundWake: "最終起動",
+    backgroundConsent: "有効にすると、このユーザーのmacOSバックグラウンドタスクを登録します。無効にすると現在の項目の処理を終えて停止・登録解除します。",
+    lastSuccess: "前回の確認成功",
+    retrying: "失敗時は間隔を延ばして再試行します",
+
     on: "有効",
     off: "無効",
     running: "実行中",
@@ -305,7 +347,7 @@ const copy = {
     last: "前回の実行",
     none: "未記録",
     lifecycle:
-      "ページを閉じてもサービスは動作します。PCのスリープ中やサービス停止中は休止し、再開後に1回確認します。PCの再起動後はSkillDockを再度起動してください。",
+      "macOSが必要なときだけ更新を実行し、完了後に終了します。SkillDockやCodexを開く必要はありません。再起動・ログイン後に自動再開し、スリープやオフライン中の確認を補います。予定時刻から約5分遅れる場合があります。",
     interval: "確認間隔（時間）",
     customInterval: "カスタム間隔（時間）",
     hours: "時間",
@@ -597,6 +639,13 @@ export function UpdatesWorkspace({
       return `${t("marketplace")} · ${owner.slice(14)}`;
     return owner ? (labels[owner] ? t(labels[owner]) : owner) : t("unknown");
   };
+  const background = data.schedule?.background;
+  const backgroundLabel: Record<string, Key> = {
+    ready: "backgroundReady", off: "backgroundOff", stopping: "backgroundStopping",
+    blocked: "backgroundBlocked", unregistered: "backgroundUnregistered", unverified: "backgroundUnverified",
+    error: "backgroundError", unsupported: "backgroundUnsupported",
+  };
+  const needsAttention = data.schedule?.enabled && background && !["ready", "off", "stopping"].includes(background.status);
   const statusLabel = (status: string) =>
     status in copy.zh ? t(status as Key) : status;
   return (
@@ -611,11 +660,13 @@ export function UpdatesWorkspace({
             <p>{t("scheduleIntro")}</p>
           </div>
           <span
-            className={`badge badge-${data.schedule?.enabled ? "green" : "neutral"}`}
+            className={`badge badge-${needsAttention ? "orange" : data.schedule?.enabled ? "green" : "neutral"}`}
           >
             {batchRunning
               ? t("running")
-              : data.schedule?.enabled
+              : needsAttention
+                ? t(backgroundLabel[background!.status])
+                : data.schedule?.enabled
                 ? t("on")
                 : t("off")}
           </span>
@@ -623,7 +674,7 @@ export function UpdatesWorkspace({
         <div className="uw-schedule-summary">
           <span>
             {t("next")}
-            <strong>{date(data.schedule?.nextRunAt)}</strong>
+            <strong>{date(background?.retryAt || data.schedule?.nextRunAt)}</strong>
           </span>
           <span>
             {t("last")}
@@ -651,6 +702,15 @@ export function UpdatesWorkspace({
             </span>
             <span>{data.schedule.timezone}</span>
           </p>
+        )}
+        {background && (
+          <div className={`uw-background-status${needsAttention ? " needs-attention" : ""}`} role="status">
+            <div><strong>{t("background")}</strong><span>{t(backgroundLabel[background.status])}</span></div>
+            <div><span>{t("backgroundWake")}</span><span>{date(background.lastWakeAt)}</span></div>
+            <div><span>{t("lastSuccess")}</span><span>{date(data.schedule?.lastSuccessAt)}</span></div>
+            {!!data.schedule?.failureCount && <p>{t("retrying")}</p>}
+            {background.lastError && <ServiceMessage value={background.lastError} />}
+          </div>
         )}
         <p className="uw-service-note">{t("lifecycle")}</p>
       </section>
@@ -899,6 +959,7 @@ export function UpdatesWorkspace({
           >
             <div className="modal-body uw-form">
               <p>{t("selectedOnly")}</p>
+              <p className="uw-service-note">{t("backgroundConsent")}</p>
               <label className="uw-check">
                 <input
                   type="checkbox"

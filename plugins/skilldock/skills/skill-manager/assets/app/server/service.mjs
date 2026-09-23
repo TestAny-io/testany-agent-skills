@@ -14,6 +14,8 @@ import { resolveProject, projectContext, validateProjectPath } from './project-c
 import { githubDirectory } from './git-source.mjs';
 import { previewFileDiff } from './preview-diff.mjs';
 import { normalizeTags, tagKey, enrichTags } from './tags.mjs';
+import { acquireFileLock, operationLock, isOperationActive } from './process-lock.mjs';
+import { createBackgroundManager, backgroundPaths } from './background.mjs';
 
 const ACTION_FIELDS = {
   'tags.set': ['target', 'tags'],
@@ -61,21 +63,8 @@ export function validateAction(input) {
   return input;
 }
 
-export function compareVersions(left, right) {
-  const parse = value => /^v?(\d+(?:\.\d+){0,3})(?:-([0-9A-Za-z.-]+))?(?:\+[0-9A-Za-z.-]+)?$/.exec(value || '');
-  const a = parse(left); const b = parse(right); if (!a || !b) return null;
-  const aa = a[1].split('.').map(Number); const bb = b[1].split('.').map(Number);
-  for (let i = 0; i < Math.max(aa.length, bb.length); i += 1) if ((aa[i] || 0) !== (bb[i] || 0)) return (aa[i] || 0) > (bb[i] || 0) ? 1 : -1;
-  if (a[2] === b[2]) return 0; if (!a[2]) return 1; if (!b[2]) return -1;
-  const preA = a[2].split('.'); const preB = b[2].split('.');
-  for (let i = 0; i < Math.max(preA.length, preB.length); i += 1) {
-    if (preA[i] === preB[i]) continue; if (preA[i] === undefined) return -1; if (preB[i] === undefined) return 1;
-    const numA = /^\d+$/.test(preA[i]); const numB = /^\d+$/.test(preB[i]);
-    if (numA && numB) return Number(preA[i]) > Number(preB[i]) ? 1 : -1;
-    if (numA !== numB) return numA ? -1 : 1; return preA[i] > preB[i] ? 1 : -1;
-  }
-  return 0;
-}
+import { compareVersions } from './versions.mjs';
+export { compareVersions };
 
 export async function createService(options = {}) {
   const homeInput = path.resolve(options.home || os.homedir()); const home = await fs.realpath(homeInput);
@@ -102,6 +91,31 @@ export async function createService(options = {}) {
   const adapter = options.adapter || new CodexAdapter({ codexHome, codexBin: options.codexBin || process.env.SKILLDOCK_CODEX_BIN, timeout: options.cliTimeout });
   const defaultMode = options.enableTestSandbox === true ? 'sandbox' : 'local'; const previews = new Map(); let busy = false; let cachedCatalog; let catalogTime = 0; let scheduler;
   const removalPreviews = new Map();
+  const background = options.background === false || options.scheduler === false || options.enableTestSandbox === true ? null
+    : options.backgroundManager || createBackgroundManager({ stateDir, home, codexHome, project: () => project });
+  const disabledFile = mode => mode === 'local' ? backgroundPaths(stateDir, home).disabled : path.join(environments[mode].root, 'disabled.json');
+  const disabledSchedule = mode => readJson(disabledFile(mode), null);
+  let operationActive = false; let operationPromise; let migrationError;
+  async function withOperation(operation) {
+    if (operationActive) fail(409, 'BUSY', '另一个操作或更新批次正在执行，请稍后重试。');
+    const release = options.ownsOperationLock ? () => {} : acquireFileLock(operationLock(codexHome));
+    operationActive = true;
+    const promise = (async () => { await scheduler.reload({ recover: true }); return operation(); })();
+    operationPromise = promise;
+    try { return await promise; } finally { operationActive = false; operationPromise = undefined; release(); }
+  }
+  let observedRun;
+  async function refreshSchedule() {
+    if (!operationActive) {
+      await scheduler?.reload();
+      if (scheduler?.progress('local')?.status === 'running' && !isOperationActive(codexHome)) {
+        try { await withOperation(async () => {}); } catch (error) { if (error.code !== 'BUSY') throw error; }
+      }
+    }
+    const record = scheduler?.progress('local');
+    const key = `${record?.id || ''}:${record?.finishedAt || ''}`;
+    if (key !== observedRun) { observedRun = key; catalogTime = 0; }
+  }
   const previewNow = options.now || Date.now;
   const hasPreview = id => !!id && previews.has(id) && previewNow() - previews.get(id).created <= 30 * 60000;
   const environment = mode => {
@@ -148,13 +162,20 @@ export async function createService(options = {}) {
     for (const entry of unused.slice(2)) { await verifyDescendantDirectory(env.stateBoundary, entry.directory); await fs.rm(entry.directory, { recursive: true, force: true }); }
   }
   async function snapshot(mode, force = false) {
+    await refreshSchedule();
     const started = performance.now(); const env = { ...environment(mode) }; const currentProjectInfo = projectInfo; await verifyDirectoryRoot(env.stateBoundary); const registry = await registryFor(env);
-    await cleanupTemporary(env).catch(() => {});
+    if (!operationActive) {
+      try { await withOperation(() => cleanupTemporary(env)); } catch { /* A writer owns the lock, or cleanup is unavailable; never interrupt its staging. */ }
+    }
     const result = await enrichSources(await scan(env, registry, await catalogFor(env, registry, force)), env, registry);
     enrichTags(result, registry);
     if (scheduler) { const { extraActivity, ...updateState } = scheduler.data(mode, result); Object.assign(result, updateState); result.activity = [...result.activity, ...extraActivity].sort((a, b) => b.createdAt.localeCompare(a.createdAt)).slice(0, 200); }
     else result.updates = buildUpdateItems(result, {}, hasPreview);
     for (const file of (await fs.readdir(env.root)).filter(name => /^pending-plugin-update-[a-f0-9-]+\.json$/.test(name)).slice(0, 20)) result.diagnostics.push(`存在未确认的包更新记录 ${file}；请核对插件版本和启用状态，旧写请求不会自动重放。`);
+    if (mode === 'local' && background && result.schedule) {
+      result.schedule.background = await background.status(result.schedule.enabled);
+      if (migrationError) result.schedule.background = { ...result.schedule.background, status: 'error', lastError: migrationError };
+    }
     result.projectContext = mode === 'local' ? { ...currentProjectInfo, effective: env.project } : undefined;
     result.durationMs = Math.round(performance.now() - started); return result;
   }
@@ -641,7 +662,7 @@ export async function createService(options = {}) {
     return { target, sourceIdentity, real, dev: String(stat.dev), ino: String(stat.ino), ...(generation ? { generation } : {}), ...(['plugin-reinstall', 'skill-source'].includes(item.route) ? { fingerprint: (await inspectTree(directory)).fingerprint } : {}) };
   }
   let requestBusy = false; let restarting = false; let closing = false;
-  async function action(input, internal = false) {
+  async function executeRequest(input, internal = false) {
     const request = validateAction(input); const mode = request.mode; environment(mode);
     if (restarting || closing) fail(409, 'APP_RESTARTING', 'SkillDock 正在准备重启，请等待界面自动重连。');
     const disabling = request.action === 'schedule.configure' && !request.schedule.enabled;
@@ -674,6 +695,9 @@ export async function createService(options = {}) {
         await writeJson(path.join(stateDir, 'project.json'), { path: next.requested });
         project = next.effective; projectInfo = next;
         local.project = project; local.managedRoots = managedRoots;
+        const contextFile = backgroundPaths(stateDir, home).context;
+        const backgroundContext = await readJson(contextFile, null);
+        if (backgroundContext) await writeJson(contextFile, { ...backgroundContext, projectDir: project });
         previews.clear();
         removalPreviews.clear();
         return { message: '项目扫描目录已切换；请核对现有更新计划的项目目标。', projectContext: next };
@@ -712,9 +736,57 @@ export async function createService(options = {}) {
       throw error;
     } finally { requestBusy = false; }
   }
-  const isBusy = () => busy || requestBusy || restarting || closing || scheduler.isRunning();
-  scheduler = await createScheduler({ environments, snapshot, perform: request => action(request, true), signature: targetSignature, hasPreview, coreBusy: () => busy || requestBusy || restarting || closing, clock: options.now, pollMs: options.schedulerPollMs, startTimer: options.scheduler !== false });
-  return { stateDir, get project() { return project; }, launchProject, get projectContext() { return projectInfo; }, defaultMode, environments, adapter, snapshot, skill, action, updateProgress: mode => { environment(mode); return scheduler.progress(mode); }, tickScheduler: () => scheduler.tick(), isBusy,
+  async function dispatchRequest(input, internal = false) {
+    const request = validateAction(input); environment(request.mode);
+    if (internal) return executeRequest(request, true);
+    if (request.action === 'schedule.configure' && !request.schedule.enabled) {
+      // This separate cancellation record never rewrites a worker's history.
+      // The current atomic item completes, then the worker observes the stop.
+      await verifyDirectoryRoot(applicationBoundary);
+      await writeJson(disabledFile(request.mode), request.schedule);
+      if (request.mode === 'local') await background?.remove({ deferBootout: isOperationActive(codexHome) });
+      if (operationActive) return { message: '已关闭自动更新；当前单项完成后停止。', schedule: { ...request.schedule, running: scheduler.isRunning() } };
+      try { return await withOperation(() => executeRequest(request)); }
+      catch (error) { if (error.code !== 'BUSY') throw error; return { message: '已关闭自动更新；当前单项完成后停止。', schedule: { ...request.schedule, running: true } }; }
+    }
+    return withOperation(async () => {
+      if (request.action !== 'schedule.configure') return executeRequest(request);
+      const previous = await readJson(path.join(environments[request.mode].root, 'updates.json'), null);
+      try {
+        const result = await executeRequest(request);
+        if (request.schedule.enabled) await fs.rm(disabledFile(request.mode), { force: true });
+        return result;
+      } catch (error) {
+        if (request.mode === 'local' && (!previous?.schedule.enabled || await disabledSchedule(request.mode))) await background?.remove().catch(() => {});
+        throw error;
+      }
+    });
+  }
+  async function action(input, internal = false) {
+    const request = validateAction(input); environment(request.mode);
+    if (internal || request.action !== 'schedule.configure') return dispatchRequest(request, internal);
+    // Configuration has its own short lock so disabling remains possible while
+    // an update owns the operation lock, but a concurrent enable cannot erase it.
+    const release = acquireFileLock(path.join(stateDir, 'schedule-config.lock'));
+    try { return await dispatchRequest(request); } finally { release(); }
+  }
+  const isBusy = () => busy || requestBusy || operationActive || restarting || closing || scheduler.isRunning();
+  scheduler = await createScheduler({ environments, snapshot, perform: request => action(request, true), signature: targetSignature, hasPreview,
+    coreBusy: () => busy || requestBusy || restarting || closing, clock: options.now, startTimer: false, recover: false, disabledSchedule,
+    beforeConfigure: async (mode, input) => {
+      if (input.enabled) { if (mode === 'local') { await background?.ensure(); migrationError = undefined; } }
+    } });
+  try {
+    await withOperation(async () => {
+      const state = scheduler.data('local', { skills: [], plugins: [], updates: [] });
+      if (state.schedule.enabled && background) {
+        try { await background.ensure(); } catch (error) { migrationError = redact(error.message); }
+      }
+    });
+  } catch (error) { if (error.code !== 'BUSY') throw error; }
+  return { stateDir, get project() { return project; }, launchProject, get projectContext() { return projectInfo; }, defaultMode, environments, adapter, snapshot, skill, action,
+    updateProgress: async mode => { environment(mode); await refreshSchedule(); return scheduler.progress(mode); },
+    tickScheduler: () => withOperation(() => scheduler.tick()), isBusy,
     pauseForRestart: () => { if (isBusy()) return false; restarting = true; return true; }, resumeAfterRestart: () => { restarting = false; },
-    close: () => { closing = true; return scheduler.close(); } };
+    close: async () => { closing = true; await scheduler.close(); await operationPromise?.catch(() => {}); } };
 }
