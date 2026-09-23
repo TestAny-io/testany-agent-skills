@@ -143,6 +143,7 @@ const nav = [
 const actionNames: Record<string, string> = {
   "skill.removeSelected": "移除选中的同名技能",
   "schedule.configure": "修改更新计划",
+  "schedule.reconcile": "恢复更新计划绑定",
   "skill.connectSource": "关联更新来源",
   "plugin.update": "更新插件",
   "plugin.checkUpdate": "检查插件更新",
