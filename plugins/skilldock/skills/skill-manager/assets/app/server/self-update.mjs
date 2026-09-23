@@ -33,6 +33,12 @@ export function createSelfUpdater({ service, codexHome, pollMs = 1000, startTime
   let pending = false; let closed = false; let task; let workerRunning = false; let timer;
   const request = () => { pending = true; };
   async function check() {
+    if (!closed && !pending && process.env.SKILLDOCK_SOURCE_DIGEST) {
+      try {
+        const background = JSON.parse(await fs.readFile(path.join(service.stateDir, 'background/context.json'), 'utf8'));
+        if (background.digest && background.digest !== process.env.SKILLDOCK_SOURCE_DIGEST) pending = true;
+      } catch { /* Background updates may not be configured. */ }
+    }
     if (closed || workerRunning || !pending || service.isBusy()) return;
     pending = false;
     let job;

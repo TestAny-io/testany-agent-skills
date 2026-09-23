@@ -438,5 +438,29 @@
   "GIT_HOST_UNVERIFIED": {
     "en": "The SSH host is unverified or its host key has changed. Verify the host in a terminal before retrying; SkillDock does not automatically trust new host keys.",
     "ja": "SSH ホストが未確認か、ホスト鍵が変更されています。先にターミナルでホストを確認して再試行してください。SkillDock は新しいホスト鍵を自動で信頼しません。"
+  },
+  "BACKGROUND_UNSUPPORTED": {
+    "en": "Independent background updates currently require macOS.",
+    "ja": "独立したバックグラウンド更新は現在macOSに対応しています。"
+  },
+  "BACKGROUND_DISABLED": {
+    "en": "macOS has disabled this background task. Allow SkillDock in System Settings, then save the schedule again.",
+    "ja": "macOSがこのタスクを無効にしています。システム設定でSkillDockのバックグラウンド実行を許可してから設定を再保存してください。"
+  },
+  "BACKGROUND_REGISTRATION_FAILED": {
+    "en": "The background task could not be registered. The new schedule was not enabled. Check the original error and retry.",
+    "ja": "バックグラウンドタスクを登録できません。新しいスケジュールは無効のままです。元のエラーを確認して再試行してください。"
+  },
+  "BACKGROUND_REMOVE_FAILED": {
+    "en": "The background task has not been removed. Retry disabling the schedule.",
+    "ja": "バックグラウンドタスクを削除できませんでした。スケジュールの無効化を再試行してください。"
+  },
+  "LOCK_INVALID": {
+    "en": "The update lock is not a regular file. Inspect the data directory before retrying.",
+    "ja": "更新ロックが通常ファイルではありません。データディレクトリを確認してください。"
+  },
+  "BACKGROUND_RUNTIME_UNAVAILABLE": {
+    "en": "A usable npm runtime was not found for background builds. Reopen SkillDock through launch.sh, then save the schedule again.",
+    "ja": "バックグラウンドビルド用のnpmが見つかりません。launch.shでSkillDockを開き直してから設定を再保存してください。"
   }
 }

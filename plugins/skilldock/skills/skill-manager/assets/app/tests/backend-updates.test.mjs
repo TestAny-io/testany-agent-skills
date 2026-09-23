@@ -97,7 +97,7 @@ test('failed schedule persistence cannot enable a latent plan when the obstacle 
   const writing = (await service.snapshot('sandbox')).skills.find(s => s.canUpdate); const before = await inspectTree(path.dirname(writing.path));
   const file = path.join(env.root, 'updates.json'); await fs.mkdir(file);
   await assert.rejects(act(service, 'schedule.configure', { schedule: schedule([skillTarget(writing)]) }));
-  assert.equal((await service.snapshot('sandbox')).schedule.enabled, false);
+  await assert.rejects(service.snapshot('sandbox'), { code: 'INVALID_STATE' }, 'an unreadable shared state must not appear healthy from stale memory');
   await fs.rm(file, { recursive: true }); time += 16 * 60000; await service.tickScheduler();
   const state = await service.snapshot('sandbox'); assert.equal(state.updateRuns.length, 0); assert.equal((await inspectTree(path.dirname(writing.path))).fingerprint, before.fingerprint);
 });
