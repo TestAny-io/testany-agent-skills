@@ -11,9 +11,13 @@
 - 用户要求同时打开时，读取实际安装目录中的 `skills/skill-manager/SKILL.md` 并按其启动说明执行。后续可在新的 Codex 任务中用 `$skill-manager` 打开面板。
 - 缺少工具或当前宿主不支持所需能力时，明确说明缺少项和可执行的下一步。普通浏览、审查或编辑仓库不触发安装。
 
+## 安装 TeamDesk
+
+用户要求安装 TeamDesk 时，先读 [TeamDesk 安装说明](plugins/teamdesk/README.md#安装与启动)，优先使用根目录 `install-teamdesk.sh` 统一入口：从 clone 运行使用该 clone，用户指定 GitHub 来源时使用文档下载入口。脚本检查依赖、原生安装及启用状态、构建并核验启动图标；缺少系统依赖时按实际错误处理，不声称已完成安装。安装不代表共享连接、hook 信任或员工记账已通过，这些按团队设置提示核验。只阅读或修改仓库不触发安装。
+
 ## 仓库与编辑边界
 
-Testany Agent Skills 按领域聚合 plugin（testany-eng / testany-llm / testany-mrkt / testany-bot；SkillDock 独立应用为 skilldock）。
+Testany Agent Skills 按领域聚合 plugin（testany-eng / testany-llm / testany-mrkt / testany-bot；独立应用为 skilldock / teamdesk）。
 技能位于 `plugins/<plugin>/skills/<skill>/SKILL.md`，slash 入口位于对应 `commands/`。
 先读取本次相关材料和当前差异，保留已有未提交修改。只改用户目标涉及的范围，不因普通编辑自动启动完整研发流程、安装、发布或远程操作。
 
@@ -32,7 +36,7 @@ Testany Agent Skills 按领域聚合 plugin（testany-eng / testany-llm / testan
 - 同一领域新增 skill 不新增 marketplace plugin；新增/删除/重命名时同步相关入口、README、发现配置与 CHANGELOG。
 - Plugin version 只能有一个 authority；同一 marketplace 内可复用 symlink，但 dangling 或越出 marketplace root 必须 fail closed。
 - 修改或审查 manifest、组件发现路径、symlink、skill 增删改名，或准备安装/发布时，先读 [发现与发布维护](docs/plugin-development.md)，保留 strict/合并/路径/版本语义。
-- 普通局部编辑只执行相关本地验证，不强制读完整发布手册，不自动改版本、安装、提交或推送。
+- 普通局部编辑只执行相关本地验证，不强制读完整发布手册，不自动改版本、安装、提交或推送；已有用户明确约定的版本规则优先。TeamDesk 每次本地迭代升 patch、每次合并远程 main 升 minor，major 由用户决定，详见 [TeamDesk 版本规则](plugins/teamdesk/AGENTS.md#版本规则)。
 
 ## 输出位置
 

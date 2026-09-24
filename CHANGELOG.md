@@ -189,6 +189,19 @@
   - `testany-llm` 的命令列表和 plugin 描述改为仅保留 `prompt-optimizer`
   - 根 README、`AGENTS.md`、`CLAUDE.md` 不再引用已删除的 `skill-creator` 脚本与路径
 
+## [teamdesk 0.1.0] - 2026-09-24
+
+### Added
+- 首次发布完整 TeamDesk MVP：32 位在职员工、部门与共享资料、原生任务绑定、FIFO/steer、网状交接、问题/审批归属、负责人报告、人类验收与共享 hook 记账。
+- 就地 AI 撰写部门职责、工作说明、任务目标与完成标准；按需读取本地参考资料，并由人类采用后保存。
+- 连接阶段与恢复、完整投递回执、SQLite 事务化 metadata 历史及部门/员工协作拓扑与回放。
+- 一次安装入口 `install-teamdesk.sh`：检查依赖、通过原生 CLI 安装插件、创建并验证 macOS 启动图标；GitHub main 与本地 clone 均可安装。失败可重跑，来源冲突/禁用/降级明确处理；图标保存本机运行时选择。
+- macOS 图标启动/复用本地工作台与共享 Codex Desktop，并在 Safari 打开；已有普通模式 Codex 提示正常退出，不强制中断任务。
+
+### Validation scope
+- 既有本地迭代 0.0.1–0.0.13 的验证历史保留在插件文档，本轮安装开发阶段为 0.0.14，首次 main 发布按约定升为 0.1.0。
+- 第二台 Mac、Intel / 较早 macOS 及完整冷启动仍需种子验证；实验接口兼容性不等于所有新版 Codex 均已实测。
+
 ## [skilldock 0.4.2] - 2026-09-23
 
 ### Fixed

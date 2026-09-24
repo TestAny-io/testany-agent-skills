@@ -1,0 +1,17 @@
+{
+  "description": "TeamDesk：仅为已绑定的员工记录业务摘要与来源。不读取对话文件，不联网，不发送消息。",
+  "hooks": {
+    "Stop": [
+      {
+        "hooks": [
+          {
+            "type": "command",
+            "command": "/bin/sh \"$PLUGIN_ROOT/skills/team-workspace/scripts/hook.sh\"",
+            "timeout": 10,
+            "statusMessage": "TeamDesk 自动工作记录"
+          }
+        ]
+      }
+    ]
+  }
+}

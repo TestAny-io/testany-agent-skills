@@ -1,5 +1,5 @@
 name: Bug report / 故障反馈
-description: Report a problem with any plugin, skill, SkillDock, or its documentation.
+description: Report a problem with any plugin, skill, SkillDock, TeamDesk, or its documentation.
 title: "[Bug] "
 body:
   - type: markdown
@@ -18,6 +18,7 @@ body:
         - testany-mrkt
         - testany-bot
         - SkillDock (skilldock)
+        - TeamDesk (teamdesk)
         - Installation or documentation / 安装或文档
         - Not sure / 不确定
     validations:

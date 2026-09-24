@@ -31,7 +31,7 @@ Claude Code 会自动发现 plugin 根目录 `skills/<skill-name>/SKILL.md`；`p
 
 Plugin version 只能保留一个 authority，三选一：仅在 marketplace entry 声明、仅在 `plugin.json` 声明，或两处都省略并使用 source resolved version；绝不能同时在 marketplace entry 与 `plugin.json` 声明。显式版本每次发布必须递增，否则安装端会继续复用旧 cache。
 
-SkillDock 使用 Codex 的 `.codex-plugin/plugin.json`；其他插件保留 `.claude-plugin/plugin.json`。仓库校验器同时识别两种位置，但同一个插件若同时存在两份 manifest 则拒绝，避免重复 authority。校验器也接受 Codex 的 `{"source":"local","path":"./plugins/example"}` 来源描述，保留相同的相对路径及越界检查。共享的 `.claude-plugin/marketplace.json` 继续使用两种宿主都支持的字符串相对来源：Claude 的本机校验器不接受 Codex 的 local 对象。Codex 的 `policy` 字段在 Claude 中会被忽略；不能把 Codex 实际安装通过表述成 Claude 全部能力通过。格式依据 [OpenAI plugin 文档](https://learn.chatgpt.com/docs/plugins) 和 [Claude plugin sources](https://code.claude.com/docs/en/plugin-marketplaces#plugin-sources)，安装行为以本轮真实 CLI 证据为准。
+SkillDock 和 TeamDesk 使用 Codex 的 `.codex-plugin/plugin.json`；其他插件保留 `.claude-plugin/plugin.json`。仓库校验器同时识别两种位置，但同一个插件若同时存在两份 manifest 则拒绝，避免重复 authority。校验器也接受 Codex 的 `{"source":"local","path":"./plugins/example"}` 来源描述，保留相同的相对路径及越界检查。共享的 `.claude-plugin/marketplace.json` 继续使用两种宿主都支持的字符串相对来源：Claude 的本机校验器不接受 Codex 的 local 对象。Codex 的 `policy` 字段在 Claude 中会被忽略；不能把 Codex 实际安装通过表述成 Claude 全部能力通过。格式依据 [OpenAI plugin 文档](https://learn.chatgpt.com/docs/plugins) 和 [Claude plugin sources](https://code.claude.com/docs/en/plugin-marketplaces#plugin-sources)，安装行为以本轮真实 CLI 证据为准。
 
 ## 变更与本地检查
 
@@ -55,7 +55,7 @@ SkillDock 使用 Codex 的 `.codex-plugin/plugin.json`；其他插件保留 `.cl
 ## 发布准备与授权
 
 - 发布前核对根 README、marketplace、plugin README/plugin.json 与 CHANGELOG 的实际变化；仅更新本次相关内容，不无条件重写所有字段。
-- 显式版本每次发布递增，仍只能有一个 authority。日常源文件修改和本地验证不等于发布，不自动 bump version。
+- 显式版本每次发布递增，仍只能有一个 authority。日常源文件修改和本地验证不等于发布，默认不自动 bump version。TeamDesk 按用户明确约定执行：每次本地迭代升 patch，每次合并远程 main 升 minor，major 由用户决定；具体同步与授权边界见 [TeamDesk 版本规则](../plugins/teamdesk/AGENTS.md#版本规则)。
 - 发布时即使只修改插件目录内随包分发的 README、图片等内容，也需要递增该插件版本；同版本内容变化会与安装缓存产生差异，不能作为不升版本的文档例外。
 - 发布、安装、缓存刷新、远程测试、commit/push 各自按用户授权执行；只做源码整改时停在源码和验证证据，不宣称安装端已生效。
 - 当前工作区已有未提交修改时保留其内容；报告区分本轮变更与已有变更，不用 reset/checkout 覆盖。
