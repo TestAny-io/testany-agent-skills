@@ -131,7 +131,7 @@ export async function run() {
   } finally {cleanup();process.removeListener('exit',cleanup);}
 }
 
-if(process.argv[1] && path.resolve(process.argv[1])===fileURLToPath(import.meta.url)) {
+if(process.argv[1] && fs.realpathSync(process.argv[1])===fileURLToPath(import.meta.url)) {
   try {console.log(JSON.stringify(await run()));}
   catch(error) {console.log(JSON.stringify({status:'error',message:error.message}));process.exitCode=1;}
 }

@@ -49,4 +49,4 @@ export function installLauncher({destination=path.join(os.homedir(),'Application
   } finally {fs.rmSync(stage,{recursive:true,force:true});}
 }
 
-if(process.argv[1] && path.resolve(process.argv[1])===fileURLToPath(import.meta.url)) console.log(JSON.stringify(installLauncher(),null,2));
+if(process.argv[1] && fs.realpathSync(process.argv[1])===fileURLToPath(import.meta.url)) console.log(JSON.stringify(installLauncher(),null,2));

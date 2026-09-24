@@ -94,7 +94,7 @@ For repository structure and skill authoring, see the [Chinese README](README.md
 
 The repository defaults to [MIT](LICENSE). SkillDock-owned software and documentation under `plugins/skilldock/` use [AGPL-3.0-only](plugins/skilldock/LICENSE); third-party components retain their own licenses. See [third-party notices](plugins/skilldock/skills/skill-manager/THIRD_PARTY_NOTICES.md) and the [changelog](CHANGELOG.md).
 
-## TeamDesk 0.1.0 (seed release)
+## TeamDesk 0.2.0 (seed release)
 
 [TeamDesk](plugins/teamdesk/README.md) is a local workspace for up to 32 AI employees working in existing Codex Desktop tasks. It includes departments, skills, business tasks, human decisions and acceptance, native FIFO/steer, peer-to-peer handoffs, metadata receipts, and a collaboration graph with history replay. Work remains in Codex; TeamDesk does not run a separate model environment or mirror conversations.
 
@@ -105,6 +105,6 @@ curl -fL https://raw.githubusercontent.com/TestAny-io/testany-agent-skills/main/
 sh install-teamdesk.sh
 ```
 
-The installer checks dependencies, installs only the TeamDesk Codex plugin, builds and verifies `~/Applications/TeamDesk.app`, then opens it. The icon starts Codex Desktop and opens TeamDesk in Safari. Requires macOS 13+, Codex Desktop (bundled CLI numeric release baseline ≥0.155.0, including prereleases), Node ≥22.13 with SQLite, and Xcode Command Line Tools for the initial build. It prefers Codex's bundled Node. Missing prerequisites are reported with recovery instructions; rerun after installing them. Use `--check` for dependency checks or `--no-open` to install without launching.
+Version 0.2.0 fixes the downloaded installer entry on macOS temporary/symlinked paths. The installer checks dependencies, installs only the TeamDesk Codex plugin, builds and verifies `~/Applications/TeamDesk.app`, then opens it. The icon starts Codex Desktop and opens TeamDesk in Safari. Requires macOS 13+, Codex Desktop (bundled CLI numeric release baseline ≥0.155.0, including prereleases), Node ≥22.13 with SQLite, and Xcode Command Line Tools for the initial build. It prefers Codex's bundled Node. Missing prerequisites are reported with recovery instructions; rerun after installing them. Use `--check` for dependency checks or `--no-open` to install without launching.
 
 Running `sh ./install-teamdesk.sh` inside a clone uses that local source. Existing marketplace conflicts and disabled plugins require an explicit choice; the installer preserves business data and never force-quits Codex or trusts hooks on your behalf. Shared startup uses experimental Codex interfaces. Installation on another Mac, Intel, older macOS, and full cold startup remain seed-test items; see the [seed testing guide](plugins/teamdesk/docs/SEED-TESTING.md) and [verification scope](plugins/teamdesk/docs/VERIFICATION.md).
