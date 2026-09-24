@@ -836,8 +836,8 @@
     "ja": "配布元の変更を追跡"
   },
   "技能目录路径": {
-    "en": "Skill directory path",
-    "ja": "スキルディレクトリのパス"
+    "en": "Skill folder path",
+    "ja": "スキルのフォルダーパス"
   },
   "Git 仓库地址": {
     "en": "Git repository address",
@@ -1618,5 +1618,185 @@
   "也可使用 SSH 仓库地址，例如 git@github.com:owner/repo.git。先在终端验证主机，并将密钥解锁到 ssh-agent。": {
     "en": "You can also use an SSH repository URL, such as git@github.com:owner/repo.git. Verify the host in a terminal first and unlock your key in ssh-agent.",
     "ja": "git@github.com:owner/repo.git などの SSH URL も使用できます。先にターミナルでホストを確認し、ssh-agent で鍵を利用できる状態にしてください。"
+  },
+  "已显示 {v0} / {v1} 项": {
+    "en": "Showing {v0} of {v1} items",
+    "ja": "{v1} 件中 {v0} 件を表示"
+  },
+  "确认安装插件": {
+    "en": "Confirm plugin installation",
+    "ja": "プラグインのインストールを確認"
+  },
+  "INSTALL A PLUGIN": {
+    "en": "INSTALL A PLUGIN",
+    "ja": "プラグインをインストール"
+  },
+  "PLUGIN DETAILS": {
+    "en": "PLUGIN DETAILS",
+    "ja": "プラグインの詳細"
+  },
+  "{v0} 个文件": {
+    "en": "{v0} files",
+    "ja": "{v0} ファイル"
+  },
+  "附带技能（{v0}）": {
+    "en": "Included skills ({v0})",
+    "ja": "含まれるスキル（{v0}）"
+  },
+  "没有附带技能": {
+    "en": "No included skills",
+    "ja": "含まれるスキルはありません"
+  },
+  "其他组件": {
+    "en": "Other components",
+    "ja": "その他のコンポーネント"
+  },
+  "命令": {
+    "en": "Commands",
+    "ja": "コマンド"
+  },
+  "应用连接": {
+    "en": "App connections",
+    "ja": "アプリ接続"
+  },
+  "已有同名插件，将作为另一个来源单独安装：": {
+    "en": "A plugin with this name is already installed. This will be a separate installation: ",
+    "ja": "同名のプラグインがあります。別のソースとしてインストールします："
+  },
+  "将安装这个插件及其附带组件。安装后可在插件详情统一管理、更新或卸载。": {
+    "en": "Installs this plugin and its included components. Manage, update, or uninstall them together from the plugin details.",
+    "ja": "このプラグインと付属コンポーネントをインストールします。詳細画面でまとめて管理・更新・アンインストールできます。"
+  },
+  "从已连接的 Marketplace 选择一个插件。": {
+    "en": "Choose a plugin from a connected marketplace.",
+    "ja": "接続済みの Marketplace からプラグインを選択します。"
+  },
+  "搜索插件": {
+    "en": "Search plugins",
+    "ja": "プラグインを検索"
+  },
+  "预览插件": {
+    "en": "Preview plugin",
+    "ja": "プラグインをプレビュー"
+  },
+  "请通过 Codex 的插件管理入口安装。": {
+    "en": "Install this plugin from Codex’s plugin manager.",
+    "ja": "Codex のプラグイン管理画面からインストールしてください。"
+  },
+  "由 Codex 管理": {
+    "en": "Managed by Codex",
+    "ja": "Codex が管理"
+  },
+  "没有找到匹配的插件": {
+    "en": "No matching plugins",
+    "ja": "一致するプラグインがありません"
+  },
+  "调整筛选，或添加一个 Marketplace 来源。": {
+    "en": "Adjust your filters or add a marketplace source.",
+    "ja": "フィルターを変更するか、Marketplace を追加してください。"
+  },
+  "插件目录路径": {
+    "en": "Plugin folder path",
+    "ja": "プラグインのフォルダーパス"
+  },
+  "选择单个插件的目录，内含 plugin.json。无需先添加 Marketplace；SkillDock 会记录来源，供后续更新使用。": {
+    "en": "Choose a single plugin folder containing plugin.json. No marketplace setup is needed; SkillDock records the source for future updates.",
+    "ja": "plugin.json を含む単一プラグインのフォルダーを選択してください。Marketplace の事前追加は不要です。更新用のソースを SkillDock が記録します。"
+  },
+  "插件附带的技能与组件一起安装、更新和卸载。": {
+    "en": "A plugin’s skills and components are installed, updated, and uninstalled together.",
+    "ja": "プラグインのスキルとコンポーネントは、まとめてインストール・更新・削除されます。"
+  },
+  "未安装：已连接 Marketplace 中可发现的插件；也可直接从 Git 或本地目录安装单个插件。": {
+    "en": "Not installed: plugins found in connected marketplaces. You can also install a single plugin directly from Git or a local folder.",
+    "ja": "未インストール：接続済み Marketplace のプラグインです。Git やローカルフォルダーから単一プラグインを直接インストールすることもできます。"
+  },
+  "从本地目录、Git 仓库或 Marketplace 安装第一个插件。": {
+    "en": "Install your first plugin from a local folder, Git repository, or marketplace.",
+    "ja": "ローカルフォルダー、Git リポジトリ、Marketplace から最初のプラグインをインストールしましょう。"
+  },
+  "单插件来源": {
+    "en": "Direct source",
+    "ja": "直接インストール元"
+  },
+  "来源路径": {
+    "en": "Source path",
+    "ja": "ソースパス"
+  },
+  "Codex 项目": {
+    "en": "Codex projects",
+    "ja": "Codex プロジェクト"
+  },
+  "最近使用": {
+    "en": "Recent folders",
+    "ja": "最近使用したフォルダー"
+  },
+  "目录不可用": {
+    "en": "Folder unavailable",
+    "ja": "フォルダーを利用できません"
+  },
+  "项目操作": {
+    "en": "Project actions",
+    "ja": "プロジェクト操作"
+  },
+  "选择本地文件夹…": {
+    "en": "Choose a local folder…",
+    "ja": "ローカルフォルダーを選択…"
+  },
+  "选择本地文件夹": {
+    "en": "Choose a local folder",
+    "ja": "ローカルフォルダーを選択"
+  },
+  "项目文件夹": {
+    "en": "Project folder",
+    "ja": "プロジェクトフォルダー"
+  },
+  "选择文件夹": {
+    "en": "Choose folder",
+    "ja": "フォルダーを選択"
+  },
+  "手动输入路径": {
+    "en": "Enter a path manually",
+    "ja": "パスを手動入力"
+  },
+  "无法读取 Codex 项目列表；仍可选择最近使用的目录或本地文件夹。": {
+    "en": "The Codex project list is unavailable. You can still select a recent or local folder.",
+    "ja": "Codex のプロジェクト一覧を読み込めません。最近のフォルダーやローカルフォルダーは選択できます。"
+  },
+  "由单个插件安装自动登记的来源。": {
+    "en": "Source registered automatically for a directly installed plugin.",
+    "ja": "プラグインの直接インストール時に自動登録されたソースです。"
+  },
+  "尚未发现 Codex 保存的本地项目，可以选择本地文件夹。": {
+    "en": "No saved Codex projects found. Choose a local folder.",
+    "ja": "保存された Codex プロジェクトが見つかりません。ローカルフォルダを選択してください。"
+  },
+  "已刷新单插件来源，可以检查插件更新。": {
+    "en": "Plugin source refreshed. You can now check for updates.",
+    "ja": "プラグインのソースを更新しました。更新を確認できます。"
+  },
+  "版本": {
+    "en": "Version",
+    "ja": "バージョン"
+  },
+  "关闭": {
+    "en": "Close",
+    "ja": "閉じる"
+  },
+  "Marketplace": {
+    "en": "Marketplace",
+    "ja": "Marketplace"
+  },
+  "Hooks": {
+    "en": "Hooks",
+    "ja": "フック"
+  },
+  "MCP 服务器": {
+    "en": "MCP servers",
+    "ja": "MCP サーバー"
+  },
+  "代理": {
+    "en": "Agents",
+    "ja": "エージェント"
   }
 }

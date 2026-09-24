@@ -17,9 +17,10 @@ for (const language of ['zh', 'en', 'ja'] as const) for (const theme of ['light'
     await page.goto(productionUrl);
     const text = labels[language];
     try {
-      await page.getByRole('button', { name: text.switch, exact: true }).click();
+      await page.getByRole('combobox', { name: text.switch, exact: true }).selectOption('browse');
       const dialog = page.getByRole('dialog');
       await expect(dialog).toContainText(original);
+      await dialog.locator('summary').click();
       const input = dialog.getByLabel(text.path);
       await input.fill(path.join(alternate, 'missing'));
       await dialog.getByRole('button', { name: text.apply }).click();
@@ -29,11 +30,11 @@ for (const language of ['zh', 'en', 'ja'] as const) for (const theme of ['light'
       await page.screenshot({ path: testInfo.outputPath(`project-dialog-${language}-${theme}.png`), fullPage: true });
       await dialog.getByRole('button', { name: text.apply }).click();
       await expect(dialog).toHaveCount(0);
-      await expect(page.locator('.workspace-context')).toContainText(alternate);
+      await expect(page.getByRole('combobox', { name: text.switch, exact: true })).toHaveValue(alternate);
       await expect(page.locator('.skill-card').filter({ hasText: 'project-switch-sentinel' })).toBeVisible();
       await expect(page.locator('.skill-card').filter({ hasText: 'production-sentinel' })).toBeVisible();
       await page.reload();
-      await expect(page.locator('.workspace-context')).toContainText(alternate);
+      await expect(page.getByRole('combobox', { name: text.switch, exact: true })).toHaveValue(alternate);
       expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth + 1)).toBe(true);
       await page.screenshot({ path: testInfo.outputPath(`project-selected-${language}-${theme}.png`), fullPage: true });
     } finally {

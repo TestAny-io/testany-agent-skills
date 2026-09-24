@@ -16,15 +16,19 @@ import { previewFileDiff } from './preview-diff.mjs';
 import { normalizeTags, tagKey, enrichTags } from './tags.mjs';
 import { acquireFileLock, operationLock, isOperationActive } from './process-lock.mjs';
 import { createBackgroundManager, backgroundPaths } from './background.mjs';
+import { projectCatalog, createProjectIntegration } from './projects.mjs';
+import { inspectPlugin, directLocation, writeDirectMarketplace, decorateDirectCatalog } from './direct-plugins.mjs';
 
 const ACTION_FIELDS = {
   'tags.set': ['target', 'tags'],
   'skill.previewRemoval': ['ids', 'groupName'], 'skill.removeSelected': ['previewId'],
   'preview.diff': ['previewId', 'path'],
   'project.select': ['projectDir'],
+  'project.chooseDirectory': ['projectDir'],
   'skill.toggle': ['id', 'enabled'], 'skill.previewInstall': ['sourceType', 'source', 'subpath', 'ref', 'name'],
   'skill.install': ['previewId'], 'skill.checkUpdate': ['id'], 'skill.update': ['id', 'previewId'],
   'skill.remove': ['id'], 'activity.restore': ['id'], 'plugin.install': ['id'], 'plugin.remove': ['id'],
+  'plugin.previewInstall': ['sourceType', 'source', 'subpath', 'ref'], 'plugin.installSource': ['previewId'],
   'plugin.toggle': ['id', 'enabled'], 'marketplace.add': ['sourceType', 'source', 'ref'],
   'marketplace.refresh': ['id'], 'marketplace.remove': ['id'],
   'skill.previewSource': ['id', 'sourceType', 'source', 'subpath', 'ref'], 'skill.connectSource': ['id', 'previewId'],
@@ -89,6 +93,8 @@ export async function createService(options = {}) {
     env.managedRoots = await Promise.all(rootsFor(env).filter(root => root.scope !== 'system').map(root => captureDirectoryRoot(root.directory)));
   }
   const adapter = options.adapter || new CodexAdapter({ codexHome, codexBin: options.codexBin || process.env.SKILLDOCK_CODEX_BIN, timeout: options.cliTimeout });
+  const projectIntegration = options.projectIntegration || createProjectIntegration();
+  const projects = () => projectCatalog({ codexHome, stateDir, current: project, integration: projectIntegration });
   const defaultMode = options.enableTestSandbox === true ? 'sandbox' : 'local'; const previews = new Map(); let busy = false; let cachedCatalog; let catalogTime = 0; let scheduler;
   const removalPreviews = new Map();
   const background = options.background === false || options.scheduler === false || options.enableTestSandbox === true ? null
@@ -125,9 +131,9 @@ export async function createService(options = {}) {
   };
   const registryFor = env => readJson(env.registryFile, emptyRegistry());
   async function catalogFor(env, registry, force = false) {
-    if (env.mode === 'sandbox') return sandboxCatalog(env, registry);
+    if (env.mode === 'sandbox') return decorateDirectCatalog(await sandboxCatalog(env, registry), registry, env);
     if (!cachedCatalog || force || Date.now() - catalogTime > 15000) { cachedCatalog = await adapter.list(); catalogTime = Date.now(); }
-    return structuredClone(cachedCatalog);
+    return decorateDirectCatalog(structuredClone(cachedCatalog), registry, env);
   }
   async function removeStaging(env, directory) {
     const parent = path.join(env.root, 'staging');
@@ -177,6 +183,7 @@ export async function createService(options = {}) {
       if (migrationError) result.schedule.background = { ...result.schedule.background, status: 'error', lastError: migrationError };
     }
     result.projectContext = mode === 'local' ? { ...currentProjectInfo, effective: env.project } : undefined;
+    if (mode === 'local') result.projects = await projects();
     result.durationMs = Math.round(performance.now() - started); return result;
   }
   async function skill(mode, id) {
@@ -260,7 +267,7 @@ export async function createService(options = {}) {
   function assertSandboxSource(env, source) {
     if (env.mode === 'sandbox' && (!path.isAbsolute(source) || !inside(env.root, source))) fail(403, 'SANDBOX_BOUNDARY', '演练模式仅接受演练目录内的来源；请使用示例路径。');
   }
-  async function stageSource(env, request) {
+  async function stageSource(env, request, kind = 'skill') {
     const location = request.sourceType === 'git' ? githubDirectory(request.source) : null;
     const source = validateSource(location?.source || request.source, request.sourceType);
     let subpath = validateSubpath(request.subpath); let ref = request.ref; validateRef(ref); assertSandboxSource(env, source);
@@ -279,7 +286,8 @@ export async function createService(options = {}) {
       }
       const realRoot = await fs.realpath(sourceRoot); const directory = path.resolve(realRoot, subpath);
       if (!inside(realRoot, directory) || !(await exists(directory)) || !inside(realRoot, await fs.realpath(directory))) fail(422, 'SOURCE_BOUNDARY', '子路径不存在或越出来源根目录。');
-      const detail = await metadata(directory); const candidate = path.join(staging, 'candidate'); const tree = await copySkill(directory, candidate);
+      const candidate = path.join(staging, 'candidate'); const tree = await copySkill(directory, candidate);
+      const detail = kind === 'plugin' ? await inspectPlugin(candidate) : await metadata(candidate);
       return { staging, candidate, source, sourceType: request.sourceType, subpath, ref, commit, originalDirectory: directory, detail, tree };
     } catch (e) { await fs.rm(staging, { recursive: true, force: true }); throw e; }
   }
@@ -302,6 +310,23 @@ export async function createService(options = {}) {
     try { await fs.rename(from, to); }
     catch (e) { if (e.code === 'EXDEV') fail(422, 'CROSS_DEVICE', '来源与备份区不在同一文件系统，未移动原目录；请把 SKILLDOCK_STATE_DIR 放在同一磁盘。'); throw e; }
   }
+  async function refreshDirectSource(env, registry, marketId) {
+    const source = registry.directPlugins[marketId];
+    const staged = await stageSource(env, source, 'plugin');
+    try {
+      if (staged.detail.name !== source.name) fail(409, 'PLUGIN_IDENTITY', '单个插件来源中的名称发生变化，请重新安装并核对。');
+      const location = directLocation(env, { ...source, detail: staged.detail });
+      if (location.root !== source.root || location.market !== marketId) fail(409, 'SOURCE_BOUNDARY', '单个插件来源登记不一致。');
+      const destination = path.join(source.root, 'plugins', source.name);
+      await verifyDescendantDirectory(env.stateBoundary, destination);
+      const backup = path.join(staged.staging, 'previous');
+      await move(destination, backup);
+      try { await move(staged.candidate, destination); }
+      catch (error) { await move(backup, destination); throw error; }
+      source.commit = staged.commit; source.fingerprint = staged.tree.fingerprint;
+      cachedCatalog = undefined;
+    } finally { await removeStaging(env, staged.staging); }
+  }
   async function preparePluginUpdate(env, registry, id, { refreshMarketplace = true, requireCurrent = false, expectedSignature } = {}) {
     let catalog = await catalogFor(env, registry, true); let plugin = catalog.plugins.find(item => item.id === id && item.installed);
     if (!plugin) fail(404, 'NOT_FOUND', '未找到已安装插件。');
@@ -309,8 +334,9 @@ export async function createService(options = {}) {
     if (!plugin._updateSourcePath || plugin.sourceInfo?.confidence !== 'verified' || !Array.isArray(plugin._componentRoots)) fail(422, 'OWNER_MANAGED', '没有已核实的本地包来源；请在 Codex 插件管理器更新，再刷新状态。');
     if (typeof plugin.enabled !== 'boolean') fail(422, 'STATE_UNKNOWN', '无法确认原启用状态，不能安全执行包更新。');
     const market = catalog.marketplaces.find(item => item.id === plugin.marketplace);
-    if (refreshMarketplace && market?.type === 'git' && market.canRefresh) {
-      if (env.mode === 'local') await adapter.command(['plugin', 'marketplace', 'upgrade', market.name, '--json'], { mutation: true });
+    if (refreshMarketplace && market?.canRefresh && (market.type === 'git' || market.direct)) {
+      if (market.direct) await refreshDirectSource(env, registry, market.id);
+      else if (env.mode === 'local') await adapter.command(['plugin', 'marketplace', 'upgrade', market.name, '--json'], { mutation: true });
       else {
         const entry = registry.marketplaces[market.id]; assertSandboxSource(env, entry.source);
         const stage = path.join(env.root, 'marketplace-sources', crypto.randomUUID()); await verifyDescendantDirectory(env.stateBoundary, stage); await fs.mkdir(path.dirname(stage), { recursive: true });
@@ -388,6 +414,60 @@ export async function createService(options = {}) {
       await verifyDirectoryRoot(env.stateBoundary);
       registry = await registryFor(env); originalRegistry = structuredClone(registry);
       switch (request.action) {
+        case 'plugin.previewInstall': {
+          const staged = await stageSource(env, request, 'plugin');
+          const location = directLocation(env, staged); const id = crypto.randomUUID();
+          const catalog = await catalogFor(env, registry, true);
+          if (catalog.plugins.some(item => item.id === location.pluginId && item.installed)) { await removeStaging(env, staged.staging); fail(409, 'PLUGIN_ALREADY_INSTALLED', '这个来源的插件已安装，请在更新页管理它。'); }
+          previews.set(id, { ...staged, id, mode: env.mode, kind: 'plugin-install', created: previewNow() });
+          return { message: '插件安装预览已准备好。', pluginPreview: { id, ...staged.detail, source: staged.source, sourceType: staged.sourceType, subpath: staged.subpath, ref: staged.ref, commit: staged.commit, files: staged.tree.files, bytes: staged.tree.bytes, duplicates: catalog.plugins.filter(item => item.name === staged.detail.name && item.installed).map(item => item.id) } };
+        }
+        case 'plugin.installSource': {
+          const staged = await assertPreview(env, request.previewId, 'plugin-install');
+          const location = directLocation(env, staged); const { pluginId, market, root } = location;
+          const catalog = await catalogFor(env, registry, true);
+          if (catalog.plugins.some(item => item.id === pluginId && item.installed)) fail(409, 'PLUGIN_ALREADY_INSTALLED', '这个来源的插件已安装，请在更新页管理它。');
+          const registered = catalog.marketplaces.find(item => item.id === market);
+          if (registered && (registered._root || registry.marketplaces[market]?.root) !== root) fail(409, 'MARKETPLACE_EXISTS', '安装来源名称已被另一个目录使用，未修改该来源。');
+          const destination = path.join(root, 'plugins', staged.detail.name);
+          await verifyDescendantDirectory(env.stateBoundary, destination);
+          if (await exists(destination)) {
+            const tree = await inspectTree(destination);
+            if (tree.fingerprint !== staged.tree.fingerprint) {
+              const previous = registry.directPlugins?.[market];
+              if (previous?.root !== root || previous.name !== staged.detail.name || previous.fingerprint !== tree.fingerprint) fail(409, 'TARGET_EXISTS', '之前的单插件安装来源仍然存在且内容不同，请先核对该来源。');
+              const backup = path.join(staged.staging, 'previous');
+              await move(destination, backup);
+              try { await copySkill(staged.candidate, destination); }
+              catch (error) { await fs.rm(destination, { recursive: true, force: true }); await move(backup, destination); throw error; }
+            }
+          } else { await fs.mkdir(path.dirname(destination), { recursive: true }); await copySkill(staged.candidate, destination); }
+          await writeDirectMarketplace(env, staged, location);
+          const tracked = { root, name: staged.detail.name, source: staged.source, sourceType: staged.sourceType, subpath: staged.subpath, ref: staged.ref, commit: staged.commit, fingerprint: staged.tree.fingerprint };
+          registry.directPlugins ||= {}; registry.directPlugins[market] = tracked;
+          // Keep provenance on uncertain CLI outcomes: the native manager may
+          // already have registered/installed the package when a command fails.
+          originalRegistry.directPlugins ||= {}; originalRegistry.directPlugins[market] = tracked;
+          await writeJson(env.registryFile, registry);
+          if (env.mode === 'local') {
+            if (!registered) await adapter.command(['plugin', 'marketplace', 'add', root, '--json'], { mutation: true });
+            const nativeMarket = (await adapter.list()).marketplaces.find(item => item.id === market);
+            if (nativeMarket?._root !== root) fail(502, 'READBACK_FAILED', '未能确认单插件来源登记，请刷新后核实。');
+            await adapter.command(['plugin', 'add', pluginId, '--json'], { mutation: true });
+            const installed = (await adapter.list()).plugins.find(item => item.id === pluginId && item.installed);
+            const cache = path.join(env.codexHome, 'plugins/cache', market, staged.detail.name, staged.detail.version);
+            await verifyDescendantDirectory(env.codexBoundary, cache);
+            if (!installed || installed.version !== staged.detail.version || typeof installed.enabled !== 'boolean' || (await inspectTree(cache)).fingerprint !== staged.tree.fingerprint) fail(502, 'READBACK_FAILED', '插件安装的版本、内容或状态未能全部确认，请刷新后核实。');
+          } else {
+            registry.marketplaces[market] = { source: root, root, type: 'local', refreshedAt: now() };
+            const cache = path.join(env.codexHome, 'plugins/cache', market, staged.detail.name, staged.detail.version);
+            await verifyDescendantDirectory(env.codexBoundary, cache);
+            await fs.mkdir(path.dirname(cache), { recursive: true }); await copySkill(staged.candidate, cache);
+            registry.plugins[pluginId] = { name: staged.detail.name, version: staged.detail.version, marketplace: market, directory: cache, enabled: true, updateSourcePath: destination, componentRoots: (await discoverSkillRoots(destination)).map(item => path.relative(destination, item) || '.') };
+          }
+          target = staged.detail.name; consumedPreview = staged; previews.delete(request.previewId);
+          result = { message: `已安装插件 ${target}，请在新会话中确认能力。`, needsReload: true }; break;
+        }
         case 'tags.set': {
           const current = await snapshot(env.mode);
           const item = current[request.target.kind === 'skill' ? 'skills' : 'plugins'].find(item => item.id === request.target.id);
@@ -588,7 +668,7 @@ export async function createService(options = {}) {
               if (!Array.isArray(componentRoots) || componentRoots.some(relative => typeof relative !== 'string' || !inside(destination, path.resolve(destination, relative)))) fail(422, 'UNSUPPORTED_COMPONENTS', '初版演练不能将插件根外复用组件映射到缓存。');
               await copySkill(plugin.sourcePath, destination); undo.push(async () => { await fs.rm(destination, { recursive: true, force: true }); });
               const configuredEnabled = (await readConfig(env.config)).data.plugins?.[plugin.id]?.enabled;
-              registry.plugins[plugin.id] = { name: plugin.name, description: plugin.description, marketplace: plugin.marketplace, directory: destination, version: plugin.version, componentRoots, updateSourcePath: plugin.sourceInfo?.source || plugin.sourcePath, fingerprint: (await inspectTree(destination)).fingerprint, generation: crypto.randomUUID(), enabled: configuredEnabled !== false };
+              registry.plugins[plugin.id] = { name: plugin.name, description: plugin.description, marketplace: plugin.marketplace, directory: destination, version: plugin.version, componentRoots, updateSourcePath: plugin._updateSourcePath || plugin.sourcePath, fingerprint: (await inspectTree(destination)).fingerprint, generation: crypto.randomUUID(), enabled: configuredEnabled !== false };
             } else {
               if (!inside(path.join(env.codexRootReal, 'plugins/cache'), await fs.realpath(registry.plugins[plugin.id].directory))) fail(403, 'PLUGIN_BOUNDARY', '插件目录越出缓存根目录。');
               const backup = path.join(env.root, 'quarantine', `${activityId}-plugin`); await move(registry.plugins[plugin.id].directory, backup); undo.push(async () => { await move(backup, registry.plugins[plugin.id]?.directory || plugin.sourcePath); });
@@ -622,7 +702,8 @@ export async function createService(options = {}) {
           const market = (await snapshot(env.mode)).marketplaces.find(item => item.id === request.id); const removing = request.action === 'marketplace.remove';
           if (!market) fail(404, 'NOT_FOUND', '市场不存在。');
           if (!market[removing ? 'canRemove' : 'canRefresh']) fail(403, 'PROTECTED_MARKETPLACE', market.reason || '此市场不支持该操作，本地目录无需 Git 刷新。');
-          if (env.mode === 'sandbox') {
+          if (market.direct && !removing) await refreshDirectSource(env, registry, market.id);
+          else if (env.mode === 'sandbox') {
             if (removing) delete registry.marketplaces[market.id];
             else {
               const entry = registry.marketplaces[market.id]; const staged = path.join(env.root, 'marketplace-sources', crypto.randomUUID());
@@ -635,7 +716,7 @@ export async function createService(options = {}) {
             const readback = await adapter.list(); cachedCatalog = readback; catalogTime = Date.now();
             if (readback.diagnostics.length || readback.marketplaces.some(item => item.id === market.id) === removing) fail(502, 'READBACK_FAILED', 'CLI 未能确认市场操作终态，请刷新核实。');
           }
-          target = market.name; result = { message: removing ? `已移除市场来源 ${target}；已安装插件保留。` : `已刷新 Git 市场 ${target}；这不表示已安装插件全部更新。` }; break;
+          target = market.name; result = { message: removing ? `已移除市场来源 ${target}；已安装插件保留。` : market.direct ? '已刷新单插件来源，可以检查插件更新。' : `已刷新 Git 市场 ${target}；这不表示已安装插件全部更新。` }; break;
         }
       }
       if (!result) fail(400, 'INVALID_ACTION', '操作未实现。');
@@ -690,6 +771,23 @@ export async function createService(options = {}) {
     return { target, sourceIdentity, real, dev: String(stat.dev), ino: String(stat.ino), ...(generation ? { generation } : {}), ...(['plugin-reinstall', 'skill-source'].includes(item.route) ? { fingerprint: (await inspectTree(directory)).fingerprint } : {}) };
   }
   let requestBusy = false; let restarting = false; let closing = false;
+  async function selectProject(directory) {
+    const next = await projectContext(directory, 'saved').catch(error => fail(error.status || 422, error.code || 'PROJECT_UNAVAILABLE', error.message));
+    const managedRoots = await Promise.all(rootsFor({ ...local, project: next.effective }).filter(root => root.scope !== 'system').map(root => captureDirectoryRoot(root.directory)));
+    await verifyDirectoryRoot(applicationBoundary);
+    const file = path.join(stateDir, 'project.json');
+    const saved = await readJson(file, {}) || {};
+    const recent = [...new Set([next.effective, project, ...(Array.isArray(saved.recent) ? saved.recent : [])])].filter(item => typeof item === 'string' && path.isAbsolute(item)).slice(0, 50);
+    const contextFile = backgroundPaths(stateDir, home).context;
+    const backgroundContext = await readJson(contextFile, null);
+    await writeJson(file, { path: next.requested, recent });
+    try { if (backgroundContext) await writeJson(contextFile, { ...backgroundContext, projectDir: next.effective }); }
+    catch (error) { await writeJson(file, saved); throw error; }
+    project = next.effective; projectInfo = next;
+    local.project = project; local.managedRoots = managedRoots;
+    previews.clear(); removalPreviews.clear();
+    return next;
+  }
   async function executeRequest(input, internal = false) {
     const request = validateAction(input); const mode = request.mode; environment(mode);
     if (restarting || closing) fail(409, 'APP_RESTARTING', 'SkillDock 正在准备重启，请等待界面自动重连。');
@@ -715,20 +813,10 @@ export async function createService(options = {}) {
         if (!change) fail(404, 'DIFF_FILE_NOT_FOUND', '该文件不在本次预览的变更清单中。');
         return { message: '文件差异已加载。', diff: await previewFileDiff(before, { ...preview.tree, realRoot: await fs.realpath(preview.candidate) }, change) };
       }
-      if (request.action === 'project.select') {
+      if (request.action.startsWith('project.')) {
         if (mode !== 'local') fail(403, 'MODE_DISABLED', '测试环境不能选择本机项目。');
-        const next = await projectContext(request.projectDir, 'saved').catch(error => fail(error.status || 422, error.code || 'PROJECT_UNAVAILABLE', error.message));
-        const managedRoots = await Promise.all(rootsFor({ ...local, project: next.effective }).filter(root => root.scope !== 'system').map(root => captureDirectoryRoot(root.directory)));
-        await verifyDirectoryRoot(applicationBoundary);
-        await writeJson(path.join(stateDir, 'project.json'), { path: next.requested });
-        project = next.effective; projectInfo = next;
-        local.project = project; local.managedRoots = managedRoots;
-        const contextFile = backgroundPaths(stateDir, home).context;
-        const backgroundContext = await readJson(contextFile, null);
-        if (backgroundContext) await writeJson(contextFile, { ...backgroundContext, projectDir: project });
-        previews.clear();
-        removalPreviews.clear();
-        return { message: '项目扫描目录已切换；请核对现有更新计划的项目目标。', projectContext: next };
+        if (request.action === 'project.chooseDirectory') return { message: '', selectedDirectory: await projectIntegration.choose(request.projectDir) };
+        return { message: '项目扫描目录已切换；请核对现有更新计划的项目目标。', projectContext: await selectProject(request.projectDir) };
       }
       let translated = request; let base;
       if (['update.check', 'update.apply'].includes(request.action)) {
@@ -759,7 +847,7 @@ export async function createService(options = {}) {
         }
         if (updateItem) { await scheduler.observe(mode, target, updateItem); result.updateItem = updateItem; }
       }
-      if (mode === 'local' && ['plugin.update', 'plugin.checkUpdate', 'plugin.install', 'skill.update', 'marketplace.refresh'].includes(translated.action)) options.onInstallationChange?.();
+      if (mode === 'local' && ['plugin.update', 'plugin.checkUpdate', 'plugin.install', 'plugin.installSource', 'skill.update', 'marketplace.refresh'].includes(translated.action)) options.onInstallationChange?.();
       return result;
     } catch (error) {
       if (target) await scheduler.observeError(mode, target, error).catch(() => {});
@@ -822,7 +910,7 @@ export async function createService(options = {}) {
       }
     });
   } catch (error) { if (error.code !== 'BUSY') throw error; }
-  return { stateDir, get project() { return project; }, launchProject, get projectContext() { return projectInfo; }, defaultMode, environments, adapter, snapshot, skill, action,
+  return { stateDir, get project() { return project; }, launchProject, get projectContext() { return projectInfo; }, defaultMode, environments, adapter, snapshot, skill, action, projects,
     updateProgress: async mode => { environment(mode); await refreshSchedule(); return scheduler.progress(mode); },
     tickScheduler: () => withOperation(() => scheduler.tick()), isBusy,
     pauseForRestart: () => { if (isBusy()) return false; restarting = true; return true; }, resumeAfterRestart: () => { restarting = false; },

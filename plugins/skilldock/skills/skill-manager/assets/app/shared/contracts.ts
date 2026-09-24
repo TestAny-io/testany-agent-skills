@@ -155,6 +155,7 @@ export interface Skill {
   sourceInfo?: SourceInfo;
 }
 export interface Plugin {
+  directSource?: { source: string; sourceType: "local" | "git"; subpath?: string; ref?: string; commit?: string };
   id: string;
   tags?: string[];
   name: string;
@@ -172,6 +173,8 @@ export interface Plugin {
   sourceInfo?: SourceInfo;
 }
 export interface Marketplace {
+  displayName?: string;
+  direct?: boolean;
   id: string;
   name: string;
   source: string;
@@ -199,9 +202,15 @@ export interface ProjectContext {
   workingDirectory: string;
   warnings: string[];
 }
+export interface ProjectCatalog {
+  entries: { name: string; path: string; source: "codex" | "recent" | "current"; available: boolean }[];
+  canChooseDirectory: boolean;
+  warning?: string;
+}
 export interface Snapshot {
   mode: Mode;
   projectContext?: ProjectContext;
+  projects?: ProjectCatalog;
   skills: Skill[];
   plugins: Plugin[];
   marketplaces: Marketplace[];
@@ -234,6 +243,22 @@ export interface InstallPreview {
   files: number;
   bytes: number;
 }
+export interface PluginInstallPreview {
+  id: string;
+  name: string;
+  version: string;
+  description: string;
+  source: string;
+  sourceType: "local" | "git";
+  subpath?: string;
+  ref?: string;
+  commit?: string;
+  skills: string[];
+  components: string[];
+  files: number;
+  bytes: number;
+  duplicates: string[];
+}
 export interface UpdatePreview {
   id: string;
   skillId: string;
@@ -254,6 +279,7 @@ export type Action =
   | "skill.removeSelected"
   | "preview.diff"
   | "project.select"
+  | "project.chooseDirectory"
   | "skill.toggle"
   | "skill.previewInstall"
   | "skill.install"
@@ -262,6 +288,8 @@ export type Action =
   | "skill.remove"
   | "activity.restore"
   | "plugin.install"
+  | "plugin.previewInstall"
+  | "plugin.installSource"
   | "plugin.remove"
   | "plugin.toggle"
   | "marketplace.add"
@@ -298,8 +326,10 @@ export interface ActionResult {
   removalPreview?: RemovalPreview;
   diff?: FileDiff;
   projectContext?: ProjectContext;
+  selectedDirectory?: string | null;
   message: string;
   preview?: InstallPreview;
+  pluginPreview?: PluginInstallPreview;
   update?: UpdatePreview;
   needsReload?: boolean;
   sourcePreview?: SourcePreview;

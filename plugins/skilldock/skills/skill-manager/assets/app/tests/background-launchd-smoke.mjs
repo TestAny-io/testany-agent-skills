@@ -20,6 +20,8 @@ const stateDir = path.join(root, 'state');
 await fs.mkdir(codexHome, { recursive: true }); await fs.mkdir(projectDir);
 const sourceApp = fileURLToPath(new URL('../', import.meta.url));
 const testedVersion = (await readJson(path.join(sourceApp, 'package.json'))).version;
+const [major, minor] = testedVersion.split('.').map(Number);
+const updateVersion = `${major}.${minor + 1}.0`;
 const snapshot = await captureSource(sourceApp);
 const installed = path.join(root, 'installed-skill');
 for (const entry of snapshot.entries) { const file = path.join(installed, entry.path); await fs.mkdir(path.dirname(file), { recursive: true }); await fs.writeFile(file, entry.bytes, { mode: entry.mode }); }
@@ -67,9 +69,9 @@ try {
   // Publish another fixture version while the panel remains closed. The first
   // run prepares it; the following system invocation must execute that version.
   const newPackage = path.join(installed, 'assets/app/package.json');
-  const manifest = await readJson(newPackage); manifest.version = '0.5.0'; await writeJson(newPackage, manifest);
+  const manifest = await readJson(newPackage); manifest.version = updateVersion; await writeJson(newPackage, manifest);
   const lockfile = path.join(installed, 'assets/app/package-lock.json'); const lock = await readJson(lockfile);
-  lock.version = '0.5.0'; lock.packages[''].version = '0.5.0'; await writeJson(lockfile, lock);
+  lock.version = updateVersion; lock.packages[''].version = updateVersion; await writeJson(lockfile, lock);
   for (let round = 2; round <= 3; round++) {
     await fs.appendFile(path.join(source, 'SKILL.md'), `\nround ${round}\n`);
     const pending = await readJson(stateFile); pending.schedule.nextRunAt = new Date(Date.now() - 60000).toISOString(); await writeJson(stateFile, pending);
@@ -86,7 +88,7 @@ try {
     assert.equal(result.outcome, 'success', JSON.stringify(result));
     assert.match(await fs.readFile(skill.path, 'utf8'), new RegExp(`round ${round}`));
   }
-  assert.equal(result.version, '0.5.0', 'the next scheduled process executes the new runtime');
+  assert.equal(result.version, updateVersion, 'the next scheduled process executes the new runtime');
   const updatedContext = await readJson(manager.paths.context); assert.notEqual(updatedContext.runtime, runtime);
   // Removing the installed source is detected without the web service; the
   // running worker unregisters itself without waiting on its own termination.
@@ -101,7 +103,7 @@ try {
   assert.equal((await readJson(stateFile)).schedule.enabled, false);
   assert.equal((await manager.status(false)).status, 'off');
   assert.equal((await readJson(manager.paths.status)).outcome, 'uninstalled');
-  process.stdout.write(JSON.stringify({ result: 'PASS', version: testedVersion, checks: ['real launchd bootstrap', 'overdue catch-up', 'file update', 'worker exit 0', 'self-update prepares a new runtime', 'next system invocation runs 0.5.0', 'worker self-unregisters after source removal'], firstRun: disk.runs[0], finalWorkerVersion: result.version }, null, 2) + '\n');
+  process.stdout.write(JSON.stringify({ result: 'PASS', version: testedVersion, checks: ['real launchd bootstrap', 'overdue catch-up', 'file update', 'worker exit 0', 'self-update prepares a new runtime', `next system invocation runs ${updateVersion}`, 'worker self-unregisters after source removal'], firstRun: disk.runs[0], finalWorkerVersion: result.version }, null, 2) + '\n');
 } finally {
   await service?.close(); await manager?.remove(); await fs.rm(root, { recursive: true, force: true });
 }

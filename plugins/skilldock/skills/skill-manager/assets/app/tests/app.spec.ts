@@ -135,15 +135,16 @@ test('isolated market and plugin lifecycle changes actual inventory and preserve
   await expect(page.getByRole('dialog')).toHaveCount(0);
   const market = page.locator('.market-card').filter({ has: page.getByRole('heading', { name: 'community-market', exact: true }) });
   await market.getByRole('button', { name: '浏览插件' }).click();
-  const plugin = page.locator('.plugin-card').filter({ has: page.getByRole('heading', { name: 'community-tools', exact: true }) });
+  const plugin = page.locator('.skill-card').filter({ has: page.getByRole('heading', { name: 'community-tools', exact: true }) });
   await plugin.getByRole('button', { name: '安装插件', exact: true }).click();
   await action(page, 'plugin.install', () => page.getByRole('dialog').getByRole('button', { name: '确认安装', exact: true }).click());
   await expect(page.getByRole('dialog')).toHaveCount(0);
   expect((await state(page)).skills.some(skill => skill.pluginId === 'community-tools@community-market')).toBe(true);
-  await action(page, 'plugin.toggle', () => page.getByRole('switch', { name: '禁用插件 community-tools', exact: true }).click());
+  await action(page, 'plugin.toggle', () => page.getByRole('switch', { name: '禁用 community-tools', exact: true }).click());
   expect((await state(page)).skills.filter(skill => skill.pluginId === 'community-tools@community-market').every(skill => skill.enabled === false)).toBe(true);
-  await action(page, 'plugin.toggle', () => page.getByRole('switch', { name: '启用插件 community-tools', exact: true }).click());
-  await plugin.getByRole('button', { name: '卸载', exact: true }).click();
+  await action(page, 'plugin.toggle', () => page.getByRole('switch', { name: '启用 community-tools', exact: true }).click());
+  await plugin.getByRole('button', { name: '查看 community-tools 详情', exact: true }).click();
+  await page.getByRole('dialog').getByRole('button', { name: '卸载', exact: true }).click();
   await expect(page.getByRole('dialog')).toContainText('community-tools');
   await action(page, 'plugin.remove', () => page.getByRole('button', { name: '确认卸载', exact: true }).click());
   expect((await state(page)).skills.some(skill => skill.pluginId === 'community-tools@community-market')).toBe(false);
@@ -169,15 +170,15 @@ test('large plugin catalogs render in batches while search covers all results', 
   await page.goto('/');
   await nav(page, '插件').click();
   await page.getByRole('button', { name: /^全部插件/ }).click();
-  await expect(page.locator('.plugin-card')).toHaveCount(48);
+  await expect(page.locator('.skill-card')).toHaveCount(48);
   await expect(page.locator('.plugin-pagination')).toContainText('4106');
   await page.getByRole('button', { name: '显示更多', exact: true }).click();
-  await expect(page.locator('.plugin-card')).toHaveCount(96);
+  await expect(page.locator('.skill-card')).toHaveCount(96);
   await page.getByRole('searchbox', { name: '搜索' }).fill('catalog-04105');
-  await expect(page.locator('.plugin-card')).toHaveCount(1);
+  await expect(page.locator('.skill-card')).toHaveCount(1);
   await expect(page.getByRole('heading', { name: 'catalog-04105', exact: true })).toBeVisible();
   await page.getByRole('button', { name: '清空搜索' }).click();
-  await expect(page.locator('.plugin-card')).toHaveCount(48);
+  await expect(page.locator('.skill-card')).toHaveCount(48);
 });
 
 for (const width of [1440, 720, 390]) {

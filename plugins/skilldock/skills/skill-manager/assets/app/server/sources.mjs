@@ -63,7 +63,7 @@ export function buildUpdateItems(snapshot, observations = {}, hasPreview = () =>
   const items = [];
   for (const plugin of snapshot.plugins.filter(item => item.installed)) {
     const source = plugin.sourceInfo; const attached = snapshot.skills.filter(skill => skill.pluginId === plugin.id);
-    const local = source?.sourceType === 'local' && source.confidence === 'verified' && !!plugin.sourcePath && typeof plugin.enabled === 'boolean' && [plugin.marketplace, plugin.name, plugin.version].every(safeSegment);
+    const local = (source?.sourceType === 'local' || !!plugin.directSource) && source?.confidence === 'verified' && !!plugin.sourcePath && typeof plugin.enabled === 'boolean' && [plugin.marketplace, plugin.name, plugin.version].every(safeSegment);
     const installedPath = [plugin.marketplace, plugin.name, plugin.version].every(safeSegment) ? path.join(path.dirname(snapshot.paths.config), 'plugins/cache', plugin.marketplace, plugin.name, plugin.version) : undefined;
     items.push({ target: { kind: 'plugin', id: plugin.id }, name: plugin.name, owner: source?.owner || 'Codex', route: local ? 'plugin-reinstall' : 'owner-managed', status: local ? 'unchecked' : 'blocked', canCheck: true, canApply: false, canAutoApply: local,
       message: local ? '检查已验证来源；通过 Codex 包级重新安装更新，并保留启用状态。' : '由 Codex 远程插件管理器维护；在 Codex 插件页检查更新，随后刷新此处状态。', reasonCode: local ? undefined : 'OWNER_MANAGED', sourceInfo: source, installedVersion: plugin.version, installedPath, affectedSkillIds: attached.map(skill => skill.id) });
