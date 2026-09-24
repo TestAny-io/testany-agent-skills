@@ -189,6 +189,21 @@
   - `testany-llm` 的命令列表和 plugin 描述改为仅保留 `prompt-optimizer`
   - 根 README、`AGENTS.md`、`CLAUDE.md` 不再引用已删除的 `skill-creator` 脚本与路径
 
+## [skilldock 0.5.0] - 2026-09-24
+
+### Added
+- 插件可从本地目录、Git 仓库或 GitHub 目录链接直接安装；确认前预览实际插件与组件，自动登记单插件来源，保留原来源信息并支持后续手动及定时更新。
+- 项目下拉选择汇总 Codex 已保存项目、最近目录与当前目录；按真实路径去重，缺失目录禁用。macOS 支持选择已有文件夹，其他平台保留手动路径输入。
+
+### Changed
+- Skills / Plugins 统一统计筛选、搜索、标签、卡片/列表、详情、分页和“来源 → 预览确认”安装流程；保留 Marketplace 安装入口，添加来源后回到安装窗口。
+- 中、英、日和浅深色同步，修复长项目路径在窄窗口中的布局溢出。新建项目及创建 Codex 侧栏项目按用户决定暂缓。
+- 本轮为新增兼容功能，按 SemVer 从 0.4.2 升至 0.5.0；同步应用、锁文件、插件清单和安装说明。
+
+### Validation scope
+- 构建、后端与浏览器回归通过；真实 Codex CLI 使用独立配置验证单插件安装、内容核实、包更新及 Marketplace 安装。详细执行证据见 [本轮实现记录](plugins/skilldock/skills/skill-manager/references/27-library-install-and-projects.md)。
+- 系统文件夹对话框的真实桌面体验待 UAT；未修改本机现有插件安装或种子用户环境。
+
 ## [teamdesk 0.3.0] - 2026-09-24
 
 ### Fixed

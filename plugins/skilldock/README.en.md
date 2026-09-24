@@ -17,6 +17,7 @@ As your skill collection grows, sources, versions, and duplicate copies become h
 | Task | In SkillDock |
 | --- | --- |
 | See what is installed | Browse skills and plugins, their installation paths, and discoverable source information |
+| Install a single plugin | Click “Install plugin” and choose a local directory, Git URL, or connected Marketplace |
 | Find a skill in a large collection | Add your own tags to skills / plugins, then search and filter |
 | Choose between duplicate skills | Inspect each installation path and select the copies to keep or remove; restore removed copies from Activity |
 | Understand an update | Follow check progress and expand file diffs before applying changes |
@@ -47,7 +48,7 @@ If the `codex` command on your PATH fails, the [installation guide](../../README
 
 ## Try these first
 
-1. **Check your project.** Use “Switch project” to select the workspace you intend to manage.
+1. **Check your project.** Use the project dropdown to select a saved Codex project or recent directory, or choose an existing local folder.
 2. **Organize a few skills.** Tag a favorite and filter by that tag. If names collide, inspect each copy's installation path.
 3. **Review updates.** Click “Check all” on Updates, watch the progress, then expand a diff before choosing an update.
 
@@ -71,6 +72,6 @@ Explore [Testany](https://testany.io), read the [platform docs](https://docs.tes
 
 ## Version, license, and development
 
-Current version: **0.4.2**, distributed through this Git repository. [Changelog](../../CHANGELOG.md) · [AGPL-3.0-only](LICENSE) · [Third-party notices](skills/skill-manager/THIRD_PARTY_NOTICES.md).
+Current version: **0.5.0**, distributed through this Git repository. [Changelog](../../CHANGELOG.md) · [AGPL-3.0-only](LICENSE) · [Third-party notices](skills/skill-manager/THIRD_PARTY_NOTICES.md).
 
 See the [application README](skills/skill-manager/assets/app/README.md) for development and verification commands, and the [Chinese product page](README.md#版本许可与开发) for implementation and UAT records. Other existing skills in this repository remain MIT-licensed.

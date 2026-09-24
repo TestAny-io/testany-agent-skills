@@ -17,6 +17,7 @@ A Testany Product · macOS + Codex · 中文 / English / 日本語 · 深色 / �
 | 遇到的问题 | 在 SkillDock 中怎么处理 |
 | --- | --- |
 | 装过哪些技能、现在从哪里加载？ | 按项目查看技能、插件、安装路径与可发现的来源信息 |
+| 想安装一个单独的插件？ | 在插件页点“安装插件”，选择本地目录、Git 链接或已连接的 Marketplace |
 | 技能太多，难以找到？ | 给 skills / plugins 添加自己的标签，再搜索、筛选 |
 | 有几个同名技能，想保留其中一份？ | 按实际安装路径选择保留或移除；从操作记录恢复已移除的副本 |
 | 不知道更新改了什么？ | 检查更新时查看进度，展开文件 diff，再决定是否应用 |
@@ -47,7 +48,7 @@ $skill-manager 打开技能管理面板
 
 ## 第一次打开，先试这三件事
 
-1. **确认项目。** 看一眼“当前项目”，用“切换项目”选中你真正要管理的工作目录。
+1. **确认项目。** 看一眼“当前项目”，从下拉列表选择已有 Codex 项目或最近目录；也可用“选择本地文件夹”选择已有工作目录。
 2. **整理技能。** 为常用 skill 加一个标签，按标签筛选；如果有同名技能，展开查看每份安装路径。
 3. **看看更新。** 在“更新”中点击“全部检查”，查看进度和可展开的变更 diff，再选择要更新的目标。
 
@@ -76,6 +77,6 @@ $skill-manager 打开技能管理面板
 
 ## 版本、许可与开发
 
-当前版本 **0.4.2**，通过 Git 仓库分发。[变更记录](../../CHANGELOG.md) · [AGPL-3.0-only](LICENSE) · [第三方许可](skills/skill-manager/THIRD_PARTY_NOTICES.md)。仓库中其他现有 skills 的 MIT 许可不变。
+当前版本 **0.5.0**，通过 Git 仓库分发。[变更记录](../../CHANGELOG.md) · [AGPL-3.0-only](LICENSE) · [第三方许可](skills/skill-manager/THIRD_PARTY_NOTICES.md)。仓库中其他现有 skills 的 MIT 许可不变。
 
-开发、启动与验证命令见[应用 README](skills/skill-manager/assets/app/README.md)。实现边界与验证记录：[种子反馈](skills/skill-manager/references/19-seed-feedback.md)、[来源链接与 diff](skills/skill-manager/references/20-source-links-and-diff.md)、[同名技能管理](skills/skill-manager/references/21-duplicate-selection.md)、[更新进度与标签](skills/skill-manager/references/22-progress-and-tags.md)、[导航与私仓](skills/skill-manager/references/23-navigation-and-private-git.md)、[独立后台更新](skills/skill-manager/references/24-background-updates.md)、[后台状态修复](skills/skill-manager/references/25-background-status.md)、[外部同步恢复](skills/skill-manager/references/26-baseline-recovery.md)。
+开发、启动与验证命令见[应用 README](skills/skill-manager/assets/app/README.md)。实现边界与验证记录：[种子反馈](skills/skill-manager/references/19-seed-feedback.md)、[来源链接与 diff](skills/skill-manager/references/20-source-links-and-diff.md)、[同名技能管理](skills/skill-manager/references/21-duplicate-selection.md)、[更新进度与标签](skills/skill-manager/references/22-progress-and-tags.md)、[导航与私仓](skills/skill-manager/references/23-navigation-and-private-git.md)、[独立后台更新](skills/skill-manager/references/24-background-updates.md)、[后台状态修复](skills/skill-manager/references/25-background-status.md)、[外部同步恢复](skills/skill-manager/references/26-baseline-recovery.md)、[安装入口与统一布局](skills/skill-manager/references/27-library-install-and-projects.md)。

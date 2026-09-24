@@ -70,7 +70,7 @@ claude plugin update testany-eng@testany-agent-skills
 
 查看 [SkillDock 产品页与界面](plugins/skilldock/README.md)，了解标签筛选、同名技能管理、更新 diff 与自动更新。
 
-**安装 `skilldock` 只会添加一个 SkillDock 应用入口，不会安装 testany-eng 的研发 skills。** 当前版本为 SkillDock 0.4.2，自 0.2.0 起独立分发；旧版 testany-eng 2.4.0 所带的 SkillDock 0.1.0 用户请按下方迁移说明接续数据。
+**安装 `skilldock` 只会添加一个 SkillDock 应用入口，不会安装 testany-eng 的研发 skills。** 当前版本为 SkillDock 0.5.0，自 0.2.0 起独立分发；旧版 testany-eng 2.4.0 所带的 SkillDock 0.1.0 用户请按下方迁移说明接续数据。
 
 无需用户手动 clone。可以在 Codex 中提出：
 

@@ -127,6 +127,8 @@ export class CodexAdapter {
       try {
         if (!market?._root) throw new Error('市场来源不在当前已确认清单中。');
         const entry = await readComponentEntry(market._root, plugin.name, plugin.sourcePath);
+        const manifest = await readPluginManifest(plugin.sourcePath, market._root);
+        plugin.description = typeof manifest.description === 'string' ? manifest.description : typeof entry.description === 'string' ? entry.description : '';
         const sourceReal = await fs.realpath(plugin.sourcePath);
         const roots = await discoverSkillRoots(plugin.sourcePath, { marketRoot: market._root, entry });
         const relatives = roots.map(root => path.relative(sourceReal, root) || '.');

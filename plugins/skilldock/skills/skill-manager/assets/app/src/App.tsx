@@ -22,10 +22,8 @@ import {
   FolderOpen,
   GitBranch,
   Globe2,
-  Grid2X2,
   History,
   Layers3,
-  List,
   Loader2,
   LockKeyhole,
   Monitor,
@@ -49,7 +47,6 @@ import {
 import type {
   ActionRequest,
   ActionResult,
-  InstallPreview,
   Marketplace,
   Mode,
   Plugin,
@@ -74,6 +71,10 @@ import { GitSourceFields, ResolvedGitSource, GitAccessHelp } from "./GitSourceFi
 import { useRuntimeConnection } from "./useRuntimeConnection";
 import { TagStrip, TagFilter, TagsDialog, matchesTags, type TagSubject } from "./Tags";
 
+import { ProjectPicker, ProjectDialog } from "./ProjectControls";
+import { InstallDialog } from "./InstallDialog";
+import { LibraryFilters, ViewSwitch, CollectionFooter } from "./LibraryUI";
+
 type Page = "skills" | "plugins" | "markets" | "updates" | "activity";
 type Metric = "all" | "enabled" | "standalone" | "attention";
 type Dialog =
@@ -81,7 +82,9 @@ type Dialog =
   | { type: "duplicates"; name: string }
   | { type: "detail"; skill: Skill }
   | { type: "install" }
-  | { type: "market" }
+  | { type: "plugin-install"; plugin?: Plugin; market?: boolean }
+  | { type: "plugin-detail"; plugin: Plugin }
+  | { type: "market"; fromInstall?: boolean }
   | { type: "preferences" }
   | { type: "project" }
   | { type: "update"; preview: UpdatePreview }
@@ -153,6 +156,7 @@ const actionNames: Record<string, string> = {
   "skill.remove": "移除技能",
   "activity.restore": "恢复内容",
   "plugin.install": "安装插件",
+  "plugin.installSource": "安装插件",
   "plugin.remove": "卸载插件",
   "plugin.toggle": "调整插件状态",
   "marketplace.add": "添加来源",
@@ -339,7 +343,7 @@ export default function App() {
   const [metric, setMetric] = useState<Metric>("all");
   const [view, setView] = useState<"grid" | "list">("grid");
   const [pluginFilter, setPluginFilter] = useState<
-    "installed" | "available" | "all"
+    "installed" | "available" | "all" | "enabled"
   >("installed");
   const [marketFilter, setMarketFilter] = useState("all");
   const pluginScopeKey = JSON.stringify([
@@ -355,6 +359,9 @@ export default function App() {
   });
   const pluginLimit =
     pluginWindow.key === pluginScopeKey ? pluginWindow.limit : 48;
+  const skillScopeKey = JSON.stringify([mode, query, metric, scope, skillTags]);
+  const [skillWindow, setSkillWindow] = useState({ key: skillScopeKey, limit: 48 });
+  const skillLimit = skillWindow.key === skillScopeKey ? skillWindow.limit : 48;
   const [dialog, setDialog] = useState<Dialog | null>(null);
   const [busy, setBusy] = useState<string | null>(null);
   const busyRef = useRef<string | null>(null);
@@ -450,7 +457,8 @@ export default function App() {
           [request.id!]: result.update!,
         }));
       if (
-        !result.preview &&
+        !result.preview && !result.pluginPreview &&
+        request.action !== "project.chooseDirectory" &&
         !result.update &&
         !result.sourcePreview &&
         !result.removalPreview &&
@@ -499,6 +507,9 @@ export default function App() {
   }
   function toggleSkill(skill: Skill) {
     run({ action: "skill.toggle", id: skill.id, enabled: !skill.enabled });
+  }
+  function confirmRemovePlugin(plugin: Plugin) {
+    setDialog({ type: "confirm", title: t("卸载这个插件？"), description: t("该插件及其 {v0} 个已发现技能将通过包管理入口卸载。此操作不能通过技能恢复记录撤销，需要从市场重新安装。", { v0: plugin.skillCount }), target: plugin.id, request: { action: "plugin.remove", id: plugin.id }, danger: true, label: t("确认卸载"), affected: snapshot?.skills.filter(skill => skill.pluginId === plugin.id).map(skill => `${skill.name} — ${skill.path}`) });
   }
   function confirmRemoveSkill(skill: Skill) {
     if (skill.duplicateNames?.length) {
@@ -576,7 +587,7 @@ export default function App() {
       (pluginFilter === "all" ||
         (pluginFilter === "installed"
           ? plugin.installed
-          : !plugin.installed)) &&
+          : pluginFilter === "enabled" ? plugin.installed && plugin.enabled === true : !plugin.installed)) &&
       (marketFilter === "all" || plugin.marketplace === marketFilter) &&
       matchesTags(plugin.tags, pluginTags) &&
       `${plugin.name} ${plugin.description} ${plugin.marketplace}`
@@ -697,6 +708,7 @@ export default function App() {
                   {t("安装技能")}
                 </Button>
               )}
+              {page === "plugins" && <Button variant="primary" onClick={() => setDialog({ type: "plugin-install" })} disabled={!data || !!busy}><Plus size={17} />{t("安装插件")}</Button>}
               {page === "markets" && (
                 <Button
                   variant="primary"
@@ -713,13 +725,12 @@ export default function App() {
           {data && (
             <div className="workspace-context">
               <FolderOpen size={16} aria-hidden="true" />
-              <div>
+              <div className="project-caption">
                 <span>{t("当前项目")}</span>
-                <code title={data.paths.project}>{data.paths.project}</code>
+                {mode !== "local" && <code title={data.paths.project}>{data.paths.project}</code>}
               </div>
-              {mode === "local" && <Button variant="ghost" disabled={!!busy || paused} onClick={() => setDialog({ type: "project" })}>
-                {t("切换项目")}
-              </Button>}
+              {mode === "local" && <ProjectPicker project={data.paths.project} catalog={data.projects} disabled={!!busy || paused}
+                onSelect={projectDir => run({ action: "project.select", projectDir })} onBrowse={() => setDialog({ type: "project" })} />}
               <button
                 onClick={() => setShowPaths((value) => !value)}
                 className="text-button"
@@ -836,54 +847,12 @@ export default function App() {
             <>
               {page === "skills" && (
                 <>
-                  <div className="stats-grid">
-                    {(
-                      [
-                        { id: "all", label: t("全部技能"), icon: Layers3 },
-                        {
-                          id: "enabled",
-                          label: t("已启用"),
-                          icon: CircleCheck,
-                        },
-                        {
-                          id: "standalone",
-                          label: t("个人与项目"),
-                          icon: Folder,
-                        },
-                        {
-                          id: "attention",
-                          label: t("状态待确认"),
-                          icon: CircleAlert,
-                        },
-                      ] as const
-                    ).map((item) => (
-                      <button
-                        key={item.id}
-                        className={classNames(
-                          "stat-card",
-                          metric === item.id && "selected",
-                        )}
-                        onClick={() => setMetric(item.id)}
-                        aria-pressed={metric === item.id}
-                      >
-                        <div>
-                          <span>{t(item.label)}</span>
-                          <item.icon size={16} />
-                        </div>
-                        <strong>
-                          {counts[item.id]}
-                          <span>
-                            {item.id === "all"
-                              ? t("个技能")
-                              : item.id === "attention"
-                                ? t("项提示")
-                                : t("个")}
-                          </span>
-                        </strong>
-                        <span className="stat-indicator" />
-                      </button>
-                    ))}
-                  </div>
+                  <LibraryFilters selected={metric} onChange={setMetric} items={[
+                    { id: "all", label: "全部技能", count: counts.all, icon: <Layers3 size={16} /> },
+                    { id: "enabled", label: "已启用", count: counts.enabled, icon: <CircleCheck size={16} /> },
+                    { id: "standalone", label: "个人与项目", count: counts.standalone, icon: <Folder size={16} /> },
+                    { id: "attention", label: "状态待确认", count: counts.attention, icon: <CircleAlert size={16} /> },
+                  ]} />
                   <div className="category-explanation">
                     <p>
                       <strong>{t("个人与项目：")}</strong>
@@ -919,24 +888,7 @@ export default function App() {
                       </select>
                       <ChevronDown size={13} />
                     </label>
-                    <div className="view-switch" aria-label={t("显示方式")}>
-                      <button
-                        onClick={() => setView("grid")}
-                        className={view === "grid" ? "active" : ""}
-                        aria-pressed={view === "grid"}
-                        aria-label={t("卡片视图")}
-                      >
-                        <Grid2X2 size={17} />
-                      </button>
-                      <button
-                        onClick={() => setView("list")}
-                        className={view === "list" ? "active" : ""}
-                        aria-pressed={view === "list"}
-                        aria-label={t("列表视图")}
-                      >
-                        <List size={18} />
-                      </button>
-                    </div>
+                    <ViewSwitch value={view} onChange={setView} />
                   </div>
                   <TagFilter items={skills} selected={skillTags} onChange={setSkillTags} />
                   <div className="collection-heading">
@@ -953,10 +905,10 @@ export default function App() {
                     <span>{t("名称 · 来源 · 状态")}</span>
                   </div>
                   {filteredSkills.length ? (
-                    <div
+                    <><div
                       className={view === "grid" ? "skill-grid" : "skill-list"}
                     >
-                      {filteredSkills.map((skill) => {
+                      {filteredSkills.slice(0, skillLimit).map((skill) => {
                         const { Icon, color } = skillVisual(skill.name);
                         return (
                           <article
@@ -1050,7 +1002,7 @@ export default function App() {
                           </article>
                         );
                       })}
-                    </div>
+                    </div><CollectionFooter visible={skillLimit} total={filteredSkills.length} onMore={() => setSkillWindow({ key: skillScopeKey, limit: skillLimit + 48 })} /></>
                   ) : (
                     <Empty
                       title={
@@ -1096,34 +1048,13 @@ export default function App() {
                       </div>
                     </div>
                   )}
-                  <div className="section-tabs">
-                    {(
-                      [
-                        { id: "installed", label: t("已安装") },
-                        { id: "available", label: t("未安装") },
-                        { id: "all", label: t("全部插件") },
-                      ] as const
-                    ).map((item) => (
-                      <button
-                        className={pluginFilter === item.id ? "active" : ""}
-                        key={item.id}
-                        onClick={() => setPluginFilter(item.id)}
-                      >
-                        {t(item.label)}
-                        <span>
-                          {
-                            data.plugins.filter(
-                              (p) =>
-                                item.id === "all" ||
-                                (item.id === "installed"
-                                  ? p.installed
-                                  : !p.installed),
-                            ).length
-                          }
-                        </span>
-                      </button>
-                    ))}
-                  </div>
+                  <LibraryFilters selected={pluginFilter} onChange={setPluginFilter} items={[
+                    { id: "all", label: "全部插件", count: data.plugins.length, icon: <Blocks size={16} /> },
+                    { id: "enabled", label: "已启用", count: data.plugins.filter(item => item.installed && item.enabled === true).length, icon: <CircleCheck size={16} /> },
+                    { id: "installed", label: "已安装", count: data.plugins.filter(item => item.installed).length, icon: <Package size={16} /> },
+                    { id: "available", label: "未安装", count: data.plugins.filter(item => !item.installed).length, icon: <Download size={16} /> },
+                  ]} />
+                  <div className="category-explanation"><p>{t("插件附带的技能与组件一起安装、更新和卸载。")}</p><p>{t("未安装：已连接 Marketplace 中可发现的插件；也可直接从 Git 或本地目录安装单个插件。")}</p></div>
                   <div className="toolbar">
                     <SearchField
                       query={query}
@@ -1145,11 +1076,12 @@ export default function App() {
                             data.plugins.map((plugin) => plugin.marketplace),
                           ),
                         ].map((name) => (
-                          <option key={name}>{name}</option>
+                          <option key={name} value={name}>{data.marketplaces.find(item => item.name === name)?.displayName || name}</option>
                         ))}
                       </select>
                       <ChevronDown size={13} />
                     </label>
+                    <ViewSwitch value={view} onChange={setView} />
                   </div>
                   <TagFilter items={data.plugins} selected={pluginTags} onChange={setPluginTags} />
                   <div className="collection-heading">
@@ -1159,21 +1091,16 @@ export default function App() {
                         : t("插件清单")}
                       <span>{filteredPlugins.length}</span>
                     </h2>
-                    <span>
-                      {t("已显示")}
-                      {Math.min(pluginLimit, filteredPlugins.length)}
-                      {t("个 · 搜索覆盖全部结果")}
-                    </span>
+                    <span>{t("名称 · 来源 · 状态")}</span>
                   </div>
                   {filteredPlugins.length ? (
                     <>
-                      <div className="plugin-grid">
+                      <div className={view === "grid" ? "skill-grid" : "skill-list"}>
                         {filteredPlugins.slice(0, pluginLimit).map((plugin) => (
                           <PluginCard
                             key={plugin.id}
                             plugin={plugin}
                             onEditTags={() => editTags("plugin", plugin)}
-                            onUpdates={() => { navigate("updates"); setUpdateFocus(plugin.id); }}
                             busy={busy}
                             onToggle={() =>
                               run({
@@ -1182,90 +1109,16 @@ export default function App() {
                                 enabled: !plugin.enabled,
                               })
                             }
-                            onInstall={() =>
-                              setDialog({
-                                type: "confirm",
-                                title: t("安装这个插件？"),
-                                description: t(
-                                  "将从 {v0} 安装插件及其附带技能。插件通过当前环境的包管理入口安装。",
-                                  { v0: plugin.marketplace },
-                                ),
-                                target: plugin.id,
-                                request: {
-                                  action: "plugin.install",
-                                  id: plugin.id,
-                                },
-                                label: t("确认安装"),
-                              })
-                            }
-                            onRemove={() =>
-                              setDialog({
-                                type: "confirm",
-                                title: t("卸载这个插件？"),
-                                description: t(
-                                  "该插件及其 {v0} 个已发现技能将通过包管理入口卸载。此操作不能通过技能恢复记录撤销，需要从市场重新安装。",
-                                  { v0: plugin.skillCount },
-                                ),
-                                target: plugin.id,
-                                request: {
-                                  action: "plugin.remove",
-                                  id: plugin.id,
-                                },
-                                danger: true,
-                                label: t("确认卸载"),
-                                affected: data.skills
-                                  .filter(
-                                    (skill) => skill.pluginId === plugin.id,
-                                  )
-                                  .map(
-                                    (skill) => `${skill.name} — ${skill.path}`,
-                                  ),
-                              })
-                            }
+                            onDetails={() => setDialog({ type: "plugin-detail", plugin })}
+                            onInstall={() => setDialog({ type: "plugin-install", plugin })}
                           />
                         ))}
                       </div>
-                      <div className="plugin-pagination">
-                        <p aria-live="polite">
-                          {t("已显示")}
-                          {Math.min(pluginLimit, filteredPlugins.length)}{" "}
-                          {t("/ 共")}
-                          {filteredPlugins.length}
-                          {t("个插件")}
-                        </p>
-                        {pluginLimit < filteredPlugins.length ? (
-                          <Button
-                            onClick={() =>
-                              setPluginWindow({
-                                key: pluginScopeKey,
-                                limit: pluginLimit + 48,
-                              })
-                            }
-                          >
-                            {t("显示更多")}
-                            <ChevronDown size={15} />
-                          </Button>
-                        ) : (
-                          <span>{t("当前筛选结果已全部显示")}</span>
-                        )}
-                      </div>
+                      <CollectionFooter visible={pluginLimit} total={filteredPlugins.length} onMore={() => setPluginWindow({ key: pluginScopeKey, limit: pluginLimit + 48 })} />
                     </>
                   ) : (
-                    <Empty
-                      icon={Blocks}
-                      title={t("这里还没有插件")}
-                      description={t(
-                        "调整筛选，或在市场来源中添加一个插件市场。",
-                      )}
-                    >
-                      <Button
-                        onClick={() => {
-                          navigate("markets");
-                        }}
-                      >
-                        {t("管理市场来源")}
-                        <ArrowRight size={15} />
-                      </Button>
+                    <Empty icon={Blocks} title={t(data.plugins.length ? "没有找到匹配的插件" : "这里还没有插件")} description={t(data.plugins.length ? "试试其他关键词，或调整来源与状态筛选。" : "从本地目录、Git 仓库或 Marketplace 安装第一个插件。")}>
+                      <Button onClick={() => { if (data.plugins.length) { setQuery(""); setMarketFilter("all"); setPluginFilter("all"); setPluginTags([]); } else setDialog({ type: "plugin-install" }); }}>{t(data.plugins.length ? "清除筛选" : "安装插件")}</Button>
                     </Empty>
                   )}
                 </>
@@ -1472,7 +1325,12 @@ export default function App() {
 
       {dialog?.type === "tags" && data && <TagsDialog key={`${mode}:${dialog.subject.kind}:${dialog.subject.id}`} subject={dialog.subject}
         suggestions={[...data.skills, ...data.plugins].flatMap(item => item.tags || [])} busy={!!busy} execute={action} onClose={() => setDialog(null)} />}
-      {dialog?.type === "project" && data && <ProjectDialog project={data.paths.project} busy={busy} action={action} onClose={() => setDialog(null)} />}
+      {dialog?.type === "project" && data && <ProjectDialog project={data.paths.project} catalog={data.projects} busy={busy} action={action} onClose={() => setDialog(null)} />}
+      {dialog?.type === "plugin-install" && data && <InstallDialog kind="plugin" data={data} initialPlugin={dialog.plugin} initialMarket={dialog.market} busy={busy} action={action} onClose={() => setDialog(null)} onMarket={() => setDialog({ type: "market", fromInstall: true })} />}
+      {dialog?.type === "plugin-detail" && data && <PluginDetail plugin={data.plugins.find(item => item.id === dialog.plugin.id) || dialog.plugin} skills={data.skills.filter(skill => skill.pluginId === dialog.plugin.id)} busy={busy}
+        onClose={() => setDialog(null)} onSkill={skill => setDialog({ type: "detail", skill })} onRemove={() => confirmRemovePlugin(dialog.plugin)}
+        onInstall={() => setDialog({ type: "plugin-install", plugin: dialog.plugin })} onToggle={() => { const current = data.plugins.find(item => item.id === dialog.plugin.id) || dialog.plugin; run({ action: "plugin.toggle", id: current.id, enabled: !current.enabled }); }}
+        onUpdates={() => { navigate("updates"); setUpdateFocus(dialog.plugin.id); }} />}
       {dialog?.type === "preferences" && (
         <PreferencesDialog onClose={() => setDialog(null)} />
       )}
@@ -1504,7 +1362,7 @@ export default function App() {
         />
       )}
       {dialog?.type === "install" && data && (
-        <InstallDialog
+        <InstallDialog kind="skill" data={data} onMarket={() => setDialog({ type: "market" })}
           busy={busy}
           action={action}
           onClose={() =>
@@ -1517,7 +1375,7 @@ export default function App() {
           busy={busy}
           action={action}
           onClose={() =>
-            setDialog((current) => (current === dialog ? null : current))
+            setDialog((current) => (current === dialog ? dialog.fromInstall ? { type: "plugin-install", market: true } : null : current))
           }
         />
       )}
@@ -1604,111 +1462,31 @@ function SearchField({
     </label>
   );
 }
-function PluginCard({
-  onEditTags,
-  onUpdates,
-  plugin,
-  busy,
-  onToggle,
-  onInstall,
-  onRemove,
-}: {
-  plugin: Plugin;
-  onEditTags: () => void;
-  onUpdates: () => void;
-  busy: string | null;
-  onToggle: () => void;
-  onInstall: () => void;
-  onRemove: () => void;
+function PluginCard({ plugin, busy, onToggle, onInstall, onDetails, onEditTags }: {
+  plugin: Plugin; busy: string | null; onToggle: () => void; onInstall: () => void; onDetails: () => void; onEditTags: () => void;
 }) {
-  return (
-    <article className="plugin-card">
-      <div className="plugin-card-top">
-        <span className="skill-icon tone-2">
-          <Blocks size={22} strokeWidth={1.6} />
-        </span>
-        <Badge tone={plugin.installed ? "green" : "neutral"}>
-          {plugin.installed ? t("已安装") : t("可发现")}
-        </Badge>
-      </div>
-      <h3>{plugin.name}</h3>
-      <p className="plugin-description">
-        {plugin.description ||
-          t(
-            "这个插件尚未提供描述。请根据来源与附带技能判断是否适合你的工作流。",
-          )}
-      </p>
-      <TagStrip subject={{ ...plugin, kind: "plugin" }} disabled={!!busy} onEdit={onEditTags} />
-      <div className="plugin-meta">
-        <span>
-          <Globe2 size={13} />
-          {plugin.marketplace}
-        </span>
-        <span>
-          {plugin.version || t("版本未提供")} · {plugin.skillCount}
-          {t("个技能")}
-        </span>
-      </div>
-      <div className="plugin-actions">
-        {plugin.installed ? (
-          <>
-            <div className="inline-toggle">
-              <Toggle
-                checked={plugin.enabled}
-                disabled={!plugin.canToggle || !!busy}
-                reason={plugin.reason ? t(plugin.reason) : undefined}
-                label={t("{v0}插件 {v1}", {
-                  v0: plugin.enabled ? t("禁用") : t("启用"),
-                  v1: plugin.name,
-                })}
-                busy={busy === `plugin.toggle:${plugin.id}`}
-                onChange={onToggle}
-              />
-              <span>
-                {plugin.enabled === null
-                  ? ""
-                  : plugin.enabled
-                    ? t("已启用")
-                    : t("已禁用")}
-              </span>
-            </div>
-            <Button variant="ghost" onClick={onUpdates} disabled={!!busy} title={t("更新整个插件及其附带技能")}><RefreshCw size={14} />{t("管理更新")}</Button>
-            <Button
-              variant="ghost"
-              onClick={onRemove}
-              disabled={!plugin.canRemove || !!busy}
-              title={
-                plugin.canRemove
-                  ? undefined
-                  : plugin.reason
-                    ? t(plugin.reason)
-                    : undefined
-              }
-            >
-              <Trash2 size={14} />
-              {t("卸载")}
-            </Button>
-          </>
-        ) : (
-          <Button
-            onClick={onInstall}
-            variant="primary"
-            disabled={!plugin.canInstall || !!busy}
-            title={plugin.reason ? t(plugin.reason) : undefined}
-          >
-            <Plus size={15} />
-            {t("安装插件")}
-          </Button>
-        )}
-      </div>
-      {plugin.reason && (
-        <div className="capability-reason">
-          <CircleAlert size={13} />
-          <ServiceMessage value={plugin.reason} />
-        </div>
-      )}
-    </article>
-  );
+  return <article className={classNames("skill-card", plugin.installed && plugin.enabled === false && "skill-disabled")}>
+    <button className="skill-card-open" onClick={onDetails} aria-label={t("查看 {v0} 详情", { v0: plugin.name })}>
+      <div className="skill-card-heading"><span className="skill-icon tone-2"><Blocks size={21} strokeWidth={1.6} /></span><div><h3>{plugin.name}</h3><span className="skill-kind">{plugin.version || t("版本未提供")} · {t(plugin.installed ? "已安装" : "未安装")}</span></div><ChevronRight className="card-chevron" size={17} /></div>
+      <p className="skill-description">{plugin.description || t("这个插件尚未提供描述。请根据来源与附带技能判断是否适合你的工作流。")}</p>
+    </button>
+    <TagStrip subject={{ ...plugin, kind: "plugin" }} disabled={!!busy} onEdit={onEditTags} />
+    {plugin.reason && <div className="skill-reason"><ServiceMessage value={plugin.reason} /></div>}
+    <div className="skill-card-footer"><span className="source-tag" title={plugin.marketplace}><Globe2 size={12} />{plugin.directSource ? t("单插件来源") : plugin.marketplace}</span><div className="card-status">
+      {plugin.installed ? <Toggle checked={plugin.enabled} disabled={!plugin.canToggle || !!busy} busy={busy === `plugin.toggle:${plugin.id}`} label={`${plugin.enabled ? t("禁用") : t("启用")} ${plugin.name}`} reason={plugin.reason ? t(plugin.reason) : undefined} onChange={onToggle} /> : <Button variant="ghost" disabled={!plugin.canInstall || !!busy} onClick={onInstall}><Plus size={14} />{t("安装插件")}</Button>}
+    </div></div>
+  </article>;
+}
+function PluginDetail({ plugin, skills, busy, onClose, onToggle, onRemove, onInstall, onUpdates, onSkill }: { plugin: Plugin; skills: Skill[]; busy: string | null; onClose: () => void; onToggle: () => void; onRemove: () => void; onInstall: () => void; onUpdates: () => void; onSkill: (skill: Skill) => void }) {
+  return <Modal title={plugin.name} eyebrow="PLUGIN DETAILS" onClose={onClose}>
+    <div className="modal-body"><p className="dialog-description">{plugin.description || t("未提供描述")}</p><dl className="preview-paths"><dt>{t("版本")}</dt><dd>{plugin.version || t("版本未提供")}</dd><dt>{t("来自")}</dt><dd><code>{plugin.directSource?.source || plugin.marketplace}</code></dd><dt>ID</dt><dd><code>{plugin.id}</code></dd>{plugin.sourcePath && <><dt>{t("来源路径")}</dt><dd><code>{plugin.sourcePath}</code></dd></>}</dl>
+      {plugin.directSource && <ResolvedGitSource source={plugin.directSource} />}
+      {plugin.installed && <div className="inline-toggle"><Toggle checked={plugin.enabled} disabled={!plugin.canToggle || !!busy} label={`${plugin.enabled ? t("禁用") : t("启用")} ${plugin.name}`} onChange={onToggle} /><span>{t(plugin.enabled === null ? "状态待确认" : plugin.enabled ? "已启用" : "已禁用")}</span></div>}
+      {plugin.reason && <div className="dialog-note"><ServiceMessage value={plugin.reason} /></div>}
+      {plugin.installed && <div className="install-components"><strong>{t("附带技能（{v0}）", { v0: skills.length })}</strong><div className="plugin-skill-list">{skills.map(skill => <button className="text-button" key={skill.id} onClick={() => onSkill(skill)}>{skill.name}<ChevronRight size={14} /></button>)}</div></div>}
+      <p className="field-hint">{t("插件附带的技能与组件一起安装、更新和卸载。")}</p>
+    </div><div className="modal-footer">{plugin.installed ? <><Button variant="danger" disabled={!plugin.canRemove || !!busy} onClick={onRemove}><Trash2 size={15} />{t("卸载")}</Button><Button disabled={!!busy} onClick={onUpdates}><RefreshCw size={15} />{t("管理更新")}</Button></> : <><Button onClick={onClose}>{t("关闭")}</Button><Button variant="primary" disabled={!plugin.canInstall || !!busy} onClick={onInstall}>{t("安装插件")}</Button></>}</div>
+  </Modal>;
 }
 function MarketCard({
   market,
@@ -1734,7 +1512,7 @@ function MarketCard({
       </span>
       <div className="market-content">
         <div className="market-title">
-          <h3>{market.name}</h3>
+          <h3>{market.displayName || market.name}</h3>
           <Badge>
             {market.type === "local"
               ? t("本地目录")
@@ -2007,195 +1785,6 @@ function SkillDetail({
 type ActionHandler = (
   request: Omit<ActionRequest, "mode">,
 ) => Promise<ActionResult | undefined>;
-function InstallDialog({
-  busy,
-  action,
-  onClose,
-}: {
-  busy: string | null;
-  action: ActionHandler;
-  onClose: () => void;
-}) {
-  const [sourceType, setSourceType] = useState<"local" | "git">("local");
-  const [source, setSource] = useState("");
-  const [subpath, setSubpath] = useState("");
-  const [ref, setRef] = useState("");
-  const [preview, setPreview] = useState<InstallPreview | null>(null);
-  const [error, setError] = useState("");
-  async function submit(event: React.FormEvent) {
-    event.preventDefault();
-    setError("");
-    try {
-      const result = await action(
-        preview
-          ? { action: "skill.install", previewId: preview.id }
-          : {
-              action: "skill.previewInstall",
-              sourceType,
-              source: source.trim(),
-              ...(subpath.trim() ? { subpath: subpath.trim() } : {}),
-              ...(ref.trim() && sourceType === "git"
-                ? { ref: ref.trim() }
-                : {}),
-            },
-      );
-      if (result?.preview) setPreview(result.preview);
-      else if (result) onClose();
-    } catch (error) {
-      setError((error as Error).message);
-    }
-  }
-  return (
-    <Modal
-      title={preview ? t("确认安装技能") : t("给工作流添一点能力")}
-      eyebrow="INSTALL A SKILL"
-      onClose={onClose}
-    >
-      <form onSubmit={(event) => void submit(event)}>
-        <div className="modal-body">
-          <div className="step-indicator">
-            <span className={!preview ? "active" : "complete"}>
-              {preview ? <Check size={12} /> : "1"}
-            </span>
-            {t("选择来源")}
-            <div />
-            <span className={preview ? "active" : ""}>2</span>
-            {t("预览与安装")}
-          </div>
-          {preview ? (
-            <>
-              <div className="install-preview">
-                <span className="skill-icon tone-1">
-                  <Sparkles size={23} />
-                </span>
-                <h3>{preview.name}</h3>
-                <p>{preview.description || t("未提供描述")}</p>
-                <Badge>
-                  {preview.files}
-                  {t("个文件 ·")}{" "}
-                  {preview.bytes < 1024
-                    ? `${preview.bytes} B`
-                    : `${(preview.bytes / 1024).toFixed(1)} KB`}
-                </Badge>
-              </div>
-              <dl className="preview-paths">
-                <dt>{t("来自")}</dt>
-                <dd>
-                  <code>{preview.source}</code>
-                </dd>
-                <dt>{t("安装到")}</dt>
-                <dd>
-                  <code>{preview.target}</code>
-                </dd>
-              </dl>
-              <ResolvedGitSource source={preview} />
-              <div className="dialog-note">
-                <ShieldCheck size={16} />
-                <p>
-                  {t(
-                    "安装前会再次核验文件。已存在的同名目录会保留，不会被覆盖。",
-                  )}
-                </p>
-              </div>
-            </>
-          ) : (
-            <>
-              <div className="source-choice">
-                <button
-                  type="button"
-                  className={sourceType === "local" ? "selected" : ""}
-                  onClick={() => {
-                    setSourceType("local");
-                    setSource("");
-                    setSubpath("");
-                    setRef("");
-                    setError("");
-                  }}
-                  aria-pressed={sourceType === "local"}
-                >
-                  <FolderOpen size={19} />
-                  <strong>{t("本地目录")}</strong>
-                  <span>{t("导入已有技能")}</span>
-                </button>
-                <button
-                  type="button"
-                  className={sourceType === "git" ? "selected" : ""}
-                  onClick={() => {
-                    setSourceType("git");
-                    setSource("");
-                    setSubpath("");
-                    setRef("");
-                    setError("");
-                  }}
-                  aria-pressed={sourceType === "git"}
-                >
-                  <GitBranch size={19} />
-                  <strong>{t("Git 仓库")}</strong>
-                  <span>{t("追踪来源变化")}</span>
-                </button>
-              </div>
-              {sourceType === "git" ? <GitSourceFields source={source} subpath={subpath} gitRef={ref} setSource={setSource} setSubpath={setSubpath} setRef={setRef} /> : <>
-                <label className="field"><span>{t("技能目录路径")}<span className="required-dot">*</span></span>
-                  <input required autoComplete="off" value={source} onChange={event => setSource(event.target.value)} placeholder="/Users/you/skills/my-skill" />
-                  <small>{t("填写包含 SKILL.md 的目录，或通过下方子路径指定。")}</small>
-                </label>
-                <label className="field"><span>{t("技能子目录")}<small>{t("可选")}</small></span>
-                  <input autoComplete="off" value={subpath} onChange={event => setSubpath(event.target.value)} placeholder="skills/my-skill" />
-                </label>
-              </>}
-
-            </>
-          )}
-          {error && (
-            <div className="field-error" role="alert">
-              <CircleAlert size={16} />
-              <ServiceMessage value={error} error />
-            </div>
-          )}
-        </div>
-        <div className="modal-footer">
-          <Button
-            type="button"
-            onClick={() => {
-              if (preview) {
-                setPreview(null);
-                setError("");
-              } else onClose();
-            }}
-            disabled={!!busy}
-          >
-            {preview ? (
-              <>
-                <ArrowLeft size={14} />
-                {t("修改来源")}
-              </>
-            ) : (
-              t("取消")
-            )}
-          </Button>
-          <Button
-            type="submit"
-            variant="primary"
-            busy={!!busy}
-            disabled={!preview && !source.trim()}
-          >
-            {preview ? (
-              <>
-                <ArrowDownToLine size={15} />
-                {t("确认安装")}
-              </>
-            ) : (
-              <>
-                {t("预览技能")}
-                <ArrowRight size={15} />
-              </>
-            )}
-          </Button>
-        </div>
-      </form>
-    </Modal>
-  );
-}
 function MarketDialog({
   busy,
   action,
@@ -2630,32 +2219,4 @@ function SkillReason({
       )}
     </div>
   );
-}
-
-
-function ProjectDialog({ project, busy, action, onClose }: {
-  project: string; busy: string | null; action: ActionHandler; onClose: () => void;
-}) {
-  const [directory, setDirectory] = useState(project);
-  const [error, setError] = useState("");
-  async function submit(event: React.FormEvent) {
-    event.preventDefault(); setError("");
-    try { if (await action({ action: "project.select", projectDir: directory })) onClose(); }
-    catch (failure) { setError((failure as Error).message); }
-  }
-  return <Modal title={t("选择扫描项目")} eyebrow="PROJECT DIRECTORY" onClose={onClose}>
-    <form onSubmit={event => void submit(event)}>
-      <div className="modal-body">
-        <p className="modal-description">{t("选择需要管理项目技能的本机目录。个人技能和插件仍然可见。")}</p>
-        <div className="project-current"><span>{t("当前扫描目录")}</span><code>{project}</code></div>
-        <label className="field"><span>{t("项目目录（绝对路径）")}</span>
-          <input autoFocus value={directory} onChange={event => setDirectory(event.target.value)} placeholder="/Users/you/Projects/my-project" required disabled={!!busy} />
-        </label>
-        <p className="field-hint">{t("选择会被保存；显式启动参数优先。切换后请核对定时更新计划中的项目目标。")}</p>
-        {error && <div role="alert" className="field-error"><ServiceMessage value={error} error /></div>}
-      </div>
-      <div className="modal-footer"><Button onClick={onClose} disabled={!!busy}>{t("取消")}</Button>
-        <Button type="submit" variant="primary" busy={!!busy} disabled={!directory.trim()}>{t("切换并重新扫描")}</Button></div>
-    </form>
-  </Modal>;
 }

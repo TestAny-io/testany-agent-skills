@@ -2919,6 +2919,41 @@ main {
 .project-current span { font-size: 12px; color: var(--muted); }
 .project-current code { overflow-wrap: anywhere; font-size: 12px; }
 
+.workspace-context .project-picker { max-width: 640px; min-width: 160px; flex: 1; background: light-dark(#fff, #202822); }
+.workspace-context .project-caption { flex: 0 1 auto; min-width: 0; }
+.workspace-context .project-picker + .text-button { margin-left: auto; }
+.project-picker select { flex: 1; min-width: 0; max-width: none; width: 100%; text-overflow: ellipsis; }
+.project-picker > svg { flex-shrink: 0; }
+.directory-choice { display: flex; gap: 12px; align-items: center; padding: 12px; border: 1px solid var(--line); border-radius: 10px; }
+.directory-choice code { flex: 1; min-width: 0; overflow-wrap: anywhere; font-size: 12px; }
+.directory-choice .button { flex-shrink: 0; }
+.source-choice-three { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); }
+.source-choice-three button { min-width: 0; }
+.source-choice-three strong { overflow-wrap: anywhere; }
+.catalog-intro { display: flex; align-items: center; justify-content: space-between; gap: 12px; margin-bottom: 18px; }
+.catalog-intro p { font-size: 12px; color: var(--muted); line-height: 1.6; }
+.catalog-intro .button { flex-shrink: 0; }
+.install-catalog { display: grid; gap: 8px; max-height: 350px; overflow-y: auto; margin: 16px 0; }
+.install-catalog-row { display: flex; align-items: center; gap: 12px; width: 100%; padding: 15px; border: 1px solid var(--line); border-radius: 10px; text-align: left; background: light-dark(#fafbf8, #202822); color: var(--ink); }
+.install-catalog-row:hover:not(:disabled) { border-color: var(--green); background: light-dark(#f0f5ec, #2b392e); }
+.install-catalog-row:disabled { opacity: .65; cursor: default; }
+.install-catalog-row > div { flex: 1; min-width: 0; display: grid; gap: 5px; overflow-wrap: anywhere; }
+.install-catalog-row small, .install-catalog-row p { font-size: 11px; color: var(--muted); }
+.install-catalog-row > span { font-size: 11px; flex-shrink: 0; }
+.install-catalog-row > svg { flex-shrink: 0; color: var(--green); }
+.modal-body .field-hint { font-size: 12px; color: var(--muted); line-height: 1.7; }
+.install-components { border-top: 1px solid var(--line); padding-top: 16px; margin: 20px 0; font-size: 12px; overflow-wrap: anywhere; }
+.install-components p { margin-top: 10px; line-height: 1.7; color: var(--muted); }
+.plugin-skill-list { display: flex; flex-wrap: wrap; gap: 8px 16px; margin-top: 12px; }
+@media (max-width: 650px) {
+  .workspace-context:has(.project-picker) { display: grid; grid-template-columns: 16px minmax(0, 1fr) auto; }
+  .workspace-context .project-picker { grid-column: 1 / -1; grid-row: 2; width: 100%; max-width: 100%; }
+  .workspace-context .project-picker + .text-button { grid-column: 3; grid-row: 1; }
+  .directory-choice, .catalog-intro { flex-wrap: wrap; }
+  .install-catalog-row > span { max-width: 70px; }
+  .source-choice-three button { padding: 12px 8px; display: flex; flex-direction: column; align-items: flex-start; gap: 7px; }
+}
+
 .git-access-help { margin: 16px 0; padding: 13px 15px; border: 1px solid var(--line); border-radius: 10px; color: var(--muted); font-size: 12px; line-height: 1.7; }
 .git-access-help summary { cursor: pointer; color: var(--green); font-weight: 600; }
 .git-access-help summary:focus-visible { outline: 2px solid var(--green); outline-offset: 3px; }

@@ -15,15 +15,16 @@ export function GitAccessHelp() {
   </details>;
 }
 
-export function GitSourceFields({ source, subpath, gitRef, setSource, setSubpath, setRef }: {
+export function GitSourceFields({ source, subpath, gitRef, setSource, setSubpath, setRef, kind = "skill" }: {
   source: string; subpath: string; gitRef: string;
+  kind?: "skill" | "plugin";
   setSource: (value: string) => void; setSubpath: (value: string) => void; setRef: (value: string) => void;
 }) {
   const [advanced, setAdvanced] = useState(Boolean(subpath && subpath !== "."));
   return <>
     <label className="field"><span>{t("Git 仓库或目录链接")}</span>
       <input required aria-label={t("Git 仓库或目录链接")} value={source} autoComplete="off" spellCheck={false}
-        placeholder="https://github.com/owner/repo/tree/main/skills/my-skill"
+        placeholder={kind === "plugin" ? "https://github.com/owner/repo/tree/main/plugins/my-plugin" : "https://github.com/owner/repo/tree/main/skills/my-skill"}
         onChange={event => { setSource(event.target.value); setSubpath(""); setRef(""); }} />
       <small>{t("直接粘贴 GitHub 目录链接，自动识别仓库、分支和子目录。也支持 Git 仓库地址。")}</small>
     </label>
@@ -34,7 +35,7 @@ export function GitSourceFields({ source, subpath, gitRef, setSource, setSubpath
     <details className="git-source-advanced" open={advanced} onToggle={event => setAdvanced(event.currentTarget.open)}>
       <summary tabIndex={0}>{t("高级：手动指定子目录")}</summary>
       <label className="field"><span>{t("仓库内子目录（可选）")}</span>
-        <input aria-label={t("仓库内子目录（可选）")} value={subpath} onChange={event => setSubpath(event.target.value)} autoComplete="off" spellCheck={false} placeholder="skills/my-skill" />
+        <input aria-label={t("仓库内子目录（可选）")} value={subpath} onChange={event => setSubpath(event.target.value)} autoComplete="off" spellCheck={false} placeholder={kind === "plugin" ? "plugins/my-plugin" : "skills/my-skill"} />
         <small>{t("仅仓库根地址或其他 Git 托管服务需要；目录链接无需填写。")}</small>
       </label>
     </details>
