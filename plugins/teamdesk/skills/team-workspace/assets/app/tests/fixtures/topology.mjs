@@ -1,0 +1,30 @@
+// Isolated browser fixture: synthetic metadata only, no native connection or model calls.
+import fs from 'node:fs';import os from 'node:os';import path from 'node:path';import {randomUUID} from 'node:crypto';
+import {createApp} from '../../src/server.mjs';import {Team} from '../../src/service.mjs';
+const root=fs.mkdtempSync(path.join(os.tmpdir(),'td-topology-ui-')),app=createApp({root,home:root,port:0,nativeConnection:false}),team=new Team(app.store),s=app.store;
+team.updateSettings({teamName:'天气应用 · 隔离测试'});
+const departments=['产品设计部','研发部','质量保障部'].map(name=>team.workspace.saveDepartment(null,{name,responsibilities:'隔离演示职责'}));
+const definitions=[['产品负责人','产品经理',0],['交互设计师','设计师',0],['前端工程师','前端开发',1],['后端工程师','后端开发',1],['独立评审','Reviewer',2],['测试工程师','QA',2]];
+if(process.argv.includes('--32'))for(let i=6;i<32;i++)definitions.push(['员工 '+(i+1),['开发','测试','监控'][i%3],i%3]);
+const staff=definitions.map(([name,role,dept])=>team.createEmployee({name,role,departmentId:departments[dept].id,bindingMode:'existing',threadId:randomUUID(),cwd:root}));
+const [owner,designer,front,back,reviewer,qa]=staff;
+for(const op of s.list('operations'))s.remove('operations',op.id);
+const submitted=team.submit({employeeId:owner.id,mode:'fifo',instruction:'为天气应用设计清晰的产品需求、原型与实现方案',participants:[designer.id,front.id,back.id,reviewer.id,qa.id]});
+team.inbox(owner.threadId,submitted.requestId);
+const base={ownerEmployeeId:owner.id,taskId:'WEATHER-013',title:'天气应用 · 从需求到交付',category:'产品研发',stage:'并行协作',status:'in_progress',summary:'这是隔离界面测试数据，成员和任务均为虚构。'};
+team.applyWorklog(owner,'owner-turn',[{...base,requestId:submitted.requestId}],'fixture');
+function work(from,to,parent,purpose){return team.peerRequest(from.threadId,{kind:'work',employeeId:to.id,taskRef:submitted.taskRef,parentRequestId:parent,purpose,instruction:purpose});}
+const design=work(owner,designer,submitted.requestId,'完善天气应用交互原型');team.inbox(designer.threadId,design.id);
+const frontend=work(owner,front,submitted.requestId,'实现天气和城市页面');team.inbox(front.threadId,frontend.id);
+const api=work(front,back,frontend.id,'确认天气查询 API 与空结果约定');team.inbox(back.threadId,api.id);
+const review=work(back,reviewer,api.id,'独立审查 API 错误语义');team.inbox(reviewer.threadId,review.id);
+const test=work(front,qa,frontend.id,'验证城市查询与异常状态');
+const result=team.peerRequest(reviewer.threadId,{kind:'result',employeeId:back.id,taskRef:submitted.taskRef,replyToRequestId:review.id,outcome:'completed',instruction:'API 语义静态审查通过'});
+team.applyWorklog(reviewer,'review-turn',[{...base,status:'completed',requestId:review.id,summary:'测试用评审报告'}],'fixture');
+team.inbox(back.threadId,result.id);team.applyWorklog(back,'handle-turn',[{...base,requestId:result.id,handledResults:[{resultRequestId:result.id,disposition:'accepted',summary:'已将独立评审结论纳入 API 约定。'}]}],'fixture');
+for(const e of [owner,designer,front,back])s.put('runtime',e.id,{id:e.id,threadId:e.threadId,bindingVersion:e.bindingVersion,status:'active',turnId:'fixture-'+e.id,taskRef:submitted.taskRef,observedAt:new Date().toISOString()});
+s.put('events','fixture-send',{id:'fixture-send',employeeId:front.id,threadId:front.threadId,bindingVersion:front.bindingVersion,kind:'native_tool',tool:'send_message_to_thread',targetThreadId:qa.threadId,requestId:test.id,state:'accepted',at:new Date().toISOString(),source:'synthetic_fixture'});
+const other=team.submit({employeeId:owner.id,mode:'fifo',instruction:'为城市订阅写后续需求',participants:[designer.id]});team.inbox(owner.threadId,other.requestId);
+team.applyWorklog(owner,'other-turn',[{...base,taskId:'WEATHER-014',title:'城市订阅 · 后续需求',requestId:other.requestId,stage:'梳理范围',summary:'第二项业务，用于验证任务筛选。'}],'fixture');
+const address=await app.listen();console.log(JSON.stringify({url:'http://127.0.0.1:'+address.port+'/#collaboration',root,fixture:true,employees:staff.length}));
+let closed=false;for(const signal of ['SIGTERM','SIGINT'])process.on(signal,()=>{if(closed)return;closed=true;app.server.closeAllConnections();app.close(()=>{fs.rmSync(root,{recursive:true,force:true});process.exit(0);});});

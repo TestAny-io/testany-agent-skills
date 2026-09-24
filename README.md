@@ -2,9 +2,9 @@
 
 **把需求、设计、评审、内容创作与测试中的工作方法，交给你的 AI Agent。**
 
-[Testany](https://testany.io) 出品的开源工具集：四组按领域组织的 plugin / skills，以及用于管理 Codex 本机技能的 **SkillDock** 图形应用。每个插件独立安装，按你要做的事选择。
+[Testany](https://testany.io) 出品的开源工具集：四组按领域组织的 plugin / skills，以及用于管理 Codex 本机技能的 **SkillDock** 和组织本地 AI 团队的 **TeamDesk** 图形应用。每个插件独立安装，按你要做的事选择。
 
-[English](README.en.md) · [选择插件](#选择适合你的插件) · [SkillDock 界面与安装](plugins/skilldock/README.md) · [交流与反馈](#交流与反馈) · [了解 Testany](https://testany.io)
+[English](README.en.md) · [选择插件](#选择适合你的插件) · [SkillDock 界面与安装](plugins/skilldock/README.md) · [TeamDesk 安装](plugins/teamdesk/README.md#安装与启动) · [交流与反馈](#交流与反馈) · [了解 Testany](https://testany.io)
 
 ## 选择适合你的插件
 
@@ -15,8 +15,9 @@
 | 创作多平台营销内容 | **[testany-mrkt](plugins/testany-mrkt/README.md)** | 用 `media-writer` 说明受众、平台和写作目标 |
 | 在 Testany 上编写、编排、执行和诊断测试 | **[testany-bot](plugins/testany-bot/README.md)** | 连接 Testany MCP，按用例、流水线或执行结果选择入口 |
 | 在图形界面中整理、安装和更新 Codex skills / plugins | **[SkillDock](plugins/skilldock/README.md)** | 安装独立 `skilldock` 插件，用 `$skill-manager` 打开面板 |
+| 在现有 Codex 中组织 AI 员工、业务任务和共享工作记录 | **[TeamDesk](plugins/teamdesk/README.md)** | 运行 [统一安装入口](plugins/teamdesk/README.md#安装与启动)，创建启动图标；0.1.0 种子测试版 |
 
-研发、AI、营销与测试插件的命令和说明见下方[技能目录](#包含的-skills)。SkillDock 当前面向 macOS 上的 Codex；其他插件的宿主能力与前置条件见各自 README。
+研发、AI、营销与测试插件的命令和说明见下方[技能目录](#包含的-skills)。SkillDock 和 TeamDesk 当前面向 macOS 上的 Codex；其他插件的宿主能力与前置条件见各自 README。
 
 ## 在 Codex 中使用领域插件
 
