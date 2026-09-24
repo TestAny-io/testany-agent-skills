@@ -1,4 +1,4 @@
-# TeamDesk 0.2.0 种子测试指南
+# TeamDesk 0.3.0 种子测试指南
 
 ## 1. 安装
 
@@ -17,7 +17,7 @@ sh install-teamdesk.sh
 
 1. 找到用户「应用程序」或桌面的 `TeamDesk.app`，可拖到 Dock。
 2. 若 Codex 已普通启动，先完成/保存正在做的工作并正常退出 Codex，再点 TeamDesk 图标。应显示 Codex 窗口，并在 Safari 打开工作台。
-3. 团队设置中核对版本 0.2.0、共享连接和状态恢复。页面打开不等于原生连接成功。
+3. 团队设置中核对版本 0.3.0、共享连接和状态恢复。页面打开不等于原生连接成功。
 4. 审查共享 hook 的命令和脚本，由你明确点击信任。安装程序不会自动批准。
 
 安装仅创建图标；连接使用当前 Codex 同一个 App Server，已有任务保留。数据存放在 `~/Library/Application Support/TestAny/TeamDesk`。关闭网页不会结束员工任务。
@@ -32,7 +32,22 @@ sh install-teamdesk.sh
 
 然后测试正常退出后再次一键启动、重复点击图标、重启服务后数据保留；完整清单见 [UAT](UAT.md)。32 人是容量上限，不代表 32 路满负荷吞吐已验证。
 
-## 4. 反馈
+## 4. macOS 拒绝打开图标
+
+若 Finder 提示此版本 TeamDesk 无法在当前 macOS 上使用，不要仅凭提示升级系统或删除团队数据。先核对实际生成的程序；配置文件中的最低版本不能代替程序内部的最低版本：
+
+```sh
+sw_vers
+uname -m
+/usr/libexec/PlistBuddy -c 'Print :LSMinimumSystemVersion' "$HOME/Applications/TeamDesk.app/Contents/Info.plist"
+/usr/bin/file "$HOME/Applications/TeamDesk.app/Contents/MacOS/TeamDesk"
+/usr/bin/xcrun vtool -show-build "$HOME/Applications/TeamDesk.app/Contents/MacOS/TeamDesk"
+/usr/bin/xcrun vtool -show-build "$HOME/Applications/TeamDesk.app/Contents/Resources/launch-codex"
+```
+
+支持的 macOS 不低于 13.0；修复后的两个程序应显示 `platform MACOS`、`minos 13.0`，架构应与本机匹配。`sdk` 可以高于 13.0，它不是最低运行系统版本。自定义安装位置时替换路径；程序不存在时请提供双击图标的实际位置。重装会重新编译图标，保留团队数据；仍需在目标机器实际启动确认。
+
+## 5. 反馈
 
 请通过仓库 [问题反馈](https://github.com/TestAny-io/testany-agent-skills/issues/new/choose) 提供：
 

@@ -1,4 +1,4 @@
-# TeamDesk 0.2.0
+# TeamDesk 0.3.0
 
 **在现有 Codex 上组织 AI 员工，用本地工作台查看进展、交接、证据与人类决定。**
 
@@ -6,7 +6,7 @@
 
 ## 种子测试版
 
-0.2.0 是种子测试修正版，修复独立下载入口在 macOS 临时目录下静默退出的问题。包含此前 MVP 全部功能，以及统一安装入口：依赖检查 → 原生插件安装 → 启动图标创建与核验。连接恢复、完整回执链和可回放的部门/员工协作视图也已包含。
+0.3.0 是启动器兼容性修正版：明确编译目标，并校验两个启动程序的实际最低系统版本与架构。此前 0.2.0 已修复独立下载入口在 macOS 临时目录下静默退出的问题。包含此前 MVP 全部功能，以及统一安装入口：依赖检查 → 原生插件安装 → 启动图标创建与核验。连接恢复、完整回执链和可回放的部门/员工协作视图也已包含。
 
 当前面向 macOS Codex Desktop。共享接入仍依赖 Codex 的实验接口；另一台 Mac、Intel Mac、较早 macOS 和完整冷启动仍需种子用户实测，不能将本机隔离安装当成跨机器认证。具体已测范围见 [验证记录](docs/VERIFICATION.md)，反馈路径见 [种子测试指南](docs/SEED-TESTING.md)。
 
@@ -59,7 +59,7 @@ sh install-teamdesk.sh
 
 1. 查找 Codex Desktop、Safari 和可用 Node，检查版本、Git 与编译工具。
 2. 通过 Codex 原生命令添加/更新 GitHub main marketplace，只安装 `teamdesk` 插件并读回启用状态。
-3. 生成 `~/Applications/TeamDesk.app` 及桌面链接，核验应用版本和本地签名，然后打开图标。
+3. 生成 `~/Applications/TeamDesk.app` 及桌面链接，核验应用版本、本地签名、主程序与 Codex 启动组件的实际最低系统版本及架构，然后打开图标。
 
 **依赖**：macOS 13+，已安装并正常打开过的 Codex Desktop（内置 CLI 数字基线 ≥0.155.0，含同基线预发布版本），Node.js ≥22.13 且包含 `node:sqlite`，Xcode Command Line Tools。优先复用 Codex 内置 Node；若缺少编译工具，按提示执行 `xcode-select --install`，安装完成后重跑同一命令。无需 `npm install` 或单独模型 API key。日常点击图标不需要编译器。
 

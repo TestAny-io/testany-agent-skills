@@ -31,7 +31,9 @@ function fixture(t) {
       if(key==='plugin list -m '+marketplace+' --json')return JSON.stringify({installed:[state.saved]});
       throw Error('Unexpected CLI command: '+key);
     }
-    if(file==='/usr/libexec/PlistBuddy')return args[1].includes('CFBundleIdentifier')?'io.testany.teamdesk.launcher':(state.iconVersion||pluginVersion);
+    if(file==='/usr/libexec/PlistBuddy')return args[1].includes('CFBundleIdentifier')?'io.testany.teamdesk.launcher':args[1].includes('LSMinimumSystemVersion')?'13.0':(state.iconVersion||pluginVersion);
+    if(file==='/usr/bin/xcrun'&&args[0]==='lipo')return os.machine();
+    if(file==='/usr/bin/xcrun'&&args[0]==='vtool')return 'Load command 11\n      cmd LC_BUILD_VERSION\n platform MACOS\n    minos '+(state.binaryMinimum||'13.0')+'\n      sdk 27.0\n';
     if(file==='/usr/bin/codesign'){if(state.signatureFailure)throw Error('invalid signature');return '';}
     if(file==='/usr/bin/open'){if(state.openFailure)throw Error('open failed');return '';}
     throw Error('Unexpected command: '+file);
@@ -136,6 +138,13 @@ test('signature and icon version failures are not reported as successful install
   const f=fixture(t);f.state.signatureFailure=true;
   await assert.rejects(install({},f.dependencies),/invalid signature/);f.state.signatureFailure=false;f.state.iconVersion='wrong';
   await assert.rejects(install({},f.dependencies),/图标版本/);
+  assert.ok(!f.state.calls.some(c=>c.file==='/usr/bin/open'));
+});
+test('an incompatible executable cannot pass installation using a compatible plist alone',async t=>{
+  const f=fixture(t);f.state.binaryMinimum='28.0';
+  await assert.rejects(install({},f.dependencies),/实际最低 macOS 版本为 28.0/);
+  const result=JSON.parse(fs.readFileSync(path.join(f.codexHome,'teamdesk-install-result.json')));
+  assert.equal(result.state,'failed');assert.equal(result.steps[3].state,'failed');
   assert.ok(!f.state.calls.some(c=>c.file==='/usr/bin/open'));
 });
 test('another active installer is not removed or run over',async t=>{

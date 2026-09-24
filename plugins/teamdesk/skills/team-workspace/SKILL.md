@@ -5,7 +5,7 @@ description: "Open and operate TeamDesk, a local AI team workspace built on exis
 
 # TeamDesk 团队工作台
 
-TeamDesk 0.2.0 面向本机现有 Codex Desktop，支持 32 位在职员工及任意部门、岗位、技能流程。员工始终在原生任务中工作。
+TeamDesk 0.3.0 面向本机现有 Codex Desktop，支持 32 位在职员工及任意部门、岗位、技能流程。员工始终在原生任务中工作。
 
 ## 首次安装
 

@@ -6,6 +6,7 @@ import {createHash} from 'node:crypto';
 import {fileURLToPath, pathToFileURL} from 'node:url';
 import {pluginVersion} from '../assets/app/src/version.mjs';
 import {requireSupportedCodexVersion} from '../assets/app/src/shared-connection.mjs';
+import {minimumMacOSVersion,launcherTarget,verifyLauncherCompatibility} from './launcher-compatibility.mjs';
 
 export const marketplace = 'testany-agent-skills';
 export const repository = 'https://github.com/TestAny-io/testany-agent-skills.git';
@@ -33,7 +34,8 @@ export function parseArguments(args) {
 export function inspectDependencies({run=command, env=process.env, platform=process.platform, node=process.execPath}={}) {
   if(platform!=='darwin')throw Error('TeamDesk 一键启动目前仅支持 macOS。');
   const macVersion=run('/usr/bin/sw_vers',['-productVersion']).trim();
-  if(!/^\d+\.\d+(?:\.\d+)?$/.test(macVersion)||Number(macVersion.split('.')[0])<13)throw Error('需要 macOS 13 或更高版本。');
+  if(!/^\d+\.\d+(?:\.\d+)?$/.test(macVersion)||Number(macVersion.split('.')[0])<Number(minimumMacOSVersion.split('.')[0]))throw Error('需要 macOS '+minimumMacOSVersion+' 或更高版本；当前为 '+macVersion+'。');
+  const target=launcherTarget();
   const codexApp=env.TEAMDESK_CODEX_APP;
   if(!codexApp||!path.isAbsolute(codexApp))throw Error('未找到 Codex Desktop；请先安装并正常打开一次，再运行 install-teamdesk.sh。');
   try {
@@ -52,6 +54,8 @@ export function inspectDependencies({run=command, env=process.env, platform=proc
   } catch {throw Error('需要 Node.js ≥22.13 且支持 node:sqlite；请设置 TEAMDESK_NODE 或安装 Node LTS。');}
   try {
     run('/usr/bin/xcrun',['--find','swiftc']);
+    run('/usr/bin/xcrun',['--find','vtool']);
+    run('/usr/bin/xcrun',['--find','lipo']);
     run('/usr/bin/xcrun',['--show-sdk-path']);
     run('/usr/bin/git',['--version']);
   } catch {throw Error('缺少 Xcode Command Line Tools。请在终端执行 xcode-select --install，完成系统安装后重跑本安装命令。');}
@@ -60,7 +64,7 @@ export function inspectDependencies({run=command, env=process.env, platform=proc
   }
   const safari=run('/usr/bin/osascript',['-l','JavaScript','-e','ObjC.import("AppKit"); var app=$.NSWorkspace.sharedWorkspace.URLForApplicationWithBundleIdentifier("com.apple.Safari"); if(!app.isNil()) ObjC.unwrap(app.path);']).trim();
   if(!safari)throw Error('未找到 Safari，请检查系统 Safari 安装。');
-  return {cli,codexApp,codexVersion,node,macVersion,safari};
+  return {cli,codexApp,codexVersion,node,macVersion,safari,launcherTarget:target};
 }
 
 export function verifyInstallation(result, codexHome, version) {
@@ -186,6 +190,7 @@ export async function install(options={}, dependencies={}) {
       run('/usr/bin/codesign',['--verify','--deep','--strict',icon.app]);
       const info=path.join(icon.app,'Contents/Info.plist');
       if(run('/usr/libexec/PlistBuddy',['-c','Print :CFBundleIdentifier',info]).trim()!=='io.testany.teamdesk.launcher'||run('/usr/libexec/PlistBuddy',['-c','Print :CFBundleShortVersionString',info]).trim()!==version)throw Error('图标版本或应用标识核验失败。');
+      icon.compatibility=verifyLauncherCompatibility(icon.app,{run});
       result.icon=icon;result.state='installed';record();
     });
     progress('TeamDesk '+version+' 安装完成：'+icon.app);

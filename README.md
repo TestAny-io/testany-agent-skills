@@ -15,7 +15,7 @@
 | 创作多平台营销内容 | **[testany-mrkt](plugins/testany-mrkt/README.md)** | 用 `media-writer` 说明受众、平台和写作目标 |
 | 在 Testany 上编写、编排、执行和诊断测试 | **[testany-bot](plugins/testany-bot/README.md)** | 连接 Testany MCP，按用例、流水线或执行结果选择入口 |
 | 在图形界面中整理、安装和更新 Codex skills / plugins | **[SkillDock](plugins/skilldock/README.md)** | 安装独立 `skilldock` 插件，用 `$skill-manager` 打开面板 |
-| 在现有 Codex 中组织 AI 员工、业务任务和共享工作记录 | **[TeamDesk](plugins/teamdesk/README.md)** | 运行 [统一安装入口](plugins/teamdesk/README.md#安装与启动)，创建启动图标；0.2.0 种子测试版 |
+| 在现有 Codex 中组织 AI 员工、业务任务和共享工作记录 | **[TeamDesk](plugins/teamdesk/README.md)** | 运行 [统一安装入口](plugins/teamdesk/README.md#安装与启动)，创建启动图标；0.3.0 种子测试修正版 |
 
 研发、AI、营销与测试插件的命令和说明见下方[技能目录](#包含的-skills)。SkillDock 和 TeamDesk 当前面向 macOS 上的 Codex；其他插件的宿主能力与前置条件见各自 README。
 
