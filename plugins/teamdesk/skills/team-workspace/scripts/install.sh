@@ -33,4 +33,5 @@ if [ -z "$INSTALL_NODE" ]; then
 fi
 TEAMDESK_NODE=$INSTALL_NODE
 export TEAMDESK_CODEX_APP TEAMDESK_NODE
-exec "$INSTALL_NODE" "$(dirname "$0")/install.mjs" "$@"
+INSTALL_SCRIPT_ROOT=$(CDPATH= cd "$(dirname "$0")" && pwd -P)
+exec "$INSTALL_NODE" "$INSTALL_SCRIPT_ROOT/install.mjs" "$@"

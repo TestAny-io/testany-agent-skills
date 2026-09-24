@@ -1,4 +1,4 @@
-# TeamDesk 0.1.0 种子测试指南
+# TeamDesk 0.2.0 种子测试指南
 
 ## 1. 安装
 
@@ -17,7 +17,7 @@ sh install-teamdesk.sh
 
 1. 找到用户「应用程序」或桌面的 `TeamDesk.app`，可拖到 Dock。
 2. 若 Codex 已普通启动，先完成/保存正在做的工作并正常退出 Codex，再点 TeamDesk 图标。应显示 Codex 窗口，并在 Safari 打开工作台。
-3. 团队设置中核对版本 0.1.0、共享连接和状态恢复。页面打开不等于原生连接成功。
+3. 团队设置中核对版本 0.2.0、共享连接和状态恢复。页面打开不等于原生连接成功。
 4. 审查共享 hook 的命令和脚本，由你明确点击信任。安装程序不会自动批准。
 
 安装仅创建图标；连接使用当前 Codex 同一个 App Server，已有任务保留。数据存放在 `~/Library/Application Support/TestAny/TeamDesk`。关闭网页不会结束员工任务。

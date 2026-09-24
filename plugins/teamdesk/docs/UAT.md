@@ -1,4 +1,4 @@
-# TeamDesk 0.1.0 UAT
+# TeamDesk 0.2.0 UAT
 
 新用户从 [种子测试指南](SEED-TESTING.md) 开始，先验收安装和首次共享接入，再按下面清单测试。默认 http://127.0.0.1:4322/#overview，仅在本地服务运行时可访问。
 

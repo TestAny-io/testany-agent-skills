@@ -3,7 +3,7 @@ import assert from 'node:assert/strict';
 import fs from 'node:fs';
 import os from 'node:os';
 import path from 'node:path';
-import {execFileSync} from 'node:child_process';
+import {execFileSync,spawnSync} from 'node:child_process';
 import {fileURLToPath} from 'node:url';
 import {install,inspectDependencies,parseArguments,verifyInstallation,verifyPluginCopy,marketplace,repository} from '../../../scripts/install.mjs';
 import {pluginVersion} from '../src/version.mjs';
@@ -174,4 +174,11 @@ test('preflight accepts later Codex releases and reports missing compiler or plu
 test('public installer help is available without network or dependency probing',()=>{
   const root=fileURLToPath(new URL('../../../../../../../install-teamdesk.sh',import.meta.url));
   const help=execFileSync('/bin/sh',[root,'--help'],{encoding:'utf8'});assert.match(help,/--check/);assert.match(help,/--no-open/);
+});
+test('downloaded or symlinked installer entry executes instead of silently returning success',t=>{
+  const dir=fs.mkdtempSync(path.join(os.tmpdir(),'teamdesk entry '));t.after(()=>fs.rmSync(dir,{recursive:true,force:true}));
+  const entry=path.join(dir,'install.mjs');fs.symlinkSync(fileURLToPath(new URL('../../../scripts/install.mjs',import.meta.url)),entry);
+  const result=spawnSync(process.execPath,[entry,'--invalid-option'],{encoding:'utf8'});
+  assert.equal(result.status,1);assert.match(result.stderr,/未知参数/);
+  assert.equal(result.stdout,'');
 });
