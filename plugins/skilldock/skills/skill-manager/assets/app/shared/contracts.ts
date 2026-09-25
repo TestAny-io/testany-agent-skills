@@ -254,9 +254,13 @@ export interface PluginInstallPreview {
   ref?: string;
   commit?: string;
   skills: string[];
+  skillDetails: { path: string; name: string; description: string }[];
+  canSelectSkills: boolean;
+  marketplace?: string;
+  pluginId?: string;
   components: string[];
-  files: number;
-  bytes: number;
+  files?: number;
+  bytes?: number;
   duplicates: string[];
 }
 export interface UpdatePreview {
@@ -289,6 +293,7 @@ export type Action =
   | "activity.restore"
   | "plugin.install"
   | "plugin.previewInstall"
+  | "plugin.previewMarketplace"
   | "plugin.installSource"
   | "plugin.remove"
   | "plugin.toggle"
@@ -316,6 +321,7 @@ export interface ActionRequest {
   subpath?: string;
   ref?: string;
   previewId?: string;
+  enabledSkills?: string[];
   name?: string;
   target?: UpdateTarget;
   targets?: UpdateTarget[];

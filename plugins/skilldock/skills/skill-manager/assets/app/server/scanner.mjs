@@ -65,23 +65,26 @@ export async function scan(environment, registry, catalog) {
     const scope = extra.scope || (system ? 'system' : root.scope);
     const owned = ['user', 'project'].includes(scope) && !system && inside(await fs.realpath(root.directory), real);
     const packagePlugin = extra.plugin;
+    const configPath = packagePlugin ? real : entry;
+    const packagePath = packagePlugin ? path.relative(await fs.realpath(extra.boundary), real) : undefined;
     let enabled = !configValid || scope === 'cache' ? null : disabled.get(entry) ?? true;
-    if (packagePlugin) enabled = packagePlugin.enabled;
+    if (packagePlugin) enabled = !configValid || packagePlugin.enabled === null ? null : packagePlugin.enabled && (disabled.get(configPath) ?? true);
     const id = identity(directory);
     const record = {
-      id, name: detail.name, description: detail.description, path: entry, scope, sourceLabel: extra.label || (scope === 'system' ? '系统内置' : root.label), enabled,
-      packagePath: packagePlugin ? path.relative(extra.boundary, entry) : undefined,
+      id, name: detail.name, description: detail.description, path: configPath, scope, sourceLabel: extra.label || (scope === 'system' ? '系统内置' : root.label), enabled,
+      packagePath,
+      ...(configPath !== entry ? { aliases: [entry] } : {}),
       pluginId: packagePlugin?.id || extra.pluginId, version: packagePlugin?.version || extra.version, managed: !owned, isLink,
-      canToggle: configValid && (owned || !!packagePlugin?.canToggle), canRemove: owned, canUpdate: owned && !isLink && !!registry.sources[id],
-      reason: !configValid ? '配置无法解析，启用状态未知；配置开关暂不可用。' : !owned ? packagePlugin ? '插件附带技能，请按所属插件管理。' : scope === 'cache' ? '仅发现缓存，当前安装和启用状态待核实。' : '系统或托管内容受保护。' : undefined,
-      statusEvidence: packagePlugin ? 'Codex CLI / 已安装包状态' : scope === 'cache' ? '仅文件缓存；未确认安装' : !configValid ? '文件发现；持久配置读取失败' : '文件发现 + Codex 持久配置', updatedAt: detail.updatedAt,
+      canToggle: configValid && (owned || !!packagePlugin?.canToggle && packagePlugin.enabled === true), canRemove: owned, canUpdate: owned && !isLink && !!registry.sources[id],
+      reason: !configValid ? '配置无法解析，启用状态未知；配置开关暂不可用。' : !owned ? packagePlugin ? packagePlugin.enabled === false ? '请先启用所属插件，再调整其中的技能。' : '插件附带技能，可单独启禁；更新和卸载按所属插件管理。' : scope === 'cache' ? '仅发现缓存，当前安装和启用状态待核实。' : '系统或托管内容受保护。' : undefined,
+      statusEvidence: packagePlugin ? 'Codex 插件状态 + 逐技能持久配置' : scope === 'cache' ? '仅文件缓存；未确认安装' : !configValid ? '文件发现；持久配置读取失败' : '文件发现 + Codex 持久配置', updatedAt: detail.updatedAt,
     };
     const prior = byReal.get(real);
     if (prior) {
       prior.aliases = [...(prior.aliases || []), entry];
       // A path that resolves to a protected entity cannot gain write access through an alias.
       if (!owned && !packagePlugin) { prior.canToggle = false; prior.canRemove = false; prior.canUpdate = false; prior.managed = true; }
-      if (packagePlugin) Object.assign(prior, { scope: 'plugin', packagePath: path.relative(extra.boundary, entry), managed: true, pluginId: packagePlugin.id, version: packagePlugin.version, sourceLabel: packagePlugin.name, enabled: packagePlugin.enabled, canToggle: configValid && !!packagePlugin.canToggle, canRemove: false, canUpdate: false, reason: '插件附带技能，请按所属插件管理。', statusEvidence: 'Codex CLI / 已安装包状态' });
+      if (packagePlugin) Object.assign(prior, { scope: 'plugin', path: configPath, packagePath, managed: true, pluginId: packagePlugin.id, version: packagePlugin.version, sourceLabel: packagePlugin.name, enabled, canToggle: configValid && !!packagePlugin.canToggle && packagePlugin.enabled === true, canRemove: false, canUpdate: false, reason: '插件附带技能，可单独启禁；更新和卸载按所属插件管理。', statusEvidence: 'Codex 插件状态 + 逐技能持久配置' });
       return;
     }
     byReal.set(real, record); records.push(record);
