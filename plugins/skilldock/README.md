@@ -26,6 +26,10 @@ A Testany Product · macOS + Codex · 中文 / English / 日本語 · 深色 / �
 
 来源信息取决于原安装方式留下的记录；无法识别时，可以手动关联更新源。受宿主权限或系统保护限制的条目，会显示相应的操作限制。
 
+0.6.0 提供[安装前的技能清单与启用选择](skills/skill-manager/references/28-plugin-skill-selection.md)：查看名称、用途与路径，搜索并勾选要启用的技能。插件仍整包安装，未勾选的技能禁用；安装后可以单独开关各技能，更新保留选择。
+
+如果旧版因关闭单个技能而关闭了整个插件，升级后请先在 Plugins 页重新启用该插件，再到 Skills 页禁用目标技能。应用不会擅自恢复已有的插件总开关。
+
 ## 安装并打开
 
 **安装独立 `skilldock` 插件，只添加 `skill-manager` 一个应用入口。** 研发、AI、营销和 Testany 测试插件可另行按需安装。
@@ -77,6 +81,6 @@ $skill-manager 打开技能管理面板
 
 ## 版本、许可与开发
 
-当前版本 **0.5.0**，通过 Git 仓库分发。[变更记录](../../CHANGELOG.md) · [AGPL-3.0-only](LICENSE) · [第三方许可](skills/skill-manager/THIRD_PARTY_NOTICES.md)。仓库中其他现有 skills 的 MIT 许可不变。
+当前版本 **0.6.0**，通过 Git 仓库分发。[变更记录](../../CHANGELOG.md) · [AGPL-3.0-only](LICENSE) · [第三方许可](skills/skill-manager/THIRD_PARTY_NOTICES.md)。仓库中其他现有 skills 的 MIT 许可不变。
 
 开发、启动与验证命令见[应用 README](skills/skill-manager/assets/app/README.md)。实现边界与验证记录：[种子反馈](skills/skill-manager/references/19-seed-feedback.md)、[来源链接与 diff](skills/skill-manager/references/20-source-links-and-diff.md)、[同名技能管理](skills/skill-manager/references/21-duplicate-selection.md)、[更新进度与标签](skills/skill-manager/references/22-progress-and-tags.md)、[导航与私仓](skills/skill-manager/references/23-navigation-and-private-git.md)、[独立后台更新](skills/skill-manager/references/24-background-updates.md)、[后台状态修复](skills/skill-manager/references/25-background-status.md)、[外部同步恢复](skills/skill-manager/references/26-baseline-recovery.md)、[安装入口与统一布局](skills/skill-manager/references/27-library-install-and-projects.md)。

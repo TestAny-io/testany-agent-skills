@@ -2945,6 +2945,32 @@ main {
 .install-components { border-top: 1px solid var(--line); padding-top: 16px; margin: 20px 0; font-size: 12px; overflow-wrap: anywhere; }
 .install-components p { margin-top: 10px; line-height: 1.7; color: var(--muted); }
 .plugin-skill-list { display: flex; flex-wrap: wrap; gap: 8px 16px; margin-top: 12px; }
+.install-dialog { display: flex; flex-direction: column; overflow: hidden; }
+.install-dialog > .modal-header { flex-shrink: 0; }
+.install-dialog > form { display: flex; flex-direction: column; min-height: 0; }
+.install-dialog .modal-body { min-height: 0; overflow-y: auto; }
+.install-dialog .modal-footer { flex-shrink: 0; }
+.install-preview.plugin-install-summary { display: grid; grid-template-columns: 44px minmax(0, 1fr); gap: 8px 14px; text-align: left; padding: 0; margin: 20px 0; }
+.plugin-install-summary .skill-icon { grid-row: 1 / 5; align-self: start; margin: 0; }
+.plugin-install-summary h3, .plugin-install-summary p { margin: 0; overflow-wrap: anywhere; }
+.plugin-install-summary .badge { grid-column: 2; justify-self: start; }
+.plugin-skill-picker { margin: 22px 0; padding: 18px; border: 1px solid var(--line); border-radius: 12px; background: var(--canvas); }
+.plugin-skills-heading { display: flex; align-items: flex-start; justify-content: space-between; gap: 12px; color: var(--green); }
+.plugin-skills-heading strong { font-size: 15px; color: var(--ink); }
+.plugin-skills-heading p { margin-top: 6px; font-size: 12px; color: var(--muted); }
+.plugin-skills-toolbar { display: flex; align-items: center; flex-wrap: wrap; gap: 8px; margin: 14px 0 10px; }
+.plugin-skills-toolbar .search-field { flex: 1 1 180px; min-width: 0; }
+.plugin-skills-toolbar > div { display: flex; gap: 4px; }
+.plugin-skills-toolbar .button { min-height: 32px; padding: 6px 8px; font-size: 12px; }
+.plugin-skill-options { display: grid; gap: 8px; max-height: 320px; overflow-y: auto; overscroll-behavior: contain; padding: 2px; }
+.plugin-skill-option { display: flex; align-items: flex-start; gap: 11px; padding: 13px; border: 1px solid var(--line); border-radius: 9px; background: light-dark(#fff, #202822); cursor: pointer; }
+.plugin-skill-option.selected { border-color: color-mix(in srgb, var(--green) 40%, var(--line)); }
+.plugin-skill-option:focus-within { outline: 2px solid var(--green); outline-offset: 1px; }
+.plugin-skill-option input[type="checkbox"] { flex: 0 0 17px; width: 17px; height: 17px; margin: 2px 0 0; accent-color: var(--green); }
+.plugin-skill-option > div { flex: 1; min-width: 0; overflow-wrap: anywhere; }
+.plugin-skill-option strong { font-size: 13px; }
+.plugin-skill-option p { margin: 5px 0 8px; font-size: 12px; color: var(--muted); line-height: 1.6; }
+.plugin-skill-option code { display: block; color: var(--muted); font-size: 10px; overflow-wrap: anywhere; }
 @media (max-width: 650px) {
   .workspace-context:has(.project-picker) { display: grid; grid-template-columns: 16px minmax(0, 1fr) auto; }
   .workspace-context .project-picker { grid-column: 1 / -1; grid-row: 2; width: 100%; max-width: 100%; }

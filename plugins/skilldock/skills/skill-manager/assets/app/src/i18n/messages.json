@@ -1798,5 +1798,85 @@
   "代理": {
     "en": "Agents",
     "ja": "エージェント"
+  },
+  "插件内的技能": {
+    "en": "Skills in this plugin",
+    "ja": "プラグイン内のスキル"
+  },
+  "安装 {v0} 项 · 启用 {v1} 项": {
+    "en": "Install {v0} · Enable {v1}",
+    "ja": "{v0} 件をインストール · {v1} 件を有効化"
+  },
+  "插件按整包安装。取消勾选的技能仍会安装，但保持禁用；其他组件不受影响。": {
+    "en": "The whole plugin is installed. Unchecked skills are installed but disabled; other components are unaffected.",
+    "ja": "プラグイン全体をインストールします。未選択のスキルも含まれますが無効のままです。他のコンポーネントには影響しません。"
+  },
+  "搜索插件内的技能": {
+    "en": "Search skills in this plugin",
+    "ja": "プラグイン内のスキルを検索"
+  },
+  "搜索名称、用途或目录…": {
+    "en": "Search name, purpose, or folder…",
+    "ja": "名前、用途、フォルダーを検索…"
+  },
+  "启用 {v0}（{v1}）": {
+    "en": "Enable {v0} ({v1})",
+    "ja": "{v0} を有効化（{v1}）"
+  },
+  "没有匹配的技能；搜索不会改变已有选择。": {
+    "en": "No matching skills. Searching does not change your selection.",
+    "ja": "一致するスキルがありません。検索しても選択は変わりません。"
+  },
+  "更新会保留这些选择；新增技能默认禁用，可在技能库中启用。": {
+    "en": "Updates keep these choices. Newly added skills start disabled; enable them in Skills.",
+    "ja": "更新後も選択を保持します。追加されたスキルは初期状態で無効です。スキル一覧で有効にできます。"
+  },
+  "这个插件没有附带技能，仍可安装下面列出的其他组件。": {
+    "en": "This plugin has no bundled skills. You can still install its other components listed below.",
+    "ja": "このプラグインにスキルはありません。下記の他のコンポーネントはインストールできます。"
+  },
+  "正在读取插件的技能和组件…": {
+    "en": "Reading plugin skills and components…",
+    "ja": "プラグインのスキルとコンポーネントを読み込み中…"
+  },
+  "共享目录中的技能暂不支持逐项启用，请通过 Codex 管理。": {
+    "en": "Skills in shared folders cannot yet be enabled individually here. Manage them through Codex.",
+    "ja": "共有フォルダー内のスキルは個別に設定できません。Codex で管理してください。"
+  },
+  "插件附带技能，可单独启禁；更新和卸载按所属插件管理。": {
+    "en": "This skill can be enabled individually. Updates and removal apply to its plugin.",
+    "ja": "このスキルは個別に有効化できます。更新と削除はプラグイン単位です。"
+  },
+  "Codex 插件状态 + 逐技能持久配置": {
+    "en": "Codex plugin state + saved per-skill settings",
+    "ja": "Codex のプラグイン状態と保存済みスキル設定"
+  },
+  "请先启用所属插件，再调整其中的技能。": {
+    "en": "Enable the parent plugin before changing its skills.",
+    "ja": "先に親プラグインを有効にしてからスキルを設定してください。"
+  },
+  "请选择预览中有效且不重复的技能。": {
+    "en": "Select valid, distinct skills from this preview.",
+    "ja": "このプレビューから有効なスキルを重複なく選択してください。"
+  },
+  "无法读取这个插件的技能清单，请先刷新或重新连接市场来源。": {
+    "en": "Could not read this plugin’s skills. Refresh or reconnect its marketplace first.",
+    "ja": "スキル一覧を読み取れません。マーケットの更新または再接続を行ってください。"
+  },
+  "插件技能目录超过读取上限。": {
+    "en": "The plugin skill directory exceeds the read limit.",
+    "ja": "プラグインのスキルディレクトリが読み取り上限を超えています。"
+  },
+  "技能文件链接越出市场根目录。": {
+    "en": "A skill file link points outside the marketplace root.",
+    "ja": "スキルファイルのリンク先がマーケットの範囲外です。"
+  },
+  "全选": {
+    "en": "Select all",
+    "ja": "すべて選択"
+  },
+  "全不选": {
+    "en": "Clear all",
+    "ja": "すべて解除"
   }
 }

@@ -1,8 +1,9 @@
 // SPDX-License-Identifier: AGPL-3.0-only
 import fs from 'node:fs/promises';
 import path from 'node:path';
-import { fail, hash, safeSegment, inside, metadata, writeJson, verifyDescendantDirectory } from './files.mjs';
-import { readPluginManifest, discoverSkillRoots } from './cli.mjs';
+import { fail, hash, safeSegment, inside, writeJson, verifyDescendantDirectory } from './files.mjs';
+import { readPluginManifest } from './cli.mjs';
+import { pluginContents } from './plugin-contents.mjs';
 
 export async function inspectPlugin(directory) {
   let manifests = 0;
@@ -10,25 +11,8 @@ export async function inspectPlugin(directory) {
   if (manifests !== 1) fail(422, 'PLUGIN_MANIFEST_REQUIRED', '单个插件需要且只能有一个 plugin.json，避免重复的配置与版本来源。');
   const manifest = await readPluginManifest(directory);
   if (!manifest || !safeSegment(manifest.name) || !safeSegment(manifest.version)) fail(422, 'PLUGIN_MANIFEST_REQUIRED', '请选择包含 plugin.json 的单个插件目录，且清单中需要有效的 name 和 version。');
-  const roots = await discoverSkillRoots(directory);
-  const skills = [];
-  for (const root of roots) {
-    const locations = [];
-    try { await fs.access(path.join(root, 'SKILL.md')); locations.push(root); }
-    catch {
-      for (const item of await fs.readdir(root, { withFileTypes: true })) if (item.isDirectory()) locations.push(path.join(root, item.name));
-    }
-    for (const location of locations) {
-      try { const skill = await metadata(location); skills.push(skill.name); }
-      catch (error) { if (error.code !== 'ENOENT') throw error; }
-    }
-  }
-  const components = [];
-  for (const [kind, field, files] of [['commands', 'commands', ['commands']], ['agents', 'agents', ['agents']], ['hooks', 'hooks', ['hooks/hooks.json']], ['mcp', 'mcpServers', ['.mcp.json']], ['apps', 'apps', ['.app.json']]]) {
-    if (manifest[field]) components.push(kind);
-    else for (const file of files) { try { await fs.access(path.join(directory, file)); components.push(kind); break; } catch { /* Optional. */ } }
-  }
-  return { name: manifest.name, version: manifest.version, description: typeof manifest.description === 'string' ? manifest.description : '', skills: [...new Set(skills)], components };
+  const { signature, ...contents } = await pluginContents(directory);
+  return { name: manifest.name, version: manifest.version, description: typeof manifest.description === 'string' ? manifest.description : '', ...contents };
 }
 
 export function directLocation(env, staged) {

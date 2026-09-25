@@ -4,7 +4,7 @@ import os from 'node:os';
 import crypto from 'node:crypto';
 import { fileURLToPath } from 'node:url';
 import { AppError, fail, exists, inside, identity, hash, now, metadata, inspectTree, copySkill, objectFingerprint, diffFiles, readJson, writeJson, safeName, safeSegment, redact, captureDirectoryRoot, verifyDirectoryRoot, verifyDescendantDirectory } from './files.mjs';
-import { toggleConfig, readConfig } from './config.mjs';
+import { toggleConfig, toggleSkillConfigs, readConfig } from './config.mjs';
 import { CodexAdapter, validateSource, validateSubpath, validateRef, checkoutGit, readMarketplace, readComponentEntry, readPluginManifest, discoverSkillRoots } from './cli.mjs';
 import { initializeSandbox, emptyRegistry } from './fixtures.mjs';
 import { scan, sandboxCatalog, rootsFor } from './scanner.mjs';
@@ -18,6 +18,7 @@ import { acquireFileLock, operationLock, isOperationActive } from './process-loc
 import { createBackgroundManager, backgroundPaths } from './background.mjs';
 import { projectCatalog, createProjectIntegration } from './projects.mjs';
 import { inspectPlugin, directLocation, writeDirectMarketplace, decorateDirectCatalog } from './direct-plugins.mjs';
+import { pluginContents } from './plugin-contents.mjs';
 
 const ACTION_FIELDS = {
   'tags.set': ['target', 'tags'],
@@ -27,8 +28,9 @@ const ACTION_FIELDS = {
   'project.chooseDirectory': ['projectDir'],
   'skill.toggle': ['id', 'enabled'], 'skill.previewInstall': ['sourceType', 'source', 'subpath', 'ref', 'name'],
   'skill.install': ['previewId'], 'skill.checkUpdate': ['id'], 'skill.update': ['id', 'previewId'],
-  'skill.remove': ['id'], 'activity.restore': ['id'], 'plugin.install': ['id'], 'plugin.remove': ['id'],
-  'plugin.previewInstall': ['sourceType', 'source', 'subpath', 'ref'], 'plugin.installSource': ['previewId'],
+  'skill.remove': ['id'], 'activity.restore': ['id'], 'plugin.install': ['id', 'previewId', 'enabledSkills'], 'plugin.remove': ['id'],
+  'plugin.previewInstall': ['sourceType', 'source', 'subpath', 'ref'], 'plugin.installSource': ['previewId', 'enabledSkills'],
+  'plugin.previewMarketplace': ['id'],
   'plugin.toggle': ['id', 'enabled'], 'marketplace.add': ['sourceType', 'source', 'ref'],
   'marketplace.refresh': ['id'], 'marketplace.remove': ['id'],
   'skill.previewSource': ['id', 'sourceType', 'source', 'subpath', 'ref'], 'skill.connectSource': ['id', 'previewId'],
@@ -41,8 +43,10 @@ export function validateAction(input) {
   if (!fields) fail(400, 'INVALID_ACTION', '不支持该操作。');
   for (const key of Object.keys(input)) if (!['mode', 'action', ...fields].includes(key)) fail(400, 'INVALID_ACTION', `该操作不支持参数 ${key}。`);
   for (const field of ['id', 'previewId']) {
+    if (field === 'previewId' && input.action === 'plugin.install' && input.previewId === undefined && input.enabledSkills === undefined) continue;
     if (fields.includes(field) && (typeof input[field] !== 'string' || !input[field] || input[field].length > 300 || /[\x00-\x1f]/.test(input[field]))) fail(400, 'INVALID_ACTION', `缺少有效的 ${field}。`);
   }
+  if (input.enabledSkills !== undefined && (!Array.isArray(input.enabledSkills) || input.enabledSkills.length > 3000 || new Set(input.enabledSkills).size !== input.enabledSkills.length || input.enabledSkills.some(value => typeof value !== 'string' || !value.endsWith('/SKILL.md') && value !== 'SKILL.md' || path.isAbsolute(value) || value.split(/[\\/]/).some(part => !part || part === '..' || part === '.') || /[\x00-\x1f]/.test(value)))) fail(400, 'INVALID_SELECTION', '请选择预览中有效且不重复的技能。');
   if (fields.includes('enabled') && typeof input.enabled !== 'boolean') fail(400, 'INVALID_ACTION', 'enabled 必须为布尔值。');
   if (fields.includes('ids') && (!Array.isArray(input.ids) || !input.ids.length || input.ids.length > 100 || input.ids.some(id => typeof id !== 'string' || !/^[a-f0-9]{24}$/.test(id)) || new Set(input.ids).size !== input.ids.length)) fail(400, 'INVALID_SELECTION', '请选择 1 至 100 份不同的技能。');
   if (fields.includes('groupName') && (typeof input.groupName !== 'string' || !input.groupName.trim() || input.groupName.length > 200 || /[\x00-\x1f]/.test(input.groupName))) fail(400, 'INVALID_SELECTION', '需要有效的同名技能组。');
@@ -96,7 +100,7 @@ export async function createService(options = {}) {
   const projectIntegration = options.projectIntegration || createProjectIntegration();
   const projects = () => projectCatalog({ codexHome, stateDir, current: project, integration: projectIntegration });
   const defaultMode = options.enableTestSandbox === true ? 'sandbox' : 'local'; const previews = new Map(); let busy = false; let cachedCatalog; let catalogTime = 0; let scheduler;
-  const removalPreviews = new Map();
+  const removalPreviews = new Map(); const pluginCatalogPreviews = new Map();
   const background = options.background === false || options.scheduler === false || options.enableTestSandbox === true ? null
     : options.backgroundManager || createBackgroundManager({ stateDir, home, codexHome, project: () => project });
   const disabledFile = mode => mode === 'local' ? backgroundPaths(stateDir, home).disabled : path.join(environments[mode].root, 'disabled.json');
@@ -400,11 +404,62 @@ export async function createService(options = {}) {
         checkedAt: now(), installedVersion: plugin.version, availableVersion, changes, sourceInfo: plugin.sourceInfo, installedPath, ...(updatedDuringCheck ? { updatedDuringCheck: true } : {}), ...(!current && !blocked ? { previewId } : {}) };
       if (updatedDuringCheck) item.message = 'Codex 已在刷新市场时更新包，已核对版本和内容。';
       if (current && (drifted || requireCurrent)) { item.message = '已核实插件外部同步，安装版本和内容与来源一致；已恢复检查基线，未修改安装文件。'; item.reasonCode = 'EXTERNAL_SYNC_VERIFIED'; }
+      if (registry.pluginSkillPreferences?.[id]) {
+        const roots = await discoverSkillRoots(installedPath);
+        for (const relative of [...(plugin._componentRoots || []), ...Object.keys(registry.pluginSkillPreferences[id]).map(file => path.dirname(file))]) {
+          const directory = path.resolve(installedPath, relative);
+          if (inside(installedPath, directory) && await exists(directory)) roots.push(directory);
+        }
+        const contents = await pluginContents(installedPath, { roots });
+        await writePluginSkills(env, registry, plugin, installedPath, contents.skillDetails);
+      }
       registry.pluginBaselines ||= {}; registry.pluginBaselines[id] = { version: plugin.version, fingerprint: installed.fingerprint };
       if (!current && !blocked) { previews.set(previewId, { id: previewId, kind: 'plugin-update', mode: env.mode, created: previewNow(), source, sourceType: 'local', originalDirectory: source, sourceBoundary, candidate, staging, tree, target: installedPath, targetBoundary, baseline: installed.fingerprint, pluginId: id, installedVersion: plugin.version, availableVersion, componentRoots, item }); keepPreview = true; }
       return item;
     } finally { if (!keepPreview) await removeStaging(env, staging); }
   }
+  async function marketplaceInstallation(env, registry, id) {
+    const catalog = await catalogFor(env, registry, true);
+    const plugin = catalog.plugins.find(item => item.id === id);
+    if (!plugin) fail(404, 'NOT_FOUND', '插件不存在，请刷新市场。');
+    if (!plugin.canInstall || plugin.installed) fail(403, 'PROTECTED_PLUGIN', plugin.reason || '该插件不支持此操作。');
+    const market = catalog.marketplaces.find(item => item.id === plugin.marketplace);
+    const marketRoot = market?._root || registry.marketplaces[plugin.marketplace]?.root || registry.marketplaces[plugin.marketplace]?.source;
+    if (!marketRoot || !plugin.sourcePath) fail(422, 'PLUGIN_PREVIEW_UNAVAILABLE', '无法读取这个插件的技能清单，请先刷新或重新连接市场来源。');
+    const entry = await readComponentEntry(marketRoot, plugin.name, plugin.sourcePath);
+    const manifest = await readPluginManifest(plugin.sourcePath, marketRoot);
+    const { signature, ...contents } = await pluginContents(plugin.sourcePath, { marketRoot, entry });
+    if (manifest.version !== undefined && entry.version !== undefined) fail(422, 'VERSION_AUTHORITY', '插件版本在市场和 manifest 中重复声明。');
+    const version = String(manifest.version ?? entry.version ?? 'local');
+    if (!safeSegment(version)) fail(422, 'INVALID_VERSION', '插件版本必须是安全的单段字符串，不能包含路径。');
+    const canSelectSkills = contents.skillDetails.every(skill => inside(plugin.sourcePath, path.resolve(plugin.sourcePath, skill.path)));
+    return { plugin, signature, source: plugin.sourcePath, boundary: await captureDirectoryRoot(plugin.sourcePath),
+      public: { name: plugin.name, description: manifest.description || entry.description || plugin.description || '', version, source: plugin.sourcePath, sourceType: 'local', marketplace: plugin.marketplace, pluginId: plugin.id, ...contents, canSelectSkills, duplicates: catalog.plugins.filter(item => item.name === plugin.name && item.installed).map(item => item.id) } };
+  }
+
+  async function writePluginSkills(env, registry, plugin, directory, skills, selection, readCurrent = true) {
+    const prior = registry.pluginSkillPreferences?.[plugin.id];
+    if (selection === undefined && !prior) return null;
+    if (!skills.every(skill => inside(directory, path.resolve(directory, skill.path)))) fail(422, 'UNSUPPORTED_COMPONENTS', '共享目录中的技能暂不支持逐项启用，请通过 Codex 管理。');
+    if (selection?.some(value => !skills.some(skill => skill.path === value))) fail(400, 'INVALID_SELECTION', '请选择预览中有效且不重复的技能。');
+    await assertConfigBoundary(env);
+    await verifyDescendantDirectory(env.codexBoundary, directory);
+    const configDirectory = path.resolve(env.codexRootReal, path.relative(env.codexHome, directory));
+    const config = (await readConfig(env.config)).data.skills?.config ?? [];
+    if (!Array.isArray(config)) fail(422, 'CONFIG_SYNTAX', 'skills.config 不是数组，不能安全修改。');
+    const preference = { ...(prior || {}) };
+    const values = skills.map(skill => {
+      const file = path.resolve(configDirectory, skill.path);
+      const configured = config.find(item => item.path === file)?.enabled;
+      const enabled = selection !== undefined ? selection.includes(skill.path) : (readCurrent ? configured : undefined) ?? preference[skill.path] ?? false;
+      preference[skill.path] = enabled;
+      return { path: file, enabled };
+    });
+    const transaction = await toggleSkillConfigs(env.config, values, path.join(env.root, 'config-backups'));
+    registry.pluginSkillPreferences ||= {}; registry.pluginSkillPreferences[plugin.id] = preference;
+    return transaction;
+  }
+
   async function executeAction(request, { pluginCheckOptions } = {}) {
     const env = environment(request.mode);
     if (busy) fail(409, 'BUSY', '另一个操作正在进行，请等待后重试。');
@@ -414,19 +469,28 @@ export async function createService(options = {}) {
       await verifyDirectoryRoot(env.stateBoundary);
       registry = await registryFor(env); originalRegistry = structuredClone(registry);
       switch (request.action) {
+        case 'plugin.previewMarketplace': {
+          const preview = await marketplaceInstallation(env, registry, request.id);
+          for (const [id, item] of pluginCatalogPreviews) if (previewNow() - item.created > 30 * 60000) pluginCatalogPreviews.delete(id);
+          while (pluginCatalogPreviews.size >= 20) pluginCatalogPreviews.delete(pluginCatalogPreviews.keys().next().value);
+          const id = crypto.randomUUID();
+          pluginCatalogPreviews.set(id, { ...preview, mode: env.mode, created: previewNow() });
+          return { message: '插件安装预览已准备好。', pluginPreview: { id, ...preview.public } };
+        }
         case 'plugin.previewInstall': {
           const staged = await stageSource(env, request, 'plugin');
           const location = directLocation(env, staged); const id = crypto.randomUUID();
           const catalog = await catalogFor(env, registry, true);
           if (catalog.plugins.some(item => item.id === location.pluginId && item.installed)) { await removeStaging(env, staged.staging); fail(409, 'PLUGIN_ALREADY_INSTALLED', '这个来源的插件已安装，请在更新页管理它。'); }
           previews.set(id, { ...staged, id, mode: env.mode, kind: 'plugin-install', created: previewNow() });
-          return { message: '插件安装预览已准备好。', pluginPreview: { id, ...staged.detail, source: staged.source, sourceType: staged.sourceType, subpath: staged.subpath, ref: staged.ref, commit: staged.commit, files: staged.tree.files, bytes: staged.tree.bytes, duplicates: catalog.plugins.filter(item => item.name === staged.detail.name && item.installed).map(item => item.id) } };
+          return { message: '插件安装预览已准备好。', pluginPreview: { id, ...staged.detail, canSelectSkills: true, source: staged.source, sourceType: staged.sourceType, subpath: staged.subpath, ref: staged.ref, commit: staged.commit, files: staged.tree.files, bytes: staged.tree.bytes, duplicates: catalog.plugins.filter(item => item.name === staged.detail.name && item.installed).map(item => item.id) } };
         }
         case 'plugin.installSource': {
           const staged = await assertPreview(env, request.previewId, 'plugin-install');
           const location = directLocation(env, staged); const { pluginId, market, root } = location;
           const catalog = await catalogFor(env, registry, true);
           if (catalog.plugins.some(item => item.id === pluginId && item.installed)) fail(409, 'PLUGIN_ALREADY_INSTALLED', '这个来源的插件已安装，请在更新页管理它。');
+          if (request.enabledSkills?.some(value => !staged.detail.skillDetails.some(skill => skill.path === value))) fail(400, 'INVALID_SELECTION', '请选择预览中有效且不重复的技能。');
           const registered = catalog.marketplaces.find(item => item.id === market);
           if (registered && (registered._root || registry.marketplaces[market]?.root) !== root) fail(409, 'MARKETPLACE_EXISTS', '安装来源名称已被另一个目录使用，未修改该来源。');
           const destination = path.join(root, 'plugins', staged.detail.name);
@@ -449,6 +513,11 @@ export async function createService(options = {}) {
           // already have registered/installed the package when a command fails.
           originalRegistry.directPlugins ||= {}; originalRegistry.directPlugins[market] = tracked;
           await writeJson(env.registryFile, registry);
+          const selectedCache = path.join(env.codexHome, 'plugins/cache', market, staged.detail.name, staged.detail.version);
+          await verifyDescendantDirectory(env.codexBoundary, selectedCache);
+          const selectedTransaction = await writePluginSkills(env, registry, { id: pluginId }, selectedCache, staged.detail.skillDetails, request.enabledSkills);
+          if (selectedTransaction && env.mode === 'sandbox') undo.push(selectedTransaction.undo);
+          if (env.mode === 'local' && selectedTransaction) originalRegistry.pluginSkillPreferences = structuredClone(registry.pluginSkillPreferences);
           if (env.mode === 'local') {
             if (!registered) await adapter.command(['plugin', 'marketplace', 'add', root, '--json'], { mutation: true });
             const nativeMarket = (await adapter.list()).marketplaces.find(item => item.id === market);
@@ -492,6 +561,12 @@ export async function createService(options = {}) {
           target = plugin.name; const enabled = plugin.enabled;
           const backup = path.join(env.root, 'quarantine', `${activityId}-plugin-backup`); await verifyDescendantDirectory(env.stateBoundary, backup); await fs.mkdir(path.dirname(backup), { recursive: true }); await copySkill(preview.target, backup);
           const destination = path.join(env.codexHome, 'plugins/cache', plugin.marketplace, plugin.name, preview.availableVersion); await verifyDescendantDirectory(env.codexBoundary, path.dirname(destination));
+          if (registry.pluginSkillPreferences?.[plugin.id]) {
+            const contents = await pluginContents(preview.candidate, { roots: preview.componentRoots.map(relative => path.resolve(preview.candidate, relative)) });
+            const transaction = await writePluginSkills(env, registry, plugin, destination, contents.skillDetails, undefined, false);
+            if (env.mode === 'sandbox') undo.push(transaction.undo);
+            else originalRegistry.pluginSkillPreferences = structuredClone(registry.pluginSkillPreferences);
+          }
           if (env.mode === 'sandbox') {
             if (await exists(destination)) { if ((await inspectTree(destination)).fingerprint !== preview.tree.fingerprint) fail(409, 'TARGET_EXISTS', '新版本缓存已有不同内容，不能覆盖。'); }
             else { await fs.mkdir(path.dirname(destination), { recursive: true }); await move(preview.candidate, destination); undo.push(async () => { await move(destination, preview.candidate); }); }
@@ -548,10 +623,14 @@ export async function createService(options = {}) {
           const { record } = await assertWritableSkill(env, request.id, 'canToggle'); target = record.name;
           await assertConfigBoundary(env);
           if (record.pluginId) {
-            const plugin = (await snapshot(env.mode)).plugins.find(item => item.id === record.pluginId);
+            const current = await snapshot(env.mode);
+            const plugin = current.plugins.find(item => item.id === record.pluginId);
             if (!plugin?.canToggle) fail(403, 'PROTECTED_PLUGIN', '所属插件不支持此操作。');
-            const transaction = await toggleConfig(env.config, 'plugin', record.pluginId, request.enabled, path.join(env.root, 'config-backups')); undo.push(transaction.undo);
-            if (env.mode === 'sandbox') registry.plugins[record.pluginId].enabled = request.enabled;
+            if (!plugin.enabled) fail(409, 'PLUGIN_DISABLED', '请先启用所属插件，再调整其中的技能。');
+            const transaction = await toggleConfig(env.config, 'skill', record.path, request.enabled, path.join(env.root, 'config-backups')); undo.push(transaction.undo);
+            registry.pluginSkillPreferences ||= {};
+            const config = (await readConfig(env.config)).data.skills?.config ?? [];
+            registry.pluginSkillPreferences[record.pluginId] = { ...registry.pluginSkillPreferences[record.pluginId], ...Object.fromEntries(current.skills.filter(item => item.pluginId === record.pluginId && item.packagePath).map(item => [item.packagePath, config.find(value => value.path === item.path)?.enabled ?? true])) };
           } else {
             const transaction = await toggleConfig(env.config, 'skill', record.path, request.enabled, path.join(env.root, 'config-backups')); undo.push(transaction.undo);
           }
@@ -652,6 +731,18 @@ export async function createService(options = {}) {
           if (!plugin) fail(404, 'NOT_FOUND', '插件不存在，请刷新市场。');
           if (!plugin[installing ? 'canInstall' : 'canRemove']) fail(403, 'PROTECTED_PLUGIN', plugin.reason || '该插件不支持此操作。');
           target = plugin.name;
+          if (installing && request.previewId) {
+            const preview = pluginCatalogPreviews.get(request.previewId);
+            if (!preview || preview.mode !== env.mode || preview.plugin.id !== plugin.id || previewNow() - preview.created > 30 * 60000) fail(409, 'STALE_PREVIEW', '预览已过期或属于其他环境，请重新预览。');
+            await verifyDirectoryRoot(preview.boundary);
+            const current = await marketplaceInstallation(env, registry, plugin.id);
+            if (current.source !== preview.source || current.signature !== preview.signature || current.public.version !== preview.public.version) fail(409, 'SOURCE_CHANGED', '来源在预览后发生变化，请重新预览。');
+            const destination = path.join(env.codexHome, 'plugins/cache', plugin.marketplace, plugin.name, current.public.version);
+            await verifyDescendantDirectory(env.codexBoundary, destination);
+            const transaction = await writePluginSkills(env, registry, plugin, destination, current.public.skillDetails, request.enabledSkills);
+            if (transaction && env.mode === 'sandbox') undo.push(transaction.undo);
+            if (transaction && env.mode === 'local') originalRegistry.pluginSkillPreferences = structuredClone(registry.pluginSkillPreferences);
+          }
           if (env.mode === 'sandbox') {
             if (installing) {
               if (!inside(env.root, await fs.realpath(plugin.sourcePath))) fail(403, 'SANDBOX_BOUNDARY', '插件来源越出演练目录。');
@@ -679,6 +770,7 @@ export async function createService(options = {}) {
             const readback = await adapter.list(); cachedCatalog = readback; catalogTime = Date.now();
             if (readback.diagnostics.length || readback.plugins.some(item => item.id === plugin.id && item.installed) !== installing) fail(502, 'READBACK_FAILED', 'CLI 操作已返回，但无法确认安装终态；请刷新官方清单后再操作。');
           }
+          if (installing && request.previewId) pluginCatalogPreviews.delete(request.previewId);
           result = { message: `已${installing ? '安装' : '卸载'}插件 ${target}，请在新会话中确认能力。`, needsReload: true }; break;
         }
         case 'marketplace.add': {
@@ -785,7 +877,7 @@ export async function createService(options = {}) {
     catch (error) { await writeJson(file, saved); throw error; }
     project = next.effective; projectInfo = next;
     local.project = project; local.managedRoots = managedRoots;
-    previews.clear(); removalPreviews.clear();
+    previews.clear(); removalPreviews.clear(); pluginCatalogPreviews.clear();
     return next;
   }
   async function executeRequest(input, internal = false) {

@@ -72,8 +72,20 @@ export function patchToggle(text, type, selector, enabled) {
 }
 
 export async function toggleConfig(file, type, selector, enabled, backupDir, options = {}) {
+  return writeConfigPatch(file, text => patchToggle(text, type, selector, enabled), backupDir, options);
+}
+
+export async function toggleSkillConfigs(file, values, backupDir) {
+  return writeConfigPatch(file, text => values.reduce((current, { path, enabled }) => {
+    const configured = parseConfig(current).skills?.config?.find(item => item.path === path)?.enabled;
+    return configured === enabled ? current : patchToggle(current, 'skill', path, enabled);
+  }, text), backupDir);
+}
+
+async function writeConfigPatch(file, patch, backupDir, options = {}) {
   if (await exists(file) && (await fs.lstat(file)).isSymbolicLink()) fail(403, 'CONFIG_LINK', '配置文件是链接，初版不直接改写。');
-  const original = await readConfig(file); const next = patchToggle(original.text, type, selector, enabled);
+  const original = await readConfig(file); const next = patch(original.text);
+  if (next === original.text) return { undo: async () => {} };
   const wasPresent = await exists(file); const mode = wasPresent ? (await fs.stat(file)).mode & 0o777 : 0o600;
   await fs.mkdir(backupDir, { recursive: true, mode: 0o700 });
   const backup = path.join(backupDir, `${Date.now()}-${crypto.randomUUID()}.toml`);

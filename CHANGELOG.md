@@ -189,6 +189,25 @@
   - `testany-llm` 的命令列表和 plugin 描述改为仅保留 `prompt-optimizer`
   - 根 README、`AGENTS.md`、`CLAUDE.md` 不再引用已删除的 `skill-creator` 脚本与路径
 
+## [skilldock 0.6.0] - 2026-09-25
+
+### Added
+- Marketplace、本地目录和 Git 来源在安装确认前统一列出技能名称、用途和路径，支持搜索、全选、全不选及逐项勾选；插件仍整包安装，未勾选技能保持禁用，其他组件不受影响。
+- 保存逐技能选择，手动及定时更新映射到新版本缓存路径，新增技能默认禁用；外部同步后在下一次检查恢复绑定。
+
+### Fixed
+- 修复禁用一个插件内技能会关闭整个插件的问题。Skills 页仅切换目标技能，Plugins 页总开关仍控制整个包。
+- 按 SKILL.md 真实路径配置和去重，防止符号链接别名导致未选技能仍被 Codex 加载。
+- 长技能列表滚动显示并固定确认按钮；中、英、日和浅深色同步。
+
+### Upgrade notes
+- 旧版误关整个插件的用户，升级后先在 Plugins 页重新启用插件，再在 Skills 页禁用目标技能；不自动更改已有总开关。配置在新的 Codex 会话或重载后生效。
+- 此轮包含新增兼容功能，按 SemVer 升 minor 至 0.6.0；同步应用、锁文件、插件清单及安装说明，Marketplace 不重复声明版本。
+
+### Validation scope
+- 后端、浏览器、构建和仓库发现检查，以及隔离配置下的真实 Codex 安装、单技能开关及更新验证，见[本轮实现记录](plugins/skilldock/skills/skill-manager/references/28-plugin-skill-selection.md)。
+- 当前本机 Codex 缓存会省略包内目录链接；这类包仍保留完整内容核验失败，不声称更新成功。普通目录插件的安装及更新通过；未修改种子用户环境。
+
 ## [skilldock 0.5.0] - 2026-09-24
 
 ### Added

@@ -26,6 +26,10 @@ As your skill collection grows, sources, versions, and duplicate copies become h
 
 Source discovery depends on records left by the original installation. You can connect an update source when those records are missing. Host permissions and system protection can limit available actions; the app shows those restrictions.
 
+Version 0.6.0 adds [skill previews and activation choices](skills/skill-manager/references/28-plugin-skill-selection.md): review names, descriptions, and paths, then search and select which skills to enable. The whole plugin is still installed; unchecked skills stay disabled. After installation, each skill can be toggled independently, and updates preserve those choices.
+
+If an older version disabled an entire plugin when you switched off one skill, re-enable that plugin in Plugins after upgrading, then disable the intended skill in Skills. Existing plugin-wide switches are not changed automatically.
+
 ## Install & open
 
 The standalone `skilldock` plugin contains just one entry: `skill-manager`. The engineering, prompt, content, and testing plugins are separate choices.
@@ -72,6 +76,6 @@ Explore [Testany](https://testany.io), read the [platform docs](https://docs.tes
 
 ## Version, license, and development
 
-Current version: **0.5.0**, distributed through this Git repository. [Changelog](../../CHANGELOG.md) · [AGPL-3.0-only](LICENSE) · [Third-party notices](skills/skill-manager/THIRD_PARTY_NOTICES.md).
+Current version: **0.6.0**, distributed through this Git repository. [Changelog](../../CHANGELOG.md) · [AGPL-3.0-only](LICENSE) · [Third-party notices](skills/skill-manager/THIRD_PARTY_NOTICES.md).
 
 See the [application README](skills/skill-manager/assets/app/README.md) for development and verification commands, and the [Chinese product page](README.md#版本许可与开发) for implementation and UAT records. Other existing skills in this repository remain MIT-licensed.
