@@ -6,7 +6,7 @@
 2. 批准基线明确要求该 invariant；
 3. Candidate delta 可证明影响该路径。
 
-未触达、未批准的检查域记录为 `NOT_APPLICABLE`，不能因此产生 finding。
+未触达、未批准的检查域直接省略，不逐项输出 `NOT_APPLICABLE`，不能因此产生 finding。
 
 ## 使用方法：先行为，再证据
 
@@ -31,7 +31,7 @@
 - [ ] review note 的声明能在实际生产入口中找到
 - [ ] 测试辅助路径未被误当作生产实现
 - [ ] mutable worktree、用户 WIP 与 Candidate 已分离
-- [ ] mutable worktree 已绑定 snapshot，验证后与 verdict 前摘要均保持一致
+- [ ] mutable worktree 已绑定 snapshot；最后验证后、verdict 前的一次 recheck 为 MATCH，之后无写入
 - [ ] 新增/删除文件均能追溯到 frozen scope
 - [ ] initial full review 已覆盖完整 in-scope diff，未因第一批 finding 提前停止
 - [ ] changed-path manifest 每个 entry 已分类；`raw_worktree_vs_index`、`worktree_mode_vs_index` 和 `submodule_head_vs_index` 均有明确 ownership/证据
@@ -110,6 +110,9 @@ Contract 需要改变时，返回 scope decision；Code Reviewer 不代替 API R
 
 ## I. 验证质量
 
+- [ ] 实际 CI 入口/命令/依赖配置已先核对；同绑定的昂贵等价检查只有一个 owner，未与 Writer/CI 重复启动
+- [ ] 旧结果可核验时已复用；新增检查对应具体变化、不可信结果或未覆盖 invariant
+
 - [ ] 测试断言真实生产路径与外部可观察结果
 - [ ] 未 mock 被审 helper、未用本次输出生成独立批准预期、未只用字符串位置断言分支语义
 - [ ] 生产管理入口/SDK/compiler 的可表达性已区分于下游执行器可运行；没有用自写 compiler 的 PASS 遮蔽生产入口拒绝
@@ -120,8 +123,8 @@ Contract 需要改变时，返回 scope decision；Code Reviewer 不代替 API R
 - [ ] immutable certificate 只绑定 commit/tree；mutable approval 明确绑定 snapshot 且声明后续变化即失效
 - [ ] 多仓/subagent coverage ledger 已按 shared Scope Lock digest 对账，unreviewed range 为零
 - [ ] path coverage 未被当成行为覆盖；关键 caller/branch/target/连续尝试有实际证据
-- [ ] subreviewer 收到完整可读取 Scope Lock 与 digest，而不是只有 digest
-- [ ] 若本轮是 reviewer-miss 异常完整复核，已绑定失效 review、独立 Reviewer、count=1 和 review-root-base 全范围
+- [ ] subreviewer 收到可读取 Scope Lock 与其 assignment 必需证据，不只有 digest，也不复制全局历史
+- [ ] 漏审已记录受影响 closure、根因/同类路径与复用范围；full review 有具体共同假设失效或无法界定影响的理由，不按次数升级
 - [ ] 漏审后已针对旧盲点改变验证方法，而非只换 reviewer identity 或重复同一绿色门禁
 - [ ] 复用证据逐项核验内容/依赖/命令/配置/工具/基线，无法证明不变则不复用（见 evidence-reuse）
 

@@ -261,13 +261,14 @@ Guide 不把它当成独立 artifact，但在 `TEST_SPEC = approved` 时，应�
 | exact Candidate + review request，无批准结论 | `in_review` |
 | exact Candidate + `APPROVED` Code Review certificate | `approved` |
 | mutable/mixed Candidate + `APPROVED` Mixed / Mutable Worktree Review Comment，且逐仓核对 immutable SHA/tree，并对每个 mutable repo 用该行记录的 resolved script、完整 argv 重算 `WORKTREE@sha256` 后逐字匹配 | `approved`（仅该组逐仓 binding；不是 immutable certificate） |
+| 当前 exact immutable commit/tree + SAME_CONTENT receipt + 原仍有效 source APPROVED，且满足 code-reviewer 的 scope/依赖/无较新 blocker 前提 | `approved`（源码；receipt 单独不足） |
 | 只有 feature branch/普通 commit | `unknown`，不能主动推荐 Code Review |
 
 Code Review approval 只表示源码准出；不得据此把 CI、merge、deployment 或 release 标记为 approved。
 
-Code Reviewer v2 的 terminal 可引用唯一 Review Record。先读取并校验该 record 的版本/摘要，再解析其 Scope Lock、逐仓 binding、coverage 和 prior chain；内嵌 record 必须完整。不要要求报告重复所有附录，也不要接受只给摘要的 record。复用 source/local evidence 不等于继承旧 approval，新 Candidate 仍需自己的评审绑定和 verdict。
+Code Reviewer 的 terminal 可引用唯一 Review Record。首次使用读取/核验对应版本，后续同版本复用核验结果，只读当前绑定、最近有效结论、未闭合项及有关证据；机器 manifest 由工具核验，不全量读回。旧版 Record 可继续作为证据，不要求迁移历史。真实 delta 需实质复审；满足 code-reviewer/evidence-reuse 全部前提的同内容提交可由 binding receipt 与原有效 source APPROVED 共同证明当前 exact binding，无需新 Review ID/批准轮。receipt 本身不产生批准，较新 blocker/撤回优先。
 
-Code Review terminal 选择不使用“certificate 高于 report”或“approved 高于其他状态”的通用偏好。Guide 必须按 Review ID、Candidate/snapshot、Scope Lock 与 `prior_terminal_chain` 验证 immediate-terminal lineage，并选择链上最新 terminal。若 terminal 以内嵌 envelope 提供，先按宿主的 Skill 资源解析规则定位已安装 `code-reviewer` 的绝对目录；Claude plugin 可解析为 `${CLAUDE_PLUGIN_ROOT}/skills/code-reviewer`，Codex 等宿主必须使用其提供的 skill locator，不得假设该环境变量存在。绑定所解析 `scripts/terminal_artifact_envelope.py` 的绝对路径和 SHA-256 后，使用同一脚本先执行 `verify <file>`，再执行 `extract <file>` 取得原始 bytes 后解析；`verify` 的 PASS 行不是 terminal 内容。较新的 `CHANGES_REQUIRED / SCOPE_DECISION_REQUIRED / EVIDENCE_BLOCKED` 会使较旧 approval 失效。无法建立唯一、完整的 terminal chain 时状态为 `unknown`。
+Code Review terminal 不按“certificate 高于 report”或“approved 高于其他状态”选择。按 Review ID、Candidate/snapshot、Scope Lock、最近决定及 prior 引用选择最新有效状态；有冲突/必要前驱缺失才进一步追溯，已核验版本不递归重读。较新的 blocker/撤回优先于旧 approval。只有 terminal 使用 envelope 时，从宿主 Skill locator 解析 code-reviewer 脚本版本并执行 `terminal_artifact_envelope.py extract <file>`（已含内部校验），不重复先 verify；普通可读 Record 不必包装。无法确认最新有效状态则 `unknown`，不要猜测。
 
 Mutable/mixed approval 必须枚举 terminal 中的全部 repository rows。对每个实际 mutable repo，先证明当前 resolved `code-reviewer/scripts/snapshot_worktree.py` 的 SHA-256 与该 repo 行记录的 script digest 逐字相等（否则取回记录版本；两者都做不到即 stale），再复用该行完整 argv（base、exclude、candidate-ignored、mutable-baseline 全部相同）并逐字核对输出摘要；对每个 immutable repo，只核对 exact Candidate SHA/tree，不运行或伪造 snapshot。只有所有行都匹配才保持 `approved`；任一 repo 的 script/argv/snapshot/SHA/tree 漂移、缺失或无法重算，都使整个 mixed comment stale，并归一化为 `draft` 或 `unknown`，不得只验证其中一仓或把旧 comment 当成重复批准依据。
 
