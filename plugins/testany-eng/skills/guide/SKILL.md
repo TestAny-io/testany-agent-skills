@@ -277,9 +277,9 @@ LLD 准出后还存在一条与测试文档准备并行的实现门禁：
 
 **Code Review 特例（优先于上述 artifact 类型/状态偏好）：**
 
-- 按 Review ID、Candidate/snapshot、Scope Lock 和 `prior_terminal_chain` 重建顺序，只选择链上最新的 immediate terminal；先按当前宿主的 Skill 资源解析规则定位已安装 `code-reviewer` 的绝对目录（Claude plugin 中 `${CLAUDE_PLUGIN_ROOT}/skills/code-reviewer` 只是一个平台特定解析方式，Codex 等宿主不得假设该环境变量存在），记录所解析脚本的绝对路径与 SHA-256，再用同一 `scripts/terminal_artifact_envelope.py` 依次执行 `verify` 和 `extract` 读取原始 terminal bytes。不能从 PASS 摘要推断字段；不得因为旧 artifact 是 certificate 或 verdict 为 `APPROVED` 就压过更新的 `CHANGES_REQUIRED / SCOPE_DECISION_REQUIRED / EVIDENCE_BLOCKED`
-- 同一 Candidate 的 terminal 若没有可验证的 chain/摘要、时间或内容互相冲突，归一化为 `unknown` 并报告歧义，不得猜测旧 approval 仍有效
-- Code Reviewer v2 可以把绑定/coverage/history 放在唯一 Review Record；先读取并核验其 `path@version + SHA-256` 或完整内嵌内容，再按同一规则解析。不能因报告不重复附录就判缺证，也不能把仅有 record digest 当成可读证据。
+- 按 Review ID、Candidate/snapshot、Scope Lock、最近决定及 prior 引用选择最新有效结论；已有核验缓存不递归重读整条历史。较新 `CHANGES_REQUIRED / SCOPE_DECISION_REQUIRED / EVIDENCE_BLOCKED` 或撤回优先于旧 approval/certificate。不能从只有 ID/digest 的摘要猜测状态
+- terminal 确以 envelope 提供时，才从宿主 Skill locator 解析 `code-reviewer` 的绝对目录及脚本版本，运行 `scripts/terminal_artifact_envelope.py extract <file>`（内部校验后返回原始 bytes）；普通可读 Record 不要求包装 envelope，也不先重复执行一次 verify。同一不可变版本缓存核验结果
+- 同一 Candidate 存在无法消除的较新结论冲突/必要前驱缺失时为 `unknown`，报告具体歧义。Record 可完整内嵌或可读版本引用，只读取当前判断必需的主证据；旧版格式可继续读，不因少重复附录判缺证
 - mutable/mixed approval 还必须按 `artifact-detection.md` 逐仓验证：每个实际 mutable repository 都用该行记录的 script digest 与完整 argv 重算相同 snapshot，immutable 行只核对 exact SHA/tree。任一 mutable 行缺失、无法重算或不匹配，或任一 immutable 行漂移，都会使整个 comment stale，不能视为 approved
 
 #### 1.5 Reviewer 证据识别
@@ -373,10 +373,10 @@ Guardrails 建议只在以下场景出现：
    - 除非用户明确处于 Guardrails 强触发场景，否则不挤占主推荐位
 7. Code Review 是实现门禁分支：
    - exact Candidate 存在且没有源码批准证据 → 推荐 `/code-reviewer`
-   - remediation Candidate 存在时，只有上一份报告/已核验 Review Record 同时证明：Previous Candidate 为 immutable commit 或经核验可重建原始内容的 snapshot、Scope Lock ID/digest 与当前相同、`initial_full_coverage_complete: YES`、required source/local validation 完成、两类 coverage gap 为空；全部 prior P0/P1 以稳定 ID结转（可保持 OPEN，由本次判 closure），相关 SD/EB 已按 policy 处理，前后 delta/依赖可界定且没有更高优先 cause，才推荐 `/code-reviewer` 的 delta review。复用证据仍由 code-reviewer 的 evidence-reuse 规则逐项判断，Guide 不代审
-   - 上一轮在冻结基线/范围阶段停止、覆盖不完整或没有可核验的 coverage 记录 → 继续/重做 initial full review；不得用 remediation 标签跳过未审范围
-   - immutable commit/tree 已获 exact Code Review Approval Certificate，且 approval 后没有更新披露的 reviewer miss、符合条件的 post-terminal CI/environment trigger 或其他待处理 chain transition → 不再推荐重复评审；下一步是仓库外的 exact-SHA CI/PR/merge 或并行的测试/运维准备。若有较新 trigger evidence 但尚无 terminal，仍推荐 `/code-reviewer` 由 canonical policy决定 exceptional/new-initial/process-blocked mode
-   - mutable 或 mixed `WORKTREE@sha256` 仅获 Mutable Worktree Review Comment → commit/freeze 后由 `/code-reviewer` 按全部共存 causes 和全局 precedence处理 `MUTABLE_TO_IMMUTABLE_REBIND`：同 scope、可信完整 coverage、可重建内容/可靠 delta 和证据依赖核验成立时可 delta/rebind，否则 full review；新 Review ID、commit/tree 与 verdict 必不可少，不能自动把 comment 转 certificate 或直接路由 CI/PR/merge
+   - remediation Candidate 有实际 delta：可信旧覆盖可复用，推荐 `/code-reviewer` 的 `remediation_delta_review`，覆盖原 blocker、delta 与直接影响；旧覆盖不完整则补缺口，不丢弃已完成部分。缺少可信首轮覆盖或影响无法界定才 full review
+   - 旧 reviewer miss/旧 closure 被否证/新增 CI 或环境源码证据：推荐 `focused_recovery_review`，撤回受影响判断并审根因/同类路径；不因首次/重复漏审次数自动 full、换 main 或向 PM 求流程重启
+   - exact immutable binding 已有仍有效 source approval/certificate，且无较新 blocker/撤回/实质变化：不重复评审；下一步可为 exact-SHA CI/PR 准备或测试/运维准备，外部操作仍需对应授权
+   - mutable/mixed approval 后同内容提交：推荐 `/code-reviewer` 的 `binding_only`。按 evidence-reuse 证明每仓全部 raw bytes/path/mode/gitlink、Scope Lock/基线及必要证据依赖不变，并无较新 blocker；用确定性 receipt 绑定 exact commit/tree，原 Review ID 与有效 source approval 继续适用，不新增评审轮。任一前提不成立时只审真实 delta 或补缺证，不自动全审；receipt 本身不是批准
    - 不要求 Test Spec、Runbook 或环境批准作为 Code Review 前置条件
 
 ## 输出格式

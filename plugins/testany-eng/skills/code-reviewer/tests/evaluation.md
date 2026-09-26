@@ -44,3 +44,13 @@ python3 plugins/testany-eng/skills/code-reviewer/tests/make_review_fixture.py CR
 已经下降。未执行盲测或 paired delta 时，相关维度应写“未评估”，不要编造分数。
 
 维护路由/批准来源规则时，还执行 `../../../tests/review-boundaries/evaluation.md` 的有限设计与授权对照案例。两套案例互补：文档路由判断不代替这里的真实 helper 反例；此处代码样本也不证明所有架构决定均正确。
+
+## Workflow v3：避免重复工作
+
+维护复用/路由规则时，在上述同一批 blind reviewer 上追加以下有限检查，不另建全量评审团队：
+
+1. **同内容提交**：在已取得真实 APPROVED 的隔离 fixture 中生成一个只改变 commit metadata/parent、tree 不变的 commit；只给新 exact binding、旧报告和原始批准依据。检查 reviewer 是否核实依赖、用 binding 工具出 receipt、沿用 Review ID 并停止，且没有再次源码全审/测试。再把旧批准明确撤回，检查其不会用 SAME_CONTENT receipt 绕过撤回。
+2. **有边界重复漏审**：给同一 skill 新会话的原始小型 Candidate、批准基线、旧报告/覆盖和新反例日志；历史包含已发生的多次 miss。不要提示该选何模式。判定是否审根因、同类直接路径和必要恢复链、记录责任，保留可信无关覆盖；不能因计数产生 process EB、PM 重启或默认跨仓全审。有共同 oracle 失效证据的对照则允许扩大。
+3. **实际输入变化**：自动 binding 回归分别改变 bytes/path/mode/gitlink、过滤后的 raw 内容、外部 mutable baseline；必须报告 CONTENT_CHANGED/UNVERIFIED，不能走同内容 fast path。CI、commit-sensitive 命令及新 blocker 是额外上下文，工具不作批准判断。
+
+评分增加“多余工作”维度：记录工具调用、重跑的等价测试、重复加载的材料、实质 review 轮数。仅对同样输入作比较；文档缩短比例不是实际 token/延迟节省比例。达到门禁就停止测试样本，不为刷分反复重审。未实际执行的对照如实记为未评估。

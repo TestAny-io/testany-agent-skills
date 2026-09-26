@@ -1,12 +1,10 @@
 # Code Reviewer Subagent Result Extension
 
-本扩展优先于共享 [subagent-result-contract.md](../../../references/subagent-result-contract.md)。使用时读取派发的完整 Review Record、[review-policy.yaml](review-policy.yaml) 及所选语言 report template 的 Item 正文（[中文](report-templates.md) / [English](report-templates.en.md)）；摘要或 digest 不是审查输入。
-
-子任务只引用已冻结的输入/assignment 版本或完整内嵌块。主 Reviewer 聚合时引用已校验输入和子任务结果，不覆盖被引用版本，也不要求子任务计算尚不存在的最终 Record digest。不复制全量 identity、repositories、history、prior closure 或无适用事实的附录。
+本扩展补充共享 [subagent-result-contract.md](../../../references/subagent-result-contract.md)。派发必须已有并行授权且有独立价值；child 读本 Skill、可读 Scope Lock、精确 assignment 与所需原始证据，不全量重读所有仓库和历史。引用版本首次核验后复用；主审提供已固定 manifest，child 核验自己的范围。
 
 ## Compact AGENT-RESULT
 
-保留共享 envelope；Code Review 的 `status` 仅允许 `success | failed | needs_input`，`verdict` 仅允许 `pass | fail`，禁止 `partial / conditional_pass`。下列是空结果示意；实际集合必须来自已完成的分配范围，不能用空数组掩盖未审范围。
+共享 envelope 的 `status` 只允许 `success | failed | needs_input`，`verdict` 只允许 `pass | fail`。下面仅为格式示例；空数组不能掩盖未审范围。
 
 ```yaml
 <!-- AGENT-RESULT:BEGIN -->
@@ -23,7 +21,7 @@ needs_retry: false
 needs_user_input: false
 summary: "<assigned-range result>"
 review_record_ref: "<frozen input path@version + sha256 or EMBEDDED_INPUT_RECORD>"
-record_verification: READ_AND_HASH_VERIFIED
+record_verification: ASSIGNED_INPUT_READ_AND_VERSION_VERIFIED
 assignment_ref: "<Record assignment ID>"
 coverage:
   manifest_verification:
@@ -46,29 +44,17 @@ commands_run: []
 <!-- AGENT-RESULT:END -->
 ```
 
-`EMBEDDED_INPUT_RECORD` 要求同一产物中有完整可读输入 Record，不是只有该标记。无法读取/校验时 `record_verification: FAILED`，报告具体 EB 和可得绑定，不得声称 pass 或输出可复用 coverage。主 Reviewer 拒收其审查结论，但保留缺证事实。
+`review_record_ref` 标明冻结输入版本，`assignment_ref` 必须定位到完整可读任务。`record_verification` 仅声明自己所需输入已读/验，不声称复核全局历史。版本不匹配或原始必要输入不可读时报 EB，不用摘要替代。
 
-## 增量内容
+## 增量内容与汇总
 
-- 结构化 finding 保留显式 `finding_id`、`severity`、`scope_classification: in_scope | scope_violation`，不是只给标题；计数按真实条目 severity 对账。
-- `path_classification`：每项引用 repo-qualified `manifest_entry_ref`（含该 path 所有 layers/status），填写 `classification: in_scope | scope_violation | verified_filtered_baseline` 与 `scope_or_budget_reference`；filtered 时另附 filter/EOL 和 prior-raw 双证据。不抄整个 manifest。
-- `behavior_evidence`：只为触达关键面提交 `invariant_ref`、`production_entry_and_parser`、`actual_helper_and_substitutions`、`independent_oracle_and_source`、`legal_illegal_failure_outcomes`、`direct_callers_branches_targets_retry_and_uncovered`。期望/实测须有精确来源；未覆盖边界不得留作暗示。
-- `causal_closure_updates`：只提交分配给本任务的原 `item_id`、prior row 引用、`causal_history`、closure/authority/regression evidence、`current_status` 和 next disposition；主 Reviewer 合并进 Record 的单一 closure，不抄全部 prior items。因果历史绑定 `original_unfixed / introduced_by_fix / pre_existing_unreported_cause`、旧/新代码、首次可见性、prior acceptance/status 与 Reviewer 责任。
-- `findings / scope_proposals / evidence_blockers / environment_only_notes`：新增项用 report template 的完整核心字段和适用的 conditional fields；已在 Record 中的项用精确 item 引用。适用性之外的字段不输出 `N/A`，但空集合保留 `[]`。
-- `commands_run`：记录实际命令、输入/环境、退出状态/结果与可读证据引用；本地行为检查、exact-SHA CI、live/environment 分层，不以作者 PASS 替代检查。
+1. exact repo/range、Scope Lock 和 assignment 必须对应当前 binding；同内容提交可引用主审接受的 binding receipt，实质 delta 不得隐式沿用旧输入。item ID 在 Review ID 内唯一，原 blocker 保留 ID/验收。
+2. 每个 assigned changed path 有可追溯分类；`verified_filtered_baseline` 仅允许 raw-worktree-versus-index 且有 filter/EOL + prior-raw 证据，mode/gitlink 不可 filtered。excluded WIP 不能隐藏已提交 Candidate，ignored 归属未知是 EB。main 对账一次，不让每个 child 重建全仓 hash。
+3. coverage 的 scope-blocked range 对应 SD，evidence/assignment gap 对应 EB；未分类/未审范围不能 pass。汇总保留所有已确认 findings/SD/EB，优先级不吞掉其他结果。
+4. `behavior_evidence` 只覆盖所审关键 invariant：真实入口/provider/parser、实际 helper/替身、独立 oracle、合法/非法/失败、直接 caller/branch/target/recovery。先重建路径再核作者 PASS，不以测试数量或真实依赖替代生产语义证据。
+5. `findings` 使用 report template 的核心字段；新增 surface 在明确预算内才是正常修复。可回退的越界是 P1 scope violation；真正的批准歧义/新 surface 决策才是 SD。P2 不阻断、不捆绑整改、不自动结转。
+6. `causal_closure_updates` 只返回分配的原项：original_unfixed / introduced_by_fix / pre_existing_unreported_cause、旧/新证据、current_status。旧源码可发现而漏掉须记录责任并撤回相关 closure；首次/重复 miss 均按根因影响补审，不要求新 main/全仓重审/PM 重启。
+7. 测试结果按 evidence-reuse 核验输入、依赖、命令、配置、fixture/toolchain/oracle；沿用可信未受影响项，失效项补最小独立检查。等价昂贵测试设单 owner，不重复启动；CI 仅证明原 SHA，live 不继承。
+8. `commands_run` 只列实际执行/复用的证据与边界。counts 与条目对账，任何 P0/P1/SD/OPEN EB/coverage gap 均 `fail`；只有分配范围完成且这些为空才 `pass`。`failed` 时 blocking_issues 非空，`success` 时为空；主审拒收不一致数据。
 
-## 接收与汇总规则
-
-1. 实际读/验 Record、canonical Scope Lock、manifest 和被引用 artifact。assignment 版本与当前 Record 的 Review ID、main identity、mode、Scope Lock、逐仓 identity/path/base/Candidate/tree或snapshot/range 必须一致；任何不一致拒收。固定绑定变化需要新 Review ID；合法结果聚合不改变输入绑定。跨仓 assignment 逐仓核验，不能用“组合仓库”代替。
-2. `manifest_verification` 覆盖 assignment 中每仓。每个 assigned changed path 必须有可追溯分类，`unclassified` 非空不得算完成。immutable 仅允许 `in_scope / scope_violation`；filtered 仅允许 mutable 的唯一 `raw_worktree_vs_index/RAW`，并有既有 filter/EOL 与 prior raw bytes 双证据。mode/submodule mismatch 不能 filtered。
-3. 读取 Record 的 mutable 归属与 snapshot 参数。excluded WIP 必须经 `--exclude` 从 manifest 消失，不能覆盖 immutable diff、`base..HEAD` 已提交 Candidate path 及其 ancestor/descendant；仍出现在 manifest 的 path 不能排除。Candidate-owned ignored 必须经 `--candidate-ignored` 捕获，`--mutable-baseline` 不能替代；归属未知形成 EB，不能静默过滤。无 mutable 仓不复制这些集合。
-4. 每个 `scope_decision_blocked_ranges` 与 SD 的 `contaminated_paths_or_ranges` 精确一一对应；每个 `evidence_or_assignment_gaps` range 绑定 EB。前者不是 evidence gap，后者须补证或重分配；整体 EB 优先但保留 SD 与所有已确认 findings。Gate 0 仍保留可得 repo/range，仅未知字段用 `NOT_BOUND / NOT_FROZEN`。
-5. 先独立重建生产路径和假设，再核作者 PASS；真实 entry/parser/helper、替换边界、独立 oracle 与直接 callers/branches/targets/retry propagation 要落实到证据。状态/resourceVersion、历史终态 Pod、exit code 仅按触达的批准语义适用，不扩成每文件矩阵或新 scope。
-6. P0/P1 必须有 provenance、frozen invariant、exact evidence、failure path、impact、minimum boundary-preserving fix、surface delta；within-budget 才要求 budget 行引用。最小修复要评估操作/门禁复杂度。可删除/回退的 Candidate 越界是完整 P1 `scope_violation`，净 surface delta 为 none；基线含糊/冲突或最小正确修复需要未批准 surface 才是 SD，不可混用。
-7. provenance 必须匹配 policy 的 mode matrix。`previously_unavailable_evidence` 引用 prior terminal 中同 invariant/range 的 EB 及恢复证据，否则按 miss；`post_terminal_new_ci_env` 引用对应 cause、首次可得来源/时间和旧源码不可发现证明，旧源码已可发现仍是 miss。所有条件证据可引用已读且校验的 Record 行，不复制全 prior chain。
-8. 同 ID 补充原因仍须 causal history；仍 OPEN 的同 issue 额外原因不自动构成正式 miss，已漏 blocking item 或无依据 prior closure/approval 必须评估 Reviewer 责任。不得静默改变原 acceptance，不能靠同 ID、新 scope 或新 binding 清除 miss。子任务只报告新增触发证据；main 从 Record 的可读已校验 history 推导 quota。
-9. 首次 miss 需要不同 main 的一次独立 exceptional full，从逐仓 review root 覆盖并使用不同验证证据方法；仅换 child/ID 或复跑作者 PASS 不满足。相同 missed lock 再次 miss 返回 `EB-*/review_process_integrity`，绑定 prior exception artifact、第二个 item/type/旧 Candidate 证据与全部 implicated identities；最小恢复仅是用户授权不在该集合内的新独立 main 做 initial full。Candidate 修改/测试不能关闭，不能 delta；其他 lock 的历史不误触发本锁，NEW/rebind 不清零旧 quota。
-10. 需要复用时读取 [evidence-reuse.md](evidence-reuse.md)：新 snapshot/commit 要新 Review ID，不继承 verdict。只有同 scope、旧完整 coverage 且两类 gap 空、prior bytes 可重建、所有受影响依赖/命令/工具/配置/基线同一或其 delta 已审时，才复用具体 source/local evidence。unknown 不复用，补最小检查，无法可靠划界则 full；live 不继承，CI 只证明原 SHA，miss 污染证据不能复用。previous delta base 可为 immutable 或已验证可重建 snapshot，snapshot `--base` 仍 immutable。
-11. 所有 item ID 在共享 Review ID 内唯一；原问题保留原 ID。counts 必须等于 findings 对应 severity 数量。任何 P0/P1、scope violation、SD、OPEN EB 或非空两类 gap 都使 `verdict: fail`；只有 assigned coverage 完成、unclassified 空且上述 blockers 全无才可 pass。P2 不阻断、不自动结转或催促一起修。`status` 准确表达完成/失败/需输入；共享契约要求 failed 时 blocking_issues 非空，success 时为空。不一致结果一律拒收，不能凭 summary/count 丢 item。
-
-子任务 verdict 只覆盖 assignment，不签发整体批准，也不授权改代码、改外部状态或部署。主 Reviewer 完成 Record coverage/closure 对账后，按同一 source/CI/environment 边界输出唯一 terminal。
+child 只对 assignment 给结论，不签整体批准、不授权外部操作。主审验输入绑定、疑点与关键 oracle、覆盖缺口和 prior closure 后聚合合格结果，不逐项重做子任务。只发送实质结果/阻塞变化，不回复 ACK 的 ACK。

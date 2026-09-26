@@ -1,59 +1,52 @@
-# 有条件的证据复用与 Candidate 重绑
+# 证据复用与同内容绑定
 
-仅在拟复用已验证的 source/local evidence、snapshot 漂移或 mutable→immutable 时读取。目的不是自动批准新 Candidate，而是避免内容和依赖未变时反复做同一工作。**旧 verdict 失效与旧实验结果是否仍有价值，是两个不同问题。**
+目标是复用已经成立的判断，明确失效范围；不是把旧 PASS 或摘要当新证据。旧版 Review Record 仍可读，历史不迁移、不按旧 miss 次数重新升级。
 
-## 1. 先确认旧证据实际证明了什么
+## 1. 最小读取与复用判定
 
-读取并校验旧 Review Record / terminal artifact，确认 Scope Lock、完整覆盖、原阻断项、命令结果和证据来源。不可只读作者总结、测试数量或一个摘要。旧记录用原格式也可读取；不要为套新模板重写历史事实。
+先读最近有效结论、当前绑定、未闭合项与此次变化。核验一次引用版本/摘要，按需要读对应原始代码、命令结果、独立 oracle；同一会话同一不可变版本不重复读回。完整 manifest/hash 附件由脚本处理，模型只接收差异、失败项和相关证据。若后来出现 blocker/撤回，先处理它，不能跳回旧 APPROVED。
 
-- 旧独立完整 coverage 必须可信且两类 gap 为空，才能以它支持 delta-only review。存在缺口时继续完整评审；已可靠检查的局部事实可供参考，但不等于完整 coverage。
-- 被正式 reviewer miss 否证的 coverage、错误 oracle、替身掩盖的路径不能复用来宣称 closure。独立 full review 仍需重新建立行为判断。
-- CI 结果只属于其 exact SHA，不能改标签贴到新 commit。live Secret/Kubernetes/DB 状态不能因源码未变就当成当前事实。
+| 情况 | 保留 | 必须重做 |
+|------|------|----------|
+| 修改单一路径 | 未受影响的 scope、覆盖、测试 | 原 blocker、delta、直接消费者及共享依赖受影响部分 |
+| 首次/重复发现旧漏审 | 有理由继续可信的部分 | 错误 closure、同根因路径、受污染 oracle；记录 reviewer 责任和新的验证方法 |
+| 新 CI/环境日志 | 无关源码判断 | 日志证明的具体源码问题或缺证；日志本身不触发全审 |
+| 工作区在验证时漂移 | 能绑定到旧 bytes 且不受 delta 影响的结果 | 新 binding、漂移 delta、依赖被改变的检查 |
+| 相同 raw 内容提交 | 有效 source approval 与等价 source/local 结果 | 确定性绑定校验；commit 为输入的检查及 exact-SHA CI 不能照搬 |
+| 影响无法可靠界定/共同基线或关键 oracle 整体错误 | 能独立证明的部分 | 说明事实后扩大范围，必要时 full review |
 
-## 2. 能否重建前后内容
+测试复用需要 exact input、命令、配置/fixtures/toolchain、oracle 和结果可核验。源码/依赖/输入变化只使相关项失效；无法证明不受影响就补最小检查。不要为了取得新 Review ID、不同输出目录或更新报告时间重跑长链。Writer/CI 执行昂贵等价门禁一次；Reviewer 核结果与独立 oracle，并做必要独立反例。缺失证据不能靠再读一遍作者结论补齐。
 
-| 输入 | 可接受的比较依据 | 不够的依据 |
-|------|------------------|------------|
-| immutable→immutable | replacement-disabled exact Git trees、完整 diff、可读取依赖与基线 | commit message、文件名相同、作者说只改文档 |
-| snapshot→snapshot/immutable | 与旧 snapshot 原始 bytes/mode/路径集合一致的保留副本，或可完全重建并核验的 Git blobs/patches 和 untracked/ignored 原件；与当前实际内容比较 | `WORKTREE@digest` 本身、已继续修改的同一个目录、仅 Git clean-filter 后的 diff |
-| 多仓 | 每仓前后精确绑定和直接跨仓依赖比较 | 只检查改动仓，忽略同一门禁加载的其他仓/fixture |
+## 2. 同内容提交：binding_only
 
-snapshot 工具的 `--base` 始终是 immutable Git SHA。可重建 snapshot 作为逻辑 previous 输入，不表示它能被当成 Git revision。保留原始 snapshot 和比较证据；不能比较两个包含不同 HEAD/index 元数据的总摘要就断定源文件不同，也不能忽略原始 bytes/mode 差异只看 Git tree。
+前提全部满足：
 
-当前 immutable Candidate 的完整 tree 必须与声称已审内容对应，包括新增/删除、symlink target、执行位与 submodule SHA。若需依赖过滤/EOL 归一化，证明实际编译/执行输入一致；否则按变化处理。排除的他人 WIP 不能在 commit 后混进 Candidate。
+1. 最近有效 source verdict 为 APPROVED，完整覆盖可信、原阻断项关闭、无 SD/EB；没有较新撤回/新 blocker。旧 mutable approval 本身仍只适用于 snapshot。
+2. 仓库 identity、review root、Scope Lock 与批准来源不变。当前提交没有新的需求/语义上下文；外部配置、工具、fixture、oracle 等依赖未变。依赖 commit ID/parent/时间的验证要单独判断，不能因为 tree 一样就继承。
+3. 被 reviewer 接受的 snapshot JSON 或 prior commit 已固定摘要。脚本证明**整个 Candidate** raw bytes、path set、Git mode、gitlink 一致，可变基线未变；不存在未绑定输入。多仓逐仓满足。
 
-无可重建旧内容，或不能界定影响范围：不用旧覆盖作 delta base，从 immutable `review_root_base` 做 initial full review。若当前内容本身也不可绑定，返回 `EVIDENCE_BLOCKED`。
+从本 Skill 的绝对目录运行（JSON/receipt 保存到 Candidate 外，避免输出污染 snapshot）：
 
-## 3. 按证据项核对依赖，不按整仓一刀切
+```sh
+python3 <skill-dir>/scripts/verify_candidate_binding.py --repo <repo> \
+  --snapshot <reviewed-snapshot.json> --snapshot-sha256 <reviewed-snapshot-digest> \
+  --commit <full-commit-sha> --output <outside-candidate>/binding.json
+# 已批准 immutable commit 变为同 tree 的另一 commit：
+python3 <skill-dir>/scripts/verify_candidate_binding.py --repo <repo> \
+  --prior-commit <full-reviewed-sha> --commit <full-current-sha> \
+  --output <outside-candidate>/binding.json
+```
 
-在现有 Review Record 加一行即可，无需新增平台/通用 manifest 服务：
+snapshot digest 是 JSON 内 `snapshot_sha256`，应来自原 review 的已固定引用，不能现场从待比较文件读出一个值后自证。脚本输出只证明 binding；reviewer 核对上述审批/依赖前提后写短 receipt：
 
-| Evidence ID / 原始结果引用 | 前后 Candidate | 实际输入及直接/传递依赖 | 比较证据 | 决定 / 需补的最小检查 |
-|---------------------------|---------------|--------------------------|----------|---------------------|
-| `{gate + command + result digest}` | `{old → new exact bindings}` | `{source/helper/parser/test/fixture/oracle/build/config/tool inputs}` | `{实际 bytes/hash/版本与依赖关系核验}` | `REUSE / RERUN / BLOCKED` |
+`原 Review ID / prior APPROVED 引用 → 每仓 old binding → exact commit/tree → binding artifact digest → scope/依赖未变，source APPROVED 继续适用；CI=<该 SHA 状态>，environment=<独立状态>`
 
-只有全部成立才能 `REUSE`：
+保留原 Review ID，增加 binding revision。不复制旧记录、不新增语义 review verdict/批准轮、不重新要求用户批准同一范围；全部 immutable 后 receipt 与原有效 APPROVED 共同构成当前 exact-commit source certificate。**receipt 不能关闭原 findings、恢复已撤回 approval 或产生部署许可。**
 
-1. 同一已核验 Scope Lock/批准 invariant，旧结果确实属于声称的输入。
-2. 前后内容可读取/重建；完整 delta 已分类，并追踪到该实验实际加载的直接/传递依赖。不能仅因被测文件没变就复用。
-3. 被测源码、生产 helper/provider/parser、测试、fixture、独立 expected source、build/lockfile、命令参数、配置、实际工具版本/必要运行镜像均未改变；不存在会影响该结果的未绑定环境输入。
-4. 外部依赖若参与旧实验，能证明它是同一可重现隔离 fixture 及相同协议/版本/配置。仅版本号相同、主机相同或“之前绿过”不证明状态相同。
-5. 旧测试确实走真实待审逻辑，oracle 未被本次输出生成，测试语义没有被新事实否证。内容相等不能拯救原本错误的测试方法。
+有排除 WIP 时，工具额外证明这些路径没有隐藏 base→旧 HEAD 的 Candidate 变化，并且新 commit 只保留其旧 HEAD 内容；提交了排除 WIP 会报差异。工具拒绝目录/特殊类型、缺失旧对象或无法验证的 snapshot；这些是 fast path 不成立，不等于全仓必须重审。内容差异输出 exact changed paths，转最小 delta；缺少证明只补相应 EB。未经证明不能宣布 SAME_CONTENT。不使用临时自写逐文件哈希程序替代该工具。
 
-源码检查的复用同样要证明其输入与 invariant 未变；需重审 delta 及受影响分支。工具版本/命令只是最低核对，不要求为了复用收集所有无关系统信息。不能可靠界定依赖就不复用该项，直接跑现有相关门禁通常更简单。
+## 3. Review ID、捕获与终止
 
-`RERUN`：任一相关输入变化或不确定，重跑该项及直接影响的必要回归。`BLOCKED`：必要证据无法安全取得，用最小 EB 标明缺什么；不升级成源码 P1。与某项证据无关的文档变更不自动抹掉其他已验证结果。
+新实质整改/补审用新 Review ID，关联最近有效记录；同次评审内 snapshot 捕获重试、无内容变化绑定和报告整理用 binding revision。pre-verdict 重算可以兼作 post-validation 重算；其后有写入/新验证才需再次检查。稳定两次捕获由 snapshot 工具内部完成，不需要额外循环四次。
 
-## 4. 新绑定与结论
-
-- snapshot drift：使旧 Review ID/attempt 失效，记录 old/new snapshot、原命令与 drift 原因；创建新 ID。尚未有 terminal 的失效 attempt 记 `invalidated_attempt_lineage`，不要伪造 prior terminal。
-- mutable→immutable：逐仓核验新 commit/tree，并记录 `MUTABLE_TO_IMMUTABLE_REBIND`。只有在无更高优先级的 miss/reset/new-scope cause、旧完整 coverage 可用、前后比较可靠时才可 delta/rebind review；否则 full review。
-- 正常整改：确认所有原 blocking IDs、delta、行为链回归已闭合。受影响证据重跑，明确列出哪些是复用，不把旧结果写作“本轮已执行”。
-- 再次检查 mutable snapshot 稳定。新的 source verdict 基于**旧可信覆盖 + 已审 delta/等价证明 + 必要新验证**共同给出，旧批准不自动继承，CI/环境授权不变。
-
-## 5. 最小例子
-
-- 已审 worktree 提交后，raw 文件/依赖完全一致，HEAD 变化但命令不读取 Git revision：新 ID、核验新 commit/tree、引用已验证本地测试可行；若构建把 Git SHA 嵌入 artifact，相关构建/绑定测试必须重跑。
-- helper 文件未改，但调用方改为另一个 resource loader，或测试只 mock 掉 helper：原 PASS 不能证明新生产路径，重跑最小真实路径检查。
-- 只改 review note，build/test 不读取它：可复用受验证的本地结果，不能声称新 SHA 已通过旧 CI。
-- 只有旧 snapshot 摘要、原 untracked 文件已丢失：无法证明等价，不能直接升为 immutable approval。
+没有新的实质事实就不发新评审轮、不回 ACK 的 ACK。达到源码准出即停止；CI/live 分层，不能把未来环境任务倒灌为源码门禁。

@@ -16,36 +16,33 @@ description: 'Code review, implementation review, 源码评审、实现复审。
 - Code Review 通过仅表示源码可进入后续流程，不授予后续操作权限。源码、exact-SHA CI、环境/发布结论始终分层。
 - 不因审查轮数、发现数量或“安全起见”提高准出标准；P0/P1 关闭且必要证据完整时停止，P2 永不阻断。
 
-## 读取与记录：一份事实，不重复抄表
+## 读取与记录：按变化读取，一份事实
 
-每轮读取本文件、`references/reviewer-checklist.md`、`references/review-policy.yaml`，以及所需语言的 `references/scope-lock-template.md` / `.en.md`。后者形成一份 **Review Record**，记录 Scope Lock、Candidate、覆盖、证据和上一轮阻断项。报告按 `references/report-templates.md` / `.en.md` 引用同一记录；不用给每种 verdict 再抄一套历史、空附录与绑定表。
+每次新会话先读本文件；已读且版本未变不重复加载。**首次完整评审**再读 `references/reviewer-checklist.md` 的适用章节、所需语言的 `references/scope-lock-template.md` / `.en.md` 和 `references/report-templates.md` / `.en.md`。**整改/补审**只读上一轮短结论、未闭合项、delta 与受影响证据；沿引用按需取原文，不能把作者摘要当证据。`references/review-policy.yaml` 是规则索引，模式/冲突不明确时查对应段，不要求每轮全量加载所有参考。
 
-只在触发时完整读取对应参考：
-
-| 触发 | 参考 |
+| 触发 | 读取 |
 |------|------|
-| mutable snapshot 漂移、提交重绑或拟复用旧证据 | `references/evidence-reuse.md` |
-| 派发并行评审 | `../../references/subagent-result-contract.md` 与 `references/subagent-result-extension.md` |
-| 维护本 Skill，而非评审产品 | `tests/evaluation.md`（行为样本与盲测方法；评审产品时不要加载答案） |
-| 冻结批准基线；发现工程方案、架构/权限增量或批准来源争议 | `../../references/review-boundaries.md`（分层、有限变更、授权来源；不替代本 Skill 的机械 policy） |
+| 证据复用、snapshot 漂移或提交重绑 | `references/evidence-reuse.md` |
+| 确需并行独立审查 | `../../references/subagent-result-contract.md` 与 `references/subagent-result-extension.md` |
+| 批准来源争议、真实职责/信任/架构增量 | `../../references/review-boundaries.md` |
+| 维护本 Skill | `tests/evaluation.md`；评审产品时不加载答案 |
 
-引用必须可读取并核验版本/摘要；只有 ID、摘要或作者总结不构成证据。记录可以内嵌在回复中，不强制新建报告文件、平台或数据库。机械绑定工具保留原职责，不代替行为判断。
+一份 Review Record 保存 scope、当前 binding、覆盖/证据索引与未闭合项。大 manifest、逐文件 hash、命令原始输出交给脚本存成附件，正文只给结果、差异和引用；**不把机器附件全量读进模型，也不在消息中来回复制**。原始证据须可读；首次使用核验版本/摘要，同一会话同一不可变版本缓存核验结果，版本变动再验。签名/摘要不能代替首次实质审查。无需额外 ledger、sealer、逐轮空表或递归读回整条历史。
 
 ## 1. 冻结边界与精确输入
 
-先读目标仓库 AGENTS/README 与相关批准基线。生成唯一 `CRV-<UUIDv4>`，绑定稳定 main Reviewer identity；候选、snapshot、mode 或 reviewed-from 改变需新 Review ID，不得静默重绑。
+先读目标仓库 AGENTS/README 与相关批准基线。生成 `CRV-<UUIDv4>` 标识一次**实质评审**，记录稳定 main Reviewer identity。新语义 Candidate/新的实质复审用新 Review ID；同次评审中的捕获重试、报告排版、同内容 commit 绑定用原 Review ID 下的 binding revision，不制造一轮审批。
 
-冻结前沿新增/争议边界的 `approval_evidence` 回到原始决定，核对批准人、授权范围和对象；在既有基线引用内记录，不新增 ledger。历史工程细节可落在明确委托的预算内，但“Lead Dev”称谓本身不提供改架构权限。若发现旧 comment 被循环认证为基线，披露受影响来源和错误结论，按现有 SD/EB 与 reviewer-miss policy 处理，不偷偷改 Scope Lock 或继续要求实现错误决定。只有修复方案、尚无实现对象时路由 LLD；真实职责/信任/依赖增量单列 HLD/API，不替它们批准。
+Scope Lock 包含逐仓 `review_root_base`、批准来源、In/Out Scope、Must Not Change、architecture budget、验证边界；用本 Skill 的 `scripts/scope_lock_digest.py` 生成 canonical payload/digest。正常整改沿用，不重新求批准。新增/争议授权回到原始有权决定；Reviewer comment 经文档转述不成为授权。未知字段如实 `NOT_BOUND / NOT_FROZEN`，只阻断受影响判断。
 
-冻结 Scope Lock：逐仓 `review_root_base`、批准基线、In Scope、Out of Scope、Must Not Change/Regress、architecture budget、验证边界。用本 Skill 的 `scripts/scope_lock_digest.py` 生成 closed canonical payload/digest；正常整改不改语义 Scope Lock。未能绑定的字段写 `NOT_BOUND`，未冻结时写 `NOT_FROZEN`，不得猜测；可得字段仍保留精确值。
+- **Immutable**：绑定 exact commit/tree、base/range 和 changed paths；拒绝 replace refs / legacy grafts，Git 使用 `GIT_NO_REPLACE_OBJECTS=1`、禁用 external diff/textconv、保留 submodule 差异。
+- **Mutable**：从本 `SKILL.md` 的实际绝对目录运行 `scripts/snapshot_worktree.py --repo <repo> --base <immutable-base>`。保留完整 argv 与 JSON；工具内部双捕获绑定 raw bytes/mode、index、submodule、untracked，拒绝 hidden index flags、dirty submodule、symlink baseline。
+- 他人 WIP 明确 owner/理由后用 `--exclude`，不得排除已提交 Candidate 的变化。Candidate-owned ignored 用 `--candidate-ignored`；可变基线用 `--mutable-baseline`。过滤/EOL 不得隐藏 raw bytes 改变。
+- 首次捕获后，在**最后一次验证结束且即将给 verdict 时**重算一次；这同一次 MATCH 同时满足 post-validation 与 pre-verdict。其间有写入/新测试/漂移才重算，不在只读 ACK 或材料转发后机械重跑。
+- 漂移使旧 binding 失效，比较变化并补审直接影响范围；保留未受影响证据。不能对未审新 bytes 放行；无法稳定绑定则只列必要 EB。
+- mutable/mixed 结论只绑定相应 snapshot；全部 immutable 才能给 certificate。**同内容提交**先按 evidence-reuse 用 `scripts/verify_candidate_binding.py` 核验 raw bytes、路径、mode/gitlink、基线和完整性，生成短 binding receipt，引用仍有效的 source APPROVED；不重审、不重跑未受影响测试、不新建 Review ID。receipt 自身不授予批准，存在新 blocker/撤回/输入或语义变化时禁用此路径。
 
-- **Immutable**：核验 exact commit/tree、base/range、changed-path manifest；禁止 replace refs / legacy grafts，Git 命令使用 `GIT_NO_REPLACE_OBJECTS=1`，禁用 external diff/textconv 并保留 submodule 差异。
-- **Mutable**：解析本 `SKILL.md` 所在目录的绝对路径，运行 `python3 <skill-dir>/scripts/snapshot_worktree.py --repo <repo> --base <base>`，不是从目标仓库猜工具路径。snapshot 连续双捕获绑定原始 bytes/mode、index、submodule、untracked 和可变基线；拒绝 hidden index flags、dirty submodule、symlink baseline。保存完整参数，验证后与 verdict 前重算。
-- 明确属于他人的 WIP 用 `--exclude` 并记 owner/理由，不能排除已提交 Candidate 的变化。Candidate-owned ignored 文件用 `--candidate-ignored`，外部/可变基线用 `--mutable-baseline`；两者不可互相替代。过滤/EOL 不得隐藏 Candidate 原始字节变化。
-- 任一 snapshot 漂移使旧 attempt/verdict 失效；新 attempt 在同一语义 Scope Lock 下重绑。**不是自动抹掉所有旧测试**：逐项按 evidence-reuse 证明不受影响才能复用，否则补验；持续移动无法绑定则 `EVIDENCE_BLOCKED`。
-- 任一仓 mutable 时只能给 Mixed / Mutable Worktree Review Comment，其余 immutable 仓仍保留 SHA/tree。全仓 immutable 后才可签新的 certificate；旧 mutable approval 不能自动转换。
-
-输入不完整时，继续审完全部可独立判断范围；只将受影响 range 记为 EB/SD gap，不在第一个问题处停止。
+继续完成可独立判断范围；SD/EB 只标实际缺口，不因一处缺证抹掉其他已完成覆盖。
 
 ## 2. 不膨胀：要求、修复、建议分开
 
@@ -86,7 +83,7 @@ Surface 的语义变化同样在范围内：谁授权谁、机器/用户主体�
 | P1 | 冻结范围内足以阻断合入的正确性、兼容、一致性、安全或可靠性缺陷 |
 | P2 | 非阻断的维护性、可读性或局部测试改进；无数量阈值 |
 
-每条 P0/P1 只必填核心：稳定 ID、severity、scope_classification、provenance、`violated_frozen_invariant`、`exact_evidence`、`reproducer_or_failure_path`、`impact`、`minimum_boundary_preserving_fix`、`architecture_surface_delta`。批准 budget 行、旧 EB 恢复证据和首次可发现性等字段只在适用时填写，见 policy；不复制无用 `N/A` 大表。
+每条 P0/P1 只必填核心：稳定 ID、severity、scope_classification、provenance、`violated_frozen_invariant`、`exact_evidence`、`reproducer_or_failure_path`、`impact`、`minimum_boundary_preserving_fix`、`architecture_surface_delta`。`scope_classification` 用 `in_scope | scope_violation`；`provenance` 用 `initial_review | remediation_delta | previously_unavailable_evidence | reviewer_miss | post_terminal_new_ci_env`，因果解释另写。批准 budget 行、旧 EB 恢复证据和首次可发现性等字段只在适用时填写，见 policy；不复制无用 `N/A` 大表。
 
 缺少证据不能猜 P1。若阻碍必要判断，记最小 `EB-*`；若只是可选改进，列 P2；若需改变批准边界，列 `SD-*`。基线既有缺陷不归罪 Candidate，除非它依赖或扩大该风险。
 
@@ -98,27 +95,34 @@ Surface 的语义变化同样在范围内：谁授权谁、机器/用户主体�
 
 ## 5. 整改、复用与漏审责任
 
-第一次使用 `initial_full_review`；只有同一 Scope Lock 的旧完整覆盖可信、两类 gap 为空、前后内容/直接影响范围可重建时才可 `remediation_delta_review`。previous 可为 immutable commit 或有可核验原始内容的 snapshot；只有摘要、旧测试总数或移动中的目录不够。细则在 evidence-reuse。
+按**触发事实与影响范围**选最小充分动作，不能按轮数、漏审计数或有没有新日志来选：
 
-每条原 P0/P1、SD、EB 保留 ID、原验收语义，逐项给 closure 与必要回归证据；P2 不强制结转。对继续失败或晚发现的原因，明确区分：
+| 事实 | 动作 |
+|------|------|
+| 没有可信首轮覆盖 | `initial_full_review`；已有可信部分保留，只补未审范围 |
+| 已有可信覆盖，Candidate 有实际 delta | `remediation_delta_review`：原阻断项 + delta + 直接消费者/共享依赖 |
+| 发现旧代码漏审、旧 closure 不成立或新增 CI/环境证据 | `focused_recovery_review`：撤回受影响 closure/coverage，审根因、同类直接路径与必要恢复链 |
+| source 已 APPROVED，只有同内容 commit/元数据绑定 | `binding_only` receipt；不是新实质评审 |
+| 无法界定影响，或共同基线/关键 oracle/覆盖整体不可信 | `initial_full_review`；先说明哪项事实使局部复用不成立 |
 
-- `original_unfixed`：原问题尚未完整修好（指出原验收条件哪项未满足）；
-- `introduced_by_fix`：修复新引入回归（用 old/new 精确证据证明）；
-- `pre_existing_unreported_cause`：原因在旧 Candidate 已存在，但上次未指出（说明此前可见性及 reviewer 责任）。
+每条原 P0/P1、SD、EB 保留 ID 和验收语义，只给 closure 与必要回归；P2 不强制结转。原因区分 `original_unfixed / introduced_by_fix / pre_existing_unreported_cause`。旧源码原本可发现的问题要承认 reviewer miss、撤回错误批准，不把责任转给 Dev；新 CI 证据不自动证明是新增缺陷，也不自动导致全审。
 
-**同一 ID 或 Scope Lock 不豁免漏审责任。** 仍 OPEN 的同一问题补充原因，不机械判成新 miss；但新阻断项或已宣称 CLOSED/APPROVED 的路径原本可发现而漏掉，须撤回相关 coverage/closure，不能借“delta”或新 CI 日志洗掉。也不能把所有后续问题都归给 Dev、悄悄改变原验收标准。
+**首次或重复漏审均不自动跨仓全审、不自动换 main、不自动向 PM 求流程重启批准。** 记录原证据漏点与本次不同入口/独立 oracle，先做有边界补审。只有旧结论涉及共同错误假设、影响无法隔离、基线来源污染无法限定等具体证据才扩大；说明保留与失效范围。对受污染判断，可换独立 reviewer 或验证方法，但“换人/多跑同一绿测”不等于修复盲点。产品/架构决策仍走对应 Owner，普通复审范围和测试选择由 reviewer 承担。
 
-旧规则的有限漏审机制保留：首次正式 miss 绑定旧 Candidate 证据、失效 Review 与 Reviewer，换独立 main，从 `review_root_base` 做一次 `exceptional_full_review_after_reviewer_miss`。按被漏审的 immediate-prior Scope Lock 计数；repeated reviewer miss（已恢复一次又漏）创建 `EB / review_process_integrity`，交用户明确授权由不在 implicated 集合内的新 main 重新完整评审。不能靠新 Scope Lock/新 ID 清零，不能自动过审或继续无限追加整改。
+已有完整 Record/历史可引用，旧版 exceptional/process-reset 记录作为历史证据读取；不继续执行旧的次数升级规则、不要求迁移整套历史。只恢复当前 binding、最近有效结论、未闭合项和与本次判断相关的失效证据；存在较新 blocker 时不能越过它复用旧 approval。
 
-独立性还须体现在**方法**：记录旧证据为什么漏、此次换什么入口/输入来源/真实 helper/独立 oracle 验证。只换 agent 名字、人数，或重复同一套绿色门禁不算修复盲点。所有例外/触发证据保存在同一 Review Record 的引用链，详细 cause/precedence 见 policy；多 cause 并存不得相互抵消。
+### 验证分工与停止
+
+- 同一 Candidate 内容 + 命令 + 配置/fixture/toolchain 的昂贵测试只设一个执行者，默认 Writer/CI；Reviewer 读取可核验结果并检查是否对应真实生产入口、独立 oracle 和所需分支。作者 PASS 不能替代这些判断，但不需要由 Reviewer 再完整运行一遍。
+- Reviewer 运行最小独立反例/必要回归；仅当相关代码/依赖/配置/工具改变、结果缺失或不可信、覆盖不满足具体 invariant 时补跑。先检查实际 CI 入口、命令和依赖配置，避免长测完成后才发现走错链路。
+- 列出待运行命令、owner 和触发原因；已有可信结果直接引用。看到同绑定任务正在跑，复用/等待该任务，不启动副本。无法获知其他线程状态时，只发一次必要查询，不建立高频轮询。
+- 只在 candidate ready、实质 findings、阻塞/解除、最终 verdict 时发协作消息。无需回 ACK 的 ACK；同状态不重复报告或全文读回。观察进度用有 cursor 的有界 wait/backoff；无新事实不启动新 review turn。
 
 ## 6. 多仓与并行评审
 
-按有独立价值的风险路径分工，不按“多找问题”分工。派发完整可读 Scope Lock + digest、Review Record、精确 repo/range、行为任务与相关原 blocking IDs；先独立看路径，再读作者结论，不能隐去 delta 复审必须的原验收条件。
+默认 main 独立完成可控范围。只有用户/适用指令授权且任务具有独立价值时并行；按互不重叠的风险路径分工，不按“多找问题”分工。传递已冻结的 scope、精确 assignment/range、必要基线与相关原 blocking IDs；不要求每个 child 重读全局历史/所有仓库/所有报告。
 
-主 Reviewer 维护逐仓 changed-path manifest/classification 与 assignment，child 只回其实际检查、证据、finding/proposal/gap，不复制全局历史。路径覆盖不是行为证明：关键分支/target/连续尝试还需对应行为证据。共享 `AGENT-RESULT` 使用 code-reviewer extension，只允许 pass/fail，不接受 conditional_pass/partial 作为完成。
-
-汇总时复核每条证据，检查 repo-qualified path/manifest、原阻断项、关键行为与 gap；未分配/缺证是 EB，决策污染是 SD。必须保留已完成的独立结果，不因更高优先级阻断而隐藏其他已确认问题。
+main 一次维护机器 changed-path manifest 和覆盖分配；同一绑定不由每个接收者重建数千文件 hash。child 验证自己范围的输入并报告实际检查、证据和差异。路径覆盖不能替代行为证明；主审只实质复核疑点和关键 oracle，使用其他合格独立结果，不重新执行全部子任务。共享 `AGENT-RESULT` 与 extension 保留 pass/fail、typed gaps 和必要证据。缺证/未分配为 EB，决策含糊为 SD；保留所有已确认问题。
 
 ## 7. 判定与停止
 
@@ -137,4 +141,4 @@ Surface 的语义变化同样在范围内：谁授权谁、机器/用户主体�
 
 ## 维护本 Skill 时的验证
 
-除 snapshot/scope/envelope 与 policy 回归，还运行 `tests/evaluation.md` 的生产语义缩小样本及独立盲测。blind reviewer 仅看 raw 请求、批准基线、精确代码与必要原 closure，不看 grader、修复答案或前任结论。分别评估漏报、误报、越界、停止/收敛；不能以 finding 数多或模板字段齐全冒充评审质量。样本不证明真实产品部署成功，也不成为所有产品的新增验收要求。
+除 snapshot/scope/envelope/binding 与 policy 回归，还运行 `tests/evaluation.md` 的生产语义缩小样本及独立盲测。blind reviewer 仅看 raw 请求、批准基线、精确代码与必要原 closure，不看 grader、修复答案或前任结论。分别评估漏报、误报、越界、停止/收敛；不能以 finding 数多或模板字段齐全冒充评审质量。样本不证明真实产品部署成功，也不成为所有产品的新增验收要求。

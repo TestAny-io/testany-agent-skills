@@ -1,389 +1,133 @@
-version: 2
+version: 3
 skill: code-reviewer
+# 规则索引；按触发查阅，不是每轮必须展开的报告 schema。
+reading:
+  entry: ONCE_PER_SESSION_OR_VERSION_CHANGE
+  initial: [applicable_checklist_sections, scope_template, report_template]
+  followup: [latest_valid_summary, open_items, candidate_delta, affected_evidence]
+  machine_manifests: SCRIPT_VERIFY_AND_SUMMARIZE
+  unchanged_verified_artifact: REUSE_CACHED_VERIFICATION
+  author_summary_replaces_primary_evidence: false
+  recursive_history_replay_required: false
 
 review_modes:
   initial_full_review:
-    diff: base_to_candidate
-    review_unchanged_code: only_when_required_by_an_approved_invariant
-    full_in_scope_coverage_required: true
-    may_stop_after_first_finding_batch: false
+    when: NO_TRUSTED_COMPLETE_COVERAGE_OR_IMPACT_CANNOT_BE_BOUNDED
+    coverage: ENTIRE_IN_SCOPE_DIFF_REUSING_TRUSTED_COMPLETED_PARTS
   remediation_delta_review:
-    diff: previous_candidate_to_current_candidate
-    review_unchanged_code: only_when_directly_impacted_by_the_delta
-    prerequisite_initial_full_coverage_complete: true
-    prior_verdict_does_not_control_delta_eligibility: true
-    delta_eligibility:
-      same_scope_lock_required: true
-      previous_candidate_must_be_reconstructable: true
-      previous_candidate_allowed: [immutable_commit, verified_reconstructable_snapshot]
-      snapshot_digest_without_original_content_is_sufficient: false
-      mutable_to_mutable_disposition: VERIFIED_DELTA_AND_DEPENDENCY_CLOSURE_OR_INITIAL_FULL_REVIEW
-      prior_initial_full_coverage_complete_required: true
-      prior_scope_decision_blocked_ranges_must_be_empty: true
-      prior_evidence_or_assignment_gaps_must_be_empty: true
-      prior_gate0_or_partial_coverage_requires_initial_full_review: true
-      changed_scope_lock_requires_initial_full_review_of_new_scope: true
-    required_closure_inputs:
-      - previous_review_id
-      - previous_terminal_artifact_path_version_and_digest_or_canonical_embedded_base64_envelope
-      - previous_candidate
-      - previous_blocking_finding_ids
-      - previous_scope_proposal_ids_and_owner_decisions
-      - previous_evidence_blocker_ids_and_restoration_evidence
-  exceptional_full_review_after_reviewer_miss:
-    trigger: disclosed_blocking_review_item_miss
-    allowed_trigger_item_types:
-      - P0
-      - P1
-      - scope_proposal
-    diff: review_root_base_to_current_candidate
-    independent_reviewer_required: true
-    missed_scope_lock_is_immediate_prior_terminal_scope_lock: true
-    maximum_occurrences_per_missed_scope_lock: 1
-    immediate_prior_scope_lock_recovery_count_must_equal: 0
-    cumulative_exception_history_required_on_every_later_attempt: true
-    invalidated_prior_review_id_required: true
-    invalidated_prior_main_reviewer_identity_required: true
-    prior_candidate_discoverability_evidence_required: true
-    triggering_missed_item_id_type_and_evidence_required: true
-    exception_history_required: true
-    current_main_reviewer_must_differ_from_invalidated_prior_main_reviewer: true
-    full_in_scope_coverage_required: true
-    terminal_gap_arrays_allowed: true
-    approval_or_coverage_reuse_requires_both_gap_arrays_empty: true
-    may_compose_with_every_transition_cause_not_explicitly_incompatible: true
-    every_composed_cause_retains_its_own_evidence_and_binding_requirements: true
+    when: REAL_CANDIDATE_DELTA_WITH_TRUSTED_PRIOR_COVERAGE
+    coverage: PRIOR_BLOCKERS_DELTA_DIRECT_CONSUMERS_AND_SHARED_DEPENDENCIES
+  focused_recovery_review:
+    when: REVIEWER_MISS_INVALID_CLOSURE_OR_NEW_CI_ENV_EVIDENCE
+    coverage: INVALIDATED_INVARIANTS_ROOT_CAUSE_SIBLING_PATHS_AND_RECOVERY
+    preserve_unaffected_coverage: true
+  binding_only:
+    when: VALID_SOURCE_APPROVAL_AND_PROVEN_IDENTICAL_CONTENT_AND_CONTEXT
+    semantic_review: false
+    new_review_id: false
+    new_test_run_by_default: false
+    output: BINDING_RECEIPT_REFERENCING_VALID_SOURCE_APPROVAL
 
-verdicts:
-  - APPROVED
-  - CHANGES_REQUIRED
-  - SCOPE_DECISION_REQUIRED
-  - EVIDENCE_BLOCKED
+review_selection:
+  facts_not_round_or_miss_count: true
+  repeated_miss_automatically_blocks_process: false
+  miss_automatically_requires_new_main: false
+  review_reset_requires_pm_approval: false
+  full_review_requires_concrete_reason:
+    - missing_or_untrustworthy_initial_coverage
+    - impact_cannot_be_isolated
+    - shared_baseline_or_oracle_invalidates_all_coverage
+    - explicit_user_full_review_request
+  new_ci_or_environment_log_alone_requires_full_review: false
+  partial_prior_coverage: COMPLETE_GAPS_AND_AFFECTED_RANGES
+  legacy_exception_history: READ_RELEVANT_FACTS_WITHOUT_COUNT_BASED_ESCALATION
+  newer_blocker_or_withdrawal_overrides_older_approval: true
+
+verdicts: [APPROVED, CHANGES_REQUIRED, SCOPE_DECISION_REQUIRED, EVIDENCE_BLOCKED]
 conditional_pass_allowed: false
-
-decision_precedence:
-  - EVIDENCE_BLOCKED
-  - SCOPE_DECISION_REQUIRED
-  - CHANGES_REQUIRED
-  - APPROVED
+decision_precedence: [EVIDENCE_BLOCKED, SCOPE_DECISION_REQUIRED, CHANGES_REQUIRED, APPROVED]
 
 candidate_binding:
   immutable_commit:
-    exact_commit_and_tree_required: true
-    replacement_objects_allowed: false
-    replace_refs_and_legacy_grafts_must_be_absent: true
-    binding_commands_require_git_no_replace_objects: true
-    approval_artifact: CODE_REVIEW_APPROVAL_CERTIFICATE
+    require: [exact_commit, exact_tree, exact_base_and_range, changed_path_manifest]
+    no_replace_refs_or_legacy_grafts: true
+    git_no_replace_objects: true
+    external_diff_and_textconv: false
+    retain_submodule_differences: true
   mutable_worktree:
-    snapshot_schema: testany.code-reviewer.worktree-snapshot.v1
-    resolved_skill_script_path_required: true
-    consecutive_internal_captures_required: 2
-    hidden_index_flags_allowed: false
-    dirty_submodules_allowed: false
-    mutable_baseline_symlinks_allowed: false
-    initial_snapshot_required: true
-    recheck_after_validation: true
-    recheck_immediately_before_verdict: true
-    silent_rebind_allowed: false
-    drift_disposition: INVALIDATE_REVIEW_ATTEMPT_KEEP_SEMANTIC_SCOPE_LOCK_CREATE_NEW_REVIEW_ID_AND_REBIND_OR_EVIDENCE_BLOCKED
-    approval_artifact: MUTABLE_WORKTREE_REVIEW_COMMENT
-    immutable_certificate_allowed: false
-    approval_invalidated_by_any_later_snapshot_change: true
-
-attempt_integrity:
-  review_id_is_unique_per_attempt: true
-  main_reviewer_identity_required: true
-  prior_exception_history_required_on_every_attempt: true
-  prior_exception_history_entries_require_terminal_artifact_digest: true
-  global_prior_exception_count_must_equal_history_length: true
-  each_prior_exception_history_entry_requires_missed_and_recovery_scope_lock_id_and_digest: true
-  immediate_prior_scope_lock_recovery_count_must_equal_history_filtered_by_missed_scope_lock: true
-  new_scope_lock_may_not_reset_recovery_count_for_the_immediate_prior_scope_lock: true
-  prior_exception_history_entries_must_be_verified_against_bound_terminal_artifact: true
-  prior_exception_history_bound_fields_must_equal_terminal_artifact:
-    - review_id
-    - missed_scope_lock_id_and_digest
-    - recovery_scope_lock_id_and_digest
-    - invalidated_prior_review_id
-    - invalidated_prior_main_reviewer_identity
-    - independent_main_reviewer_identity
-  review_id_reuse_after_candidate_snapshot_mode_or_reviewed_from_change: false
+    tool: scripts/snapshot_worktree.py
+    schema: testany.code-reviewer.worktree-snapshot.v1
+    consecutive_capture_count: 2
+    bind_raw_bytes_modes_index_submodules_untracked: true
+    allow_hidden_index_flags: false
+    allow_dirty_submodules: false
+    allow_symlink_baselines: false
+    excluded_wip_may_hide_committed_candidate: false
+    candidate_owned_ignored_requires_explicit_capture: true
+    save_exact_argv_and_full_json: true
+    recheck: ONCE_AFTER_LAST_VALIDATION_IMMEDIATELY_BEFORE_VERDICT
+    extra_recheck_when: INTERVENING_WRITE_OR_NEW_VALIDATION_OR_DRIFT
+    read_only_ack_requires_recheck: false
+    drift: INVALIDATE_BINDING_REVIEW_DELTA_REUSE_UNAFFECTED_EVIDENCE
+    unstable_candidate: EVIDENCE_BLOCKED
+  binding_only:
+    tool: scripts/verify_candidate_binding.py
+    receipt_is_approval: false
+    require:
+      - valid_prior_source_approved_with_complete_coverage_and_no_open_blockers
+      - prior_artifact_and_snapshot_digest_pinned_by_reviewer
+      - same_scope_lock_repository_identity_and_review_root_base
+      - identical_entire_candidate_raw_bytes_paths_modes_and_gitlinks
+      - mutable_baselines_unchanged
+      - commands_configuration_toolchain_fixtures_and_oracles_unchanged
+      - no_newer_blocker_withdrawal_or_semantic_requirement_change
+    commit_sensitive_tests: INVALIDATE_WHEN_COMMIT_METADATA_IS_AN_INPUT
+    unsupported_or_different: REVIEW_ACTUAL_DELTA_OR_RESTORE_SMALLEST_MISSING_PROOF
+    ci_transfer_between_shas: false
+    environment_or_deployment_approval_transfer: false
 
 review_record:
-  single_authoritative_record_per_attempt: true
-  allowed_representation: [embedded_complete_record, readable_versioned_artifact_with_sha256]
-  references_require_read_and_digest_verification: true
-  digest_or_summary_alone_is_sufficient: false
-  required_once:
-    - review_identity_and_mode
-    - complete_scope_lock_payload_or_verified_charter
-    - exact_repository_candidate_and_range_bindings
-    - changed_path_classification_and_coverage
-    - critical_behavior_evidence
-    - prior_blocking_item_closure_when_applicable
-    - verification_results_and_limitations
-  copied_fields_when_present_must_match_authority: true
-  report_and_subagents_may_reference_verified_record: true
-  duplicate_history_and_empty_inapplicable_appendices_required: false
-  exception_history_may_use_verified_prior_chain_reference: true
-  exception_count_still_derived_from_complete_verified_history: true
-
-prior_terminal_chain:
-  required_when_an_immediate_prior_terminal_exists: true
-  first_attempt_without_prior_terminal_uses_explicit_empty_chain: true
-  legacy_explicit_na_for_no_prior_terminal_accepted: true
-  prior_terminal_artifact_representation:
-    allowed:
-      - persisted_path_at_version_plus_sha256
-      - canonical_single_line_base64_envelope
-    embedded_envelope_script: scripts/terminal_artifact_envelope.py
-    embedded_envelope_schema: testany.code-reviewer.embedded-terminal.v1
-    summary_only_allowed: false
-  one_canonical_prior_terminal_artifact_reference_must_be_reused_everywhere: true
-  redundant_prior_review_artifact_alias_allowed: false
-  bound_fields_may_resolve_through_read_verified_review_record: true
-  prior_bound_fields_must_equal_verified_immediate_prior_terminal:
-    - prior_review_id
-    - prior_candidate
-    - prior_mode
-    - prior_main_reviewer_identity
-    - prior_scope_lock_id_and_digest
-  current_bound_fields_must_equal_current_attempt_authoritative_fields:
-    - current_review_id
-    - current_candidate
-    - current_mode
-    - current_main_reviewer_identity
-    - current_scope_lock_id_and_digest
-  transition_causes:
-    representation_when_immediate_prior_terminal_exists: nonempty_unique_set_of_closed_records_keyed_by_cause
-    true_first_attempt_without_prior_terminal_must_equal: []
-    allowed:
-    - ORDINARY_REMEDIATION
-    - PARTIAL_COVERAGE_CONTINUATION
-    - REVIEWER_MISS
-    - REPEATED_REVIEWER_MISS
-    - PROCESS_AUTHORITY_RESET
-    - POST_TERMINAL_NEW_CI_ENV
-    - SCOPE_DECISION_RESOLVED_PRESERVED
-    - SCOPE_DECISION_RESOLVED_CHANGED_OR_EXPANDED
-    - APPROVED_BASELINE_OR_SCOPE_CHANGED
-    - PRECHARTER_INPUTS_RESTORED_AND_SCOPE_LOCK_FIRST_FROZEN
-    - MUTABLE_TO_IMMUTABLE_REBIND
-    each_cause_requires_exact_trigger_authority_or_restoration_evidence: true
-    each_cause_requires_first_available_source_or_time: true
-    cause_requirements:
-      ORDINARY_REMEDIATION: exact_delta_and_prior_blocking_item_closure
-      PARTIAL_COVERAGE_CONTINUATION: exact_prior_gap_and_restored_coverage_input
-      REVIEWER_MISS: missed_item_id_type_prior_candidate_evidence_and_independent_reviewer
-      REPEATED_REVIEWER_MISS: prior_recovery_terminal_and_second_missed_item_exact_evidence
-      PROCESS_AUTHORITY_RESET: explicit_user_authority_prior_process_blocker_and_new_reviewer_independence
-      POST_TERMINAL_NEW_CI_ENV: exact_external_evidence_first_available_source_or_time_and_prior_source_nondiscoverability
-      SCOPE_DECISION_RESOLVED_PRESERVED: exact_owner_decision_evidence
-      SCOPE_DECISION_RESOLVED_CHANGED_OR_EXPANDED: exact_owner_decision_evidence
-      APPROVED_BASELINE_OR_SCOPE_CHANGED: exact_owner_or_baseline_approval_evidence
-      PRECHARTER_INPUTS_RESTORED_AND_SCOPE_LOCK_FIRST_FROZEN: exact_gate0_restoration_evidence
-      MUTABLE_TO_IMMUTABLE_REBIND: exact_per_repository_prior_binding_and_current_commit_tree_transition
-    incompatible_sets:
-      - [REVIEWER_MISS, REPEATED_REVIEWER_MISS]
-      - [REVIEWER_MISS, PROCESS_AUTHORITY_RESET]
-      - [REPEATED_REVIEWER_MISS, PROCESS_AUTHORITY_RESET]
-      - [PARTIAL_COVERAGE_CONTINUATION, REVIEWER_MISS]
-      - [SCOPE_DECISION_RESOLVED_PRESERVED, SCOPE_DECISION_RESOLVED_CHANGED_OR_EXPANDED]
-      - [SCOPE_DECISION_RESOLVED_PRESERVED, APPROVED_BASELINE_OR_SCOPE_CHANGED]
-      - [SCOPE_DECISION_RESOLVED_PRESERVED, PRECHARTER_INPUTS_RESTORED_AND_SCOPE_LOCK_FIRST_FROZEN]
-  precharter_prior_terminal_sentinels:
-    unavailable_repository_candidate_tree_and_range_fields: NOT_BOUND
-    available_repository_candidate_tree_and_range_fields_must_remain_exact: true
-    review_mode: NOT_DETERMINED
-    scope_lock_id_and_digest: NOT_FROZEN
-    main_reviewer_identity_still_required: true
-    sentinels_must_equal_verified_prior_terminal_bytes: true
-  prior_review_id_artifact_digest_candidate_mode_and_reviewer_required: true
-  prior_and_current_scope_lock_id_and_digest_required: true
-  scope_lock_effect_required: SAME_OR_NEW
-  scope_lock_effect_consistency:
-    SAME:
-      prior_and_current_scope_lock_id_must_be_exactly_equal: true
-      prior_and_current_scope_lock_digest_must_be_exactly_equal: true
-      scope_changing_causes_must_be_absent: true
-    NEW:
-      prior_and_current_scope_lock_id_must_differ: true
-      prior_and_current_scope_lock_digest_must_differ: true
-      exactly_one_scope_changing_cause_required:
-        - SCOPE_DECISION_RESOLVED_CHANGED_OR_EXPANDED
-        - APPROVED_BASELINE_OR_SCOPE_CHANGED
-        - PRECHARTER_INPUTS_RESTORED_AND_SCOPE_LOCK_FIRST_FROZEN
-      full_review_mode_required: true
-      reviewed_from_must_equal_new_review_root_base: true
-      cause_evidence:
-        SCOPE_DECISION_RESOLVED_CHANGED_OR_EXPANDED: exact_owner_decision_evidence
-        APPROVED_BASELINE_OR_SCOPE_CHANGED: exact_owner_or_baseline_approval_evidence
-        PRECHARTER_INPUTS_RESTORED_AND_SCOPE_LOCK_FIRST_FROZEN: exact_gate0_restoration_evidence
-      first_frozen_transition_requires_prior_scope_lock_id_and_digest: NOT_FROZEN
-  review_mode_precedence:
-    repeated_reviewer_miss:
-      when_cause_present: REPEATED_REVIEWER_MISS
-      immediate_prior_missed_scope_lock_recovery_count_must_equal: 1
-      disposition: EVIDENCE_BLOCKED_REVIEW_PROCESS_INTEGRITY
-      review_mode_must_equal: initial_full_review
-      reviewed_from_must_equal_current_review_root_base: true
-      initial_full_coverage_complete_must_equal: false
-    process_authority_reset:
-      when_cause_present: PROCESS_AUTHORITY_RESET
-      review_mode_must_equal: initial_full_review
-      reviewed_from_must_equal_current_review_root_base: true
-    reviewer_miss:
-      when_cause_present: REVIEWER_MISS
-      immediate_prior_missed_scope_lock_recovery_count_must_equal: 0
-      review_mode_must_equal: exceptional_full_review_after_reviewer_miss
-      reviewed_from_must_equal_current_review_root_base: true
-      may_absorb_other_compatible_full_review_causes: true
-    other_full_review:
-      when_any_cause_present:
-        - PARTIAL_COVERAGE_CONTINUATION
-        - POST_TERMINAL_NEW_CI_ENV
-        - SCOPE_DECISION_RESOLVED_CHANGED_OR_EXPANDED
-        - APPROVED_BASELINE_OR_SCOPE_CHANGED
-        - PRECHARTER_INPUTS_RESTORED_AND_SCOPE_LOCK_FIRST_FROZEN
-      review_mode_must_equal: initial_full_review
-      reviewed_from_must_equal_current_review_root_base: true
-    delta:
-      only_when_no_higher_precedence_cause_present: true
-      allowed_causes:
-        - ORDINARY_REMEDIATION
-        - SCOPE_DECISION_RESOLVED_PRESERVED
-        - MUTABLE_TO_IMMUTABLE_REBIND
-      remediation_delta_eligibility_must_also_pass: true
-      rebind_requires_evidence_reuse_predicates: true
-      unbounded_or_unreconstructable_delta_requires_initial_full_review: true
-  exact_trigger_evidence_and_first_available_source_required: true
-  every_blocking_p0_p1_scope_proposal_and_evidence_blocker_from_immediate_prior_terminal_must_be_listed: true
-  prior_blocking_item_may_disappear_silently: false
-  p2_is_not_a_required_chain_item: true
-  approval_requires_every_prior_blocking_item_closed: true
-  scope_decision_resolution:
-    preserved:
-      required_cause: SCOPE_DECISION_RESOLVED_PRESERVED
-      scope_lock_effect_must_equal: SAME
-    changed_or_expanded:
-      required_cause: SCOPE_DECISION_RESOLVED_CHANGED_OR_EXPANDED
-      scope_lock_effect_must_equal: NEW
-      full_review_mode_required: true
-      reviewed_from_must_equal_new_review_root_base: true
-  process_integrity_reset:
-    required_cause: PROCESS_AUTHORITY_RESET
-    prior_blocker_id_required: true
-    explicit_user_authority_evidence_required: true
-    new_main_reviewer_independence_proof_required: true
-    review_mode_must_equal: initial_full_review
-    reviewed_from_must_equal_current_review_root_base: true
-    delta_reuse_allowed: false
-    may_compose_with_scope_change_or_mutable_rebind: true
-    every_composed_cause_retains_its_own_requirements: true
-  post_terminal_ci_environment_reset:
-    required_cause: POST_TERMINAL_NEW_CI_ENV
-    exact_external_evidence_and_first_available_time_required: true
-    underlying_item_objectively_not_supportable_from_prior_required_source_evidence_required: true
-    prior_source_discoverable_disposition: REVIEWER_MISS_EXCEPTION_OR_REPEATED_REVIEWER_MISS_BLOCKED
-    full_review_mode_required: true
-    exceptional_mode_allowed_only_when_reviewer_miss_cause_is_also_present: true
-    may_not_relabel_reviewer_miss: true
-  mutable_to_immutable_rebind:
-    required_cause: MUTABLE_TO_IMMUTABLE_REBIND
-    at_least_one_repository_must_transition:
-      prior_candidate_must_be: WORKTREE_SNAPSHOT
-      current_candidate_must_be: IMMUTABLE_COMMIT_AND_TREE
-    current_candidate_for_every_repository_must_be: EXACT_IMMUTABLE_OR_VERIFIED_MUTABLE_BINDING
-    certificate_requires_all_repositories_immutable: true
-    prior_immutable_repository_binding_must_remain_exact_unless_another_transition_cause_authorizes_and_evidences_its_change: true
-    prior_and_current_binding_required_per_repository: true
-    full_review_mode_required: false
-    mode_depends_on_verified_delta_and_all_copresent_causes: true
-    missing_equivalence_or_bounded_delta_requires_full_review: true
-    mutable_approval_may_be_converted_to_certificate: false
-    delta_reuse_allowed_only_under_evidence_reuse_policy: true
-    new_review_id_candidate_binding_and_verdict_required: true
-
-invalidated_attempt_lineage:
-  separate_from_prior_terminal_chain: true
-  required_after_mutable_snapshot_drift_without_terminal: true
-  transition_reason_must_equal: MUTABLE_SNAPSHOT_DRIFT_REBIND
-  terminal_artifact_must_equal: N/A
-  required_fields:
-    - invalidated_review_id
-    - old_snapshot_digest
-    - new_snapshot_digest
-    - resolved_snapshot_script_path_and_digest
-    - exact_argv
-    - exact_drift_evidence
-    - evidence_reuse_decisions
-  invalidated_verdict_may_be_reused: false
-  validation_reuse_requires_verified_unaffected_inputs: true
-  may_be_present_with_prior_terminal_chain: true
+  single_authoritative_record: true
+  allowed: [embedded, readable_versioned_artifact]
+  required: [review_id, reviewer, mode, scope_lock, repositories, coverage, blocking_items, evidence_refs, source_verdict]
+  machine_appendices: [candidate_manifests, raw_command_output, binding_receipts]
+  report_full_copy_of_appendices: false
+  verify_version_and_digest_on_first_use_or_change: true
+  relevant_primary_evidence_must_be_read: true
+  binding_revision_without_semantic_review: true
+  empty_conditional_appendices_required: false
+  legacy_read_compatibility: true
 
 scope_lock_binding:
-  digest_script: scripts/scope_lock_digest.py
-  payload_schema: testany.code-reviewer.scope-lock.v1
-  payload_is_closed: true
-  arrays_are_canonical_unordered_sets: true
-  content_digest_required_after_charter_freeze: true
-  terminal_artifact_must_reference_persisted_charter_with_digest_or_embed_full_canonical_payload: true
-  pre_charter_evidence_blocked_exception:
-    allowed: true
-    scope_lock_value: NOT_FROZEN
-    must_bind_all_available_inputs: true
-  complete_boundary_fields:
-    - in_scope
-    - out_of_scope
-    - must_not_change_or_regress
-    - architecture_budget
+  tool: scripts/scope_lock_digest.py
+  schema: testany.code-reviewer.scope-lock.v1
+  canonical_payload_required: true
+  digest_is_authorization: false
+  normal_remediation_changes_semantic_scope: false
+  original_authorized_decision_required: true
+  unknown_values: [NOT_BOUND, NOT_FROZEN]
 
 severity:
-  P0:
-    blocks_approval: true
-    evidence_required: true
-  P1:
-    blocks_approval: true
-    evidence_required: true
-  P2:
-    blocks_approval: false
-    count_threshold: null
+  P0: {blocks_approval: true, evidence_required: true}
+  P1: {blocks_approval: true, evidence_required: true}
+  P2: {blocks_approval: false, count_threshold: null}
 
 scope:
   baseline_driven: true
   unlisted_architecture_surface_authorized: false
-  author_claim_is_approval: false
-  architecture_surfaces:
-    - service_or_workload
-    - controller_worker_or_runner
-    - endpoint_rpc_event_or_wire_version
-    - table_schema_or_durable_authority
-    - queue_topic_or_outbox
-    - crypto_purpose_or_key_authority
-    - secret_or_rbac_identity
-    - publisher_or_consumer
-    - deployment_topology_or_shared_infrastructure
+  author_claim_or_old_reviewer_comment_is_approval: false
+  semantic_trust_ownership_dependency_changes_are_surfaces: true
   candidate_out_of_budget_delta:
-    boundary_preserving_revert_or_delete_available: CHANGES_REQUIRED_AS_STANDARD_P1_SCOPE_VIOLATION
-    main_reviewer_converts_to_standard_finding: true
-    required_severity: P1
+    boundary_preserving_revert_available: P1_SCOPE_VIOLATION
     minimum_fix: REVERT_OR_DELETE_UNAPPROVED_DELTA
-    resulting_architecture_surface_delta: none
-    reviewer_may_offer_expansion_instead_of_revert: false
-  scope_decision_required_when:
-    - approved_baselines_conflict_or_are_ambiguous
-    - minimum_correct_fix_requires_unapproved_surface
-  explicit_expansion_request_disposition: UPDATE_APPROVED_BASELINE_THEN_FREEZE_NEW_SCOPE_LOCK
-  independent_in_scope_review_continues_when_scope_proposal_exists: true
-  scope_contaminated_ranges_are_recorded_as_gaps: true
-  scope_proposal_may_be_converted_to_finding: false
+    offer_expansion_instead_of_revert: false
+  scope_decision_required_when: [approved_baseline_ambiguous_or_conflicting, minimum_correct_fix_requires_unapproved_surface]
+  independent_in_scope_review_continues: true
   complexity_boundary:
-    no_new_architecture_surface_is_sufficient_justification: false
-    review_minimum_fix_operational_and_maintenance_cost: true
-    additional_manual_steps_gates_configuration_and_approvals_require_invariant_justification: true
+    evaluate_manual_steps_gates_configuration_approvals_and_maintenance: true
     prefer_narrowing_false_claim_over_building_proof_infrastructure: true
-    narrowing_false_claim_may_weaken_approved_requirements: false
-    generic_complexity_score_or_zero_guard_policy_required: false
+    weakening_approved_requirements_allowed: false
+    new_complexity_scoring_gate_required: false
 
 optional_work:
   mandatory_remediation_contains_only_confirmed_p0_p1: true
@@ -393,380 +137,112 @@ optional_work:
   bundled_suggestion_to_close_all_p2_this_round_allowed: false
 
 finding:
-  required_identity_fields: [finding_id, severity, scope_classification]
-  allowed_provenance:
-    - initial_review
-    - remediation_delta
-    - previously_unavailable_evidence
-    - reviewer_miss
-    - post_terminal_new_ci_env
-  provenance_by_review_mode:
-    initial_full_review:
-      - initial_review
-      - post_terminal_new_ci_env
-    remediation_delta_review:
-      - remediation_delta
-      - previously_unavailable_evidence
-    exceptional_full_review_after_reviewer_miss:
-      - initial_review
-      - remediation_delta
-      - previously_unavailable_evidence
-      - reviewer_miss
-      - post_terminal_new_ci_env
-  reviewer_miss_provenance_requires_exceptional_mode: true
-  post_terminal_new_ci_env_provenance_requires_matching_full_review_cause: true
-  required_for_p0_p1:
-    - provenance
-    - violated_frozen_invariant
-    - exact_evidence
-    - reproducer_or_failure_path
-    - impact
-    - minimum_boundary_preserving_fix
-    - architecture_surface_delta
-  conditionally_required_fields:
-    within_approved_budget: [architecture_budget_reference]
-    previously_unavailable_evidence: [prior_evidence_blocker_id, prior_evidence_blocker_restoration_evidence, why_not_discoverable_previously]
-    post_terminal_new_ci_env: [prior_terminal_chain_reference, underlying_item_prior_source_nondiscoverability_evidence, why_not_discoverable_previously]
-    reviewer_miss: [prior_terminal_chain_reference, prior_candidate_discoverability_evidence]
-    continued_or_late_cause: [causal_history]
-  unused_conditional_fields_require_na_rows: false
-  allowed_architecture_surface_delta_for_p0_p1:
-    - none
-    - within_approved_budget
-  unapproved_architecture_surface_delta_allowed: false
-  best_practice_without_baseline_is_finding: false
-  pre_existing_issue_blocks_candidate: false
-  pre_existing_issue_may_block_when_candidate_expands_or_depends_on_it: true
-  previously_unavailable_evidence:
-    prior_evidence_blocker_id_required: true
-    same_invariant_and_range_required: true
-    exact_restoration_evidence_required: true
-    missing_prior_blocker_disposition: REVIEWER_MISS
-  post_terminal_new_ci_env:
-    prior_evidence_blocker_id_must_be_absent_or_na: true
-    prior_terminal_chain_must_include_cause: POST_TERMINAL_NEW_CI_ENV
-    exceptional_mode_requires_reviewer_miss_cause_too: true
-    exact_external_evidence_and_first_available_source_or_time_required: true
-    underlying_item_non_discoverability_from_all_prior_required_source_evidence_required: true
-    prior_source_discoverable_disposition: REVIEWER_MISS
+  required: [finding_id, severity, scope_classification, provenance, violated_frozen_invariant, exact_evidence, reproducer_or_failure_path, impact, minimum_boundary_preserving_fix, architecture_surface_delta]
+  scope_classification: [in_scope, scope_violation]
+  provenance: [initial_review, remediation_delta, previously_unavailable_evidence, reviewer_miss, post_terminal_new_ci_env]
+  provenance_controls_scope_automatically: false
+  conditional_fields:
+    within_budget_surface: approved_budget_reference
+    restored_missing_evidence: prior_eb_and_restored_source
+    reviewer_miss: old_candidate_visibility_invalidated_closure_and_changed_validation_method
+  causal_classes: [original_unfixed, introduced_by_fix, pre_existing_unreported_cause]
+  stable_id_and_original_acceptance_required: true
+  same_open_issue_additional_cause_is_automatically_new_miss: false
+  missing_evidence_is_automatically_p1: false
 
 scope_proposal:
-  closed_fields:
-    - scope_proposal_id
-    - trigger
-    - provenance
-    - prior_evidence_blocker_id
-    - prior_evidence_blocker_restoration_evidence
-    - prior_terminal_chain_reference
-    - underlying_item_prior_source_nondiscoverability_evidence
-    - why_not_discoverable_previously
-    - conflicting_or_ambiguous_baselines
-    - approved_budget_reference
-    - exact_evidence
-    - why_revert_or_delete_is_not_a_correct_fix
-    - contaminated_paths_or_ranges
-    - minimum_owner_question
-    - boundary_preserving_recommendation
-    - expansion_option_consequence
-    - prior_candidate_discoverability_evidence
-    - causal_history
-  field_population: CORE_PROPOSAL_FIELDS_PLUS_APPLICABLE_PROVENANCE_FIELDS_ONLY
-  required_fields:
-    - scope_proposal_id
-    - trigger
-    - provenance
-    - conflicting_or_ambiguous_baselines
-    - approved_budget_reference
-    - exact_evidence
-    - why_revert_or_delete_is_not_a_correct_fix
-    - contaminated_paths_or_ranges
-    - minimum_owner_question
-    - boundary_preserving_recommendation
-    - expansion_option_consequence
-  provenance_fields_follow_finding_conditional_requirements: true
-  allowed_triggers:
-    - baseline_conflict
-    - ambiguous_baseline
-    - minimum_correct_fix_requires_unapproved_surface
-  allowed_provenance:
-    - initial_review
-    - remediation_delta
-    - previously_unavailable_evidence
-    - reviewer_miss
-    - post_terminal_new_ci_env
-  provenance_by_review_mode:
-    initial_full_review:
-      - initial_review
-      - post_terminal_new_ci_env
-    remediation_delta_review:
-      - remediation_delta
-      - previously_unavailable_evidence
-    exceptional_full_review_after_reviewer_miss:
-      - initial_review
-      - remediation_delta
-      - previously_unavailable_evidence
-      - reviewer_miss
-      - post_terminal_new_ci_env
-  ordinary_delta_allowed_provenance:
-    - remediation_delta
-    - previously_unavailable_evidence
-  previously_unavailable_evidence_requires_prior_blocker_id: true
-  post_terminal_new_ci_env:
-    prior_terminal_chain_reference_required: true
-    prior_terminal_chain_must_include_cause: POST_TERMINAL_NEW_CI_ENV
-    exceptional_mode_requires_reviewer_miss_cause_too: true
-    underlying_item_non_discoverability_from_all_prior_required_source_evidence_required: true
-    prior_source_discoverable_disposition: REVIEWER_MISS
-  reviewer_miss_disposition: ONE_EXCEPTIONAL_INDEPENDENT_FULL_REVIEW
-  generic_best_practice_allowed: false
-  directly_revertible_candidate_scope_violation_allowed: false
-  contaminated_ranges_must_match_coverage_gaps: true
-  higher_precedence_verdict_must_preserve_confirmed_proposals: true
+  required: [proposal_id, conflicting_or_missing_approval, affected_range, smallest_owner_question]
+  reviewer_can_approve_expansion: false
+  proposed_future_work_alone_blocks_current_candidate: false
 
 evidence_blocker:
-  closed_fields:
-    - evidence_blocker_id
-    - blocker_kind
-    - frozen_invariant
-    - repository_identity
-    - affected_paths_or_ranges
-    - missing_input
-    - smallest_restoration_evidence
-    - implicated_reviewer_identities
-    - prior_exception_terminal_artifact
-    - second_missed_item_id_type_and_evidence
-    - status
-  process_fields_required_only_for_review_process_integrity: true
-  allowed_kinds:
-    - candidate_binding
-    - approved_baseline
-    - source_access
-    - verification_evidence
-    - review_process_integrity
-  open_status: OPEN
-  each_evidence_or_assignment_gap_requires_blocker_id: true
-  previously_unavailable_evidence_must_reference_prior_blocker: true
-  review_process_integrity:
-    trigger: REPEATED_REVIEWER_MISS_WHEN_IMMEDIATE_PRIOR_MISSED_SCOPE_LOCK_RECOVERY_COUNT_EQUALS_ONE
-    must_bind_prior_exception_terminal_artifact_and_second_missed_item: true
-    prior_exception_terminal_artifact_must_be_persisted_or_canonical_embedded_base64_envelope: true
-    embedded_envelope_script: scripts/terminal_artifact_envelope.py
-    embedded_envelope_schema: testany.code-reviewer.embedded-terminal.v1
-    second_missed_item_id_type_and_exact_evidence_required: true
-    may_close_with_candidate_or_verification_evidence: false
-    restoration_requires_explicit_user_review_process_authority: true
-    blocker_must_list_all_implicated_main_reviewer_identities: true
-    restoration_main_reviewer_must_not_be_in_implicated_set: true
-    restoration_action: NEW_INDEPENDENT_INITIAL_FULL_REVIEW_FROM_REVIEW_ROOT
-    delta_review_after_closure_allowed: false
-  non_review_process_integrity_fields:
-    process_specific_fields_may_be_omitted_or_na: true
+  required: [blocker_id, missing_input, affected_range_or_invariant, smallest_restoration_evidence]
+  kinds: [candidate_binding, approved_baseline, source_access, verification_evidence]
+  repeated_miss_is_itself_evidence_blocker: false
+  unaffected_work_is_preserved: true
 
 production_evidence:
-  applies_to: TOUCHED_CRITICAL_PATHS_AND_FROZEN_INVARIANTS
-  required_evidence_dimensions:
-    - production_entry_and_input_provider_or_parser
-    - actual_helper_and_substitution_boundary
-    - independent_expected_result_source
-    - legal_illegal_error_and_side_effect_behavior
-    - direct_callers_branches_targets_and_recovery_sequences
-    - remaining_unproven_boundary
-  one_evidence_row_may_cover_multiple_findings: true
-  real_database_or_cluster_alone_proves_production_semantics: false
-  mock_of_reviewed_helper_proves_its_closure: false
-  current_output_generated_expected_hash_proves_approved_binding: false
-  source_string_order_proves_runtime_branch_execution: false
-  parser_comparison_uses_actual_owning_parser_semantics: true
-  alternate_parser_authority_may_be_invented: false
-  pair_required_legal_acceptance_with_illegal_rejection: true
-  inspect_normal_transitions_only_when_relevant: true
-  historical_terminal_and_active_terminating_objects_may_be_conflated: false
-  smallest_discriminating_existing_harness_preferred: true
-  universal_new_test_platform_or_per_file_matrix_required: false
+  require_for_touched_critical_paths:
+    - frozen_invariant
+    - production_entry_provider_parser_and_configuration
+    - actual_helper_and_explicit_substitution_boundary
+    - independent_oracle_and_source
+    - legal_illegal_and_failure_outcomes
+    - direct_consumers_branches_targets_and_retry_recovery
+  real_dependency_alone_proves_real_production_input: false
+  implementation_generated_expected_value_is_independent_oracle: false
+  static_string_order_or_test_name_proves_behavior: false
+  mock_of_reviewed_logic_proves_behavior: false
+  management_compiler_must_express_required_runtime_input_when_touched: true
+  new_hypothesis_requires_invariant_and_locatable_path: true
+  per_file_matrix_or_new_proof_platform_required: false
 
 behavior_closure:
-  trace_direct_consumers_of_same_invariant: true
-  include_ordinary_and_continuation_paths_when_present: true
-  include_all_approved_targets_when_present: true
-  inspect_cross_attempt_state_when_recovery_or_compensation_is_touched: true
-  one_line_change_is_sufficient_closure: false
-  scope_expansion_or_unrelated_repository_rescan_allowed: false
+  fix_one_line_is_sufficient: false
+  inspect_direct_consumers_and_shared_dependencies: true
+  stateful_failure_requires_relevant_consecutive_attempts: true
+  ordinary_and_continuation_branches_checked_when_affected: true
 
 evidence_reuse:
-  reference: references/evidence-reuse.md
-  allowed_layer: source_local
-  decisions: [REUSE, RERUN, BLOCKED]
-  all_required:
-    - same_verified_scope_and_approved_baselines
-    - prior_evidence_read_and_provenance_verified
-    - prior_and_current_original_content_reconstructable
-    - reviewed_delta_and_direct_dependency_closure
-    - exact_command_config_tool_inputs_and_external_fixture_identity
-    - independent_oracle_and_test_semantics_still_valid
-    - no_changed_input_to_the_reused_evidence
-  unknown_input_disposition: DO_NOT_REUSE_RESTORE_SMALLEST_CHECK
-  unchanged_file_or_commit_message_alone_is_sufficient: false
-  live_observation_reuse_as_current_state_allowed: false
-  exact_sha_ci_rebinding_allowed: false
-  invalidated_method_or_miss_affected_coverage_reuse_allowed: false
-  old_approval_automatically_inherited: false
-  rebind_requires_new_review_id_exact_candidate_and_verdict: true
-  delta_eligibility_also_requires_trustworthy_complete_prior_coverage_and_empty_gaps: true
-  changed_gate_inputs_require_rerun: true
-  unrelated_changed_files_automatically_invalidate_all_evidence: false
-  unreconstructable_or_unbounded_delta_disposition: INITIAL_FULL_REVIEW
+  require: [verified_prior_result, exact_content_binding, same_invariant_and_oracle, unaffected_or_reviewed_dependency_delta, equivalent_command_config_toolchain_fixture]
+  author_pass_without_primary_evidence_sufficient: false
+  trusted_complete_coverage_reusable: true
+  invalidated_coverage_reusable: false
+  unknown_dependency: RUN_SMALLEST_DISCRIMINATING_CHECK
+  live_evidence_transfer: false
+  exact_sha_ci_transfer: false
+  source_approval_carry: ONLY_BINDING_ONLY_REQUIREMENTS
+
+validation_ownership:
+  expensive_equivalent_run_owner: ONE_WRITER_OR_CI_EXECUTOR
+  reviewer_default: VERIFY_EVIDENCE_AND_RUN_MINIMAL_INDEPENDENT_PROBES
+  rerun_triggers: [relevant_inputs_changed, result_missing_or_untrustworthy, specific_invariant_not_covered]
+  concurrent_duplicate_run_allowed: false
+  check_actual_ci_entry_and_configuration_early: true
+  repeated_green_gate_without_new_fact_required: false
 
 review_independence:
-  build_critical_path_and_assumptions_before_author_pass_narrative: true
-  delta_prior_acceptance_conditions_must_not_be_hidden: true
-  reviewer_identity_or_count_alone_is_sufficient: false
-  changed_path_coverage_alone_is_behavior_proof: false
-  after_miss_requires_old_blind_spot_and_different_discriminating_method: true
-  main_reviewer_revalidates_subagent_evidence: true
-  maximize_finding_count_is_valid_objective: false
-
-skill_behavior_validation:
-  applies_only_when_maintaining_skill: true
-  reference: tests/evaluation.md
-  paired_defective_and_corrected_raw_cases_required: true
-  fixed_scope_p2_and_insufficient_evidence_controls_required: true
-  independent_forward_test_sees_expected_answers: false
-  raw_case_must_include_exact_source_binding_and_approved_requirement: true
-  evaluation_dimensions: [missed_defect, false_positive, scope_creep, convergence]
-  policy_string_tests_alone_are_quality_proof: false
-  reduced_fixture_claims_real_product_deployment_success: false
-
-evidence_layers:
-  source:
-    may_block_code_approval: true
-  ci:
-    missing_or_not_run_blocks_source_approval: false
-    failing_gate_may_prove_source_finding: true
-    report_status_separately: true
-    post_terminal_new_evidence_without_prior_blocker: NEW_INITIAL_FULL_REVIEW_FROM_REVIEW_ROOT_SCOPE_EFFECT_DERIVED_FROM_COPRESENT_APPROVED_SCOPE_CHANGING_CAUSE_OTHERWISE_SAME_ONLY_WHEN_UNDERLYING_ITEM_WAS_NOT_SUPPORTABLE_FROM_PRIOR_REQUIRED_SOURCE_EVIDENCE
-  environment:
-    missing_activation_evidence_blocks_source_approval: false
-    reproduced_candidate_defect_may_prove_source_finding: true
-    report_status_separately: true
-    post_terminal_new_evidence_without_prior_blocker: NEW_INITIAL_FULL_REVIEW_FROM_REVIEW_ROOT_SCOPE_EFFECT_DERIVED_FROM_COPRESENT_APPROVED_SCOPE_CHANGING_CAUSE_OTHERWISE_SAME_ONLY_WHEN_UNDERLYING_ITEM_WAS_NOT_SUPPORTABLE_FROM_PRIOR_REQUIRED_SOURCE_EVIDENCE
-
-remediation_rounds:
-  preserve_scope_lock: true
-  preserve_finding_ids: true
-  ordinary_remediation_delta_only: true
-  late_p0_p1_requires_explanation: true
-  prior_scope_proposals_and_evidence_blockers_may_disappear_silently: false
-  owner_decision:
-    preserves_scope_lock: CLOSE_PROPOSAL_WITH_EXACT_DECISION_EVIDENCE
-    changes_or_expands_scope: NEW_SCOPE_LOCK_AND_INITIAL_FULL_REVIEW
-  late_finding:
-    must_violate_same_frozen_invariant: true
-    ordinary_delta_allowed_triggers:
-      - remediation_delta
-      - previously_unavailable_evidence
-    reviewer_miss_is_not_an_ordinary_delta_finding: true
-    reviewer_miss_disposition: INVALIDATE_PRIOR_COVERAGE_AND_RUN_ONE_EXCEPTIONAL_INDEPENDENT_FULL_REVIEW
-    exceptional_full_review_scope_effect_is_derived_from_transition_causes: true
-    exceptional_full_review_consolidates_all_findings: true
-    repeated_miss_after_exception: EVIDENCE_BLOCKED_AND_HUMAN_REVIEW_PROCESS_DECISION
-    may_change_scope_or_acceptance_criteria: false
-    may_require_unapproved_architecture: false
-  p2_may_extend_review: false
-  causal_history:
-    applies_even_when_finding_id_is_unchanged: true
-    categories: [original_unfixed, introduced_by_fix, pre_existing_unreported_cause]
-    required_evidence: [prior_and_current_source, first_discoverability, prior_acceptance_and_status, reviewer_responsibility]
-    same_id_or_scope_exempts_miss_accountability: false
-    every_extra_cause_of_open_item_automatically_is_formal_miss: false
-    new_blocker_or_invalidated_closed_approved_path_requires_miss_assessment: true
-    silently_changed_acceptance_conditions_allowed: false
+  reconstruct_path_before_reading_author_conclusion: true
+  changed_method_required_for_invalidated_evidence: true
+  new_agent_identity_alone_is_independence: false
+  entire_review_must_be_repeated_by_main: false
 
 multi_repository_review:
-  shared_scope_lock_digest_required: true
-  complete_scope_lock_content_or_persisted_charter_required_for_each_subreviewer: true
-  digest_alone_is_not_review_input: true
-  coverage_ledger_required: true
-  bind_each_repository_and_reviewed_range: true
-  one_changed_path_manifest_per_repository: true
-  path_classification_is_repository_qualified: true
-  subreviewer_closed_result_extension: references/subagent-result-extension.md
-  conditional_pass_allowed: false
-  partial_status_allowed: false
-  scope_decision_blocked_ranges_must_be_empty_for_approval_or_delta_reuse: true
-  evidence_or_assignment_gaps_must_be_empty_for_approval_or_delta_reuse: true
-  mixed_candidate_binding:
-    any_mutable_repository_requires_overall_artifact: MUTABLE_WORKTREE_REVIEW_COMMENT
-    every_immutable_repository_row_retains_exact_candidate_and_tree: true
-    immutable_repository_may_be_represented_as_worktree_snapshot: false
-    snapshot_and_wip_appendices_apply_only_to_actual_mutable_repositories: true
-    mixed_comment_may_be_converted_to_immutable_certificate_after_commit: false
-  subagent_result_consistency:
-    ids_globally_unique_per_review_id: true
-    severity_counts_equal_findings: true
-    fail_when_any_p0_p1_scope_violation_or_scope_proposal: true
-    pass_requires_completed_assigned_coverage: true
+  shared_scope_and_exact_per_repo_bindings: true
+  main_computes_machine_manifest_once_per_binding: true
+  child_reads_own_assignment_and_needed_evidence: true
+  assignment_scopes_must_not_silently_overlap_or_leave_gaps: true
+  mixed_mutable_is_immutable_certificate: false
+  all_repos_must_satisfy_binding_receipt_requirements: true
 
 coverage:
-  candidate_changed_path_manifest_required: true
-  immutable_manifest_source: replacement_disabled_config_safe_git_diff_name_status
-  mutable_manifest_source: worktree_snapshot_manifest
-  immutable_manifest_digest: sha256_of_raw_git_diff_name_status_no_renames_z_stdout
-  mutable_manifest_digest_field: manifest.candidate_changed_paths_sha256
-  mutable_manifest_layers:
-    - base_to_index
-    - index_to_worktree
-    - untracked
-    - candidate_ignored
-    - raw_worktree_vs_index
-    - worktree_mode_vs_index
-    - submodule_head_vs_index
-  candidate_owned_ignored:
-    explicit_snapshot_option: --candidate-ignored
-    must_enter_changed_path_manifest: true
-    mutable_baseline_option_may_substitute: false
-  immutable_allowed_path_classifications:
-    - in_scope
-    - scope_violation
-  mutable_allowed_path_classifications:
-    - in_scope
-    - scope_violation
-    - verified_filtered_baseline
-  verified_filtered_baseline:
-    mutable_only: true
-    sole_manifest_change_required:
-      layer: raw_worktree_vs_index
-      status: RAW
-    filter_or_eol_evidence_required: true
-    prior_raw_bytes_evidence_required: true
-  excluded_wip_reconciliation:
-    mutable_only: true
-    snapshot_exclude_required: true
-    must_be_absent_from_changed_path_manifest: true
-    attempt_charter_or_terminal_artifact_reference_required: true
-    semantic_scope_lock_payload_reference_allowed: false
-    immutable_diff_may_be_excluded_as_wip: false
-    committed_candidate_path_or_ancestor_descendant_may_be_excluded: false
-  every_candidate_owned_path_must_be_classified: true
-  every_changed_path_manifest_entry_must_be_classified: true
-  raw_worktree_vs_index_requires_explicit_ownership_or_verified_filter_baseline: true
-  worktree_mode_and_submodule_head_mismatches_require_classification: true
-  unclassified_paths_must_be_empty: true
-  gap_types:
-    evidence_or_assignment_gaps:
-      verdict_when_nonempty: EVIDENCE_BLOCKED
-    scope_decision_blocked_ranges:
-      must_match_scope_proposal_contaminated_ranges: true
-      verdict_when_nonempty_without_evidence_gap: SCOPE_DECISION_REQUIRED
+  first_review_all_in_scope_changed_paths: true
+  paths_include_modes_submodules_untracked_and_candidate_ignored: true
+  changed_path_classifications: [in_scope, scope_violation, verified_filtered_baseline]
+  filtered_baseline_requires: ONLY_RAW_WORKTREE_VS_INDEX_CHANGE_AND_FILTER_EOL_AND_PRIOR_RAW_PROOF
+  mode_or_submodule_change_can_be_filtered: false
+  required_gap_sets: [unclassified, scope_decision_blocked_ranges, evidence_or_assignment_gaps]
+  scope_gap_requires: SD_REFERENCE
+  evidence_or_assignment_gap_requires: EB_REFERENCE
+  path_coverage_replaces_behavior_evidence: false
+  delta_reuses_trusted_coverage_and_completes_affected_range: true
+
+coordination:
+  events: [candidate_ready, substantive_findings, blocker_change, final_verdict]
+  reply_to_ack_required: false
+  unchanged_status_message_or_new_review_turn_required: false
+  wait: CURSOR_BASED_BOUNDED_WAIT_WITH_BACKOFF
+  forward_full_record_on_every_handoff: false
 
 approval_stop_condition:
-  p0_count: 0
-  p1_count: 0
-  unresolved_scope_proposals: 0
-  open_evidence_blockers: 0
-  required_source_local_gates_complete: true
-  required_evidence_complete: true
-  candidate_binding_stable: true
-  initial_full_coverage_complete: true
-  multi_repository_coverage_reconciled_when_applicable: true
-  scope_decision_blocked_ranges: []
-  evidence_or_assignment_gaps: []
+  all_required: [p0_p1_zero, prior_blockers_closed, no_open_sd_or_eb, necessary_source_evidence_complete, candidate_stable, trusted_complete_coverage, all_gap_sets_empty]
+  p2_ci_not_run_or_environment_pending_blocks_source: false
+  approval_grants_external_action_permission: false
+  continue_after_conditions_met: false
+
+skill_behavior_validation:
+  mechanical_regressions: [snapshot, scope_lock, terminal_envelope, candidate_binding, policy, behavior_cases]
+  independent_blind_review: true
+  minimum_cases: [one_of_CRB_001_003_005, CRB_008, paired_r2_delta]
+  optimization_cases: [bounded_repeated_miss, identical_content_rebinding, relevant_change_invalidates_reuse]
+  judge: [misses, false_positives, scope, convergence, unnecessary_work]
