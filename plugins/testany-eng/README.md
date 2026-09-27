@@ -4,7 +4,7 @@
 
 研发流程工具集：从业务需求、设计到源码评审、测试设计与运维准备的完整链路。
 
-SkillDock 已迁移为独立的 [skilldock 插件](../skilldock/README.md)。testany-eng 2.4.1 包含 21 个研发 skills；需要图形管理器时单独安装 SkillDock。
+SkillDock 已迁移为独立的 [skilldock 插件](../skilldock/README.md)。testany-eng 2.5.0 包含 21 个研发 skills；需要图形管理器时单独安装 SkillDock。
 
 ## 概述
 
