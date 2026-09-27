@@ -1,6 +1,6 @@
 # Plugin 发现与发布维护
 
-仅在新增/删除/重命名 skill、调整 marketplace/plugin manifest、组件路径、symlink、安装发现或准备发布时读取本文件。普通文案/局部实现编辑无需自动执行全部安装发布流程。
+在新增/删除/重命名 skill、调整 marketplace/plugin manifest、组件路径、symlink、安装发现或准备合并远程 `main` 时读取本文件。**合并远程 `main` 就是发布**，普通文案或局部实现只要纳入该次合并，同样执行适用的发布准备；仅本地或功能分支开发不因此自动合并或安装。
 
 ## 事实源与结构
 
@@ -52,10 +52,24 @@ SkillDock 和 TeamDesk 使用 Codex 的 `.codex-plugin/plugin.json`；其他插�
 
 来源：[Agent Skills 字段规范](https://agentskills.io/specification)、[Claude frontmatter](https://code.claude.com/docs/en/skills#frontmatter-reference)、[Claude hook 的 once 与生命周期](https://code.claude.com/docs/en/hooks#hooks-in-skills-and-agents)。Claude skill hook 默认延续到后续轮次；once 仅在成功运行后注销，失败、阻止或超时仍可保留，因此有限补救还需重入及任务范围保护。它不能挪成 plugin 全局 hook，也不能只挪到与 skill 同名、可能被 skill 优先覆盖的 command。
 
-## 发布准备与授权
+## Main 即发布
 
-- 发布前核对根 README、marketplace、plugin README/plugin.json 与 CHANGELOG 的实际变化；仅更新本次相关内容，不无条件重写所有字段。
-- 显式版本每次发布递增，仍只能有一个 authority。日常源文件修改和本地验证不等于发布，默认不自动 bump version。TeamDesk 按用户明确约定执行：每次本地迭代升 patch，每次合并远程 main 升 minor，major 由用户决定；具体同步与授权边界见 [TeamDesk 版本规则](../plugins/teamdesk/AGENTS.md#版本规则)。
-- 发布时即使只修改插件目录内随包分发的 README、图片等内容，也需要递增该插件版本；同版本内容变化会与安装缓存产生差异，不能作为不升版本的文档例外。
-- 发布、安装、缓存刷新、远程测试、commit/push 各自按用户授权执行；只做源码整改时停在源码和验证证据，不宣称安装端已生效。
-- 当前工作区已有未提交修改时保留其内容；报告区分本轮变更与已有变更，不用 reset/checkout 覆盖。
+本仓库以远程 `main` 分发。**任何内容进入远程 `main` 即已发布**，包括 skill、应用、脚本、文档、资源、测试和仓库规则。不能把一次合并当成“仅源码更新”而等以后再升版，也无需等 tag、GitHub Release 或用户安装才承认发布。仅本地或功能分支修改可暂记 `Unreleased`；准备合并时必须完成对应发布准备。
+
+用户明确授权合并 `main`，即授权该次仓库发布及必要的版本、记录和验证工作，不另拆一个“发布许可”重复询问。仅有本地编辑或 feature 分支 push 授权时，不自行扩大为 main 合并。本机安装、缓存刷新和其他外部操作仍按已有任务授权执行，不能由 main 发布自动推导。
+
+### 影响范围与版本
+
+- 相对最新远程 `main` 检查完整候选差异，依据 marketplace source、实际组件范围和共享资源引用定位受影响插件，不能只看当前提交或顶层目录名。
+- 受影响插件的显式版本必须高于远程 `main` 的对应版本；分支之前已升过版，也要防止并行 PR 导致同版本内容不同。保持单一 version authority；采用 source resolved version 的插件必须核实解析结果随该次提交变化，不能凭空新增第二 authority。
+- 插件内随包分发的 README、图片、规则和其他资源变化也必须升版，不设“仅文档”或“小修复”例外；共享文件或发现配置改变多个插件时，逐个评估并递增受影响版本。
+- 根级文档、仓库规则和测试也随 main 发布并进入本轮记录；若不影响任何插件的分发内容、发现或运行行为，可不改插件版本，但需在 PR 中说明影响范围，不能把这类合并称为“未发布”。不为未受影响的插件空升版本。
+- 默认按 SemVer 决定增量：修复及文档/资源更新升 patch，新增兼容能力升 minor，不兼容变更按 major 处理；更具体的用户约定优先。TeamDesk 保留每次本地迭代升 patch、每次合并远程 main 升 minor、major 由用户决定的规则，见 [TeamDesk 版本规则](../plugins/teamdesk/AGENTS.md#版本规则)。同一次发布的多个提交不要求反复递增。
+
+### 合并前与合并后
+
+1. **取最新基线**：刷新远程 `main`，保留工作区已有修改，确认本轮允许范围；只检查、提交和发布属于本轮的内容，不用 reset/checkout 覆盖其他工作。
+2. **同步发布内容**：在待合并分支完成版本递增；核对根/plugin README、marketplace、plugin.json，以及存在时的应用版本、锁文件和界面版本。只同步实际受影响项，历史版本记录保留原值。
+3. **整理变更记录**：将本次发布项从 `Unreleased` 移到带插件版本和日期的记录；没有独立版本号的仓库规则/文档变更使用日期记录，不虚构仓库级版本。不要把无关历史条目一并标成已完成验收。
+4. **验证后合并**：执行相关本地检查与仓库发现校验，核对版本唯一性及相对当前 main 的递增。在 PR 写明受影响插件、前后版本与实际验证；合并前再核实目标基线和检查状态，必要时更新候选。版本或必要检查未完成，不能先合并后补票。
+5. **读回发布结果**：核实 PR 已合并、远程 `main` 包含预期提交，以及对应 commit 上的插件版本和发布记录；报告实际发布版本与提交。main 发布不等于本机安装、缓存刷新或真实宿主行为验证已完成。

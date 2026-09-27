@@ -234,7 +234,7 @@ GitHub 来源更新：先执行 `"$CODEX_CLI" plugin marketplace upgrade testany
 
 ## 关于本仓库
 
-Skills 是包含指令、脚本和资源的文件夹，Agent 可以按需加载它们来完成特定任务。维护本仓库的 skill 或安装发现配置时，按任务范围使用[开发与发布约定](docs/plugin-development.md)；普通局部编辑不自动安装、发布或改版本。
+Skills 是包含指令、脚本和资源的文件夹，Agent 可以按需加载它们来完成特定任务。**本仓库任何内容合并到远程 `main` 就是发布**；合并前必须完成受影响插件的版本递增、变更记录和验证，插件内文档或资源改动也不例外。具体规则见[开发与发布约定](docs/plugin-development.md#main-即发布)。仅本地或功能分支编辑不自动触发合并、安装或缓存刷新。
 
 <a id="仓库结构"></a>
 
