@@ -166,8 +166,8 @@ GitHub 来源更新：先执行 `"$CODEX_CLI" plugin marketplace upgrade testany
 | `/testany-eng:uc-interviewer` | 复用已知流程，仅补问未决分支，产出带 metadata、步骤级边界和真实 checkpoint 的 User Journey |
 | `/testany-eng:prd-writer` | PRD 写作技能，支持多种类型：新功能、第三方集成、重构、优化 |
 | `/testany-eng:prd-reviewer` | PRD 审查专家，作为「准出门禁」从多角色视角全面审查 |
-| `/testany-eng:prototype-designer` | 交互原型设计助手，在前端仓库中基于 PRD + User Journey 生成可交互原型 |
-| `/testany-eng:prototype-reviewer` | 原型评审门禁，检查上游对齐、交互完整性、工程隔离与下游输入质量 |
+| `/testany-eng:prototype-designer` | 高保真交互原型设计，基于 PRD + Journey 确定视觉方向、实现隔离原型并实际复验 |
+| `/testany-eng:prototype-reviewer` | 原型评审门禁，检查上游对齐、视觉品质与真实交互、工程隔离及下游输入 |
 | `/testany-eng:api-writer` | API 契约撰写助手，支持 9 种协议，PRD→Contract 100% 覆盖检查 |
 | `/testany-eng:api-reviewer` | API 契约评审门禁，检查完整性/一致性/兼容性 |
 | `/testany-eng:guardrails-writer` | 工程规范编写助手，产出项目级 Guardrails |

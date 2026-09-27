@@ -153,8 +153,8 @@ flowchart TD
 | BRD 写完了，要细化或整理用户操作流程 | `/uc-interviewer` | 复用已知流程，只补问缺口，检查 Journey 内容与批准 |
 | 要写产品需求文档 | `/prd-writer` | 基于 BRD + Journey 撰写 PRD |
 | PRD 写完了，需要独立评审 | `/prd-reviewer` | 多角色视角审查 |
-| 有 PRD + User Journey，要在前端仓库先验证交互 | `/prototype-designer` | 生成隔离原型，提前暴露交互、状态和导航问题 |
-| Prototype 做完了，需要作为 API/HLD 前的门禁 | `/prototype-reviewer` | 审查上游对齐、工程隔离和下游输入质量 |
+| 有 PRD + User Journey，要在前端仓库先验证交互 | `/prototype-designer` | 生成视觉精美的隔离原型，验证视觉方向、交互、状态和导航 |
+| Prototype 做完了，需要作为 API/HLD 前的门禁 | `/prototype-reviewer` | 审查上游对齐、视觉与交互证据、工程隔离和下游输入质量 |
 | PRD 准出了，要定义 API 契约 | `/api-writer` | 输出 OpenAPI/gRPC/Event 等契约 |
 | API 契约写完了，需要评审 | `/api-reviewer` | 检查契约完整性与一致性 |
 | 需要制定项目级工程规范 | `/guardrails-writer` | 建立全局 Guardrails（不随功能重复） |
@@ -334,17 +334,19 @@ flowchart TD
 
 ### prototype-designer
 
-**用途**：在前端仓库中生成可交互的 UI 原型，在进入 API Contract / HLD 之前验证交互模式和流转逻辑
+**用途**：在前端仓库中生成或打磨视觉精美的高保真 UI 原型，在进入 API Contract / HLD 之前验证视觉方向与交互流程
 
 **特点**：
-- 原型服务于验证，不是生产代码
+- 视觉精美、交互完整和工程隔离共同作为质量目标；用户明确要求线框稿时按其保真度执行
+- Visual Brief 与最小设计 token：成熟系统继承、不完整系统补齐、新项目建立基线
+- 先打磨代表页，再扩展页面；浏览器观察与截图、真实操作、修正复验形成证据
 - 默认沙箱隔离，避免污染生产目录
 - 优先复用仓库现有组件、路由和样式体系
 - 用 mock 数据提前暴露页面状态和数据需求
 - 页面可追溯到 User Journey 节点和 PRD 需求
 
 **输入**：PRD 路径 + User Journey 路径
-**输出**：原型沙箱目录 + Prototype Manifest + 交付摘要
+**输出**：原型沙箱目录 + Prototype Manifest（含 Visual Brief / 状态矩阵）+ 交付摘要（含视觉/交互证据及未验证范围）
 
 **示例**：
 ```
@@ -355,11 +357,12 @@ flowchart TD
 
 ### prototype-reviewer
 
-**用途**：作为 Prototype 进入 API Contract / HLD 前的独立门禁，审查上游对齐、交互完整性、工程隔离和下游输入质量
+**用途**：作为 Prototype 进入 API Contract / HLD 前的独立门禁，审查上游对齐、视觉品质与真实交互、工程隔离和下游输入质量
 
 **特点**：
-- 四道门审查：上游对齐 → 原型完整性 → 工程隔离 → 下游可用性
+- 四道门审查：上游对齐 → 原型体验与完整性 → 工程隔离 → 下游可用性
 - 强调沙箱目录、路由前缀、零依赖新增、零生产文件改动
+- 视觉结论看实际页面/截图，行为结论核对真实操作；工具缺失记证据缺口，专项检查保持范围
 - 同时检查 Prototype 对 API Contract 和 HLD 的输入是否清晰
 - 严格准出：无未关闭 P0/P1、必要证据充分；P2 不按数量阻断
 

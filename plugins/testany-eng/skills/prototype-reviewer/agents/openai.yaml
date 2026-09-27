@@ -1,6 +1,6 @@
 interface:
   display_name: "Prototype Reviewer"
-  short_description: "Review prototype alignment and readiness"
+  short_description: "Review prototype visuals, interactions and readiness"
   icon_small: "./assets/testany-logo-small.png"
   icon_large: "./assets/testany-logo.svg"
-  default_prompt: "Use $prototype-reviewer to review the prototype in this sandbox directory."
+  default_prompt: "Use $prototype-reviewer to review the prototype visual quality, actual interactions, isolation and readiness."

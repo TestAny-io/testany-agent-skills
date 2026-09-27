@@ -1,6 +1,6 @@
 interface:
   display_name: "Prototype Designer"
-  short_description: "Generate interactive UI prototypes from PRD and User Journey"
+  short_description: "Create polished, interactive prototypes with visual validation"
   icon_small: "./assets/testany-logo-small.png"
   icon_large: "./assets/testany-logo.svg"
-  default_prompt: "Use $prototype-designer to create an interactive prototype in this frontend repo."
+  default_prompt: "Use $prototype-designer to create a polished interactive prototype from the PRD and User Journey, then inspect its visuals and behavior."

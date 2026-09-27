@@ -6,10 +6,14 @@ This document defines the output format template of prototype-reviewer.
 
 ---
 
-## Review report (failed)
+## Review Report (Changes Required or Evidence Pending)
 
 ```markdown
-#Prototype review report
+# Prototype review report
+
+- Review binding: [object/version/digest if available; scope; criteria/version; initial/delta/closeout]
+- Coverage: [checked; unchecked; reused evidence and validity]
+- Approval impact: [kind, stable issue IDs and closure evidence]
 
 ## Basic Information
 
@@ -18,11 +22,12 @@ This document defines the output format template of prototype-reviewer.
 | sandbox directory | [path] |
 | PRD source | [path] |
 | User Journey Source | [Path] |
-| Delivery Summary | [Path / Missing (P1)] |
+| Delivery Summary | [path / missing: evidence_gap and affected conclusions; scoped review stays scoped] |
+| Visual Brief | [location, fidelity, visual authority, target viewports/themes] |
 | Change baseline | [commit range / worktree + ownership confirmation] |
 | Review time | YYYY-MM-DD |
 | Review Rounds | Round N |
-| Review conclusion | **Failed** |
+| Review conclusion | [changes required / evidence pending, not approved / scoped result, no full approval] |
 
 ## Gate 1: Upstream Alignment
 
@@ -35,13 +40,22 @@ This document defines the output format template of prototype-reviewer.
 - Journey step coverage: X / Y (Z%)
 - Gate 1 conclusion: [assessed result / evidence gap and unreviewed scope]; continue independent checks even when this gate cannot pass. A missing delivery summary is not automatically P1; a scoped isolation review does not require completing Gate 4.
 
-## Gate 2: Prototype Integrity
+## Gate 2: Prototype Experience and Completeness
 
-- P0 Journey Happy Path Reachability: [All Access/Breakpoint List]
+- P0 Journey Happy Path: [actually exercised / breakpoints / unverified with reason]
 - State matrix coverage: M covered / total T (Z%)
-- Navigation Completeness: [All Access / Missing List]
+- Navigation: [actually exercised / missing paths / unverified with reason]
+- Visual quality: [hierarchy, type, color, density, details, page/state consistency and adaptation against Brief]
+- Usability: [actual keyboard/focus/contrast/forms/recovery results as applicable]
+- Evidence coverage: [current implementation binding; inspected screenshots and executed actions; valid reuse; unchecked scope]
 
-## Door Three: Engineering Isolation
+| Evidence ID | Page/state/viewport | Screenshot/runtime record | Observation/action and expected → actual | Source and validity | Issue/recheck |
+|---|---|---|---|---|---|
+| EV-01 | [route, state, width×height/theme] | [real path] | [specific observation/result] | [independent run/valid reuse; implementation binding] | [stable ID / none; recheck] |
+
+> Screenshots do not prove behavior; code checks do not prove appearance. Missing evidence is an evidence_gap, not automatically a product P1.
+
+## Gate 3: Engineering Isolation
 
 | Check items | Results |
 |--------|------|
@@ -61,16 +75,15 @@ This document defines the output format template of prototype-reviewer.
 
 ## Question list
 
-| # | Level | Gate | Problem description | Evidence location | Suggested changes |
-|---|------|-----|---------|---------|---------|
-| 1 | P0 | Gate 3 | [Description] | [File: Line number] | [Modification suggestions] |
-| 2 | P1 | Gate 1 | [Description] | [PRD:REQ-XX] | [Modification Suggestions] |
+| ID | kind | Severity | Gate | Issue and impact | Evidence | Suggested fix | Status and closure evidence |
+|---|---|---|---|---|---|---|---|
+| VIS-01 | [defect/evidence_gap/scope_decision/optional] | [P0/P1/P2/not applicable] | Gate 2 | [specific impact] | [route/viewport/EV-* or file:line] | [minimal fix] | [open/closed; evidence] |
 
-## Release decision
+## Approval Decision
 
 | P0 | P1 | P2 | Conclusion |
 |----|----|----|----|
-| X pieces | Y pieces | Z pieces | **Failed** |
+| X | Y | Z | [changes required / evidence pending, not approved; evidence/scope decision status] |
 
 ## Next step
 
@@ -80,7 +93,9 @@ This document defines the output format template of prototype-reviewer.
 
 ---
 
-## Certificate of approval (passed)
+## Certificate of Approval (Passed)
+
+Use only after full applicable scope has no open P0/P1, required evidence is sufficient, and valid approval criteria are met. Template text is not proof that checks passed.
 
 ```markdown
 # Prototype approval certificate
@@ -96,27 +111,29 @@ This document defines the output format template of prototype-reviewer.
 | sandbox directory | [path] |
 | PRD source | [path] |
 | User Journey Source | [Path] |
-| Exact departure time | YYYY-MM-DD |
+| Approval date | YYYY-MM-DD |
 | Review Rounds | Round N |
 | Review Conclusion | **Passed** |
 
 ## Upstream alignment confirmation
 
-- PRD demand coverage: 100% (within the scope of this round)
+- PRD requirement coverage: [actual value and scope]
 - Journey step coverage: X / Y (Z%)
 
-## Prototype integrity confirmation
+## Prototype Experience and Completeness
 
-- P0 Happy Path: All access
+- P0 Happy Path: [actual coverage and evidence]
 - State coverage: M/T (Z%)
-- Navigation integrity: All access
+- Navigation: [actual results and evidence]
+- Visual/interaction: [Brief and current implementation binding; screenshots, viewports, states, actions, rechecks and coverage]
+- Unverified scope: [none / explain; missing required evidence prevents full approval]
 
 ## Project isolation confirmation
 
 - Zero violations in the sandbox
 - Zero dependency added
 - Zero unauthorized changes
--[ControlledExceptions:None/Verified(filepath)]
+- [Controlled exceptions: none / verified (file path)]
 
 ## Downstream availability confirmation
 
@@ -127,7 +144,7 @@ This document defines the output format template of prototype-reviewer.
 
 | P0 | P1 | P2 |
 |----|----|----|
-| 0 | 0 | ≤ 2 |
+| 0 | 0 | [actual count; does not block] |
 
 ## Review Process
 
@@ -140,7 +157,7 @@ This document defines the output format template of prototype-reviewer.
 
 prototype-reviewer
 
-## Confirmation of accurate departure
+## Approval Confirmation
 
 You can enter the API Contract / HLD stage:
 - `/testany-eng:api-writer`

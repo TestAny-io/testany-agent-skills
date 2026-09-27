@@ -12,7 +12,7 @@ After Phase 1.6 is completed, `_prototype-manifest.md` must be generated in the 
 |------|------|
 | PRD source | [PRD file path] |
 | User Journey source | [Journey file path] |
-| Front-end warehouse | [Warehouse root path] |
+| Frontend repository | [Repository root path] |
 | sandbox directory | [sandbox directory path] |
 | Routing prefix | [/prototype/] |
 | Creation time | YYYY-MM-DD |
@@ -21,17 +21,43 @@ After Phase 1.6 is completed, `_prototype-manifest.md` must be generated in the 
 
 | Item | Quantity |
 |------|------|
-| P0 Journey |
+| P0 Journey | X |
 | P1 Journey | Y (placeholder) |
 | Total number of pages | N |
 | Prototype budget trigger | [Not triggered / Triggered - user confirms the reduction scope] |
 
+### Visual Brief
+
+- **Audience and task**: [primary task, usage frequency, language, devices]
+- **Fidelity and direction**: [high fidelity by default / explicitly requested wireframe; visual character expressed as concrete choices]
+- **Authority and scope**: [user direction, existing brand/system, reference links or screenshots; inherit/extend/establish a baseline]
+- **Density and hierarchy**: [primary information/actions, grouping and spacing strategy with reasons]
+- **Representative page**: [page/route and rationale]
+- **Verification scope**: [target viewport width×height, themes, key states; exclusions and reasons]
+
+| Design dimension | Token/value and role | Source or new decision with rationale |
+|---|---|---|
+| Color | [background, surfaces, text, primary actions, statuses] | [actual path or sandbox addition] |
+| Typography | [headings, body, labels, supporting text, fallbacks] | [source/decision] |
+| Layout/spacing/density | [widths, breakpoints, spacing scale, control density] | [source/decision] |
+| Details/motion | [radii, borders, shadows, icons, applicable motion] | [source/decision] |
+
+**Page exceptions and open decisions**: [pages departing from the baseline and reasons / none; no unauthorized brand or production component changes]
+
 ### Page ↔ Journey ↔ PRD Traceability Table
 
-| # | Pages | Routes | Journey | Journey Steps | PRD Requirements | Status Overrides |
+| # | Pages | Routes | Journey | Journey Steps | PRD Requirements | State Coverage |
 |---|------|------|---------|-------------|---------|---------|
 | 1 | [Page Name] | /prototype/[Path] | [Journey Name] | [S1/S2/...] | [REQ-*] | Normal/Loading/Empty/Error/Boundary |
 | 2 | ... | ... | ... | ... | ... | ... |
+
+### Page State and Interaction Matrix
+
+| Page/route | State | Journey Step / Edge Case ID | Trigger | Visible outcome/primary action | Recovery/focus destination | Responsive changes |
+|---|---|---|---|---|---|---|
+| [page] | [normal/loading/empty/error/boundary] | [S1 / EC-01; identify generic additions] | [URL/demo control/actual action] | [display and behavior] | [recovery and focus] | [reflow/scrolling etc.] |
+
+> Every declared state must be demonstrable without editing code. Verify applicable hover/focus/pressed/disabled control states with the page; do not turn the business state matrix into a style inventory.
 
 ### Navigation relationship table
 
