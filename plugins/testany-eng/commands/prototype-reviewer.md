@@ -7,7 +7,7 @@ argument-hint: <沙箱目录路径> [PRD 路径] [User Journey 路径]
 
 执行前读取 [工作流执行约定](../references/workflow-execution.md)：先取证再提问、按实际工具能力回退，并从本次安装位置定位资源。
 
-启动原型审查流程。作为 prototype 进入 API Contract / HLD 阶段前的独立门禁，审查交互正确性、工程隔离安全性和下游输入质量。
+启动原型审查流程。作为 prototype 进入 API Contract / HLD 阶段前的独立门禁，审查视觉品质、真实交互、工程隔离安全性和下游输入质量。执行细则见 [prototype-reviewer](../skills/prototype-reviewer/SKILL.md)。
 评审先读取 [证据、准出与复审规则](../references/review-assurance.md)。P2 不按数量阻断；缺证据不等于产品缺陷；提前门禁失败不取消独立安全检查；完成本轮评审不等于批准工件。
 
 
@@ -30,11 +30,13 @@ PRD → UC Journey → Prototype Designer → [Prototype Reviewer] → API Contr
 - Journey 步骤是否完整映射到页面
 - PRD / Journey 齐备性
 
-### 第二道门：原型完整性
+### 第二道门：原型体验与完整性
 - P0 Journey Happy Path 可达性
 - 状态矩阵覆盖（正常/加载/空/错误/边界）
 - 跨页面导航完整性
 - P1/P2 预算裁剪合规
+- Visual Brief、排版/配色/布局/密度及约定视口的真实视觉表现
+- 当前实现的截图观察、实际操作与修正复验记录
 
 ### 第三道门：工程隔离（核心安全检查）
 - 沙箱目录完整性
@@ -52,6 +54,8 @@ PRD → UC Journey → Prototype Designer → [Prototype Reviewer] → API Contr
 - **P0 = 0**（任一 P0 即阻断）
 - **P1 = 0**（任一 P1 即不通过）
 - **P2 不按数量阻断**
+- 必要视觉/行为证据充分；缺失记 evidence_gap，待补证据、未准出，不自动定产品 P1
+- 专项检查保持用户范围，不因新增视觉标准要求补做全部门禁
 
 ## 必需产出
 

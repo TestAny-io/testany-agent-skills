@@ -16,6 +16,9 @@ Upon completion of Phase 3.6, a delivery summary must be output according to thi
 | Routing prefix | [/prototype/] |
 | Startup command | [Specific commands, including package manager and workspace location] |
 | Entry route | [/prototype/ or /prototype/index] |
+| Implementation binding | [commit / current diff or file digests; evidence capture time] |
+| Visual Brief | [Manifest location; fidelity, representative page, target viewports/themes] |
+| Delivery status | [self-check complete / draft, experience validation incomplete; reason] |
 
 ### Coverage Statistics
 
@@ -26,19 +29,18 @@ Upon completion of Phase 3.6, a delivery summary must be output according to thi
 | Total number of pages | N |
 | State coverage rate | Covered M / Total number of state matrices T (Z%) |
 
-### Page status override verification
+### Page State Verification
 
 | Page | Normal state | Loading state | Empty state | Error state | Boundary state |
 |------|-------|-------|------|-------|-------|
-| [Page 1] | ✅ | ✅ | ✅ | ✅ | N/A |
-| [Page 2] | ✅ | ✅ | N/A | ✅ | ✅ |
+| [Page 1] | [verified/failed/unverified] | [result] | [result/not applicable with reason] | [result] | [result] |
 | ... | ... | ... | ... | ... | ... |
 
 ### Component usage statistics
 
 | Category | Quantity |
 |------|------|
-| Reuse warehouse components | M |
+| Reused repository components | M |
 | Prototype new component [PROTOTYPE] | K pieces |
 
 ### Isolated Verification
@@ -55,24 +57,35 @@ Upon completion of Phase 3.6, a delivery summary must be output according to thi
 
 ### Quality check results
 
-Record the self-inspection results and evidence according to the 5 dimensions of `references/quality-checklist.md`.
+Record all five dimensions from `references/quality-checklist.md`. Use “verified / defect found / unverified / not applicable with reason”; do not prefill success. Separate visual and behavioral evidence. Missing required evidence is not a pass.
 
-| Dimensions | Results | Summary of Evidence |
-|------|------|---------|
-| Accessibility | ✅/⚠️/❌ | [For example: all buttons are native `<button>`; form labels are fully associated; 2 icon buttons have been added with `aria-label`] |
-| Mock data quality | ✅/⚠️/❌ | [For example: 3 entities all have normal/empty/boundary data sets; the `createdAt` field is the PRD undefined requirement discovered by the UI and has been marked in the Manifest] |
-| Component discipline | ✅/⚠️/❌ | [For example: reuse 6 warehouse components; create a new `[PROTOTYPE]` TaskCard, which has been recorded in the Manifest component gap] |
-| UI consistency | ✅/⚠️/N/A | [For example: the list page layout is aligned with the warehouse `/dashboard` page mode (header+filter+table); unified toast is used for feedback] / [Insufficient samples, skip] |
-| UX Walkthrough | ✅/⚠️ | [For example: automatic jump after successful creation (no redundant operations); empty state with CTA; details page with return button. Found 1 suggestion see question sheet below] |
+| Dimension | Result | Evidence summary |
+|---|---|---|
+| Accessibility | [actual result] | [keyboard/focus/semantics; contrast measurement method/results; unchecked items] |
+| Mock data quality | [actual result] | [normal/empty/boundary data; fields not defined by PRD] |
+| Component discipline | [actual result] | [reused/new components; style/token scope] |
+| Visual quality and consistency | [actual result] | [hierarchy, type, color, density, details, adaptation against Brief; new projects also checked] |
+| UX walkthrough | [actual result] | [actual Journey, submit/recovery, return, dialog/keyboard results] |
 
-> ⚠️ Indicates that the dimension is discovered but does not block delivery. Specific issues are recorded in the "Issues Found and Suggestions" table below.
+### Visual and Interaction Evidence
 
-### Issues found and suggestions
+Bind evidence to the implementation above. Recheck changes and update affected screenshots. Saving an image does not mean inspecting it; a static screenshot does not prove behavior.
 
-| # | Issues | Discover Sources | Impact | Recommendations for Downstream |
-|---|------|---------|------|------------|
-| 1 | [Problem Description] | [Source: Journey/Page/Status or QA-Dimension Name] | [Impact on User Experience/Data/Architecture] | [Implications for API Contract/HLD] |
-| 2 | ... | ... | ... | ... |
+| Evidence ID | Page/route | State | Viewport width×height/theme | Trigger/action | Screenshot/runtime record and observation | Expected → actual | Issue/recheck |
+|---|---|---|---|---|---|---|---|
+| EV-01 | [route] | [state] | [size/theme] | [actual action] | [real path; specific observation] | [expected and observed] | [issue ID / none; result after fix] |
+
+- **Coverage**: [observed pages/states/viewports and executed behavior; list placeholders separately]
+- **Unverified scope and reasons**: [capability gaps, failed commands, affected conclusions; none if complete]
+- **Visual refinement**: [specific issue → adjustment → recheck; explain observations when no changes were needed]
+
+### Issues and Suggestions
+
+| ID | kind | Severity | Page/state/viewport and evidence | Issue and impact | Fix suggestion/downstream input | Status and closure evidence |
+|---|---|---|---|---|---|---|
+| VIS-01 | [defect/evidence_gap/scope_decision/optional] | [P0/P1/P2/not applicable] | [location and EV-*] | [specific impact] | [suggestion] | [open/closed; recheck] |
+
+Grade defects by impact; missing evidence is not automatically a product defect. Pure preferences and minor polish are P2 and do not block by count. Open P0/P1 or missing required evidence means experience validation is incomplete. Self-check is not independent approval.
 
 ### Input to downstream
 
@@ -90,5 +103,5 @@ Record the self-inspection results and evidence according to the 5 dimensions of
 
 1. The team inspects the prototype and collects interactive feedback
 2. Iterate the prototype based on feedback (re-execute `/testany-eng:prototype-designer`)
-3. After the prototype is confirmed, execute `/testany-eng:api-writer` to define the interface contract
-4. Execute `/testany-eng:hld-writer` to start technical design
+3. Run `/testany-eng:prototype-reviewer` with complete evidence; list outstanding items for drafts
+4. After prototype approval, proceed to `/testany-eng:api-writer`, then HLD according to the workflow
