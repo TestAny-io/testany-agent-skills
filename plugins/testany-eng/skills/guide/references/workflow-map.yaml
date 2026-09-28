@@ -1,5 +1,6 @@
 version: 2
 notes:
+  - "Delivery Secretary is optional ongoing coordination, not an engineering gate; route explicit durable task/progress coordination before formal artifact scanning."
   - "Guardrails is cross-cutting, not a default mainline gate."
   - "Prototype is optional and only shown when repo or user intent justifies it."
   - "Code Review is an implementation gate after an exact Candidate exists; it is parallel to test-document preparation and does not imply deployment approval."
@@ -88,8 +89,13 @@ lanes:
     title: 实现与 Code Review 分支
   - id: guardrails
     title: 横切 Guardrails 分支
+  - id: delivery
+    title: 可选持续交付协调
 
 artifacts:
+  - id: DELIVERY_LEDGER
+    evidence_kinds: [explicit_delivery_ledger, existing_task_register]
+    filename_keywords: [delivery-ledger, task-register]
   - id: BRD
     filename_keywords: [brd]
   - id: USER_JOURNEY
@@ -122,6 +128,9 @@ artifacts:
     filename_keywords: [guardrails, engineering-standards, engineering_standards]
 
 artifact_routes:
+  - artifact: DELIVERY_LEDGER
+    creation_node: delivery-secretary
+    creation_command: /delivery-secretary
   - artifact: BRD
     creation_node: brd-interviewer
     creation_command: /brd-interviewer
@@ -177,6 +186,17 @@ artifact_routes:
     review_command: /guardrails-reviewer
 
 nodes:
+  - id: delivery-secretary
+    lane: delivery
+    kind: coordinator
+    command: /delivery-secretary
+    requires: []
+    show_when:
+      - ongoing_delivery_tracking_requested
+      - durable_goal_dependency_or_commitment_tracking_requested
+    produces: DELIVERY_LEDGER
+    next: []
+
   - id: brd-interviewer
     lane: main
     kind: interviewer

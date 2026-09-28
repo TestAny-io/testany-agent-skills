@@ -11,4 +11,4 @@ argument-hint: "[项目/目录路径] [可选：补充上下文]"
 
 $ARGUMENTS
 
-必须先应用 Skill 的决策层级与有限变更路由，并保留正式主流程、Implementation Code Review、Prototype、Guardrails 与 Testany Automation Landing。Guide 只做状态识别和导航，不替代 writer/reviewer 或授予设计/外部执行权限。
+必须先应用 Skill 的持续交付协调入口或工程决策层级与有限变更路由，并保留正式主流程、Implementation Code Review、Prototype、Guardrails 与 Testany Automation Landing。持续任务/进度维护可路由到 delivery-secretary，不插入工程门禁。Guide 只做状态识别和导航，不替代 writer/reviewer 或授予设计/外部执行权限。

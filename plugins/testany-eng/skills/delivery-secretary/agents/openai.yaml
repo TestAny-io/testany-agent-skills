@@ -1,0 +1,4 @@
+interface:
+  display_name: "Delivery Secretary"
+  short_description: "Track delivery goals, dependencies and open commitments"
+  default_prompt: "Use $delivery-secretary to maintain durable delivery records, track nested goals and dependencies, and proactively clarify progress with the authorized roles."

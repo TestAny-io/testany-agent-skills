@@ -19,13 +19,18 @@ description: 'Guide, workflow guide, 流程导航、我该用哪个 skill、下�
 
 - **Guide 是导航器，不是产出器**：不直接撰写 BRD/PRD/HLD/LLD/Test/Runbook，也不替代 reviewer 做准出判断。
 - **Guide 只做状态识别与路由建议**：扫描仓库、读取元数据、判断阶段、推荐下一步。
-- **Guide 服务于 `testany-eng` 主流程**，并补充四个特殊分支：
+- **Guide 服务于 `testany-eng` 主流程**，并补充五个特殊分支：
   - **可选分支**：Prototype
   - **实现门禁分支**：Implementation Candidate → Code Review
   - **可选分支**：Testany Automation Landing
   - **横切分支**：Guardrails
+  - **可选协作分支**：Delivery Secretary（持续目标/进度协调，不是工程门禁）
 
 ## 主流程边界
+
+### 持续交付协调入口
+
+用户要求长期维护任务/进度、跟踪多层拆解与依赖、回答原始清单剩余项或主动向其他角色核实时，从 `references/workflow-map.yaml` 的 delivery 节点推荐 `/delivery-secretary`。这是可选横切协作，不是工程门禁。此类请求优先走本入口，只定位已知项目/台账及必要上下文；下面的工程基线扫描、五态文档判定及必读工程参考不适用于纯交付协调请求。单次“该用哪个专业 skill”仍由 Guide 回答；不自动创建线程或启动协调。
 
 ### 先选入口，再检查前置条件
 

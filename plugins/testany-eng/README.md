@@ -4,7 +4,7 @@
 
 研发流程工具集：从业务需求、设计到源码评审、测试设计与运维准备的完整链路。
 
-SkillDock 已迁移为独立的 [skilldock 插件](../skilldock/README.md)。testany-eng 2.5.1 包含 21 个研发 skills；需要图形管理器时单独安装 SkillDock。
+SkillDock 已迁移为独立的 [skilldock 插件](../skilldock/README.md)。`testany-eng 2.6.0` 包含 22 个研发与协作 skills，新增交付秘书及可选 Reviewer 协作接口；需要图形管理器时单独安装 SkillDock。发布版本以 plugin.json 和 CHANGELOG 为准。
 
 ## 概述
 
@@ -17,6 +17,8 @@ testany-eng 提供一套结构化的研发工作流工具，覆盖从业务想�
 - **测试与交付准备阶段**：测试规格/测试包撰写 → 测试门禁评审 → Runbook 撰写 / Testany 自动化落地
 
 每个环节都有明确的输入输出和质量门禁，确保文档质量和上下游衔接。用户目标包含自动化落地时，已准出的 Test Spec 可衔接 `testany-bot`；仅要文档时不因文档完成自动注册、配置或执行平台资产。
+
+`delivery-secretary` 是可选的持续交付协调角色，与这些工程阶段并行：维护目标、依赖、承诺和进度，主动向已授权的责任人核实状态；不插入主流程、不替代专业判断。
 
 默认情况下，`testany-eng` 会跟随用户输入语言输出；用户显式指定语言时以用户指定为准；`TRACEABILITY-METADATA` 的字段名、枚举值与稳定 ID 始终保持英文。
 
@@ -149,6 +151,7 @@ flowchart TD
 | 你的情况 | 使用命令 | 说明 |
 |----------|----------|------|
 | 不确定项目当前在哪一步，或接手了一个已有部分文档的项目 | `/guide` | 扫描现有文档与准出状态，推荐下一步最合适的 skill |
+| 多轮、多角色任务持续拆解，需要记住原始承诺、剩余测试和阻塞 | `/delivery-secretary` | 维护持久台账、目标与依赖视图，在授权内主动询问和提醒既定下一步 |
 | 有个模糊的想法或已有业务材料，要整理需求 | `/brd-interviewer` | 访谈 / 直接整理 / 缺口补问，输出真实状态的 BRD |
 | BRD 写完了，要细化或整理用户操作流程 | `/uc-interviewer` | 复用已知流程，只补问缺口，检查 Journey 内容与批准 |
 | 要写产品需求文档 | `/prd-writer` | 基于 BRD + Journey 撰写 PRD |
@@ -250,6 +253,26 @@ flowchart TD
 ---
 
 ## Skills 详情
+
+### delivery-secretary
+
+**用途**：跨多轮或多个 Writer/Reviewer 会话维护交付记录，回答承诺了什么、现在做到哪、为什么、还剩什么以及完成后回到哪里。
+
+- 用稳定 ID 区分目标拆解与共享前置依赖，保留原始承诺集合；后续细分、新增、延期、取消和重新打开不静默改分母。
+- 复用既有执行计划、测试结果和 Review Record，只维护一份任务汇总；JSON 模板与只读统计/结构检查工具为可选辅助，不要求迁移或新增门禁。
+- 发现归属不清、状态模糊、来源冲突或前置已解除时，主动向已授权的责任人核实；问题去重、等待有界，不成为 Writer ↔ Reviewer 的转发站。
+- 按需呈现概览、当前推进路径或指定任务明细；没有真实消息/调度能力时明确限制，不声称已发送或持续监控。
+
+**输入**：目标或进度问题、项目/既有记录路径、角色绑定与已有协调授权。
+**输出**：持久任务台账或现有记录的局部更新、所需状态视图、可追溯的询问及待答事项。技术完成判断仍由对应角色负责。
+
+```text
+/delivery-secretary 沿用 CRI 执行计划管理交付，跟踪原始测试清单与后来新增项；在已授权的 Writer/Reviewer 内主动核实缺失状态。
+```
+
+规则及工具说明见 [SKILL.md](skills/delivery-secretary/SKILL.md)。
+
+---
 
 ### brd-interviewer
 
@@ -595,6 +618,7 @@ flowchart TD
 - P2 永不阻断或捆绑当轮整改；最小修复同时约束架构面与新增操作/门禁维护负担，源码、CI、环境结论分离
 - 使用一份可核验 Review Record，报告/子任务引用，不重复抄历史；只有内容、依赖、命令、工具、配置和基线核验一致才能复用 source/local 证据，新 Candidate 仍需新绑定与 verdict
 - 机器证据默认完整落盘、stdout 摘要不超过 4096 bytes；复用内置 snapshot 比较和 manifest/archive/source 校验，避免反复输出全量清单或临时重写校验代码，详见[工具约定](skills/code-reviewer/references/artifact-tools.md)
+- 可选[秘书协作](skills/code-reviewer/references/delivery-coordination.md)：在既有授权内同步实质状态变化与 Record 引用；纯状态询问不重启评审，秘书收件/记账不成为准出条件
 - Skill 自身有缩小的生产语义正反样本与盲测控制，分别评估漏报、误报、越界和收敛；不把样本通过冒充真实部署通过
 
 `snapshot_worktree.py` 的默认 stdout 改为附件摘要；读取旧版全量 JSON stdout 的机器消费者需显式加 `--full-json` 并重定向。原 snapshot schema、digest 算法和 Python `create_snapshot()` 接口保持不变。这些工具按已有证据需要调用，不新增每轮门禁或要求复跑测试。
