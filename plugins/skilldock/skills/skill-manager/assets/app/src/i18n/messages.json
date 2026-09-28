@@ -303,6 +303,18 @@
     "en": "All sources",
     "ja": "すべての配布元"
   },
+  "仅显示重复": {
+    "en": "Duplicates only",
+    "ja": "同名のみ"
+  },
+  "同名技能按安装路径分别显示，可选择“管理同名技能”处理。": {
+    "en": "Skills with the same name are shown by installation path. Choose “Manage duplicate skills” to review the copies.",
+    "ja": "同名のスキルをインストール先ごとに表示します。「同名スキルを管理」から各コピーを確認できます。"
+  },
+  "当前筛选下没有重复技能。可关闭“仅显示重复”，或调整其他筛选条件。": {
+    "en": "No duplicate skills match your filters. Turn off “Duplicates only” or adjust the other filters.",
+    "ja": "現在の条件に一致する同名スキルはありません。「同名のみ」をオフにするか、他の条件を変更してください。"
+  },
   "显示方式": {
     "en": "Display mode",
     "ja": "表示方法"

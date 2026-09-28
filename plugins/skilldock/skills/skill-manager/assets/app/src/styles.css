@@ -558,6 +558,38 @@ main {
   appearance: none;
   cursor: pointer;
 }
+.duplicate-filter {
+  flex-shrink: 0;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 7px;
+  height: 40px;
+  padding: 0 12px;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  background: light-dark(#ffffff, #222222);
+  color: var(--muted);
+  font-size: 11px;
+  white-space: nowrap;
+}
+.duplicate-filter:hover,
+.duplicate-filter[aria-pressed="true"] {
+  border-color: var(--green);
+  color: var(--green);
+}
+.duplicate-filter[aria-pressed="true"] {
+  background: color-mix(in srgb, var(--green) 12%, var(--canvas));
+}
+.duplicate-filter:focus-visible {
+  outline: 2px solid var(--green);
+  outline-offset: 3px;
+}
+.duplicate-filter-hint {
+  margin: -12px 0 16px;
+  font-size: 11px;
+  color: var(--muted);
+}
 .view-switch {
   display: flex;
   padding: 3px;
@@ -2381,6 +2413,9 @@ main {
   .select-control select {
     flex: 1;
     max-width: none;
+  }
+  .duplicate-filter {
+    height: 36px;
   }
   .view-switch {
     margin-left: auto;
