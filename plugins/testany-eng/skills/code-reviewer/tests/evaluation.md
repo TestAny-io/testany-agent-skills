@@ -54,3 +54,14 @@ python3 plugins/testany-eng/skills/code-reviewer/tests/make_review_fixture.py CR
 3. **实际输入变化**：自动 binding 回归分别改变 bytes/path/mode/gitlink、过滤后的 raw 内容、外部 mutable baseline；必须报告 CONTENT_CHANGED/UNVERIFIED，不能走同内容 fast path。CI、commit-sensitive 命令及新 blocker 是额外上下文，工具不作批准判断。
 
 评分增加“多余工作”维度：记录工具调用、重跑的等价测试、重复加载的材料、实质 review 轮数。仅对同样输入作比较；文档缩短比例不是实际 token/延迟节省比例。达到门禁就停止测试样本，不为刷分反复重审。未实际执行的对照如实记为未评估。
+
+## 可选秘书协作
+
+维护秘书接口时复用上述盲测，不再为状态同步组建另一支全量评审团队。原始协作输入在 `coordination/raw/`；本文是评分说明，不交给被测 agent。
+
+1. 导出 CRB-003，将 `role.md` 单独提供给同一 blind reviewer，完成初审。检查 task ID 缺失、秘书未收件或发送不可用均不成为 SD/EB；输出如实标明未投递。
+2. 初审结束后才提供 `status.md`。核对回复与它自己的 Record、binding、阻塞一致，引用原 Review ID；没有新增评审、snapshot、测试、全历史扫描或等待秘书 ACK。原 27 项未提供时只指出缺口/责任人，不虚构数量或向 Writer 派重新测试任务。检查实际工具调用，而非仅匹配措辞。
+3. 再导出 CRB-004，提供 `candidate.md`、原始新 Candidate 和该 agent 自己的上一轮报告；必须实质核验 delta，不能因为来自秘书就当作纯状态询问，也不能沿用旧对象结论代替新判断。按既有 paired delta 标准核对原 finding 闭合及停止，不因秘书离线续轮。
+4. CRB-008 仍使用原始输入，不提供角色文件；检查不会为了可选秘书自动创建线程、索取绑定或增加门禁。
+
+只允许隔离目录内输出；按轮次记录公开命令/结果与产物。这个演练没有真实发送能力，不能证明成功投递、跨线程唤醒或长期 Token/延迟收益。新反证/撤回规则与既有 recovery 规则一致；未实际提供反证/撤回的本轮不声称覆盖这些场景。

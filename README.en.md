@@ -10,7 +10,7 @@ Open-source tools by [Testany](https://testany.io): four domain plugins plus **S
 
 | Your task | Plugin | Start with |
 | --- | --- | --- |
-| Turn an idea into requirements, designs, reviews, tests, and delivery preparation | **[testany-eng](plugins/testany-eng/README.md)** | `guide`, or one of the 21 engineering skills |
+| Turn an idea into requirements, designs, reviews, tests, and delivery preparation | **[testany-eng](plugins/testany-eng/README.md)** | `guide`, or one of the 22 engineering and coordination skills |
 | Improve a prompt | **[testany-llm](plugins/testany-llm/README.md)** | `prompt-optimizer` with your prompt and intended outcome |
 | Write content for different platforms | **[testany-mrkt](plugins/testany-mrkt/README.md)** | `media-writer` with your audience, platform, and goal |
 | Author, orchestrate, run, and diagnose tests in Testany | **[testany-bot](plugins/testany-bot/README.md)** | Connect Testany MCP, then choose a case, pipeline, or execution workflow |
@@ -19,6 +19,8 @@ Open-source tools by [Testany](https://testany.io): four domain plugins plus **S
 The [skill catalog](README.md#包含的-skills) and detailed plugin documentation are maintained in Chinese. Host-specific capabilities and prerequisites are documented per plugin; SkillDock currently targets Codex on macOS.
 
 `code-reviewer` saves complete machine evidence to files and returns bounded summaries, with reusable evidence verification tools. See the [artifact tool guide](plugins/testany-eng/skills/code-reviewer/references/artifact-tools.md) for usage and the `--full-json` option for consumers of the previous full snapshot stdout.
+
+`testany-eng 2.6.0` adds [delivery-secretary](plugins/testany-eng/skills/delivery-secretary/SKILL.md) to maintain durable goals, dependencies, original commitments and progress across long-running work. It proactively clarifies status with authorized roles; the optional `code-reviewer` interface reuses existing conclusions for progress updates without adding review gates.
 
 ## Use the domain plugins in Codex
 

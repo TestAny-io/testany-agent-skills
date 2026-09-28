@@ -236,11 +236,18 @@ coverage:
   delta_reuses_trusted_coverage_and_completes_affected_range: true
 
 coordination:
-  events: [candidate_ready, substantive_findings, blocker_change, final_verdict]
+  events: [candidate_ready, substantive_findings, blocker_change, final_verdict, approval_withdrawal, binding_change]
   reply_to_ack_required: false
   unchanged_status_message_or_new_review_turn_required: false
   wait: CURSOR_BASED_BOUNDED_WAIT_WITH_BACKOFF
   forward_full_record_on_every_handoff: false
+  status_query: EXISTING_RECORD_WITH_AS_OF_NO_NEW_REVIEW
+  new_candidate_or_counterevidence_in_query: EXISTING_AFFECTED_REVIEW_RULES
+  delivery_secretary:
+    reference: references/delivery-coordination.md
+    activation: BOUND_ROLE_AND_EXISTING_USER_COORDINATION_AUTHORIZATION
+    required_for_review_or_approval: false
+    receipt_or_ledger_update_blocks_source: false
 
 approval_stop_condition:
   all_required: [p0_p1_zero, prior_blockers_closed, no_open_sd_or_eb, necessary_source_evidence_complete, candidate_stable, trusted_complete_coverage, all_gap_sets_empty]

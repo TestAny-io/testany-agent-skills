@@ -20,12 +20,15 @@ description: 'Code review, implementation review, 源码评审、实现复审。
 
 每次新会话先读本文件；已读且版本未变不重复加载。**首次完整评审**再读 `references/reviewer-checklist.md` 的适用章节、所需语言的 `references/scope-lock-template.md` / `.en.md` 和 `references/report-templates.md` / `.en.md`。**整改/补审**只读上一轮短结论、未闭合项、delta 与受影响证据；沿引用按需取原文，不能把作者摘要当证据。`references/review-policy.yaml` 是规则索引，模式/冲突不明确时查对应段，不要求每轮全量加载所有参考。
 
+**仅询问既有评审状态**时，从当前 Record 回答已知事实与截至时间，不进入下文实质评审步骤、不新建 Review ID 或重跑验证；消息带来新 Candidate、反证或批准撤回时，按第 5 节处理受影响判断。
+
 | 触发 | 读取 |
 |------|------|
 | 证据复用、snapshot 漂移或提交重绑 | `references/evidence-reuse.md` |
 | 捕获/比较 snapshot、核验证据清单或源码归档 | `references/artifact-tools.md`（现有工具参数与短输出，不另写遍历器） |
 | 确需并行独立审查 | `../../references/subagent-result-contract.md` 与 `references/subagent-result-extension.md` |
 | 批准来源争议、真实职责/信任/架构增量 | `../../references/review-boundaries.md` |
+| 已绑定交付秘书，需要同步状态或回应其询问 | `references/delivery-coordination.md` |
 | 维护本 Skill | `tests/evaluation.md`；评审产品时不加载答案 |
 
 一份 Review Record 保存 scope、当前 binding、覆盖/证据索引与未闭合项。大 manifest、逐文件 hash、命令原始输出交给脚本存成附件，正文只给结果、差异和引用；**不把机器附件全量读进模型，也不在消息中来回复制**。原始证据须可读；首次使用核验版本/摘要，同一会话同一不可变版本缓存核验结果，版本变动再验。签名/摘要不能代替首次实质审查。无需额外 ledger、sealer、逐轮空表或递归读回整条历史。
@@ -117,7 +120,7 @@ Surface 的语义变化同样在范围内：谁授权谁、机器/用户主体�
 - 同一 Candidate 内容 + 命令 + 配置/fixture/toolchain 的昂贵测试只设一个执行者，默认 Writer/CI；Reviewer 读取可核验结果并检查是否对应真实生产入口、独立 oracle 和所需分支。作者 PASS 不能替代这些判断，但不需要由 Reviewer 再完整运行一遍。
 - Reviewer 运行最小独立反例/必要回归；仅当相关代码/依赖/配置/工具改变、结果缺失或不可信、覆盖不满足具体 invariant 时补跑。先检查实际 CI 入口、命令和依赖配置，避免长测完成后才发现走错链路。
 - 列出待运行命令、owner 和触发原因；已有可信结果直接引用。看到同绑定任务正在跑，复用/等待该任务，不启动副本。无法获知其他线程状态时，只发一次必要查询，不建立高频轮询。
-- 只在 candidate ready、实质 findings、阻塞/解除、最终 verdict 时发协作消息。无需回 ACK 的 ACK；同状态不重复报告或全文读回。观察进度用有 cursor 的有界 wait/backoff；无新事实不启动新 review turn。
+- 主动协作消息限于 candidate ready、实质 findings、阻塞/解除、最终 verdict、批准撤回或有效 binding 变化；对具体状态询问可给短答。无需回 ACK 的 ACK；同状态不重复主动报告或全文读回。观察进度用有 cursor 的有界 wait/backoff；无新事实不启动新 review turn。已绑定且获用户授权的秘书按 `references/delivery-coordination.md` 接收增量，收件或记账不参与源码准出。
 
 ## 6. 多仓与并行评审
 

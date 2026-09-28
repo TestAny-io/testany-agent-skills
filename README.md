@@ -10,7 +10,7 @@
 
 | 你想做什么 | Plugin | 从这里开始 |
 | --- | --- | --- |
-| 把业务想法推进到需求、设计、评审、测试与交付准备 | **[testany-eng](plugins/testany-eng/README.md)** | 从 `guide` 判断下一步，或直接使用 21 个研发 skills 中的一项 |
+| 把业务想法推进到需求、设计、评审、测试与交付准备 | **[testany-eng](plugins/testany-eng/README.md)** | 从 `guide` 判断下一步，或直接使用 22 个研发与协作 skills 中的一项 |
 | 改写和优化提示词 | **[testany-llm](plugins/testany-llm/README.md)** | 把原提示词和目标交给 `prompt-optimizer` |
 | 创作多平台营销内容 | **[testany-mrkt](plugins/testany-mrkt/README.md)** | 用 `media-writer` 说明受众、平台和写作目标 |
 | 在 Testany 上编写、编排、执行和诊断测试 | **[testany-bot](plugins/testany-bot/README.md)** | 连接 Testany MCP，按用例、流水线或执行结果选择入口 |
@@ -153,7 +153,7 @@ GitHub 来源更新：先执行 `"$CODEX_CLI" plugin marketplace upgrade testany
 
 ### testany-eng（研发流程）
 
-[插件说明与工作流](plugins/testany-eng/README.md) · 21 个研发 skills
+[插件说明与工作流](plugins/testany-eng/README.md) · 22 个研发与协作 skills
 
 `testany-eng` 默认跟随用户输入语言输出；用户显式指定语言时以用户指定为准；`TRACEABILITY-METADATA` 的字段名、枚举值与稳定 ID 保持英文。
 
@@ -161,9 +161,12 @@ GitHub 来源更新：先执行 `"$CODEX_CLI" plugin marketplace upgrade testany
 
 `code-reviewer` 的机器证据默认完整落盘、仅返回有上限的摘要，并提供可复用的证据校验工具；调用方式及旧版全量 stdout 的 `--full-json` 选项见[机器证据工具约定](plugins/testany-eng/skills/code-reviewer/references/artifact-tools.md)。
 
+`testany-eng 2.6.0` 新增 [delivery-secretary](plugins/testany-eng/skills/delivery-secretary/SKILL.md)，持续跟踪多轮、多角色工作：维护目标拆解、共享依赖、原始承诺与剩余工作，在授权内主动补问状态；`code-reviewer` 提供可选协作接口，复用已有结论回答进度，不新增评审门禁。
+
 | 命令 | 描述 |
 |------|------|
 | `/testany-eng:guide` | 按正式设计、有限修复、实现对象及决策层级分流，核实批准来源，推荐最小下一步 |
+| `/testany-eng:delivery-secretary` | 交付秘书：持久记录目标、依赖与进度，保留原始承诺，主动核实阻塞和后续工作 |
 | `/testany-eng:brd-interviewer` | 按材料选择访谈、直接整理或缺口补问；区分实测、估算、测量计划和离散验收，草稿与批准分开 |
 | `/testany-eng:uc-interviewer` | 复用已知流程，仅补问未决分支，产出带 metadata、步骤级边界和真实 checkpoint 的 User Journey |
 | `/testany-eng:prd-writer` | PRD 写作技能，支持多种类型：新功能、第三方集成、重构、优化 |
