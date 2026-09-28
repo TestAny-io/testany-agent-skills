@@ -6,7 +6,7 @@ A Testany Product · macOS + Codex · 中文 / English / 日本語 · 深色 / �
 
 [English](README.en.md) · [立即安装](#安装并打开) · [反馈与建议](#告诉我们你的使用体验) · [Testany 的其他插件](../../README.md#选择适合你的插件) · [了解 Testany](https://testany.io)
 
-技能越装越多，来源、版本和同名副本也越来越难分清。SkillDock 把技能库、插件、市场来源和更新放在一个面板里，在 Codex 右侧浏览器中打开。
+技能越装越多，来源、版本和同名副本也越来越难分清。SkillDock 把技能库、插件、市场来源和更新放在一个面板里，支持从 Codex 原生侧栏在主内容区打开，也保留右侧浏览器入口。
 
 ![SkillDock 技能库：技能状态、标签筛选和管理入口](assets/skills-overview.png)
 
@@ -26,6 +26,8 @@ A Testany Product · macOS + Codex · 中文 / English / 日本語 · 深色 / �
 
 来源信息取决于原安装方式留下的记录；无法识别时，可以手动关联更新源。受宿主权限或系统保护限制的条目，会显示相应的操作限制。
 
+0.8.0 更新正式产品界面：紧凑列表、详情侧栏、统一搜索与筛选，导航和工具栏采用 Liquid Glass 风格材质。支持右键菜单、键盘导航、浏览状态恢复，以及“减少透明度”。原生入口和浏览器共用这套界面；[设计与验证记录](skills/skill-manager/references/31-desktop-interface.md)随源码提供。
+
 0.7.0 在 Skills 页搜索栏旁新增“仅显示重复”，可叠加关键词、来源、状态和标签筛选。重复判定基于完整扫描结果；同名副本处理到只剩一份后，剩余技能自动退出重复列表。支持中英日文及深浅色模式。
 
 0.6.0 提供[安装前的技能清单与启用选择](skills/skill-manager/references/28-plugin-skill-selection.md)：查看名称、用途与路径，搜索并勾选要启用的技能。插件仍整包安装，未勾选的技能禁用；安装后可以单独开关各技能，更新保留选择。
@@ -34,7 +36,7 @@ A Testany Product · macOS + Codex · 中文 / English / 日本語 · 深色 / �
 
 ## 安装并打开
 
-**安装独立 `skilldock` 插件，只添加 `skill-manager` 一个应用入口。** 研发、AI、营销和 Testany 测试插件可另行按需安装。
+**安装独立 `skilldock` 插件，包含 `skill-manager` skill 与原生 MCP 应用入口。** 研发、AI、营销和 Testany 测试插件可另行按需安装。
 
 将下面这句话复制到 macOS 上的 Codex：
 
@@ -44,7 +46,9 @@ A Testany Product · macOS + Codex · 中文 / English / 日本語 · 深色 / �
 
 需要 Git 和支持 plugin 管理的 Codex CLI。无需先手动 clone，也无需预装全局 Node.js/npm；启动器会选择或准备运行环境。首次启动需要联网准备依赖，可能需要稍等。
 
-安装后，在新的 Codex 任务中输入：
+从 0.8.0 起，安装/重载后，从 More / Explore 点击 **SkillDock**，使用 **Pin to sidebar** 固定；打开时自动启动后台。已验证宿主 26.924.22138，其他版本未显示入口时使用下面的浏览器方式。Preview 的固定入口与正式插件不同。
+
+安装后，也可在新的 Codex 任务中输入：
 
 ```text
 $skill-manager 打开技能管理面板
@@ -83,6 +87,6 @@ $skill-manager 打开技能管理面板
 
 ## 版本、许可与开发
 
-当前版本 **0.7.0**，通过 Git 仓库分发。[变更记录](../../CHANGELOG.md) · [AGPL-3.0-only](LICENSE) · [第三方许可](skills/skill-manager/THIRD_PARTY_NOTICES.md)。仓库中其他现有 skills 的 MIT 许可不变。
+当前源码版本 **0.8.0**，通过 Git 仓库分发。[变更记录](../../CHANGELOG.md) · [AGPL-3.0-only](LICENSE) · [第三方许可](skills/skill-manager/THIRD_PARTY_NOTICES.md)。仓库中其他现有 skills 的 MIT 许可不变。
 
 开发、启动与验证命令见[应用 README](skills/skill-manager/assets/app/README.md)。实现边界与验证记录：[种子反馈](skills/skill-manager/references/19-seed-feedback.md)、[来源链接与 diff](skills/skill-manager/references/20-source-links-and-diff.md)、[同名技能管理](skills/skill-manager/references/21-duplicate-selection.md)、[更新进度与标签](skills/skill-manager/references/22-progress-and-tags.md)、[导航与私仓](skills/skill-manager/references/23-navigation-and-private-git.md)、[独立后台更新](skills/skill-manager/references/24-background-updates.md)、[后台状态修复](skills/skill-manager/references/25-background-status.md)、[外部同步恢复](skills/skill-manager/references/26-baseline-recovery.md)、[安装入口与统一布局](skills/skill-manager/references/27-library-install-and-projects.md)。

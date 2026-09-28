@@ -6,7 +6,7 @@ import { Modal } from "./Modal";
 import { ServiceMessage, t } from "./i18n";
 
 export function ProjectPicker({ project, catalog, disabled, onSelect, onBrowse }: { project: string; catalog?: ProjectCatalog; disabled: boolean; onSelect: (path: string) => void; onBrowse: () => void }) {
-  return <label className="project-picker select-control"><FolderOpen size={16} /><select aria-label={t("切换项目")} value={project} disabled={disabled} onChange={event => {
+  return <label className="project-picker select-control" title={project}><FolderOpen size={16} /><span className="project-selected" aria-hidden="true">{catalog?.entries.find(item => item.path === project)?.name || project.split("/").filter(Boolean).at(-1) || project}</span><select aria-label={t("切换项目")} value={project} disabled={disabled} onChange={event => {
     const value = event.target.value;
     if (value === "browse") onBrowse(); else onSelect(value);
   }}>

@@ -1,6 +1,6 @@
 {
   "name": "skilldock",
-  "version": "0.7.0",
+  "version": "0.8.0",
   "private": true,
   "type": "module",
   "description": "A local visual workspace for Codex skills, plugins, and marketplaces",
@@ -13,21 +13,26 @@
     "build": "node scripts/source-bundle.mjs --stage && npm run typecheck && vite build && node scripts/source-bundle.mjs",
     "start": "node server/index.mjs",
     "test": "node --test tests/*.test.mjs",
-    "test:e2e": "playwright test"
+    "test:e2e": "playwright test",
+    "build:native": "node scripts/native-bundle.mjs"
   },
   "dependencies": {
+    "@modelcontextprotocol/ext-apps": "1.7.5",
+    "@modelcontextprotocol/sdk": "1.30.1",
     "diff": "9.0.0",
     "lucide-react": "1.45.0",
     "react": "19.3.0",
     "react-dom": "19.3.0",
     "smol-toml": "1.8.0",
-    "yaml": "2.9.1"
+    "yaml": "2.9.1",
+    "zod": "4.6.5"
   },
   "devDependencies": {
     "@playwright/test": "1.63.0",
     "@types/node": "^22.0.0",
     "@types/react": "19.3.0",
     "@types/react-dom": "19.3.0",
+    "esbuild": "0.28.2",
     "typescript": "7.0.2",
     "vite": "8.3.0"
   },

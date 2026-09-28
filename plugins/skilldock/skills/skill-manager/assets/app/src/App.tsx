@@ -1,5 +1,6 @@
-import { useEffect, useMemo, useRef, useState, type ReactNode } from "react";
+import { useEffect, useLayoutEffect, useMemo, useRef, useState, type ReactNode } from "react";
 import packageInfo from "../package.json";
+import { apiFetch, nativeMode, openDownload } from "./transport";
 import {
   ArrowDownToLine,
   ArrowLeft,
@@ -30,6 +31,10 @@ import {
   Moon,
   Sun,
   Palette,
+  PanelLeft,
+  MoreHorizontal,
+  Info,
+  Tag,
   Download,
   Package,
   Plus,
@@ -64,6 +69,8 @@ import {
 } from "./preferences";
 import { t, locale, ServiceMessage, requestError } from "./i18n";
 import { Modal } from "./Modal";
+import { Inspector, CommandMenu, type DesktopCommand } from "./DesktopUI";
+import { loadWorkspace, saveWorkspace, type Inspection, type WorkspaceState } from "./workspace-state";
 import { UpdatesWorkspace } from "./UpdatesWorkspace";
 import { DiffBrowser } from "./DiffBrowser";
 import { DuplicateSkillsDialog } from "./DuplicateSkillsDialog";
@@ -80,10 +87,8 @@ type Metric = "all" | "enabled" | "standalone" | "attention";
 type Dialog =
   | { type: "tags"; subject: TagSubject }
   | { type: "duplicates"; name: string }
-  | { type: "detail"; skill: Skill }
   | { type: "install" }
   | { type: "plugin-install"; plugin?: Plugin; market?: boolean }
-  | { type: "plugin-detail"; plugin: Plugin }
   | { type: "market"; fromInstall?: boolean }
   | { type: "preferences" }
   | { type: "project" }
@@ -194,7 +199,7 @@ function classNames(...values: (string | false | undefined)[]) {
 }
 
 async function api<T>(path: string, options?: RequestInit): Promise<T> {
-  const response = await fetch(path, {
+  const response = await apiFetch(path, {
     credentials: "same-origin",
     ...options,
   });
@@ -327,26 +332,33 @@ export default function App() {
   const { language } = usePreferences();
   const [mode, setMode] = useState<Mode | null>(null);
   const modeRef = useRef<Mode | null>(null);
-  const [page, setPage] = useState<Page>(() => {
-    try { const saved = sessionStorage.getItem("skilldock.page"); if (nav.some(item => item.id === saved)) return saved as Page; } catch { /* Optional UI preference. */ }
-    return "skills";
-  });
+  const [saved] = useState(loadWorkspace);
+  const [page, setPage] = useState<Page>(saved.page);
+  const [inspection, setInspection] = useState<Inspection>(saved.inspection);
+  const [sidebarCollapsed, setSidebarCollapsed] = useState(saved.sidebarCollapsed);
+  const [menu, setMenu] = useState<{ x: number; y: number; subject: { kind: "skill"; item: Skill } | { kind: "plugin"; item: Plugin } } | null>(null);
+  const menuOrigin = useRef<HTMLElement | null>(null);
+  const main = useRef<HTMLElement>(null);
+  const scrollPositions = useRef(saved.scroll);
+  const scrollTimer = useRef<ReturnType<typeof setTimeout> | undefined>(undefined);
   const { connection, paused } = useRuntimeConnection(mode !== null);
   const [snapshot, setSnapshot] = useState<Snapshot | null>(null);
   const [loading, setLoading] = useState(true);
   const [loadError, setLoadError] = useState("");
-  const [query, setQuery] = useState("");
-  const [scope, setScope] = useState("all");
-  const [duplicatesOnly, setDuplicatesOnly] = useState(false);
-  const [skillTags, setSkillTags] = useState<string[]>([]);
-  const [pluginTags, setPluginTags] = useState<string[]>([]);
+  const [queries, setQueries] = useState(saved.queries);
+  const query = queries[page];
+  const setQuery = (value: string) => setQueries(previous => ({ ...previous, [page]: value }));
+  const [scope, setScope] = useState(saved.scope);
+  const [duplicatesOnly, setDuplicatesOnly] = useState(saved.duplicatesOnly);
+  const [skillTags, setSkillTags] = useState<string[]>(saved.skillTags);
+  const [pluginTags, setPluginTags] = useState<string[]>(saved.pluginTags);
   const [updateFocus, setUpdateFocus] = useState<string>();
-  const [metric, setMetric] = useState<Metric>("all");
-  const [view, setView] = useState<"grid" | "list">("grid");
+  const [metric, setMetric] = useState<Metric>(saved.metric);
+  const [view, setView] = useState<"grid" | "list">(saved.view);
   const [pluginFilter, setPluginFilter] = useState<
     "installed" | "available" | "all" | "enabled"
-  >("installed");
-  const [marketFilter, setMarketFilter] = useState("all");
+  >(saved.pluginFilter);
+  const [marketFilter, setMarketFilter] = useState(saved.marketFilter);
   const pluginScopeKey = JSON.stringify([
     mode,
     query,
@@ -372,6 +384,46 @@ export default function App() {
   const tokenRef = useRef("");
   const requestSeq = useRef(0);
   const currentNav = nav.find((item) => item.id === page)!;
+  const viewState = useRef<WorkspaceState>(saved);
+  viewState.current = { page, queries, scope, duplicatesOnly, skillTags, pluginTags, metric, view, pluginFilter, marketFilter, inspection, scroll: scrollPositions.current, sidebarCollapsed };
+  useEffect(() => { saveWorkspace(viewState.current); }, [page, queries, scope, duplicatesOnly, skillTags, pluginTags, metric, view, pluginFilter, marketFilter, inspection, sidebarCollapsed]);
+  useEffect(() => {
+    const persist = () => saveWorkspace(viewState.current);
+    window.addEventListener("pagehide", persist);
+    return () => { clearTimeout(scrollTimer.current); persist(); window.removeEventListener("pagehide", persist); };
+  }, []);
+  useLayoutEffect(() => {
+    if (snapshot && main.current) main.current.scrollTop = scrollPositions.current[page] || 0;
+  }, [page, !!snapshot]);
+  useEffect(() => {
+    function shortcut(event: KeyboardEvent) {
+      if (event.defaultPrevented || dialog || document.querySelector('.overlay, .command-menu, .inspector[aria-modal="true"]') || !(event.metaKey || event.ctrlKey) || event.key.toLowerCase() !== "f") return;
+      const field = main.current?.querySelector<HTMLInputElement>('.search-field input, .uw-search input');
+      if (field) { event.preventDefault(); field.focus(); field.select(); }
+    }
+    window.addEventListener("keydown", shortcut);
+    return () => window.removeEventListener("keydown", shortcut);
+  }, [dialog, page]);
+  function inspectSkill(skill: Skill) { setInspection({ kind: "skill", id: skill.id }); }
+  function inspectPlugin(plugin: Plugin) { setInspection({ kind: "plugin", id: plugin.id }); }
+  function closeMenu() { setMenu(null); menuOrigin.current?.focus({ preventScroll: true }); }
+  function openMenu(event: React.MouseEvent, subject: NonNullable<typeof menu>["subject"]) {
+    event.preventDefault();
+    menuOrigin.current = event.currentTarget.tagName === "ARTICLE" ? event.currentTarget.querySelector<HTMLElement>(".skill-card-open") : event.currentTarget as HTMLElement;
+    const rect = event.currentTarget.getBoundingClientRect();
+    setMenu({ x: event.clientX || rect.left, y: event.clientY || rect.bottom, subject });
+  }
+  function navigateRows(event: React.KeyboardEvent<HTMLDivElement>) {
+    if (!(event.target instanceof HTMLElement) || !event.target.matches(".skill-card-open")) return;
+    const entries = [...event.currentTarget.querySelectorAll<HTMLButtonElement>(".skill-card-open")];
+    const index = entries.indexOf(event.target as HTMLButtonElement);
+    if (!["ArrowDown", "ArrowUp", "Home", "End"].includes(event.key)) return;
+    event.preventDefault();
+    const next = event.key === "Home" ? 0 : event.key === "End" ? entries.length - 1 : Math.max(0, Math.min(entries.length - 1, index + (event.key === "ArrowDown" ? 1 : -1)));
+    entries[next]?.focus({ preventScroll: true });
+    entries[next]?.scrollIntoView({ block: "nearest" });
+    if (inspection) entries[next]?.click();
+  }
 
   async function refresh() {
     const seq = ++requestSeq.current;
@@ -390,8 +442,10 @@ export default function App() {
       setMode(targetMode);
       tokenRef.current = session.token;
       const result = await api<Snapshot>(`/api/state?mode=${targetMode}`);
-      if (seq === requestSeq.current && modeRef.current === targetMode)
+      if (seq === requestSeq.current && modeRef.current === targetMode) {
         setSnapshot(result);
+        setInspection(current => current && (current.kind === "skill" ? result.skills : result.plugins).some(item => item.id === current.id) ? current : null);
+      }
     } catch (error) {
       if (seq === requestSeq.current) setLoadError((error as Error).message);
     } finally {
@@ -403,6 +457,15 @@ export default function App() {
     return () => {
       requestSeq.current++;
     };
+  }, []);
+  useEffect(() => {
+    const reconnect = () => {
+      setDialog(null);
+      setUpdates({});
+      void refresh();
+    };
+    window.addEventListener("skilldock:reconnected", reconnect);
+    return () => window.removeEventListener("skilldock:reconnected", reconnect);
   }, []);
   useEffect(() => {
     if (!toast) return;
@@ -421,8 +484,9 @@ export default function App() {
 
   function navigate(next: Page) {
     setPage(next);
-    setQuery("");
     setUpdateFocus(undefined);
+    setInspection(null);
+    setMenu(null);
     setDialog(null);
   }
   async function action(
@@ -503,6 +567,10 @@ export default function App() {
   function run(request: Omit<ActionRequest, "mode">) {
     void action(request).catch(() => {});
   }
+  function manageDuplicates(name: string) {
+    setInspection(null);
+    setDialog({ type: "duplicates", name });
+  }
   function editTags(kind: "skill" | "plugin", item: Skill | Plugin) {
     setDialog({ type: "tags", subject: { kind, id: item.id, name: item.name, tags: item.tags, path: "path" in item ? item.path : item.id } });
   }
@@ -514,7 +582,7 @@ export default function App() {
   }
   function confirmRemoveSkill(skill: Skill) {
     if (skill.duplicateNames?.length) {
-      setDialog({ type: "duplicates", name: skill.name });
+      manageDuplicates(skill.name);
       return;
     }
     setDialog({
@@ -582,7 +650,7 @@ export default function App() {
             (skill.duplicateNames?.length || 0) > 0)
         );
       }),
-    [skills, query, scope, metric, skillTags, duplicatesOnly],
+    [skills, query, scope, metric, skillTags, duplicatesOnly, language],
   );
   const filteredPlugins = (data?.plugins || []).filter(
     (plugin) =>
@@ -599,13 +667,33 @@ export default function App() {
   const availableUpdates = data?.updates
     ? data.updates.filter((item) => item.status === "available").length
     : Object.values(updates).filter((update) => update.available).length;
-  const displaySkill =
-    dialog?.type === "detail"
-      ? skills.find((skill) => skill.id === dialog.skill.id) || dialog.skill
-      : null;
+  const displaySkill = inspection?.kind === "skill" ? skills.find(skill => skill.id === inspection.id) : null;
+  const displayPlugin = inspection?.kind === "plugin" ? data?.plugins.find(plugin => plugin.id === inspection.id) : null;
+  function showOwningPlugin(id?: string) {
+    const plugin = data?.plugins.find(item => item.id === id);
+    if (plugin) { navigate("plugins"); setPluginFilter("all"); setQueries(previous => ({ ...previous, plugins: "" })); setPluginTags([]); setMarketFilter("all"); setInspection({ kind: "plugin", id: plugin.id }); }
+  }
+  const commands: DesktopCommand[] = menu ? (() => {
+    const { kind, item } = menu.subject;
+    const common: DesktopCommand[] = [
+      { label: t("查看详情"), icon: <Info size={15} />, run: () => setInspection({ kind, id: item.id }) },
+      { label: t("编辑标签"), icon: <Tag size={15} />, disabled: !!busy, run: () => editTags(kind, item) },
+      { label: t(item.enabled ? "禁用" : "启用"), icon: <CircleCheck size={15} />, disabled: !item.canToggle || !!busy || paused, run: () => run({ action: kind === "skill" ? "skill.toggle" : "plugin.toggle", id: item.id, enabled: !item.enabled }) },
+      { label: t("管理更新"), icon: <RefreshCw size={15} />, run: () => { navigate("updates"); setUpdateFocus(item.id); } },
+    ];
+    if (kind === "skill") {
+      const skill = item as Skill;
+      if (skill.duplicateNames?.length) common.push({ label: t("管理同名技能"), icon: <Copy size={15} />, run: () => manageDuplicates(skill.name) });
+      common.push({ label: t("移除技能"), icon: <Trash2 size={15} />, danger: true, disabled: !skill.canRemove || !!busy, run: () => confirmRemoveSkill(skill) });
+    } else {
+      const plugin = item as Plugin;
+      common.push(plugin.installed ? { label: t("卸载"), icon: <Trash2 size={15} />, danger: true, disabled: !plugin.canRemove || !!busy, run: () => confirmRemovePlugin(plugin) } : { label: t("安装插件"), icon: <Plus size={15} />, disabled: !plugin.canInstall || !!busy, run: () => setDialog({ type: "plugin-install", plugin }) });
+    }
+    return common;
+  })() : [];
 
   return (
-    <div className="app-shell">
+    <div className={classNames("app-shell", !!(displaySkill || displayPlugin) && "has-inspector", sidebarCollapsed && "sidebar-collapsed")}>
       <aside className="sidebar">
         <a
           className="brand"
@@ -622,10 +710,10 @@ export default function App() {
             <span />
           </span>
           <span>
-            SkillDock<small>{t("YOUR SKILLS, ORGANIZED.")}</small>
+            SkillDock
           </span>
         </a>
-        <div className="nav-caption">{t("工作空间")}</div>
+        <div className="nav-caption">{t("资料库")}</div>
         <nav aria-label={t("主导航")}>
           {nav.map((item) => (
             <button
@@ -644,105 +732,40 @@ export default function App() {
             </button>
           ))}
         </nav>
+        <div className="sidebar-project">
+          <div className="nav-caption">{t("当前项目")}</div>
+          {data && mode === "local" && <ProjectPicker project={data.paths.project} catalog={data.projects} disabled={!!busy || paused}
+            onSelect={projectDir => { setInspection(null); run({ action: "project.select", projectDir }); }} onBrowse={() => setDialog({ type: "project" })} />}
+          {data && mode !== "local" && <code title={data.paths.project}>{data.paths.project.split("/").filter(Boolean).at(-1)}</code>}
+          {data && <button className="text-button directory-trigger" aria-expanded={showPaths} onClick={() => setShowPaths(value => !value)}><Info size={13} />{showPaths ? t("收起目录") : t("查看目录")}</button>}
+        </div>
         <div className="sidebar-bottom">
-          <div className="sidebar-version">
-            <span className="tiny-dot" />
-            A Testany Product <span>v{packageInfo.version} · {t("预览版")}</span>
-          </div>
+          <button className="nav-item preferences-trigger" aria-label={t("外观与语言")} title={t("外观与语言")} onClick={() => setDialog({ type: "preferences" })}><Settings2 size={18} /><span>{t("偏好设置")}</span></button>
+          <div className="sidebar-version"><span>A Testany Product</span><span>v{packageInfo.version}</span></div>
         </div>
       </aside>
 
       <div className="workspace">
         <header className="topbar">
-          <div className="breadcrumb">
-            <span>{t("工作空间")}</span>
-            <ChevronRight size={13} />
-            <strong>{t(currentNav.label)}</strong>
-          </div>
-          <div className="topbar-controls">
-            <button
-              className="icon-button preferences-trigger"
-              aria-label={t("外观与语言")}
-              title={t("外观与语言")}
-              onClick={() => setDialog({ type: "preferences" })}
-            >
-              <Palette size={18} />
-            </button>
+          <button className="icon-button sidebar-toggle" aria-label={t(sidebarCollapsed ? "展开侧边栏" : "收起侧边栏")} title={t(sidebarCollapsed ? "展开侧边栏" : "收起侧边栏")} aria-expanded={!sidebarCollapsed} onClick={() => setSidebarCollapsed(value => !value)}><PanelLeft size={19} /></button>
+          <div className="workspace-title"><h1>{t(currentNav.label)}{data && <span className="title-count">{page === "skills" ? data.skills.length : page === "plugins" ? data.plugins.filter(plugin => plugin.installed).length : page === "markets" ? data.marketplaces.length : page === "activity" ? data.activity.length : availableUpdates || ""}</span>}</h1><p>{t({ skills: "浏览、整理与管理你的技能", plugins: "扩展工作流，管理插件与附带技能", markets: "管理插件的发现与安装来源", updates: "检查变化，让你的工具保持最新", activity: "查看操作结果，恢复之前的内容" }[page])}</p></div>
+          <div className="heading-actions">
+            <Button variant="ghost" busy={loading} onClick={() => void refresh()} disabled={!!busy} aria-label={t("刷新清单")} title={t("刷新清单")}>{!loading && <RefreshCw size={17} />}</Button>
+            {page === "skills" && <Button variant="primary" onClick={() => setDialog({ type: "install" })} disabled={!data || !!busy}><Plus size={16} />{t("安装技能")}</Button>}
+            {page === "plugins" && <Button variant="primary" onClick={() => setDialog({ type: "plugin-install" })} disabled={!data || !!busy}><Plus size={16} />{t("安装插件")}</Button>}
+            {page === "markets" && <Button variant="primary" onClick={() => setDialog({ type: "market" })} disabled={!data || !!busy}><Plus size={16} />{t("添加来源")}</Button>}
           </div>
         </header>
-        <main id="main-content">
-          {connection && (
-            <div className={`runtime-notice ${connection.status === "failed" ? "runtime-notice-error" : ""}`} role="status">
-              {connection.status === "failed" ? <CircleAlert size={18} /> : <Loader2 size={18} className="spin" />}
-              <div>
-                <strong>{t(connection.status === "preparing" ? "正在准备新版 SkillDock…" : connection.status === "restarting" ? "正在重启，界面将自动恢复…" : connection.status === "failed" ? "新版未能启动，请重新打开 SkillDock 后重试。" : "连接已中断，正在自动重连…")}</strong>
-                {connection.status === "failed" && connection.message && <p><ServiceMessage value={connection.message} /></p>}
-              </div>
-            </div>
-          )}
-          <div className="page-heading">
-            <div>
-              <div className="eyebrow">{t(currentNav.english)}</div>
-              <h1>
-                {t(currentNav.label)}
-                <span className="title-dot">.</span>
-              </h1>
-              <p>{t(currentNav.description)}</p>
-            </div>
-            <div className="heading-actions">
-              <Button
-                variant="ghost"
-                busy={loading}
-                onClick={() => void refresh()}
-                disabled={!!busy}
-                aria-label={t("刷新清单")}
-              >
-                {!loading && <RefreshCw size={16} />}
-                <span className="refresh-label">{t("刷新")}</span>
-              </Button>
-              {page === "skills" && (
-                <Button
-                  variant="primary"
-                  onClick={() => setDialog({ type: "install" })}
-                  disabled={!data || !!busy}
-                >
-                  <Plus size={17} />
-                  {t("安装技能")}
-                </Button>
-              )}
-              {page === "plugins" && <Button variant="primary" onClick={() => setDialog({ type: "plugin-install" })} disabled={!data || !!busy}><Plus size={17} />{t("安装插件")}</Button>}
-              {page === "markets" && (
-                <Button
-                  variant="primary"
-                  onClick={() => setDialog({ type: "market" })}
-                  disabled={!data || !!busy}
-                >
-                  <Plus size={17} />
-                  {t("添加来源")}
-                </Button>
-              )}
-            </div>
-          </div>
-
-          {data && (
-            <div className="workspace-context">
-              <FolderOpen size={16} aria-hidden="true" />
-              <div className="project-caption">
-                <span>{t("当前项目")}</span>
-                {mode !== "local" && <code title={data.paths.project}>{data.paths.project}</code>}
-              </div>
-              {mode === "local" && <ProjectPicker project={data.paths.project} catalog={data.projects} disabled={!!busy || paused}
-                onSelect={projectDir => run({ action: "project.select", projectDir })} onBrowse={() => setDialog({ type: "project" })} />}
-              <button
-                onClick={() => setShowPaths((value) => !value)}
-                className="text-button"
-                aria-expanded={showPaths}
-              >
-                {showPaths ? t("收起目录") : t("查看目录")}
-                <ChevronDown size={14} className={showPaths ? "rotate" : ""} />
-              </button>
-            </div>
-          )}
+        <main id="main-content" ref={main} onScroll={event => {
+          scrollPositions.current[page] = event.currentTarget.scrollTop;
+          clearTimeout(scrollTimer.current);
+          scrollTimer.current = setTimeout(() => saveWorkspace(viewState.current), 180);
+        }}>
+          {connection && <div className={`runtime-notice ${connection.status === "failed" ? "runtime-notice-error" : ""}`} role="status">
+            {connection.status === "failed" ? <CircleAlert size={18} /> : <Loader2 size={18} className="spin" />}
+            <div><strong>{t(connection.status === "preparing" ? "正在准备新版 SkillDock…" : connection.status === "restarting" ? "正在重启，界面将自动恢复…" : connection.status === "failed" ? "新版未能启动，请重新打开 SkillDock 后重试。" : "连接已中断，正在自动重连…")}</strong>{connection.status === "failed" && connection.message && <p><ServiceMessage value={connection.message} /></p>}</div>
+          </div>}
+          {data && mode === "local" && <div className="compact-project"><span>{t("当前项目")}</span><ProjectPicker project={data.paths.project} catalog={data.projects} disabled={!!busy || paused} onSelect={projectDir => { setInspection(null); run({ action: "project.select", projectDir }); }} onBrowse={() => setDialog({ type: "project" })} /><button className="icon-button" aria-label={t("查看目录")} aria-expanded={showPaths} onClick={() => setShowPaths(value => !value)}><Info size={15} /></button></div>}
           {data?.projectContext?.warnings.map(warning => <div key={warning} className="project-notice" role="status"><CircleAlert size={15} /><span>{t(warning)}</span></div>)}
           {showPaths && data && (
             <div className="paths-panel">
@@ -819,6 +842,7 @@ export default function App() {
               role="status"
               aria-label={t("正在读取清单")}
             >
+              {nativeMode && <p>{t("正在启动 SkillDock 并读取清单，首次准备可能需要一些时间…")}</p>}
               <div className="skeleton-stats">
                 {[1, 2, 3, 4].map((n) => (
                   <div className="skeleton" key={n} />
@@ -855,18 +879,8 @@ export default function App() {
                     { id: "standalone", label: "个人与项目", count: counts.standalone, icon: <Folder size={16} /> },
                     { id: "attention", label: "状态待确认", count: counts.attention, icon: <CircleAlert size={16} /> },
                   ]} />
-                  <div className="category-explanation">
-                    <p>
-                      <strong>{t("个人与项目：")}</strong>
-                      {t("按技能管理；插件附带技能随所属插件管理与更新。")}
-                    </p>
-                    <p>
-                      <strong>{t("状态待确认：")}</strong>
-                      {t(
-                        "只包含安装状态未知或存在同名技能的项目；系统或宿主管理本身不代表异常。",
-                      )}
-                    </p>
-                  </div>
+                  {metric === "standalone" && <p className="category-explanation">{t("按技能管理；插件附带技能随所属插件管理与更新。")}</p>}
+                  {metric === "attention" && <p className="category-explanation">{t("只包含安装状态未知或存在同名技能的项目；系统或宿主管理本身不代表异常。")}</p>}
                   <div className="toolbar">
                     <SearchField
                       query={query}
@@ -900,6 +914,7 @@ export default function App() {
                       <Copy size={15} aria-hidden="true" />
                       {t("仅显示重复")}
                     </button>
+                    <TagFilter items={skills} selected={skillTags} onChange={setSkillTags} />
                     <ViewSwitch value={view} onChange={setView} />
                   </div>
                   {duplicatesOnly && (
@@ -907,7 +922,6 @@ export default function App() {
                       {t("同名技能按安装路径分别显示，可选择“管理同名技能”处理。")}
                     </p>
                   )}
-                  <TagFilter items={skills} selected={skillTags} onChange={setSkillTags} />
                   <div className="collection-heading">
                     <h2>
                       {metric === "all"
@@ -923,22 +937,25 @@ export default function App() {
                   </div>
                   {filteredSkills.length ? (
                     <><div
-                      className={view === "grid" ? "skill-grid" : "skill-list"}
+                      onKeyDown={navigateRows} className={view === "grid" ? "skill-grid" : "skill-list"}
                     >
                       {filteredSkills.slice(0, skillLimit).map((skill) => {
                         const { Icon, color } = skillVisual(skill.name);
                         return (
                           <article
                             key={skill.id}
+                            onContextMenu={event => openMenu(event, { kind: "skill", item: skill })}
                             className={classNames(
                               "skill-card",
+                              inspection?.id === skill.id && "is-selected",
                               skill.enabled === false && "skill-disabled",
                             )}
                           >
                             <button
                               className="skill-card-open"
+                              aria-pressed={inspection?.id === skill.id}
                               onClick={() =>
-                                setDialog({ type: "detail", skill })
+                                inspectSkill(skill)
                               }
                               aria-label={t("查看 {v0} 详情", {
                                 v0: skill.name,
@@ -971,15 +988,11 @@ export default function App() {
                             {!!skill.duplicateNames?.length && <code className="skill-instance-path">{skill.path}</code>}
                             <SkillReason
                               skill={skill}
-                              onDuplicates={() => setDialog({ type: "duplicates", name: skill.name })}
+                              onDuplicates={() => manageDuplicates(skill.name)}
                               onDetails={() =>
-                                setDialog({ type: "detail", skill })
+                                inspectSkill(skill)
                               }
-                              onPlugin={() => {
-                                navigate("plugins");
-                                setPluginFilter("all");
-                                setQuery(skill.pluginId?.split("@")[0] || "");
-                              }}
+                              onPlugin={() => showOwningPlugin(skill.pluginId)}
                             />
                             <div className="skill-card-footer">
                               <span
@@ -1014,6 +1027,7 @@ export default function App() {
                                   }
                                   onChange={() => toggleSkill(skill)}
                                 />
+                                <button className="icon-button row-more" aria-label={t("{v0} 的更多操作", { v0: skill.name })} aria-haspopup="menu" onClick={event => openMenu(event, { kind: "skill", item: skill })}><MoreHorizontal size={17} /></button>
                               </div>
                             </div>
                           </article>
@@ -1074,7 +1088,7 @@ export default function App() {
                     { id: "installed", label: "已安装", count: data.plugins.filter(item => item.installed).length, icon: <Package size={16} /> },
                     { id: "available", label: "未安装", count: data.plugins.filter(item => !item.installed).length, icon: <Download size={16} /> },
                   ]} />
-                  <div className="category-explanation"><p>{t("插件附带的技能与组件一起安装、更新和卸载。")}</p><p>{t("未安装：已连接 Marketplace 中可发现的插件；也可直接从 Git 或本地目录安装单个插件。")}</p></div>
+                  {pluginFilter === "available" && <p className="category-explanation">{t("未安装：已连接 Marketplace 中可发现的插件；也可直接从 Git 或本地目录安装单个插件。")}</p>}
                   <div className="toolbar">
                     <SearchField
                       query={query}
@@ -1101,9 +1115,9 @@ export default function App() {
                       </select>
                       <ChevronDown size={13} />
                     </label>
+                    <TagFilter items={data.plugins} selected={pluginTags} onChange={setPluginTags} />
                     <ViewSwitch value={view} onChange={setView} />
                   </div>
-                  <TagFilter items={data.plugins} selected={pluginTags} onChange={setPluginTags} />
                   <div className="collection-heading">
                     <h2>
                       {pluginFilter === "available"
@@ -1115,7 +1129,7 @@ export default function App() {
                   </div>
                   {filteredPlugins.length ? (
                     <>
-                      <div className={view === "grid" ? "skill-grid" : "skill-list"}>
+                      <div onKeyDown={navigateRows} className={view === "grid" ? "skill-grid" : "skill-list"}>
                         {filteredPlugins.slice(0, pluginLimit).map((plugin) => (
                           <PluginCard
                             key={plugin.id}
@@ -1129,7 +1143,9 @@ export default function App() {
                                 enabled: !plugin.enabled,
                               })
                             }
-                            onDetails={() => setDialog({ type: "plugin-detail", plugin })}
+                            selected={inspection?.id === plugin.id}
+                            onMenu={event => openMenu(event, { kind: "plugin", item: plugin })}
+                            onDetails={() => inspectPlugin(plugin)}
                             onInstall={() => setDialog({ type: "plugin-install", plugin })}
                           />
                         ))}
@@ -1182,6 +1198,8 @@ export default function App() {
                             navigate("plugins");
                             setPluginFilter("all");
                             setMarketFilter(market.name);
+                            setQueries(previous => ({ ...previous, plugins: "" }));
+                            setPluginTags([]);
                           }}
                           onRemove={() =>
                             setDialog({
@@ -1230,7 +1248,7 @@ export default function App() {
                   busy={!!busy}
                   language={language}
                   execute={action}
-                  onDetails={(skill) => setDialog({ type: "detail", skill })}
+                  onDetails={(skill) => inspectSkill(skill)}
                   onRefresh={() => void refresh()}
                 />
               )}
@@ -1347,38 +1365,31 @@ export default function App() {
         suggestions={[...data.skills, ...data.plugins].flatMap(item => item.tags || [])} busy={!!busy} execute={action} onClose={() => setDialog(null)} />}
       {dialog?.type === "project" && data && <ProjectDialog project={data.paths.project} catalog={data.projects} busy={busy} action={action} onClose={() => setDialog(null)} />}
       {dialog?.type === "plugin-install" && data && <InstallDialog kind="plugin" data={data} initialPlugin={dialog.plugin} initialMarket={dialog.market} busy={busy} action={action} onClose={() => setDialog(null)} onMarket={() => setDialog({ type: "market", fromInstall: true })} />}
-      {dialog?.type === "plugin-detail" && data && <PluginDetail plugin={data.plugins.find(item => item.id === dialog.plugin.id) || dialog.plugin} skills={data.skills.filter(skill => skill.pluginId === dialog.plugin.id)} busy={busy}
-        onClose={() => setDialog(null)} onSkill={skill => setDialog({ type: "detail", skill })} onRemove={() => confirmRemovePlugin(dialog.plugin)}
-        onInstall={() => setDialog({ type: "plugin-install", plugin: dialog.plugin })} onToggle={() => { const current = data.plugins.find(item => item.id === dialog.plugin.id) || dialog.plugin; run({ action: "plugin.toggle", id: current.id, enabled: !current.enabled }); }}
-        onUpdates={() => { navigate("updates"); setUpdateFocus(dialog.plugin.id); }} />}
+      {displayPlugin && data && <PluginDetail plugin={displayPlugin} skills={data.skills.filter(skill => skill.pluginId === displayPlugin.id)} busy={busy}
+        onClose={() => setInspection(null)} onSkill={inspectSkill} onRemove={() => confirmRemovePlugin(displayPlugin)}
+        onInstall={() => setDialog({ type: "plugin-install", plugin: displayPlugin })} onToggle={() => run({ action: "plugin.toggle", id: displayPlugin.id, enabled: !displayPlugin.enabled })}
+        onUpdates={() => { navigate("updates"); setUpdateFocus(displayPlugin.id); }} />}
       {dialog?.type === "preferences" && (
         <PreferencesDialog onClose={() => setDialog(null)} />
       )}
       {dialog?.type === "duplicates" && data && <DuplicateSkillsDialog
         key={`${mode}:${dialog.name}`} name={dialog.name} skills={data.skills} busy={busy} action={action}
         onClose={() => setDialog(current => current === dialog ? null : current)}
-        onPlugin={id => { navigate("plugins"); setPluginFilter("all"); setQuery(id.split("@")[0]); }}
+        onPlugin={showOwningPlugin}
       />}
-      {dialog?.type === "detail" && displaySkill && mode && (
+      {displaySkill && mode && (
         <SkillDetail
-          key={`${mode}:${displaySkill.id}`}
           skill={displaySkill}
           mode={mode}
           busy={busy}
-          onClose={() =>
-            setDialog((current) => (current === dialog ? null : current))
-          }
+          onClose={() => setInspection(null)}
           onEditTags={() => editTags("skill", displaySkill)}
           onToggle={() => toggleSkill(displaySkill)}
           onRemove={() => confirmRemoveSkill(displaySkill)}
           onUpdate={() => void checkUpdate(displaySkill)}
           onCopy={copy}
-          onDuplicates={() => setDialog({ type: "duplicates", name: displaySkill.name })}
-          onPlugin={() => {
-            navigate("plugins");
-            setPluginFilter("all");
-            setQuery(displaySkill.pluginId?.split("@")[0] || "");
-          }}
+          onDuplicates={() => manageDuplicates(displaySkill.name)}
+          onPlugin={() => showOwningPlugin(displaySkill.pluginId)}
         />
       )}
       {dialog?.type === "install" && data && (
@@ -1419,6 +1430,7 @@ export default function App() {
           }
         />
       )}
+      {menu && <CommandMenu x={menu.x} y={menu.y} commands={commands} onClose={closeMenu} />}
       <div className="toast-region" aria-live="polite" aria-atomic="true">
         {toast && (
           <div
@@ -1465,6 +1477,7 @@ function SearchField({
       <span className="sr-only">{t("搜索")}</span>
       <input
         type="search"
+        aria-label={t("搜索")}
         placeholder={placeholder}
         value={query}
         onChange={(event) => setQuery(event.target.value)}
@@ -1482,31 +1495,33 @@ function SearchField({
     </label>
   );
 }
-function PluginCard({ plugin, busy, onToggle, onInstall, onDetails, onEditTags }: {
+function PluginCard({ plugin, busy, onToggle, onInstall, onDetails, onEditTags, selected, onMenu }: {
+  selected: boolean; onMenu: (event: React.MouseEvent) => void;
   plugin: Plugin; busy: string | null; onToggle: () => void; onInstall: () => void; onDetails: () => void; onEditTags: () => void;
 }) {
-  return <article className={classNames("skill-card", plugin.installed && plugin.enabled === false && "skill-disabled")}>
-    <button className="skill-card-open" onClick={onDetails} aria-label={t("查看 {v0} 详情", { v0: plugin.name })}>
+  return <article onContextMenu={onMenu} className={classNames("skill-card", selected && "is-selected", plugin.installed && plugin.enabled === false && "skill-disabled")}>
+    <button className="skill-card-open" aria-pressed={selected} onClick={onDetails} aria-label={t("查看 {v0} 详情", { v0: plugin.name })}>
       <div className="skill-card-heading"><span className="skill-icon tone-2"><Blocks size={21} strokeWidth={1.6} /></span><div><h3>{plugin.name}</h3><span className="skill-kind">{plugin.version || t("版本未提供")} · {t(plugin.installed ? "已安装" : "未安装")}</span></div><ChevronRight className="card-chevron" size={17} /></div>
       <p className="skill-description">{plugin.description || t("这个插件尚未提供描述。请根据来源与附带技能判断是否适合你的工作流。")}</p>
     </button>
     <TagStrip subject={{ ...plugin, kind: "plugin" }} disabled={!!busy} onEdit={onEditTags} />
-    {plugin.reason && <div className="skill-reason"><ServiceMessage value={plugin.reason} /></div>}
+    {plugin.enabled === null && plugin.installed && <div className="skill-reason skill-reason-attention"><CircleAlert size={13} /><span>{t("安装或启用状态尚未核实。")}</span></div>}
     <div className="skill-card-footer"><span className="source-tag" title={plugin.marketplace}><Globe2 size={12} />{plugin.directSource ? t("单插件来源") : plugin.marketplace}</span><div className="card-status">
       {plugin.installed ? <Toggle checked={plugin.enabled} disabled={!plugin.canToggle || !!busy} busy={busy === `plugin.toggle:${plugin.id}`} label={`${plugin.enabled ? t("禁用") : t("启用")} ${plugin.name}`} reason={plugin.reason ? t(plugin.reason) : undefined} onChange={onToggle} /> : <Button variant="ghost" disabled={!plugin.canInstall || !!busy} onClick={onInstall}><Plus size={14} />{t("安装插件")}</Button>}
+      <button className="icon-button row-more" aria-label={t("{v0} 的更多操作", { v0: plugin.name })} aria-haspopup="menu" onClick={onMenu}><MoreHorizontal size={17} /></button>
     </div></div>
   </article>;
 }
 function PluginDetail({ plugin, skills, busy, onClose, onToggle, onRemove, onInstall, onUpdates, onSkill }: { plugin: Plugin; skills: Skill[]; busy: string | null; onClose: () => void; onToggle: () => void; onRemove: () => void; onInstall: () => void; onUpdates: () => void; onSkill: (skill: Skill) => void }) {
-  return <Modal title={plugin.name} eyebrow="PLUGIN DETAILS" onClose={onClose}>
-    <div className="modal-body"><p className="dialog-description">{plugin.description || t("未提供描述")}</p><dl className="preview-paths"><dt>{t("版本")}</dt><dd>{plugin.version || t("版本未提供")}</dd><dt>{t("来自")}</dt><dd><code>{plugin.directSource?.source || plugin.marketplace}</code></dd><dt>ID</dt><dd><code>{plugin.id}</code></dd>{plugin.sourcePath && <><dt>{t("来源路径")}</dt><dd><code>{plugin.sourcePath}</code></dd></>}</dl>
+  return <Inspector title={t("插件详情")} onClose={onClose}>
+    <div className="modal-body"><h3 className="inspector-object-name">{plugin.name}</h3><p className="dialog-description">{plugin.description || t("未提供描述")}</p><dl className="preview-paths"><dt>{t("版本")}</dt><dd>{plugin.version || t("版本未提供")}</dd><dt>{t("来自")}</dt><dd><code>{plugin.directSource?.source || plugin.marketplace}</code></dd><dt>ID</dt><dd><code>{plugin.id}</code></dd>{plugin.sourcePath && <><dt>{t("来源路径")}</dt><dd><code>{plugin.sourcePath}</code></dd></>}</dl>
       {plugin.directSource && <ResolvedGitSource source={plugin.directSource} />}
       {plugin.installed && <div className="inline-toggle"><Toggle checked={plugin.enabled} disabled={!plugin.canToggle || !!busy} label={`${plugin.enabled ? t("禁用") : t("启用")} ${plugin.name}`} onChange={onToggle} /><span>{t(plugin.enabled === null ? "状态待确认" : plugin.enabled ? "已启用" : "已禁用")}</span></div>}
       {plugin.reason && <div className="dialog-note"><ServiceMessage value={plugin.reason} /></div>}
       {plugin.installed && <div className="install-components"><strong>{t("附带技能（{v0}）", { v0: skills.length })}</strong><div className="plugin-skill-list">{skills.map(skill => <button className="text-button" key={skill.id} onClick={() => onSkill(skill)}>{skill.name}<ChevronRight size={14} /></button>)}</div></div>}
       <p className="field-hint">{t("插件附带的技能与组件一起安装、更新和卸载。")}</p>
     </div><div className="modal-footer">{plugin.installed ? <><Button variant="danger" disabled={!plugin.canRemove || !!busy} onClick={onRemove}><Trash2 size={15} />{t("卸载")}</Button><Button disabled={!!busy} onClick={onUpdates}><RefreshCw size={15} />{t("管理更新")}</Button></> : <><Button onClick={onClose}>{t("关闭")}</Button><Button variant="primary" disabled={!plugin.canInstall || !!busy} onClick={onInstall}>{t("安装插件")}</Button></>}</div>
-  </Modal>;
+  </Inspector>;
 }
 function MarketCard({
   market,
@@ -1647,7 +1662,7 @@ function SkillDetail({
   }, [skill.id, mode, retry]);
   const { Icon, color } = skillVisual(skill.name);
   return (
-    <Modal title={t("技能详情")} onClose={onClose} drawer>
+    <Inspector title={t("技能详情")} onClose={onClose}>
       <div className="drawer-scroll">
         <div className="detail-hero">
           <span className={`skill-icon tone-${color}`}>
@@ -1798,7 +1813,7 @@ function SkillDetail({
           {t("移除技能")}
         </Button>
       </div>
-    </Modal>
+    </Inspector>
   );
 }
 
@@ -2096,12 +2111,17 @@ function UpdateDialog({
 
 function PreferencesDialog({ onClose }: { onClose: () => void }) {
   const current = usePreferences();
+  const [downloadError, setDownloadError] = useState("");
+  function download(name: "license" | "source") {
+    setDownloadError("");
+    void openDownload(name).catch(error => setDownloadError(error.message));
+  }
   return (
     <Modal title={t("外观与语言")} eyebrow="PREFERENCES" onClose={onClose}>
       <div className="modal-body preferences-body">
         <fieldset className="preference-group">
           <legend>{t("外观")}</legend>
-          <p>{t("浅色界面保持原有配色，也可以切换深色或跟随系统。")}</p>
+          <p>{t("选择浅色、深色，或跟随系统外观。")}</p>
           <div className="theme-options">
             {(
               [
@@ -2123,6 +2143,7 @@ function PreferencesDialog({ onClose }: { onClose: () => void }) {
             ))}
           </div>
         </fieldset>
+        <label className="material-preference"><span><strong>{t("减少透明度")}</strong><small>{t("使用实色背景，让文字和控件更加清晰。")}</small></span><input type="checkbox" checked={current.reduceTransparency} onChange={event => setPreferences({ reduceTransparency: event.target.checked })} /></label>
         <fieldset className="preference-group">
           <legend>{t("界面语言")}</legend>
           <p>{t("技能名称、描述、正文及外部来源内容保留原文。")}</p>
@@ -2161,17 +2182,19 @@ function PreferencesDialog({ onClose }: { onClose: () => void }) {
             <a
               className="button button-secondary"
               href="/api/license"
+              onClick={nativeMode ? event => { event.preventDefault(); download("license"); } : undefined}
               target="_blank"
               rel="noopener noreferrer"
             >
               <FileText size={15} />
               {t("许可证")}
             </a>
-            <a className="button button-secondary" href="/api/source" download>
+            <a className="button button-secondary" href="/api/source" download onClick={nativeMode ? event => { event.preventDefault(); download("source"); } : undefined}>
               <Download size={15} />
               {t("对应源码")}
             </a>
           </div>
+          {downloadError && <div role="alert"><ServiceMessage value={downloadError} error /></div>}
         </section>
       </div>
       <div className="modal-footer">
@@ -2196,7 +2219,7 @@ function SkillReason({
 }) {
   const duplicate = !!skill.duplicateNames?.length;
   const unknown = skill.enabled === null;
-  if (!duplicate && !unknown && !skill.managed && !skill.reason) return null;
+  if (!duplicate && !unknown) return null;
   return (
     <div
       className={classNames(

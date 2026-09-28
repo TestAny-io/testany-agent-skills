@@ -9,6 +9,7 @@ import { canonicalPath, installationIdentity, sameInstallation, readRestart, wri
 import { prepareRuntime, verifyRuntime } from '../assets/app/server/runtime.mjs';
 import { resolveProject, parseLaunchArguments } from '../assets/app/server/project-context.mjs';
 import { resolveCodexCli } from '../assets/app/server/codex-runtime.mjs';
+import { acquireFileLock } from '../assets/app/server/process-lock.mjs';
 
 const defaultApp = fileURLToPath(new URL('../assets/app/', import.meta.url));
 
@@ -135,9 +136,9 @@ export async function launch(action = 'start', options = {}) {
   if (projectInfo.source === 'saved' && await canonicalPath(process.cwd()) !== project) process.stderr.write('SkillDock：使用界面保存的项目，和本次调用目录不同；可用 --project 明确覆盖。\n');
   process.stderr.write('SkillDock：服务会在后台运行；中断本次调用不一定会停止服务。请用 status 核实，用 stop 停止已确认的实例。\n');
   await fs.mkdir(state, { recursive: true, mode: 0o700 });
-  const lock = path.join(state, 'launcher.lock'); let lockHandle;
-  try { lockHandle = await fs.open(lock, 'wx', 0o600); }
-  catch (error) { if (error.code === 'EEXIST') throw new Error('另一个启动操作正在运行。若此前启动被强制中断，请核实后移除 launcher.lock 再重试。'); throw error; }
+  let releaseLock;
+  try { releaseLock = acquireFileLock(path.join(state, 'launcher.lock')); }
+  catch (error) { if (error.code === 'BUSY') throw new Error('另一个启动操作正在运行，请稍后重试。'); throw error; }
   let job; let rollback; let stopped = false;
   const report = async (status, extra = {}) => { if (job) await writeRestart(state, { ...job, status, ...extra, updatedAt: new Date().toISOString() }); };
   try {
@@ -192,7 +193,7 @@ export async function launch(action = 'start', options = {}) {
     await report('failed', { message, restored, completedAt: new Date().toISOString() }).catch(() => {});
     if (message === error.message) throw error;
     throw Object.assign(new Error(message, { cause: error }), { code: error.code });
-  } finally { await lockHandle.close(); await fs.rm(lock, { force: true }); }
+  } finally { releaseLock(); }
 }
 
 if (process.argv[1] && path.resolve(process.argv[1]) === fileURLToPath(import.meta.url)) {

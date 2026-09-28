@@ -89,12 +89,16 @@ test('a failed private-runtime download does not activate an installation or lea
 test('the shell entry locates a custom desktop app without Node/npm on PATH and doctor creates no state', async t => {
   const f = await fixture(t); const bin = path.join(f.app, 'Contents/Resources/cua_node/bin');
   await fs.mkdir(bin, { recursive: true }); await fs.symlink(process.execPath, path.join(bin, 'node'));
+  const cli = path.join(f.app, 'Contents/Resources/codex-cli/bin/codex');
+  await fs.mkdir(path.dirname(cli), { recursive: true });
+  await fs.writeFile(cli, '#!/bin/sh\ncase "$1" in --version) echo "codex-cli 0.158.0" ;; plugin) echo "list marketplace" ;; esac\n', { mode: 0o755 });
   // A Homebrew/official Node has the required native library entitlement on macOS.
   const launcher = fileURLToPath(new URL('../../../scripts/launch.sh', import.meta.url));
   const env = { ...process.env, PATH: '/usr/bin:/bin:/usr/sbin:/sbin', SKILLDOCK_CODEX_APP_DIR: f.app,
     SKILLDOCK_WORKSPACE_RUNTIME: path.join(f.root, 'absent'), SKILLDOCK_STATE_DIR: f.stateDir,
-    SKILLDOCK_NODE_BIN: '', SKILLDOCK_NPM_CLI: '', SKILLDOCK_SELECTED_NPM_CLI: '' };
+    SKILLDOCK_NODE_BIN: '', SKILLDOCK_NPM_CLI: '', SKILLDOCK_SELECTED_NPM_CLI: '', SKILLDOCK_CODEX_BIN: '' };
   const { stdout } = await execute('/bin/sh', [launcher, 'doctor'], { env });
   assert.equal(JSON.parse(stdout).node, await fs.realpath(process.execPath));
+  assert.equal(JSON.parse(stdout).cli.path, cli);
   await assert.rejects(fs.stat(f.stateDir), { code: 'ENOENT' });
 });

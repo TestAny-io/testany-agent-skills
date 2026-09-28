@@ -21,6 +21,7 @@ import type {
 import { Modal } from "./Modal";
 import { ServiceMessage, t as translate } from "./i18n";
 import { UpdateProgress } from "./UpdateProgress";
+import { ExternalLink } from "./ExternalLink";
 import { SourceProvenance } from "./SourceProvenance";
 import { DiffBrowser } from "./DiffBrowser";
 import { GitSourceFields, ResolvedGitSource } from "./GitSourceFields";
@@ -813,6 +814,8 @@ export function UpdatesWorkspace({
                 {statusLabel(item.status)}
               </span>
             </div>
+            <details className="uw-item-metadata">
+              <summary>{t("source")} · {t("version")}<span>{item.installedVersion || t("unknown")}</span></summary>
             <dl className="uw-facts">
               <div>
                 <dt>{t("owner")}</dt>
@@ -846,6 +849,7 @@ export function UpdatesWorkspace({
                 </dd>
               </div>
             </dl>
+            </details>
             <p className="uw-hint">{hint(item)}</p>
             {technical(item.message)}
             {item.sourceInfo && (
@@ -915,14 +919,14 @@ export function UpdatesWorkspace({
                 /^https:\/\/(?:learn\.chatgpt\.com|developers\.openai\.com|git-scm\.com)\//.test(
                   item.sourceInfo.helpUrl,
                 ) && (
-                  <a
+                  <ExternalLink
                     className="button button-ghost"
                     href={item.sourceInfo.helpUrl}
                     target="_blank"
                     rel="noreferrer"
                   >
                     {t("openOwner")}
-                  </a>
+                  </ExternalLink>
                 )}
               {item.canCheck && (
                 <button

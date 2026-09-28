@@ -1,5 +1,6 @@
 import { useState } from "react";
 import { t } from "./i18n";
+import { ExternalLink } from "./ExternalLink";
 
 export function GitAccessHelp() {
   return <details className="git-access-help">
@@ -11,7 +12,7 @@ export function GitAccessHelp() {
     <strong>SSH</strong>
     <p>{t("也可使用 SSH 仓库地址，例如 git@github.com:owner/repo.git。先在终端验证主机，并将密钥解锁到 ssh-agent。")}</p>
     <p>{t("定时更新使用相同凭据。凭据过期、密钥未解锁或组织授权不足时，会记录失败；完成授权后可重新检查。不要把 token 放进仓库地址。")}</p>
-    <a href="https://docs.github.com/en/get-started/git-basics/caching-your-github-credentials-in-git" target="_blank" rel="noreferrer">{t("查看 GitHub 认证说明")}</a>
+    <ExternalLink href="https://docs.github.com/en/get-started/git-basics/caching-your-github-credentials-in-git" target="_blank" rel="noreferrer">{t("查看 GitHub 认证说明")}</ExternalLink>
   </details>;
 }
 

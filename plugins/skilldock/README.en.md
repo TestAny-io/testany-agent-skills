@@ -6,7 +6,7 @@ A Testany Product · macOS + Codex · English / 中文 / 日本語 · Light / da
 
 [简体中文](README.md) · [Install & open](#install--open) · [Give feedback](#tell-us-how-it-went) · [More Testany plugins](../../README.en.md#choose-a-plugin) · [Meet Testany](https://testany.io)
 
-As your skill collection grows, sources, versions, and duplicate copies become harder to track. SkillDock brings skills, plugins, marketplaces, and updates into a panel you can open in Codex's right-hand browser.
+As your skill collection grows, sources, versions, and duplicate copies become harder to track. SkillDock brings skills, plugins, marketplaces, and updates into Codex’s main content area through a native sidebar entry, with the browser panel still available.
 
 ![SkillDock skill library with status, tag filters, and management controls](assets/skills-overview.png)
 
@@ -26,6 +26,8 @@ As your skill collection grows, sources, versions, and duplicate copies become h
 
 Source discovery depends on records left by the original installation. You can connect an update source when those records are missing. Host permissions and system protection can limit available actions; the app shows those restrictions.
 
+Version 0.8.0 updates the product interface with compact lists, a detail inspector, consistent search and filters, and Liquid Glass-inspired navigation and toolbars. It supports context menus, keyboard navigation, restored browsing state, and a Reduce transparency preference. The native entry and browser share the same interface; [design and verification notes](skills/skill-manager/references/31-desktop-interface.md) are included with the source.
+
 Version 0.7.0 adds “Duplicates only” beside the Skills search bar. Combine it with keywords, source, status, and tags. Duplicate detection uses the full scanned inventory; once only one copy remains, it leaves the duplicate results automatically. Available in English, Chinese, and Japanese, with light and dark themes.
 
 Version 0.6.0 adds [skill previews and activation choices](skills/skill-manager/references/28-plugin-skill-selection.md): review names, descriptions, and paths, then search and select which skills to enable. The whole plugin is still installed; unchecked skills stay disabled. After installation, each skill can be toggled independently, and updates preserve those choices.
@@ -34,7 +36,7 @@ If an older version disabled an entire plugin when you switched off one skill, r
 
 ## Install & open
 
-The standalone `skilldock` plugin contains just one entry: `skill-manager`. The engineering, prompt, content, and testing plugins are separate choices.
+The standalone `skilldock` plugin includes the `skill-manager` skill and a native MCP application entry. The engineering, prompt, content, and testing plugins are separate choices.
 
 Copy this into Codex on your Mac:
 
@@ -44,7 +46,9 @@ Install the standalone SkillDock plugin from https://github.com/TestAny-io/testa
 
 You need Git and a Codex CLI with plugin management support. You do not need to clone the repository manually or install a global Node.js/npm runtime first. The launcher selects or prepares the runtime; the first launch needs network access and may take a little while.
 
-Once installed, open a new Codex task:
+Starting with 0.8.0, open **SkillDock** from More / Explore and choose **Pin to sidebar**. Opening the page starts the local backend on demand; a restart reconnects without replaying writes. The entry has been verified in desktop build 26.924.22138. Use the existing browser flow when your host does not expose it. The earlier Preview has a separate pin identity.
+
+You can also open the browser panel from a new Codex task:
 
 ```text
 $skill-manager Open the skill management panel
@@ -78,6 +82,6 @@ Explore [Testany](https://testany.io), read the [platform docs](https://docs.tes
 
 ## Version, license, and development
 
-Current version: **0.7.0**, distributed through this Git repository. [Changelog](../../CHANGELOG.md) · [AGPL-3.0-only](LICENSE) · [Third-party notices](skills/skill-manager/THIRD_PARTY_NOTICES.md).
+Current source version: **0.8.0**, distributed through this Git repository. [Changelog](../../CHANGELOG.md) · [AGPL-3.0-only](LICENSE) · [Third-party notices](skills/skill-manager/THIRD_PARTY_NOTICES.md).
 
 See the [application README](skills/skill-manager/assets/app/README.md) for development and verification commands, and the [Chinese product page](README.md#版本许可与开发) for implementation and UAT records. Other existing skills in this repository remain MIT-licensed.
