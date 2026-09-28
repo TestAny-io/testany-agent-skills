@@ -337,6 +337,7 @@ export default function App() {
   const [loadError, setLoadError] = useState("");
   const [query, setQuery] = useState("");
   const [scope, setScope] = useState("all");
+  const [duplicatesOnly, setDuplicatesOnly] = useState(false);
   const [skillTags, setSkillTags] = useState<string[]>([]);
   const [pluginTags, setPluginTags] = useState<string[]>([]);
   const [updateFocus, setUpdateFocus] = useState<string>();
@@ -359,7 +360,7 @@ export default function App() {
   });
   const pluginLimit =
     pluginWindow.key === pluginScopeKey ? pluginWindow.limit : 48;
-  const skillScopeKey = JSON.stringify([mode, query, metric, scope, skillTags]);
+  const skillScopeKey = JSON.stringify([mode, query, metric, scope, skillTags, duplicatesOnly]);
   const [skillWindow, setSkillWindow] = useState({ key: skillScopeKey, limit: 48 });
   const skillLimit = skillWindow.key === skillScopeKey ? skillWindow.limit : 48;
   const [dialog, setDialog] = useState<Dialog | null>(null);
@@ -571,6 +572,7 @@ export default function App() {
           words.includes(query.toLowerCase()) &&
           matchesTags(skill.tags, skillTags) &&
           (scope === "all" || skill.scope === scope) &&
+          (!duplicatesOnly || !!skill.duplicateNames?.length) &&
           (metric !== "enabled" || skill.enabled === true) &&
           (metric !== "standalone" ||
             skill.scope === "user" ||
@@ -580,7 +582,7 @@ export default function App() {
             (skill.duplicateNames?.length || 0) > 0)
         );
       }),
-    [skills, query, scope, metric, skillTags],
+    [skills, query, scope, metric, skillTags, duplicatesOnly],
   );
   const filteredPlugins = (data?.plugins || []).filter(
     (plugin) =>
@@ -888,8 +890,23 @@ export default function App() {
                       </select>
                       <ChevronDown size={13} />
                     </label>
+                    <button
+                      type="button"
+                      className="duplicate-filter"
+                      aria-pressed={duplicatesOnly}
+                      aria-describedby={duplicatesOnly ? "duplicate-filter-hint" : undefined}
+                      onClick={() => setDuplicatesOnly((value) => !value)}
+                    >
+                      <Copy size={15} aria-hidden="true" />
+                      {t("仅显示重复")}
+                    </button>
                     <ViewSwitch value={view} onChange={setView} />
                   </div>
+                  {duplicatesOnly && (
+                    <p className="duplicate-filter-hint" id="duplicate-filter-hint">
+                      {t("同名技能按安装路径分别显示，可选择“管理同名技能”处理。")}
+                    </p>
+                  )}
                   <TagFilter items={skills} selected={skillTags} onChange={setSkillTags} />
                   <div className="collection-heading">
                     <h2>
@@ -1012,7 +1029,9 @@ export default function App() {
                       }
                       description={
                         skills.length
-                          ? t("试试其他关键词，或调整来源与状态筛选。")
+                          ? duplicatesOnly
+                            ? t("当前筛选下没有重复技能。可关闭“仅显示重复”，或调整其他筛选条件。")
+                            : t("试试其他关键词，或调整来源与状态筛选。")
                           : t("从本地文件夹或 Git 仓库安装第一个技能。")
                       }
                     >
@@ -1023,6 +1042,7 @@ export default function App() {
                             setScope("all");
                             setMetric("all");
                             setSkillTags([]);
+                            setDuplicatesOnly(false);
                           } else setDialog({ type: "install" });
                         }}
                       >

@@ -19,12 +19,14 @@ As your skill collection grows, sources, versions, and duplicate copies become h
 | See what is installed | Browse skills and plugins, their installation paths, and discoverable source information |
 | Install a single plugin | Click “Install plugin” and choose a local directory, Git URL, or connected Marketplace |
 | Find a skill in a large collection | Add your own tags to skills / plugins, then search and filter |
-| Choose between duplicate skills | Inspect each installation path and select the copies to keep or remove; restore removed copies from Activity |
+| Choose between duplicate skills | Turn on “Duplicates only”, then inspect each installation path and select the copies to keep or remove; restore removed copies from Activity |
 | Understand an update | Follow check progress and expand file diffs before applying changes |
 | Keep selected tools current | Choose targets and an interval in hours; optionally apply updates automatically. Bundled skills update with their plugin |
 | Use a private repository | Reuse your locally configured Git credentials; paste a GitHub directory URL when linking a source |
 
 Source discovery depends on records left by the original installation. You can connect an update source when those records are missing. Host permissions and system protection can limit available actions; the app shows those restrictions.
+
+Version 0.7.0 adds “Duplicates only” beside the Skills search bar. Combine it with keywords, source, status, and tags. Duplicate detection uses the full scanned inventory; once only one copy remains, it leaves the duplicate results automatically. Available in English, Chinese, and Japanese, with light and dark themes.
 
 Version 0.6.0 adds [skill previews and activation choices](skills/skill-manager/references/28-plugin-skill-selection.md): review names, descriptions, and paths, then search and select which skills to enable. The whole plugin is still installed; unchecked skills stay disabled. After installation, each skill can be toggled independently, and updates preserve those choices.
 
@@ -53,7 +55,7 @@ If the `codex` command on your PATH fails, the [installation guide](../../README
 ## Try these first
 
 1. **Check your project.** Use the project dropdown to select a saved Codex project or recent directory, or choose an existing local folder.
-2. **Organize a few skills.** Tag a favorite and filter by that tag. If names collide, inspect each copy's installation path.
+2. **Organize a few skills.** Tag a favorite and filter by that tag. Turn on “Duplicates only” to find matching names, then choose “Manage duplicate skills” to review each installation path.
 3. **Review updates.** Click “Check all” on Updates, watch the progress, then expand a diff before choosing an update.
 
 To schedule updates, choose an interval, select targets, and decide whether to enable automatic application. Include `skilldock` itself to update the app and restart it automatically.
@@ -76,6 +78,6 @@ Explore [Testany](https://testany.io), read the [platform docs](https://docs.tes
 
 ## Version, license, and development
 
-Current version: **0.6.0**, distributed through this Git repository. [Changelog](../../CHANGELOG.md) · [AGPL-3.0-only](LICENSE) · [Third-party notices](skills/skill-manager/THIRD_PARTY_NOTICES.md).
+Current version: **0.7.0**, distributed through this Git repository. [Changelog](../../CHANGELOG.md) · [AGPL-3.0-only](LICENSE) · [Third-party notices](skills/skill-manager/THIRD_PARTY_NOTICES.md).
 
 See the [application README](skills/skill-manager/assets/app/README.md) for development and verification commands, and the [Chinese product page](README.md#版本许可与开发) for implementation and UAT records. Other existing skills in this repository remain MIT-licensed.
