@@ -225,3 +225,7 @@ CAUSED AND ON ANY THEORY OF LIABILITY, WHETHER IN CONTRACT, STRICT LIABILITY,
 OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE
 OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 ```
+
+## Native MCP app bundles
+
+The native UI and server use @modelcontextprotocol/sdk 1.30.1, @modelcontextprotocol/ext-apps 1.7.5 and zod 4.6.5, together with their bundled dependencies. The reproducible `npm run build:native` build preserves inline notices and generates the complete dependency license texts in `assets/native/THIRD_PARTY_NOTICES.txt`. Their upstream licenses remain unchanged. Build sources are included in the corresponding source archive.

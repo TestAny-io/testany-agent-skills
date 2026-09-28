@@ -5,9 +5,10 @@ export type Theme = "light" | "dark" | "system";
 export interface Preferences {
   language: Language;
   theme: Theme;
+  reduceTransparency: boolean;
 }
 const key = "skilldock.preferences.v1";
-const defaults: Preferences = { language: "zh", theme: "light" };
+const defaults: Preferences = { language: "zh", theme: "light", reduceTransparency: false };
 function load(): Preferences {
   try {
     const value = JSON.parse(localStorage.getItem(key) || "{}");
@@ -18,6 +19,7 @@ function load(): Preferences {
       theme: ["light", "dark", "system"].includes(value.theme)
         ? value.theme
         : defaults.theme,
+      reduceTransparency: value.reduceTransparency === true,
     };
   } catch {
     return defaults;
@@ -27,12 +29,21 @@ let current = load();
 const subscribers = new Set<() => void>();
 const systemDark = window.matchMedia("(prefers-color-scheme: dark)");
 function apply() {
-  document.documentElement.dataset.theme =
+  const theme =
     current.theme === "system"
       ? systemDark.matches
         ? "dark"
         : "light"
       : current.theme;
+  document.documentElement.dataset.theme = theme;
+  // The native host owns its document-level theme. Keep the application's
+  // palette and color-scheme together on our own root, including dialogs.
+  const root = document.getElementById("root");
+  if (root) {
+    root.dataset.skilldockTheme = theme;
+    root.dataset.reduceTransparency = String(current.reduceTransparency);
+  }
+  document.documentElement.style.colorScheme = theme;
   document.documentElement.lang = { zh: "zh-CN", en: "en", ja: "ja" }[
     current.language
   ];

@@ -8,7 +8,7 @@ import { fileURLToPath } from 'node:url';
 
 export const APP_FILES = ['package.json', 'package-lock.json', 'tsconfig.json', 'vite.config.ts', 'index.html', 'README.md', 'playwright.config.ts'];
 export const APP_TREES = ['src', 'shared', 'server', 'scripts', 'tests'];
-export const ROOT_FILES = ['LICENSE', 'THIRD_PARTY_NOTICES.md', 'SKILL.md', 'scripts/launch.mjs', 'scripts/launch.sh', 'scripts/bootstrap.mjs'];
+export const ROOT_FILES = ['LICENSE', 'THIRD_PARTY_NOTICES.md', 'SKILL.md', 'scripts/launch.mjs', 'scripts/launch.sh', 'scripts/bootstrap.mjs', 'scripts/native.sh'];
 const EXCLUDED = new Set(['node_modules', '.git', '.codex', '.agents', '.state', '.source-snapshot', 'dist', 'test-results', 'playwright-report']);
 const APP_PREFIX = 'assets/app/';
 const sha = bytes => crypto.createHash('sha256').update(bytes).digest('hex');

@@ -1,0 +1,8 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="64" height="64" viewBox="0 0 64 64" fill="none">
+  <!-- The navigation rail uses this image as a monochrome alpha mask. -->
+  <g stroke="#304e3c" stroke-width="4" stroke-linecap="round" stroke-linejoin="round">
+    <rect x="10" y="10" width="44" height="17" rx="4"/>
+    <rect x="10" y="37" width="44" height="17" rx="4"/>
+    <path d="M24 27v10m16-10v10M28 18.5h8m-8 27h8"/>
+  </g>
+</svg>

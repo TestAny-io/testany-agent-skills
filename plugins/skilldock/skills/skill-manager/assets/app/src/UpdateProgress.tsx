@@ -2,6 +2,7 @@ import { useEffect, useRef, useState } from "react";
 import { CircleAlert, CircleCheck, Loader2 } from "lucide-react";
 import type { Mode, UpdateProgress as Progress } from "../shared/contracts";
 import { t } from "./i18n";
+import { apiFetch } from "./transport";
 import "./UpdateProgress.css";
 
 export function UpdateProgress({ mode, seed, pending, onComplete, onRunningChange }: { mode: Mode; seed?: Progress | null; pending: boolean; onComplete: () => void; onRunningChange: (value: boolean) => void }) {
@@ -19,7 +20,7 @@ export function UpdateProgress({ mode, seed, pending, onComplete, onRunningChang
     const controller = new AbortController(); let timer: ReturnType<typeof setTimeout>;
     async function poll() {
       try {
-        const response = await fetch(`/api/updates/progress?mode=${mode}`, { signal: AbortSignal.any([controller.signal, AbortSignal.timeout(5000)]) });
+        const response = await apiFetch(`/api/updates/progress?mode=${mode}`, { signal: AbortSignal.any([controller.signal, AbortSignal.timeout(5000)]) });
         if (!response.ok) throw new Error("progress unavailable");
         const { progress: next } = await response.json() as { progress: Progress | null };
         if (controller.signal.aborted) return;

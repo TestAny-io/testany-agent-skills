@@ -21,9 +21,9 @@
 .diff-hunk { background: #eaf1f8; color: #41617e; }.diff-hunk td { padding: 6px 12px; }
 .diff-line-note { color: var(--muted); font-style: italic; }
 .diff-note { display: flex; align-items: flex-start; gap: 8px; padding: 12px; margin: 0; font-size: 12px; color: var(--muted); }
-[data-theme="dark"] .diff-line-added { background: #19382a; color: #c0e5c9; }[data-theme="dark"] .diff-line-removed { background: #48262c; color: #f1bfc4; }
-[data-theme="dark"] .diff-hunk { background: #253642; color: #b9d1e7; }
-[data-theme="dark"] .diff-counts b:first-child { color: #9bcea8; }[data-theme="dark"] .diff-counts b:last-child { color: #eca0aa; }
+[data-skilldock-theme="dark"] .diff-line-added { background: #19382a; color: #c0e5c9; }[data-skilldock-theme="dark"] .diff-line-removed { background: #48262c; color: #f1bfc4; }
+[data-skilldock-theme="dark"] .diff-hunk { background: #253642; color: #b9d1e7; }
+[data-skilldock-theme="dark"] .diff-counts b:first-child { color: #9bcea8; }[data-skilldock-theme="dark"] .diff-counts b:last-child { color: #eca0aa; }
 .git-source-advanced { margin: 14px 0; }.git-source-advanced > summary { cursor: pointer; color: var(--muted); font-size: 12px; margin-bottom: 12px; }
 .resolved-source { display: grid; gap: 10px; margin: 16px 0; font-size: 12px; }
 .resolved-source > div { display: grid; grid-template-columns: 95px minmax(0, 1fr); gap: 12px; }

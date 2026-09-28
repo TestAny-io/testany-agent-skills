@@ -1,4 +1,4 @@
-/* Paired light/dark colors preserve the original light palette; color-scheme selects the theme. */
+/* Shared feature layouts. tokens.css and desktop.css own the current palette and desktop composition. */
 @import url("./tokens.css");
 
 * {

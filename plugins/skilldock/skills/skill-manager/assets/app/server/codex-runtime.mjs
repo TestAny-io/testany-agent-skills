@@ -14,7 +14,8 @@ export async function resolveCodexCli({ env = process.env, home = os.homedir(),
   const candidates = explicit ? [{ path: explicit, source: 'explicit' }] : [
     ...(env.PATH || '').split(path.delimiter).filter(directory => path.isAbsolute(directory))
       .map(directory => ({ path: path.join(directory, process.platform === 'win32' ? 'codex.exe' : 'codex'), source: 'path' })),
-    ...apps.map(app => ({ path: path.join(app, 'Contents/Resources/codex'), source: 'codex-app' })),
+    ...apps.flatMap(app => ['Contents/Resources/codex-cli/bin/codex', 'Contents/Resources/codex']
+      .map(relative => ({ path: path.join(app, relative), source: 'codex-app' }))),
     { path: path.join(codexHome, 'plugins/.plugin-appserver/codex'), source: 'codex-managed' },
   ];
   const attempts = []; const seen = new Set();

@@ -1,10 +1,12 @@
 # SkillDock
 
-一个在 Codex 右侧浏览器面板或普通浏览器中运行的本地技能管理器。支持中文、英文、日文，以及浅色、深色和跟随系统外观；包含技能库、插件、市场来源、更新和操作记录。打开即加载本机技能库，直接查看与管理自己的安装。
+一个在 Codex 原生主内容区、右侧浏览器面板或普通浏览器中运行的本地技能管理器。支持中文、英文、日文，以及浅色、深色和跟随系统外观；包含技能库、插件、市场来源、更新和操作记录。打开即加载本机技能库，直接查看与管理自己的安装。
 
-此目录是可复现的 app 源码，随独立 `skilldock` 插件分发，仅包含一个 `skill-manager` 入口。当前版本 0.7.0 在 Skills 页新增“仅显示重复”筛选，可叠加关键词、来源、状态及标签，集中处理同名安装。保留安装前的插件技能清单和逐项启用选择；Skills / Plugins 沿用统一的布局与安装流程，支持从本地目录或 Git 目录链接直接安装单个插件，并提供已有项目下拉选择与文件夹选择器。插件外部同步后的基线恢复、macOS 独立后台定时更新、更新进度、逐行 diff、私仓认证、CLI 回退和同名技能按路径选择移除继续可用。
+此目录是可复现的 app 源码，随独立 `skilldock` 插件分发，包含 `skill-manager` skill 与原生 MCP 应用入口。当前版本为 0.8.0，增加完整主页面与按需启动、断线恢复。保留 Skills 页的重复筛选、安装前的插件技能清单和逐项启用选择；Skills / Plugins 沿用统一的布局与安装流程，支持从本地目录或 Git 目录链接直接安装单个插件，并提供已有项目下拉选择与文件夹选择器。插件外部同步后的基线恢复、macOS 独立后台定时更新、更新进度、逐行 diff、私仓认证、CLI 回退和同名技能按路径选择移除继续可用。
 
 ## 安装技能与插件
+
+0.8.0 采用紧凑桌面布局，Liquid Glass 风格的材质用于导航与控制区域，正文和 diff 保持清晰实色。技能与插件默认列表，可切换卡片；宽窗口在详情侧栏连续浏览，窄窗口使用详情面板。支持更多操作和右键菜单、列表方向键、Esc 返回、⌘F / Ctrl+F 搜索，并保存页面、筛选、视图、详情和滚动位置。偏好设置提供“减少透明度”，同时响应系统动态效果和对比度偏好。设计依据与实测范围见[桌面界面](../../references/31-desktop-interface.md)。
 
 技能库和插件页采用相同的主要操作位置、统计筛选、搜索与标签、卡片/列表切换和详情入口。点击右上角的“安装技能”或“安装插件”，依次选择来源、预览并确认安装。更新和移除在详情中管理；插件按整个包操作。
 
@@ -30,7 +32,7 @@
 
 ## CLI 选择
 
-先实际执行 `codex --version` 和 `codex plugin --help`。损坏 wrapper 或缺少插件能力时，启动引导会继续尝试 ChatGPT/Codex 的 `Contents/Resources/codex` 和 Codex 管理的副本，并输出最终绝对路径。可用 `SKILLDOCK_CODEX_APP_DIR` 指定自定义应用位置，或用 `SKILLDOCK_CODEX_BIN` 指定明确的 CLI 文件；显式覆盖无效时不会悄悄换文件。
+先实际执行 `codex --version` 和 `codex plugin --help`。损坏 wrapper 或缺少插件能力时，启动引导会继续尝试 ChatGPT/Codex 的 `Contents/Resources/codex-cli/bin/codex`、旧版 `Contents/Resources/codex` 和 Codex 管理的副本，并输出最终绝对路径。可用 `SKILLDOCK_CODEX_APP_DIR` 指定自定义应用位置，或用 `SKILLDOCK_CODEX_BIN` 指定明确的 CLI 文件；显式覆盖无效时不会悄悄换文件。
 
 取得完整源码后，在本 skill 的目录运行 `/bin/sh scripts/launch.sh cli --print-path` 可读取最终 CLI 路径；`launch.sh cli plugin ...` 复用相同发现规则执行安装命令，不安装应用依赖。源码获取前按仓库 README 中的候选列表验证实际 CLI。应用目录只是实测候选，并非固定宿主 API。
 
@@ -212,3 +214,14 @@ node tests/background-launchd-smoke.mjs
 插件在外部同步后，即使版本号相同，只要安装版本和完整内容与已核实来源一致，检查就能恢复旧基线；不会覆盖安装文件。来源、插件与安装目录身份均保持一致时，原定时计划的内容绑定也会恢复，无需清空计划或历史。恢复会记入操作记录。
 
 来源已变化到其他内容、安装有独有修改或目录被替换时，继续保留保护并要求核实；不会通过删除基线来强制更新。实现边界和回归证据见 [0.4.2 外部同步恢复记录](../../references/26-baseline-recovery.md)。
+
+
+## 原生主页面（0.8.0）
+
+完整 React 界面同时支持浏览器 HTTP 与 MCP Apps 传输。插件的 `.mcp.json` 使用 `cwd: "."`，由 Codex 解析到实际安装根，调用相对路径 native.sh。发现工具不会启动网页后台；打开页面后按需运行已有 launch.sh，数据仍保存在 SKILLDOCK_STATE_DIR。设置 PORT / SKILLDOCK_STATE_DIR 时，原生 MCP 与浏览器启动器须使用同一组值。
+
+开发打包：`npm ci && npm run build:native && npm run build`。原生生成文件随插件分发，用户无需在插件缓存中安装依赖；修改 UI 或 MCP 源码后必须重新执行 build:native。`assets/native` 中的 server.mjs、ui.html、icon.svg、THIRD_PARTY_NOTICES.txt 和 build.json 均由该构建生成；测试核对输入与产物摘要，防止发布过期 bundle。完整源代码位于本 app 和 scripts/native.sh。
+
+验证：`npm test`；`node tests/native-install-smoke.mjs` 做隔离 HOME 下的真实 CLI 安装、冷启动、修改读回和恢复；`node tests/native-harness.mjs` 在 4778 提供隔离浏览器 MCP 宿主，终止进程会停止它创建的后台。它们不会操作用户实际技能库，不替代原生宿主 UAT 或另一台 Mac 验证。
+
+读取工具与写入工具均仅对 App 暴露。会话 token 留在 MCP 进程；界面用 instanceId 绑定当前后台。读接口白名单、写入 32 KiB 限制、现有 HTTP 身份与事务校验继续生效。源码和许可证下载由宿主打开本地下载链接。

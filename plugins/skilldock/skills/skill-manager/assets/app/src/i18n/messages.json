@@ -1890,5 +1890,85 @@
   "全不选": {
     "en": "Clear all",
     "ja": "すべて解除"
+  },
+  "正在启动 SkillDock 并读取清单，首次准备可能需要一些时间…": {
+    "en": "Starting SkillDock and loading your library. First-time setup may take a while…",
+    "ja": "SkillDock を起動してライブラリを読み込んでいます。初回の準備には時間がかかる場合があります…"
+  },
+  "操作响应中断，结果尚未确认。请先刷新操作记录和清单，确认后再决定是否重试。": {
+    "en": "The response was interrupted; the outcome is unknown. Refresh the activity log and library before deciding whether to retry.",
+    "ja": "応答が中断され、結果を確認できません。操作履歴とライブラリを更新して確認してから、再試行を判断してください。"
+  },
+  "资料库": {
+    "en": "Library",
+    "ja": "ライブラリ"
+  },
+  "偏好设置": {
+    "en": "Settings",
+    "ja": "設定"
+  },
+  "筛选状态": {
+    "en": "Filter by status",
+    "ja": "状態で絞り込む"
+  },
+  "展开侧边栏": {
+    "en": "Show sidebar",
+    "ja": "サイドバーを表示"
+  },
+  "收起侧边栏": {
+    "en": "Hide sidebar",
+    "ja": "サイドバーを隠す"
+  },
+  "浏览、整理与管理你的技能": {
+    "en": "Browse and organize your skills",
+    "ja": "スキルを見つけて、整理する"
+  },
+  "扩展工作流，管理插件与附带技能": {
+    "en": "Manage plugins and their skills",
+    "ja": "プラグインと付属スキルを管理する"
+  },
+  "管理插件的发现与安装来源": {
+    "en": "Your sources for discovering plugins",
+    "ja": "プラグインの入手先を管理する"
+  },
+  "检查变化，让你的工具保持最新": {
+    "en": "Review changes and keep your tools current",
+    "ja": "変更を確認し、ツールを最新に保つ"
+  },
+  "查看操作结果，恢复之前的内容": {
+    "en": "Review activity and restore previous content",
+    "ja": "操作結果を確認し、以前の内容を復元する"
+  },
+  "关闭详情": {
+    "en": "Close details",
+    "ja": "詳細を閉じる"
+  },
+  "更多操作": {
+    "en": "More actions",
+    "ja": "その他の操作"
+  },
+  "{v0} 的更多操作": {
+    "en": "More actions for {v0}",
+    "ja": "{v0} のその他の操作"
+  },
+  "插件详情": {
+    "en": "Plugin details",
+    "ja": "プラグインの詳細"
+  },
+  "查看详情": {
+    "en": "View details",
+    "ja": "詳細を表示"
+  },
+  "选择浅色、深色，或跟随系统外观。": {
+    "en": "Choose light, dark, or follow your system appearance.",
+    "ja": "ライト、ダーク、またはシステムの外観を選択します。"
+  },
+  "减少透明度": {
+    "en": "Reduce transparency",
+    "ja": "透明度を下げる"
+  },
+  "使用实色背景，让文字和控件更加清晰。": {
+    "en": "Use solid surfaces for clearer text and controls.",
+    "ja": "背景を不透明にして、文字とコントロールを見やすくします。"
   }
 }

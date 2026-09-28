@@ -70,7 +70,7 @@ claude plugin update testany-eng@testany-agent-skills
 
 查看 [SkillDock 产品页与界面](plugins/skilldock/README.md)，了解标签与重复技能筛选、同名技能管理、更新 diff 与自动更新。
 
-**安装 `skilldock` 只会添加一个 SkillDock 应用入口，不会安装 testany-eng 的研发 skills。** 当前版本为 SkillDock 0.7.0，自 0.2.0 起独立分发；旧版 testany-eng 2.4.0 所带的 SkillDock 0.1.0 用户请按下方迁移说明接续数据。
+**安装 `skilldock` 只会添加一个 SkillDock 应用入口，不会安装 testany-eng 的研发 skills。** 当前版本为 SkillDock **0.8.0**，自 0.2.0 起独立分发；旧版 testany-eng 2.4.0 所带的 SkillDock 0.1.0 用户请按下方迁移说明接续数据。
 
 无需用户手动 clone。可以在 Codex 中提出：
 
@@ -83,16 +83,16 @@ claude plugin update testany-eng@testany-agent-skills
 
 先运行 `codex --version` 和 `codex plugin --help`。仅 `command -v codex` 成功不能证明 CLI 可用：旧 npm wrapper 可能已经损坏。如果 PATH 命令失败或没有 plugin 管理能力，依次检查以下位置的真实可执行文件，并对每个候选执行相同的版本和能力检查：
 
-- `/Applications/ChatGPT.app/Contents/Resources/codex`
-- `/Applications/Codex.app/Contents/Resources/codex`
-- 用户 `~/Applications` 下对应应用的 `Contents/Resources/codex`
+- `/Applications/ChatGPT.app/Contents/Resources/codex-cli/bin/codex`（新版）或 `Contents/Resources/codex`（旧版）
+- `/Applications/Codex.app/Contents/Resources/codex-cli/bin/codex` 或 `Contents/Resources/codex`
+- 用户 `~/Applications` 下对应应用的上述路径
 - `${CODEX_HOME:-$HOME/.codex}/plugins/.plugin-appserver/codex`
 
 应用内位置是经过实测的发现候选，不是所有客户端都保证提供的固定接口；应用装在其他位置时使用其实际路径。不要修改旧 wrapper、全局 Node、shell 配置或应用签名。确认后把绝对路径保存在 `CODEX_CLI`，打印最终路径与版本，并在整个安装过程中使用同一个文件：
 
 ```bash
 # 替换为上一步实际验证通过的路径
-CODEX_CLI="/Applications/ChatGPT.app/Contents/Resources/codex"
+CODEX_CLI="/Applications/ChatGPT.app/Contents/Resources/codex-cli/bin/codex"
 printf 'Using Codex CLI: %s\n' "$CODEX_CLI"
 "$CODEX_CLI" --version
 "$CODEX_CLI" plugin marketplace add TestAny-io/testany-agent-skills
@@ -117,7 +117,7 @@ CODEX_CLI="$(/bin/sh plugins/skilldock/skills/skill-manager/scripts/launch.sh cl
 
 </details>
 
-安装后，新建 Codex 任务，输入 `$skill-manager 打开技能管理面板`。在 Codex 右侧浏览器中确认“当前项目”，再开始管理。
+0.8.0 支持从 More / Explore 点击 **SkillDock**，再用 **Pin to sidebar** 固定；打开时自动启动后台，沿用已保存项目。原生入口已在桌面版 26.924.22138 验证；未显示入口时，新建 Codex 任务输入 `$skill-manager 打开技能管理面板`，使用右侧浏览器。确认“当前项目”后再开始管理。
 
 <details>
 <summary>如何更新与设置自动更新</summary>

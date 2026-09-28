@@ -1,9 +1,12 @@
-import { useEffect, useId, useRef, type ReactNode } from "react";
+import { useLayoutEffect, useId, useRef, type ReactNode } from "react";
+import { createPortal } from "react-dom";
 import { X } from "lucide-react";
 import { t } from "./i18n";
 function classNames(...values: (string | false | undefined)[]) {
   return values.filter(Boolean).join(" ");
 }
+let openModals = 0;
+let backgroundState: { element: HTMLElement; inert: boolean; hidden: string | null } | null = null;
 export function Modal({
   title,
   eyebrow,
@@ -25,11 +28,19 @@ export function Modal({
   const element = useRef<HTMLDivElement>(null);
   const closeRef = useRef(onClose);
   closeRef.current = onClose;
-  useEffect(() => {
+  useLayoutEffect(() => {
     const previous = document.activeElement as HTMLElement | null;
     const bodyOverflow = document.body.style.overflow;
     document.body.style.overflow = "hidden";
     element.current?.focus();
+    if (openModals++ === 0) {
+      const background = document.querySelector<HTMLElement>(".app-shell");
+      if (background) {
+        backgroundState = { element: background, inert: background.inert, hidden: background.getAttribute("aria-hidden") };
+        background.inert = true;
+        background.setAttribute("aria-hidden", "true");
+      }
+    }
     function onKey(event: KeyboardEvent) {
       if (event.key === "Escape") {
         event.preventDefault();
@@ -37,7 +48,7 @@ export function Modal({
       }
       if (event.key !== "Tab") return;
       const candidates = element.current?.querySelectorAll<HTMLElement>(
-        'button:not(:disabled), input:not(:disabled), select:not(:disabled), textarea:not(:disabled), a[href], [tabindex="0"]',
+        'button:not(:disabled), input:not(:disabled), select:not(:disabled), textarea:not(:disabled), a[href], summary, [tabindex="0"]',
       );
       const items = [...(candidates || [])].filter(
         (item) => item.getClientRects().length > 0,
@@ -66,12 +77,18 @@ export function Modal({
     }
     document.addEventListener("keydown", onKey);
     return () => {
+      if (--openModals === 0 && backgroundState) {
+        backgroundState.element.inert = backgroundState.inert;
+        if (backgroundState.hidden === null) backgroundState.element.removeAttribute("aria-hidden");
+        else backgroundState.element.setAttribute("aria-hidden", backgroundState.hidden);
+        backgroundState = null;
+      }
       document.body.style.overflow = bodyOverflow;
       document.removeEventListener("keydown", onKey);
       if (previous?.isConnected) previous.focus();
     };
   }, []);
-  return (
+  return createPortal(
     <div
       className={classNames("overlay", drawer && "overlay-drawer")}
       onMouseDown={(event) => {
@@ -106,6 +123,7 @@ export function Modal({
         </div>
         {children}
       </div>
-    </div>
+    </div>,
+    document.getElementById("root")!,
   );
 }

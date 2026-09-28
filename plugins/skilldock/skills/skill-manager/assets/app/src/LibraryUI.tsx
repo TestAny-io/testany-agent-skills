@@ -14,8 +14,8 @@ export function ViewSwitch({ value, onChange }: { value: "grid" | "list"; onChan
   </div>;
 }
 export function LibraryFilters<T extends string>({ items, selected, onChange }: { items: { id: T; label: string; count: number; icon: ReactNode }[]; selected: T; onChange: (value: T) => void }) {
-  return <div className="stats-grid">{items.map(item => <button key={item.id} className={`stat-card ${selected === item.id ? "selected" : ""}`} onClick={() => onChange(item.id)} aria-pressed={selected === item.id}>
-    <div><span>{t(item.label)}</span>{item.icon}</div><strong>{item.count}<span>{t("个")}</span></strong><span className="stat-indicator" />
+  return <div className="stats-grid" role="group" aria-label={t("筛选状态")}>{items.map(item => <button key={item.id} className={`stat-card ${selected === item.id ? "selected" : ""}`} onClick={() => onChange(item.id)} aria-pressed={selected === item.id}>
+    <span>{t(item.label)}</span><strong>{item.count}</strong>
   </button>)}</div>;
 }
 export function InstallSteps({ preview }: { preview: boolean }) {

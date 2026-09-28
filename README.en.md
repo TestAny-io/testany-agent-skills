@@ -73,7 +73,9 @@ Install the standalone SkillDock plugin from https://github.com/TestAny-io/testa
 
 This installs only `skilldock` and its `skill-manager` entry. You need Git and a Codex CLI with plugin support. The launcher selects or prepares Node.js/npm; installing a global Node.js runtime is not a prerequisite.
 
-After installation, open a new Codex task and ask `$skill-manager` to open the panel. See the [SkillDock product page](plugins/skilldock/README.en.md) for screenshots, first steps, updates, and feedback. Existing users of the old bundled version should follow the [migration instructions](README.md#从旧版-testany-eng-迁移).
+Current version: **0.8.0**. After installation, open **SkillDock** from More / Explore and choose **Pin to sidebar**. Opening the page starts the backend on demand and keeps your saved project. The native entry has been verified in desktop build 26.924.22138; if your host does not show it, open a new Codex task and ask `$skill-manager` to open the browser panel.
+
+See the [SkillDock product page](plugins/skilldock/README.en.md) for screenshots, first steps, updates, and feedback. Existing users of the old bundled version should follow the [migration instructions](README.md#从旧版-testany-eng-迁移).
 
 ## Feedback
 

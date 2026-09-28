@@ -1,4 +1,5 @@
 import { useEffect, useState } from "react";
+import { apiFetch, nativeMode } from "./transport";
 
 type Restart = { id: string; status: "preparing" | "restarting" | "ready" | "failed"; message?: string; restored?: boolean };
 type Connection = { status: Restart["status"] | "offline"; message?: string } | null;
@@ -14,7 +15,7 @@ export function useRuntimeConnection(enabled: boolean) {
     let disconnected = false;
     const poll = async () => {
       try {
-        const response = await fetch("/api/health", {
+        const response = await apiFetch("/api/health", {
           cache: "no-store", credentials: "same-origin", signal: AbortSignal.timeout(3000),
         });
         if (!response.ok) throw new Error("Unavailable");
@@ -23,9 +24,8 @@ export function useRuntimeConnection(enabled: boolean) {
         if (stopped) return;
         if (instanceId ? instanceId !== health.instanceId : disconnected) {
           // Fetch new assets and a fresh session. Never replay a previous POST.
-          reloading = true;
-          window.location.reload();
-          return;
+          if (nativeMode) window.dispatchEvent(new Event("skilldock:reconnected"));
+          else { reloading = true; window.location.reload(); return; }
         }
         instanceId = health.instanceId;
         disconnected = false;

@@ -1,4 +1,4 @@
-import { useRef, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { Check, ChevronDown, Plus, Search, Tag, X } from "lucide-react";
 import type { ActionRequest, ActionResult } from "../shared/contracts";
 import { Modal } from "./Modal";
@@ -26,6 +26,11 @@ export function TagStrip({ subject, disabled, onEdit }: { subject: TagSubject; d
 export function TagFilter({ items, selected, onChange }: { items: { tags?: string[] }[]; selected: string[]; onChange: (value: string[]) => void }) {
   const [search, setSearch] = useState("");
   const dropdown = useRef<HTMLDetailsElement>(null);
+  useEffect(() => {
+    const dismiss = (event: PointerEvent) => { if (dropdown.current?.open && !dropdown.current.contains(event.target as Node)) dropdown.current.open = false; };
+    document.addEventListener("pointerdown", dismiss);
+    return () => document.removeEventListener("pointerdown", dismiss);
+  }, []);
   const options = new Map<string, { label: string; count: number }>();
   for (const item of items) for (const tag of item.tags || []) {
     const id = key(tag); const previous = options.get(id);
@@ -36,7 +41,7 @@ export function TagFilter({ items, selected, onChange }: { items: { tags?: strin
   const choose = (id: string) => onChange(selected.includes(id) ? selected.filter(tag => tag !== id) : [...selected, id]);
   return <div className="tag-filter-bar">
     <details className="tag-filter" ref={dropdown} onKeyDown={event => {
-      if (event.key === "Escape" && dropdown.current) { dropdown.current.open = false; dropdown.current.querySelector("summary")?.focus(); }
+      if (event.key === "Escape" && dropdown.current) { event.preventDefault(); event.stopPropagation(); dropdown.current.open = false; dropdown.current.querySelector("summary")?.focus(); }
     }}>
       <summary><Tag size={15} />{t("标签筛选")}{!!selected.length && <b>{selected.length}</b>}<ChevronDown size={13} /></summary>
       <div className="tag-filter-popover">
