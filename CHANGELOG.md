@@ -189,6 +189,16 @@
   - `testany-llm` 的命令列表和 plugin 描述改为仅保留 `prompt-optimizer`
   - 根 README、`AGENTS.md`、`CLAUDE.md` 不再引用已删除的 `skill-creator` 脚本与路径
 
+## [testany-eng 2.5.1] - 2026-09-28
+
+### 修复
+
+- 减少 `code-reviewer` 反复读取大清单和临时编写证据校验代码的开销：完整 snapshot/receipt 保存为不可覆盖的附件，默认 stdout 不超过 4096 bytes，并报告差异总数和省略数量。
+- 复用内置 snapshot 比较及 manifest/archive/source 校验；固定输入摘要，核对原始字节与适用的权限语义，避免将 tar group-write 差异误报为 Git executable bit 变化。
+- 保持原 snapshot schema、digest 算法和 Python `create_snapshot()` 接口；默认 CLI stdout 改为摘要，依赖旧版全量 snapshot stdout 的机器消费者需显式加 `--full-json` 并重定向。
+- 同步按需工具指南、证据复用规则、中英文 Scope Lock 与 README；工具不替代语义评审、证据覆盖或执行绑定，不新增每轮门禁或复跑测试要求。
+- 按本次补丁发布范围将 `testany-eng` 从 `2.5.0` 升至 `2.5.1`；版本仅由插件 `plugin.json` 声明，Marketplace 不重复声明。
+
 ## [仓库发布规则] - 2026-09-27
 
 ### 变更

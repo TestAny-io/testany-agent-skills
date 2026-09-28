@@ -18,6 +18,8 @@ Open-source tools by [Testany](https://testany.io): four domain plugins plus **S
 
 The [skill catalog](README.md#包含的-skills) and detailed plugin documentation are maintained in Chinese. Host-specific capabilities and prerequisites are documented per plugin; SkillDock currently targets Codex on macOS.
 
+`code-reviewer` saves complete machine evidence to files and returns bounded summaries, with reusable evidence verification tools. See the [artifact tool guide](plugins/testany-eng/skills/code-reviewer/references/artifact-tools.md) for usage and the `--full-json` option for consumers of the previous full snapshot stdout.
+
 ## Use the domain plugins in Codex
 
 Ask Codex to install the plugin you choose. For example:

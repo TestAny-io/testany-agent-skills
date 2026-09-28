@@ -4,7 +4,7 @@
 
 研发流程工具集：从业务需求、设计到源码评审、测试设计与运维准备的完整链路。
 
-SkillDock 已迁移为独立的 [skilldock 插件](../skilldock/README.md)。testany-eng 2.5.0 包含 21 个研发 skills；需要图形管理器时单独安装 SkillDock。
+SkillDock 已迁移为独立的 [skilldock 插件](../skilldock/README.md)。testany-eng 2.5.1 包含 21 个研发 skills；需要图形管理器时单独安装 SkillDock。
 
 ## 概述
 
@@ -594,7 +594,10 @@ flowchart TD
 - 同 finding ID 仍披露原问题未修完、新回归、旧原因漏报的因果与 reviewer 责任；漏审后的独立复核必须改变失效的验证方法
 - P2 永不阻断或捆绑当轮整改；最小修复同时约束架构面与新增操作/门禁维护负担，源码、CI、环境结论分离
 - 使用一份可核验 Review Record，报告/子任务引用，不重复抄历史；只有内容、依赖、命令、工具、配置和基线核验一致才能复用 source/local 证据，新 Candidate 仍需新绑定与 verdict
+- 机器证据默认完整落盘、stdout 摘要不超过 4096 bytes；复用内置 snapshot 比较和 manifest/archive/source 校验，避免反复输出全量清单或临时重写校验代码，详见[工具约定](skills/code-reviewer/references/artifact-tools.md)
 - Skill 自身有缩小的生产语义正反样本与盲测控制，分别评估漏报、误报、越界和收敛；不把样本通过冒充真实部署通过
+
+`snapshot_worktree.py` 的默认 stdout 改为附件摘要；读取旧版全量 JSON stdout 的机器消费者需显式加 `--full-json` 并重定向。原 snapshot schema、digest 算法和 Python `create_snapshot()` 接口保持不变。这些工具按已有证据需要调用，不新增每轮门禁或要求复跑测试。
 
 **输入**：仓库路径 + base/previous Candidate + Candidate + 已批准基线；有上一轮 terminal 时还必须提供其可读取的精确 artifact（`path@version + SHA-256` 或 canonical embedded envelope），不能只给 findings 摘要
 **输出**：Review Comment 或 Code Review Approval Certificate + 一份共享 Review Record（可内嵌，不强制新增文件；不授予部署权限）

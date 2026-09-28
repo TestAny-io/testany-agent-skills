@@ -23,6 +23,7 @@ description: 'Code review, implementation review, 源码评审、实现复审。
 | 触发 | 读取 |
 |------|------|
 | 证据复用、snapshot 漂移或提交重绑 | `references/evidence-reuse.md` |
+| 捕获/比较 snapshot、核验证据清单或源码归档 | `references/artifact-tools.md`（现有工具参数与短输出，不另写遍历器） |
 | 确需并行独立审查 | `../../references/subagent-result-contract.md` 与 `references/subagent-result-extension.md` |
 | 批准来源争议、真实职责/信任/架构增量 | `../../references/review-boundaries.md` |
 | 维护本 Skill | `tests/evaluation.md`；评审产品时不加载答案 |
@@ -36,9 +37,9 @@ description: 'Code review, implementation review, 源码评审、实现复审。
 Scope Lock 包含逐仓 `review_root_base`、批准来源、In/Out Scope、Must Not Change、architecture budget、验证边界；用本 Skill 的 `scripts/scope_lock_digest.py` 生成 canonical payload/digest。正常整改沿用，不重新求批准。新增/争议授权回到原始有权决定；Reviewer comment 经文档转述不成为授权。未知字段如实 `NOT_BOUND / NOT_FROZEN`，只阻断受影响判断。
 
 - **Immutable**：绑定 exact commit/tree、base/range 和 changed paths；拒绝 replace refs / legacy grafts，Git 使用 `GIT_NO_REPLACE_OBJECTS=1`、禁用 external diff/textconv、保留 submodule 差异。
-- **Mutable**：从本 `SKILL.md` 的实际绝对目录运行 `scripts/snapshot_worktree.py --repo <repo> --base <immutable-base>`。保留完整 argv 与 JSON；工具内部双捕获绑定 raw bytes/mode、index、submodule、untracked，拒绝 hidden index flags、dirty submodule、symlink baseline。
+- **Mutable**：从本 `SKILL.md` 的实际绝对目录运行 `scripts/snapshot_worktree.py --repo <repo> --base <immutable-base> --output <Candidate之外>/snapshot-before.json`。默认完整 argv/JSON 落盘，stdout 仅摘要与引用；省略 output 时返回临时附件路径。工具内部双捕获绑定 raw bytes/mode、index、submodule、untracked，拒绝 hidden index flags、dirty submodule、symlink baseline。
 - 他人 WIP 明确 owner/理由后用 `--exclude`，不得排除已提交 Candidate 的变化。Candidate-owned ignored 用 `--candidate-ignored`；可变基线用 `--mutable-baseline`。过滤/EOL 不得隐藏 raw bytes 改变。
-- 首次捕获后，在**最后一次验证结束且即将给 verdict 时**重算一次；这同一次 MATCH 同时满足 post-validation 与 pre-verdict。其间有写入/新测试/漂移才重算，不在只读 ACK 或材料转发后机械重跑。
+- 首次捕获后，在**最后一次验证结束且即将给 verdict 时**重算一次，加 `--compare <snapshot-before.json> --compare-sha256 <首次固定的snapshot摘要>` 直接得到 MATCH/DRIFT；这同一次 MATCH 同时满足 post-validation 与 pre-verdict。其间有写入/新测试/漂移才重算，不在只读 ACK 或材料转发后机械重跑。
 - 漂移使旧 binding 失效，比较变化并补审直接影响范围；保留未受影响证据。不能对未审新 bytes 放行；无法稳定绑定则只列必要 EB。
 - mutable/mixed 结论只绑定相应 snapshot；全部 immutable 才能给 certificate。**同内容提交**先按 evidence-reuse 用 `scripts/verify_candidate_binding.py` 核验 raw bytes、路径、mode/gitlink、基线和完整性，生成短 binding receipt，引用仍有效的 source APPROVED；不重审、不重跑未受影响测试、不新建 Review ID。receipt 自身不授予批准，存在新 blocker/撤回/输入或语义变化时禁用此路径。
 
