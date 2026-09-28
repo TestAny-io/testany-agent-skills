@@ -37,7 +37,7 @@
 
 - 首轮覆盖全部 In Scope diff。delta 审原 blocker、变化行为与直接影响，沿用可信旧覆盖；补审覆盖失效 invariant/同根因路径，只有共同假设错误或影响无法界定才扩大。
 - immutable：拒绝 replace refs/grafts；`GIT_NO_REPLACE_OBJECTS=1`，使用 `git diff --name-status --no-renames -z --no-ext-diff --no-textconv --ignore-submodules=none <from> <candidate> --`，raw manifest 摘要一次。
-- mutable：保存 `snapshot_worktree.py` 解析路径/版本、完整 argv 和 JSON；注明 Candidate-owned untracked/ignored 与排除 WIP 的 owner。`--candidate-ignored` 与 `--mutable-baseline` 不混用，排除不得隐藏已提交变化。最后验证结束、verdict 前的同一次 MATCH 满足两处检查；后续有写入才重查。
+- mutable：用 `snapshot_worktree.py --output <Candidate之外的文件>` 保存解析路径/版本、完整 argv 和 JSON，正文只引用工具短输出；参数见 `artifact-tools.md`。注明 Candidate-owned untracked/ignored 与排除 WIP 的 owner。`--candidate-ignored` 与 `--mutable-baseline` 不混用，排除不得隐藏已提交变化。最后验证结束、verdict 前用 `--compare / --compare-sha256` 的同一次 MATCH 满足两处检查；后续有写入才重查。
 - 机器 manifest 分类 `in_scope / scope_violation / verified_filtered_baseline`；filtered 仅用于 raw-worktree-versus-index，且有 filter/EOL 与 prior-raw 双证据，mode/gitlink 不可 filtered。main 每绑定校验一次，child 只验分配输入。
 - 简短覆盖索引：可信首次完整覆盖引用、本轮路径/组件、实际使用的 assignment，以及 `unclassified / scope_decision_blocked_ranges / evidence_or_assignment_gaps`。scope gap 绑 SD，缺证/未分配 gap 绑 EB。批准要求完整可信覆盖且三集合为空；补齐缺口时保留可信已完成部分。
 

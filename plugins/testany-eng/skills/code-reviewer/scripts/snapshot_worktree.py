@@ -7,11 +7,15 @@ import argparse
 import hashlib
 import json
 import os
+import re
 import stat
 import subprocess
 import sys
 from pathlib import Path, PurePosixPath
 from typing import Sequence
+
+sys.path.insert(0, str(Path(__file__).resolve().parent))
+from review_artifacts import canonical, print_error, print_summary, save_json
 
 
 SCHEMA = "testany.code-reviewer.worktree-snapshot.v1"
@@ -761,6 +765,38 @@ def create_snapshot(
     return {"snapshot_sha256": _sha256(canonical), "manifest": manifest}
 
 
+def load_snapshot(path: Path, expected_digest: str) -> dict:
+    """Verify a previously pinned semantic digest, not a digest read from itself."""
+    if not re.fullmatch(r"[0-9a-f]{64}", expected_digest or ""):
+        raise SnapshotError("a separately pinned snapshot SHA-256 is required")
+    payload = json.loads(path.read_bytes())
+    manifest = payload["manifest"]
+    if payload["snapshot_sha256"] != expected_digest or _sha256(canonical(manifest)) != expected_digest:
+        raise SnapshotError("snapshot does not match the pinned digest")
+    if manifest["schema"] != SCHEMA:
+        raise SnapshotError("unsupported snapshot schema")
+    return payload
+
+
+def compare_snapshots(previous: dict, current: dict) -> dict:
+    before, after = previous["manifest"], current["manifest"]
+
+    def records(manifest: dict) -> dict:
+        state = manifest["index_state"]
+        return {item["path"]: item for item in (
+            state["tracked_worktree"] + state["submodules"] + manifest["candidate_untracked"]
+            + manifest["candidate_ignored"] + manifest["mutable_baselines"]
+        )}
+
+    old, new = records(before), records(after)
+    return {
+        "result": "MATCH" if before == after else "DRIFT",
+        "prior_snapshot_sha256": previous["snapshot_sha256"],
+        "changed_fields": sorted(key for key in set(before) | set(after) if before.get(key) != after.get(key)),
+        "changed_paths": sorted(path for path in set(old) | set(new) if old.get(path) != new.get(path)),
+    }
+
+
 def parse_args(argv: Sequence[str] | None = None) -> argparse.Namespace:
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--repo", type=Path, default=Path.cwd())
@@ -784,12 +820,20 @@ def parse_args(argv: Sequence[str] | None = None) -> argparse.Namespace:
         type=Path,
         help="Mutable approved baseline file outside or inside the repository",
     )
+    output = parser.add_mutually_exclusive_group()
+    output.add_argument("--output", type=Path, help="New full snapshot JSON outside checkout; default: temporary artifact")
+    output.add_argument("--full-json", action="store_true", help="Legacy full JSON stdout, only for a redirected machine consumer")
+    parser.add_argument("--compare", type=Path, help="Prior snapshot for post-validation/pre-verdict drift comparison")
+    parser.add_argument("--compare-sha256", help="Prior snapshot_sha256 pinned at the initial capture")
     return parser.parse_args(argv)
 
 
 def main(argv: Sequence[str] | None = None) -> int:
     args = parse_args(argv)
     try:
+        if bool(args.compare) != bool(args.compare_sha256):
+            raise SnapshotError("--compare and --compare-sha256 must be supplied together")
+        previous = load_snapshot(args.compare, args.compare_sha256) if args.compare else None
         snapshot = create_snapshot(
             args.repo,
             args.base,
@@ -797,11 +841,33 @@ def main(argv: Sequence[str] | None = None) -> int:
             args.mutable_baseline,
             args.candidate_ignored,
         )
-    except SnapshotError as exc:
-        print(f"snapshot failed: {exc}", file=sys.stderr)
-        return 1
-    print(json.dumps(snapshot, ensure_ascii=False, indent=2, sort_keys=True))
-    return 0
+        comparison = compare_snapshots(previous, snapshot) if previous else None
+        if args.full_json:
+            # Explicit compatibility mode; create_snapshot() and its digest stay unchanged.
+            if comparison:
+                snapshot["comparison"] = comparison
+            print(json.dumps(snapshot, ensure_ascii=False, indent=2, sort_keys=True))
+        else:
+            manifest = snapshot["manifest"]
+            control = manifest["repository_control_state"]
+            artifact = {**snapshot, "capture": {"argv": [sys.executable, str(Path(__file__).resolve()), *(argv if argv is not None else sys.argv[1:])]}}
+            if comparison:
+                artifact["comparison"] = comparison
+            path, sha = save_json(artifact, args.output, prefix="review-snapshot-", forbidden_roots=[
+                manifest["repository_root"], control["git_dir"], control["git_common_dir"],
+            ])
+            summary = {"result": comparison["result"] if comparison else "CAPTURED",
+                       "snapshot_sha256": snapshot["snapshot_sha256"], "artifact_path": str(path), "artifact_sha256": sha,
+                       "tracked_entries": manifest["index_state"]["tracked_entries"],
+                       "candidate_changed_paths_count": len(manifest["candidate_changed_paths"])}
+            if comparison:
+                summary["changed_fields"] = comparison["changed_fields"]
+            paths = comparison["changed_paths"] if comparison else [item["path"] for item in manifest["candidate_changed_paths"]]
+            print_summary(summary, paths=paths)
+        return 1 if comparison and comparison["result"] == "DRIFT" else 0
+    except (SnapshotError, OSError, KeyError, TypeError, ValueError, subprocess.SubprocessError) as exc:
+        print_error(exc)
+        return 2
 
 
 if __name__ == "__main__":

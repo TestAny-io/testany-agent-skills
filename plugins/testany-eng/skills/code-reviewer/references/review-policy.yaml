@@ -9,6 +9,13 @@ reading:
   unchanged_verified_artifact: REUSE_CACHED_VERIFICATION
   author_summary_replaces_primary_evidence: false
   recursive_history_replay_required: false
+artifact_tools:
+  reference: references/artifact-tools.md
+  default_output: FULL_ARTIFACT_ON_DISK_BOUNDED_SUMMARY_ON_STDOUT
+  summary_max_bytes: 4096
+  overwrite_existing_artifact: false
+  evidence_verifier: scripts/verify_review_evidence.py
+  mandatory_new_evidence_or_test_gate: false
 
 review_modes:
   initial_full_review:
@@ -65,6 +72,7 @@ candidate_binding:
     excluded_wip_may_hide_committed_candidate: false
     candidate_owned_ignored_requires_explicit_capture: true
     save_exact_argv_and_full_json: true
+    final_compare: PINNED_PREVIOUS_SNAPSHOT_VIA_TOOL
     recheck: ONCE_AFTER_LAST_VALIDATION_IMMEDIATELY_BEFORE_VERDICT
     extra_recheck_when: INTERVENING_WRITE_OR_NEW_VALIDATION_OR_DRIFT
     read_only_ack_requires_recheck: false

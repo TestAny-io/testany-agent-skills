@@ -4,7 +4,7 @@
 
 ## 1. 最小读取与复用判定
 
-先读最近有效结论、当前绑定、未闭合项与此次变化。核验一次引用版本/摘要，按需要读对应原始代码、命令结果、独立 oracle；同一会话同一不可变版本不重复读回。完整 manifest/hash 附件由脚本处理，模型只接收差异、失败项和相关证据。若后来出现 blocker/撤回，先处理它，不能跳回旧 APPROVED。
+先读最近有效结论、当前绑定、未闭合项与此次变化。核验一次引用版本/摘要，按需要读对应原始代码、命令结果、独立 oracle；同一会话同一不可变版本不重复读回。完整 manifest/hash 附件由脚本处理，模型只接收差异、失败项和相关证据；捕获/比较 snapshot、清单与归档参数见 [artifact-tools.md](artifact-tools.md)。若后来出现 blocker/撤回，先处理它，不能跳回旧 APPROVED。
 
 | 情况 | 保留 | 必须重做 |
 |------|------|----------|
@@ -47,6 +47,6 @@ snapshot digest 是 JSON 内 `snapshot_sha256`，应来自原 review 的已固�
 
 ## 3. Review ID、捕获与终止
 
-新实质整改/补审用新 Review ID，关联最近有效记录；同次评审内 snapshot 捕获重试、无内容变化绑定和报告整理用 binding revision。pre-verdict 重算可以兼作 post-validation 重算；其后有写入/新验证才需再次检查。稳定两次捕获由 snapshot 工具内部完成，不需要额外循环四次。
+新实质整改/补审用新 Review ID，关联最近有效记录；同次评审内 snapshot 捕获重试、无内容变化绑定和报告整理用 binding revision。pre-verdict 重算可以兼作 post-validation 重算，使用 snapshot 的 `--compare / --compare-sha256` 直接核对，不再临时写 JSON 比较器；其后有写入/新验证才需再次检查。稳定两次捕获由 snapshot 工具内部完成，不需要额外循环四次。
 
 没有新的实质事实就不发新评审轮、不回 ACK 的 ACK。达到源码准出即停止；CI/live 分层，不能把未来环境任务倒灌为源码门禁。

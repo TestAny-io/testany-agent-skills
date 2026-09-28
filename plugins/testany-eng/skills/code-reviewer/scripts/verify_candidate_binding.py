@@ -19,6 +19,7 @@ import sys
 # This companion is also the authoritative closed Git environment implementation.
 sys.path.insert(0, str(Path(__file__).resolve().parent))
 import snapshot_worktree as snapshot
+from review_artifacts import print_error, print_summary, save_json
 
 
 class BindingError(ValueError):
@@ -218,27 +219,22 @@ def main() -> int:
     group.add_argument('--prior-commit')
     parser.add_argument('--snapshot-sha256')
     parser.add_argument('--commit', required=True)
-    parser.add_argument('--output', type=Path, help='optional full receipt, outside candidate checkout')
+    parser.add_argument('--output', type=Path, help='new full receipt outside checkout; default: temporary artifact')
     args = parser.parse_args()
     try:
         receipt = compare(args.repo, args.commit, snapshot_path=args.snapshot,
                           snapshot_sha256=args.snapshot_sha256, prior_commit=args.prior_commit)
         summary = {key: receipt[key] for key in ('result', 'approval_granted', 'files_compared', 'current_binding')}
-        summary['changed_paths'] = [item['path'] for item in receipt['changes']]
-        receipt_bytes = canonical(receipt) + b'\n'
-        summary['receipt_sha256'] = hashlib.sha256(receipt_bytes).hexdigest()
-        if args.output:
-            output = args.output.resolve()
-            if output.is_relative_to(Path(receipt['repository_root'])):
-                raise BindingError('receipt must be saved outside the candidate checkout')
-            # Immutable references must not be silently overwritten.
-            with output.open('xb') as handle:
-                handle.write(receipt_bytes)
-            summary['receipt_path'] = str(output)
-        print(json.dumps(summary, ensure_ascii=True))
+        root = Path(receipt['repository_root'])
+        control = snapshot._repository_control_state(root, ['.'])
+        output, sha = save_json(receipt, args.output, prefix='review-binding-', forbidden_roots=[
+            root, control['git_dir'], control['git_common_dir'],
+        ])
+        summary.update(receipt_path=str(output), receipt_sha256=sha)
+        print_summary(summary, paths=[item['path'] for item in receipt['changes']])
         return 0 if receipt['result'] == 'SAME_CONTENT' else 1
     except (BindingError, snapshot.SnapshotError, OSError, KeyError, TypeError, ValueError, subprocess.SubprocessError) as exc:
-        print(json.dumps({'result': 'UNVERIFIED', 'error': str(exc), 'approval_granted': False}), file=sys.stderr)
+        print_error(exc)
         return 2
 
 

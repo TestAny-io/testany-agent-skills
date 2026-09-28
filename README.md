@@ -159,6 +159,8 @@ GitHub 来源更新：先执行 `"$CODEX_CLI" plugin marketplace upgrade testany
 
 正式新功能按完整流程推进；存量系统有限修复按问题层级进入 HLD/LLD/Code，不强制重做全链文档。四个相关 skill 共用 [评审边界规则](plugins/testany-eng/references/review-boundaries.md)：技术合理性、设计授权与执行许可分离，技术理由不能自授权，旧 review comment 不能循环变成批准基线。P2 在 HLD/LLD/Code Review 中均不阻断。
 
+`code-reviewer` 的机器证据默认完整落盘、仅返回有上限的摘要，并提供可复用的证据校验工具；调用方式及旧版全量 stdout 的 `--full-json` 选项见[机器证据工具约定](plugins/testany-eng/skills/code-reviewer/references/artifact-tools.md)。
+
 | 命令 | 描述 |
 |------|------|
 | `/testany-eng:guide` | 按正式设计、有限修复、实现对象及决策层级分流，核实批准来源，推荐最小下一步 |
