@@ -26,6 +26,8 @@ As your skill collection grows, sources, versions, and duplicate copies become h
 
 Source discovery depends on records left by the original installation. You can connect an update source when those records are missing. Host permissions and system protection can limit available actions; the app shows those restrictions.
 
+Version 0.9.0 displays artwork declared in skill and plugin packages across lists, details, and installation previews. Dark variants are supported, with default icons when artwork is unavailable. SkillDock uses a blue three-layer logo and Ubuntu wordmark, with consistent assets for the app, browser tab, and Codex entry. Refresh the page after upgrading; reload the plugin or restart Codex if its entry still shows the old icon. See the [icon rules and verification notes](skills/skill-manager/references/32-provider-icons.md).
+
 Version 0.8.0 updates the product interface with compact lists, a detail inspector, consistent search and filters, and Liquid Glass-inspired navigation and toolbars. It supports context menus, keyboard navigation, restored browsing state, and a Reduce transparency preference. The native entry and browser share the same interface; [design and verification notes](skills/skill-manager/references/31-desktop-interface.md) are included with the source.
 
 Version 0.7.0 adds “Duplicates only” beside the Skills search bar. Combine it with keywords, source, status, and tags. Duplicate detection uses the full scanned inventory; once only one copy remains, it leaves the duplicate results automatically. Available in English, Chinese, and Japanese, with light and dark themes.
@@ -82,6 +84,6 @@ Explore [Testany](https://testany.io), read the [platform docs](https://docs.tes
 
 ## Version, license, and development
 
-Current source version: **0.8.0**, distributed through this Git repository. [Changelog](../../CHANGELOG.md) · [AGPL-3.0-only](LICENSE) · [Third-party notices](skills/skill-manager/THIRD_PARTY_NOTICES.md).
+Current source version: **0.9.0**, distributed through this Git repository. [Changelog](../../CHANGELOG.md) · [AGPL-3.0-only](LICENSE) · [Third-party notices](skills/skill-manager/THIRD_PARTY_NOTICES.md).
 
 See the [application README](skills/skill-manager/assets/app/README.md) for development and verification commands, and the [Chinese product page](README.md#版本许可与开发) for implementation and UAT records. Other existing skills in this repository remain MIT-licensed.

@@ -4,6 +4,7 @@ import { exists, identity, inside, metadata, redact, safeSegment, verifyDirector
 import { readConfig } from './config.mjs';
 import { readMarketplace, discoverSkillRoots } from './cli.mjs';
 import { pluginSourceInfo } from './sources.mjs';
+import { createIconCatalog } from './provider-icons.mjs';
 
 export async function sandboxCatalog(environment, registry) {
   const plugins = []; const marketplaces = []; const diagnostics = [];
@@ -44,6 +45,7 @@ export function rootsFor(environment) {
 }
 
 export async function scan(environment, registry, catalog) {
+  const icons = createIconCatalog();
   const started = performance.now(); const diagnostics = [...catalog.diagnostics]; let config; let configValid = true;
   try { config = (await readConfig(environment.config)).data; } catch (e) { diagnostics.push(redact(e.message)); config = {}; configValid = false; }
   const disabled = new Map((Array.isArray(config.skills?.config) ? config.skills.config : []).filter(entry => typeof entry.path === 'string').map(entry => [path.resolve(entry.path), entry.enabled !== false]));
@@ -71,7 +73,7 @@ export async function scan(environment, registry, catalog) {
     if (packagePlugin) enabled = !configValid || packagePlugin.enabled === null ? null : packagePlugin.enabled && (disabled.get(configPath) ?? true);
     const id = identity(directory);
     const record = {
-      id, name: detail.name, description: detail.description, path: configPath, scope, sourceLabel: extra.label || (scope === 'system' ? '系统内置' : root.label), enabled,
+      id, name: detail.name, description: detail.description, icon: await icons.skill(path.dirname(real), packagePlugin?.icon), path: configPath, scope, sourceLabel: extra.label || (scope === 'system' ? '系统内置' : root.label), enabled,
       packagePath,
       ...(configPath !== entry ? { aliases: [entry] } : {}),
       pluginId: packagePlugin?.id || extra.pluginId, version: packagePlugin?.version || extra.version, managed: !owned, isLink,
@@ -84,7 +86,7 @@ export async function scan(environment, registry, catalog) {
       prior.aliases = [...(prior.aliases || []), entry];
       // A path that resolves to a protected entity cannot gain write access through an alias.
       if (!owned && !packagePlugin) { prior.canToggle = false; prior.canRemove = false; prior.canUpdate = false; prior.managed = true; }
-      if (packagePlugin) Object.assign(prior, { scope: 'plugin', path: configPath, packagePath, managed: true, pluginId: packagePlugin.id, version: packagePlugin.version, sourceLabel: packagePlugin.name, enabled, canToggle: configValid && !!packagePlugin.canToggle && packagePlugin.enabled === true, canRemove: false, canUpdate: false, reason: '插件附带技能，可单独启禁；更新和卸载按所属插件管理。', statusEvidence: 'Codex 插件状态 + 逐技能持久配置' });
+      if (packagePlugin) Object.assign(prior, { icon: record.icon, scope: 'plugin', path: configPath, packagePath, managed: true, pluginId: packagePlugin.id, version: packagePlugin.version, sourceLabel: packagePlugin.name, enabled, canToggle: configValid && !!packagePlugin.canToggle && packagePlugin.enabled === true, canRemove: false, canUpdate: false, reason: '插件附带技能，可单独启禁；更新和卸载按所属插件管理。', statusEvidence: 'Codex 插件状态 + 逐技能持久配置' });
       return;
     }
     byReal.set(real, record); records.push(record);
@@ -113,12 +115,14 @@ export async function scan(environment, registry, catalog) {
   }
   for (const root of rootList) await walk(root);
   const plugins = catalog.plugins.map(plugin => ({ ...plugin }));
+  for (const plugin of plugins.filter(item => !item.installed && item.sourcePath)) plugin.icon = await icons.plugin(plugin.sourcePath);
   // Verified installed packages first; stale cached versions never override their status.
   for (const plugin of plugins.filter(p => p.installed)) {
     if (!safeSegment(plugin.marketplace) || !safeSegment(plugin.name) || (plugin.version !== undefined && !safeSegment(plugin.version))) { diagnostics.push('插件身份或版本不安全，未扫描其路径。'); plugin.canRemove = false; plugin.canToggle = false; continue; }
     const candidates = [path.join(environment.codexHome, 'plugins/cache', plugin.marketplace, plugin.name, plugin.version || ''), plugin.sourcePath].filter(Boolean);
     const directory = (await Promise.all(candidates.map(async candidate => await exists(candidate) ? candidate : null))).find(Boolean);
     if (!directory) continue;
+    plugin.icon = await icons.plugin(directory);
     try {
       let roots = await discoverSkillRoots(directory);
       if (plugin._componentRoots) {
@@ -153,5 +157,5 @@ export async function scan(environment, registry, catalog) {
     const duplicates = records.filter(other => other.id !== record.id && other.name === record.name).map(other => other.path);
     if (duplicates.length) record.duplicateNames = duplicates;
   }
-  return { mode: environment.mode, skills: records, plugins: plugins.map(({ _skillRoots, _componentRoots, _updateSourcePath, ...plugin }) => plugin), marketplaces: catalog.marketplaces.map(({ _root, ...marketplace }) => marketplace), diagnostics, scannedAt: new Date().toISOString(), durationMs: Math.round(performance.now() - started), cli: catalog.cli, paths: { skills: environment.skills, config: environment.config, state: environment.root, project: environment.project }, examples: environment.examples, activity: registry.activity.map(({ backup, restore, ...activity }) => activity).slice(0, 200) };
+  return { mode: environment.mode, iconAssets: icons.assets, skills: records, plugins: plugins.map(({ _skillRoots, _componentRoots, _updateSourcePath, ...plugin }) => plugin), marketplaces: catalog.marketplaces.map(({ _root, ...marketplace }) => ({ ...marketplace, ...(marketplace.direct ? { icon: plugins.find(plugin => plugin.marketplace === marketplace.id)?.icon } : {}) })), diagnostics, scannedAt: new Date().toISOString(), durationMs: Math.round(performance.now() - started), cli: catalog.cli, paths: { skills: environment.skills, config: environment.config, state: environment.root, project: environment.project }, examples: environment.examples, activity: registry.activity.map(({ backup, restore, ...activity }) => activity).slice(0, 200) };
 }

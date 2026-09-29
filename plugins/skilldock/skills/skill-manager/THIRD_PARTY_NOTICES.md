@@ -12,6 +12,10 @@ The following runtime dependencies retain their original licenses and copyright 
 
 The launcher may use Node.js/npm already supplied by Codex or the user. When a private runtime is needed, it downloads an unmodified official Node.js distribution, retaining its LICENSE and the notices included with npm and bundled components in the application's data directory. Those components retain their upstream licenses and are not relicensed under SkillDock's AGPL license.
 
+## Brand wordmark
+
+The SkillDock wordmark in `assets/app/src/brand-wordmark.svg` is an outlined graphic rendered from Ubuntu Medium 0.83 (weight 500). The original font's copyright notice is: “Copyright 2011 Canonical Ltd. Licensed under the Ubuntu Font Licence 1.0.” The artwork uses saved glyph outlines rather than a bundled font runtime.
+
 
 ## lucide-react 1.45.0 — ISC
 

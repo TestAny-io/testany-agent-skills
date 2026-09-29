@@ -1,8 +1,13 @@
-<svg xmlns="http://www.w3.org/2000/svg" width="64" height="64" viewBox="0 0 64 64" fill="none">
-  <!-- The navigation rail uses this image as a monochrome alpha mask. -->
-  <g stroke="#304e3c" stroke-width="4" stroke-linecap="round" stroke-linejoin="round">
-    <rect x="10" y="10" width="44" height="17" rx="4"/>
-    <rect x="10" y="37" width="44" height="17" rx="4"/>
-    <path d="M24 27v10m16-10v10M28 18.5h8m-8 27h8"/>
-  </g>
+<svg xmlns="http://www.w3.org/2000/svg" width="64" height="64" viewBox="0 0 64 64" fill="none" color="#0764d9">
+  <!-- Approved E: three layers; top two rotate -8 degrees. Node cutouts stay transparent for native navigation masks. -->
+  <defs><mask id="skilldock-cutout" x="0" y="0" width="64" height="64" maskUnits="userSpaceOnUse" style="mask-type:luminance">
+      <rect width="64" height="64" fill="white" />
+      <path d="M18.1265 14.8093 L42.9173 31.8170 L20.0000 53.0000" stroke="black" stroke-width="2.5" fill="none" />
+      <g fill="black"><circle cx="18.1265" cy="14.8093" r="3.7" /><circle cx="42.9173" cy="31.8170" r="3.7" /><circle cx="20.0000" cy="53.0000" r="3.7" /></g>
+    </mask></defs>
+    <g fill="currentColor" mask="url(#skilldock-cutout)">
+      <rect x="7" y="6" width="48" height="14" rx="4.5" transform="rotate(-8 31 13)" />
+      <rect x="12" y="26" width="45" height="14" rx="4.5" transform="rotate(-8 34.5 33)" />
+      <rect x="8" y="46" width="42" height="14" rx="4.5" />
+    </g>
 </svg>

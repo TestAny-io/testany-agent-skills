@@ -11,6 +11,7 @@ const ui = await build({
   entryPoints: [path.join(app, 'src/main.tsx')], bundle: true, write: false,
   outdir: 'native', format: 'iife', platform: 'browser', target: 'chrome120', minify: true,
   define: { 'process.env.NODE_ENV': '"production"' }, jsx: 'automatic',
+  loader: { '.svg': 'dataurl' },
   legalComments: 'inline', metafile: true,
 });
 const js = ui.outputFiles.find(file => file.path.endsWith('.js')).text.replace(/<\/script/gi, '<\\/script');
