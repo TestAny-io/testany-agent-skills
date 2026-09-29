@@ -3,6 +3,7 @@ import { Search, Sparkles } from "lucide-react";
 import type { PluginInstallPreview } from "../shared/contracts";
 import { LibraryButton as Button } from "./LibraryUI";
 import { t } from "./i18n";
+import { ProviderIcon } from "./ProviderIcon";
 
 export function PluginSkillPicker({ preview, selected, onChange, disabled }: {
   preview: PluginInstallPreview; selected: string[]; onChange: (paths: string[]) => void; disabled: boolean;
@@ -19,7 +20,7 @@ export function PluginSkillPicker({ preview, selected, onChange, disabled }: {
       </div>
       <div className="plugin-skill-options">{visible.map(skill => <label className={`plugin-skill-option ${selected.includes(skill.path) ? "selected" : ""}`} key={skill.path}>
         {preview.canSelectSkills && <input type="checkbox" aria-label={t("启用 {v0}（{v1}）", { v0: skill.name, v1: skill.path })} aria-describedby={hint} checked={selected.includes(skill.path)} disabled={disabled} onChange={event => onChange(event.target.checked ? [...selected, skill.path] : selected.filter(item => item !== skill.path))} />}
-        <div><strong>{skill.name}</strong><p>{skill.description}</p><code>{skill.path}</code></div>
+        <ProviderIcon icon={skill.icon}><Sparkles size={17} /></ProviderIcon><div><strong>{skill.name}</strong><p>{skill.description}</p><code>{skill.path}</code></div>
       </label>)}</div>
       {!visible.length && <p className="field-hint" role="status">{t("没有匹配的技能；搜索不会改变已有选择。")}</p>}
       {preview.canSelectSkills && <p className="field-hint">{t("更新会保留这些选择；新增技能默认禁用，可在技能库中启用。")}</p>}

@@ -3,10 +3,13 @@ import fs from 'node:fs/promises';
 import path from 'node:path';
 import { exists, fail, hash, inside, metadata } from './files.mjs';
 import { discoverSkillRoots, readPluginManifest } from './cli.mjs';
+import { createIconCatalog } from './provider-icons.mjs';
 
 // Read the same declared/default roots as the installed library. Names are not
 // identities: two skills with the same name remain separate selectable paths.
 export async function pluginContents(directory, { marketRoot = directory, entry = {}, roots } = {}) {
+  const icons = createIconCatalog();
+  const icon = await icons.plugin(directory);
   const boundary = await fs.realpath(marketRoot);
   const pluginRoot = await fs.realpath(directory);
   const manifest = await readPluginManifest(directory, boundary);
@@ -29,7 +32,7 @@ export async function pluginContents(directory, { marketRoot = directory, entry 
       // Codex matches skills.config against the resolved SKILL.md path. A
       // symlink alias must not make an unchecked skill appear enabled natively.
       const relative = path.relative(pluginRoot, realFile).split(path.sep).join('/');
-      skillDetails.push({ path: relative, name: detail.name, description: detail.description, digest: hash(detail.content) });
+      skillDetails.push({ path: relative, name: detail.name, description: detail.description, icon: await icons.skill(path.dirname(realFile), icon), digest: hash(detail.content) });
       return;
     }
     for (const child of (await fs.readdir(location, { withFileTypes: true })).sort((a, b) => a.name.localeCompare(b.name))) {
@@ -43,6 +46,6 @@ export async function pluginContents(directory, { marketRoot = directory, entry 
     if (entry[field] || manifest[field]) components.push(kind);
     else for (const file of files) if (await exists(path.join(directory, file))) { components.push(kind); break; }
   }
-  const signature = hash(JSON.stringify({ manifest, entry, skills: skillDetails, components }));
-  return { skills: skillDetails.map(skill => skill.name), skillDetails: skillDetails.map(({ digest, ...skill }) => skill), components, signature };
+  const signature = hash(JSON.stringify({ manifest, entry, skills: skillDetails.map(({ icon, ...skill }) => skill), components }));
+  return { icon, iconAssets: icons.assets, skills: skillDetails.map(skill => skill.name), skillDetails: skillDetails.map(({ digest, ...skill }) => skill), components, signature };
 }

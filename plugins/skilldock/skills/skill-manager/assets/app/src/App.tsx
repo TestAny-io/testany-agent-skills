@@ -1,5 +1,7 @@
 import { useEffect, useLayoutEffect, useMemo, useRef, useState, type ReactNode } from "react";
 import packageInfo from "../package.json";
+import brandIcon from "./native-icon.svg";
+import brandWordmark from "./brand-wordmark.svg";
 import { apiFetch, nativeMode, openDownload } from "./transport";
 import {
   ArrowDownToLine,
@@ -69,6 +71,7 @@ import {
 } from "./preferences";
 import { t, locale, ServiceMessage, requestError } from "./i18n";
 import { Modal } from "./Modal";
+import { IconProvider, ProviderIcon } from "./ProviderIcon";
 import { Inspector, CommandMenu, type DesktopCommand } from "./DesktopUI";
 import { loadWorkspace, saveWorkspace, type Inspection, type WorkspaceState } from "./workspace-state";
 import { UpdatesWorkspace } from "./UpdatesWorkspace";
@@ -693,7 +696,7 @@ export default function App() {
   })() : [];
 
   return (
-    <div className={classNames("app-shell", !!(displaySkill || displayPlugin) && "has-inspector", sidebarCollapsed && "sidebar-collapsed")}>
+    <IconProvider assets={data?.iconAssets}><div className={classNames("app-shell", !!(displaySkill || displayPlugin) && "has-inspector", sidebarCollapsed && "sidebar-collapsed")}>
       <aside className="sidebar">
         <a
           className="brand"
@@ -704,14 +707,8 @@ export default function App() {
           }}
           aria-label={t("SkillDock 首页")}
         >
-          <span className="brand-mark">
-            <span />
-            <span />
-            <span />
-          </span>
-          <span>
-            SkillDock
-          </span>
+          <span className="brand-mark" aria-hidden="true" style={{ maskImage: `url(${JSON.stringify(brandIcon)})`, WebkitMaskImage: `url(${JSON.stringify(brandIcon)})` }} />
+          <span className="brand-wordmark" aria-hidden="true" style={{ maskImage: `url(${JSON.stringify(brandWordmark)})`, WebkitMaskImage: `url(${JSON.stringify(brandWordmark)})` }} />
         </a>
         <div className="nav-caption">{t("资料库")}</div>
         <nav aria-label={t("主导航")}>
@@ -962,9 +959,8 @@ export default function App() {
                               })}
                             >
                               <div className="skill-card-heading">
-                                <span className={`skill-icon tone-${color}`}>
-                                  <Icon size={21} strokeWidth={1.6} />
-                                </span>
+                                <ProviderIcon icon={skill.icon} className={`skill-icon tone-${color}`}>
+                                  <Icon size={21} strokeWidth={1.6} /></ProviderIcon>
                                 <div>
                                   <h3>{skill.name}</h3>
                                   <span className="skill-kind">
@@ -1458,7 +1454,7 @@ export default function App() {
           </div>
         )}
       </div>
-    </div>
+    </div></IconProvider>
   );
 }
 
@@ -1501,7 +1497,7 @@ function PluginCard({ plugin, busy, onToggle, onInstall, onDetails, onEditTags, 
 }) {
   return <article onContextMenu={onMenu} className={classNames("skill-card", selected && "is-selected", plugin.installed && plugin.enabled === false && "skill-disabled")}>
     <button className="skill-card-open" aria-pressed={selected} onClick={onDetails} aria-label={t("查看 {v0} 详情", { v0: plugin.name })}>
-      <div className="skill-card-heading"><span className="skill-icon tone-2"><Blocks size={21} strokeWidth={1.6} /></span><div><h3>{plugin.name}</h3><span className="skill-kind">{plugin.version || t("版本未提供")} · {t(plugin.installed ? "已安装" : "未安装")}</span></div><ChevronRight className="card-chevron" size={17} /></div>
+      <div className="skill-card-heading"><ProviderIcon icon={plugin.icon} className="skill-icon tone-2"><Blocks size={21} strokeWidth={1.6} /></ProviderIcon><div><h3>{plugin.name}</h3><span className="skill-kind">{plugin.version || t("版本未提供")} · {t(plugin.installed ? "已安装" : "未安装")}</span></div><ChevronRight className="card-chevron" size={17} /></div>
       <p className="skill-description">{plugin.description || t("这个插件尚未提供描述。请根据来源与附带技能判断是否适合你的工作流。")}</p>
     </button>
     <TagStrip subject={{ ...plugin, kind: "plugin" }} disabled={!!busy} onEdit={onEditTags} />
@@ -1514,11 +1510,11 @@ function PluginCard({ plugin, busy, onToggle, onInstall, onDetails, onEditTags, 
 }
 function PluginDetail({ plugin, skills, busy, onClose, onToggle, onRemove, onInstall, onUpdates, onSkill }: { plugin: Plugin; skills: Skill[]; busy: string | null; onClose: () => void; onToggle: () => void; onRemove: () => void; onInstall: () => void; onUpdates: () => void; onSkill: (skill: Skill) => void }) {
   return <Inspector title={t("插件详情")} onClose={onClose}>
-    <div className="modal-body"><h3 className="inspector-object-name">{plugin.name}</h3><p className="dialog-description">{plugin.description || t("未提供描述")}</p><dl className="preview-paths"><dt>{t("版本")}</dt><dd>{plugin.version || t("版本未提供")}</dd><dt>{t("来自")}</dt><dd><code>{plugin.directSource?.source || plugin.marketplace}</code></dd><dt>ID</dt><dd><code>{plugin.id}</code></dd>{plugin.sourcePath && <><dt>{t("来源路径")}</dt><dd><code>{plugin.sourcePath}</code></dd></>}</dl>
+    <div className="modal-body"><ProviderIcon icon={plugin.icon} className="skill-icon tone-2 inspector-provider-icon" large><Blocks size={26} /></ProviderIcon><h3 className="inspector-object-name">{plugin.name}</h3><p className="dialog-description">{plugin.description || t("未提供描述")}</p><dl className="preview-paths"><dt>{t("版本")}</dt><dd>{plugin.version || t("版本未提供")}</dd><dt>{t("来自")}</dt><dd><code>{plugin.directSource?.source || plugin.marketplace}</code></dd><dt>ID</dt><dd><code>{plugin.id}</code></dd>{plugin.sourcePath && <><dt>{t("来源路径")}</dt><dd><code>{plugin.sourcePath}</code></dd></>}</dl>
       {plugin.directSource && <ResolvedGitSource source={plugin.directSource} />}
       {plugin.installed && <div className="inline-toggle"><Toggle checked={plugin.enabled} disabled={!plugin.canToggle || !!busy} label={`${plugin.enabled ? t("禁用") : t("启用")} ${plugin.name}`} onChange={onToggle} /><span>{t(plugin.enabled === null ? "状态待确认" : plugin.enabled ? "已启用" : "已禁用")}</span></div>}
       {plugin.reason && <div className="dialog-note"><ServiceMessage value={plugin.reason} /></div>}
-      {plugin.installed && <div className="install-components"><strong>{t("附带技能（{v0}）", { v0: skills.length })}</strong><div className="plugin-skill-list">{skills.map(skill => <button className="text-button" key={skill.id} onClick={() => onSkill(skill)}>{skill.name}<ChevronRight size={14} /></button>)}</div></div>}
+      {plugin.installed && <div className="install-components"><strong>{t("附带技能（{v0}）", { v0: skills.length })}</strong><div className="plugin-skill-list">{skills.map(skill => <button className="text-button" key={skill.id} onClick={() => onSkill(skill)}><ProviderIcon icon={skill.icon}><Sparkles size={15} /></ProviderIcon>{skill.name}<ChevronRight size={14} /></button>)}</div></div>}
       <p className="field-hint">{t("插件附带的技能与组件一起安装、更新和卸载。")}</p>
     </div><div className="modal-footer">{plugin.installed ? <><Button variant="danger" disabled={!plugin.canRemove || !!busy} onClick={onRemove}><Trash2 size={15} />{t("卸载")}</Button><Button disabled={!!busy} onClick={onUpdates}><RefreshCw size={15} />{t("管理更新")}</Button></> : <><Button onClick={onClose}>{t("关闭")}</Button><Button variant="primary" disabled={!plugin.canInstall || !!busy} onClick={onInstall}>{t("安装插件")}</Button></>}</div>
   </Inspector>;
@@ -1538,13 +1534,13 @@ function MarketCard({
 }) {
   return (
     <article className="market-card">
-      <span className="market-icon">
+      <ProviderIcon icon={market.icon} className="market-icon">
         {market.type.toLowerCase().includes("git") ? (
           <GitBranch size={24} strokeWidth={1.5} />
         ) : (
           <FolderOpen size={24} strokeWidth={1.5} />
         )}
-      </span>
+      </ProviderIcon>
       <div className="market-content">
         <div className="market-title">
           <h3>{market.displayName || market.name}</h3>
@@ -1665,9 +1661,8 @@ function SkillDetail({
     <Inspector title={t("技能详情")} onClose={onClose}>
       <div className="drawer-scroll">
         <div className="detail-hero">
-          <span className={`skill-icon tone-${color}`}>
-            <Icon size={28} strokeWidth={1.5} />
-          </span>
+          <ProviderIcon icon={skill.icon} className={`skill-icon tone-${color}`} large>
+            <Icon size={28} strokeWidth={1.5} /></ProviderIcon>
           <h3>{skill.name}</h3>
           <p>{skill.description || t("未提供描述")}</p>
           <div>

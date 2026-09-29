@@ -128,7 +128,15 @@ export interface SourcePreview {
   matchesInstalled: boolean;
   changes: FileChange[];
 }
+export interface ProviderIcon {
+  small?: string;
+  large?: string;
+  dark?: string;
+}
+export type IconAssets = Record<string, string>;
+
 export interface Skill {
+  icon?: ProviderIcon;
   id: string;
   name: string;
   description: string;
@@ -155,6 +163,7 @@ export interface Skill {
   sourceInfo?: SourceInfo;
 }
 export interface Plugin {
+  icon?: ProviderIcon;
   directSource?: { source: string; sourceType: "local" | "git"; subpath?: string; ref?: string; commit?: string };
   id: string;
   tags?: string[];
@@ -173,6 +182,8 @@ export interface Plugin {
   sourceInfo?: SourceInfo;
 }
 export interface Marketplace {
+  /** Only a direct single-plugin source inherits that plugin’s branding. */
+  icon?: ProviderIcon;
   displayName?: string;
   direct?: boolean;
   id: string;
@@ -208,6 +219,7 @@ export interface ProjectCatalog {
   warning?: string;
 }
 export interface Snapshot {
+  iconAssets?: IconAssets;
   mode: Mode;
   projectContext?: ProjectContext;
   projects?: ProjectCatalog;
@@ -232,6 +244,8 @@ export interface Snapshot {
   updateProgress?: UpdateProgress | null;
 }
 export interface InstallPreview {
+  iconAssets?: IconAssets;
+  icon?: ProviderIcon;
   id: string;
   name: string;
   description: string;
@@ -244,6 +258,8 @@ export interface InstallPreview {
   bytes: number;
 }
 export interface PluginInstallPreview {
+  iconAssets?: IconAssets;
+  icon?: ProviderIcon;
   id: string;
   name: string;
   version: string;
@@ -254,7 +270,7 @@ export interface PluginInstallPreview {
   ref?: string;
   commit?: string;
   skills: string[];
-  skillDetails: { path: string; name: string; description: string }[];
+  skillDetails: { path: string; name: string; description: string; icon?: ProviderIcon }[];
   canSelectSkills: boolean;
   marketplace?: string;
   pluginId?: string;

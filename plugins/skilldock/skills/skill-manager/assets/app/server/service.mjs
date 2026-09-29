@@ -1,6 +1,7 @@
 import fs from 'node:fs/promises';
 import path from 'node:path';
 import os from 'node:os';
+import { createIconCatalog } from './provider-icons.mjs';
 import crypto from 'node:crypto';
 import { fileURLToPath } from 'node:url';
 import { AppError, fail, exists, inside, identity, hash, now, metadata, inspectTree, copySkill, objectFingerprint, diffFiles, readJson, writeJson, safeName, safeSegment, redact, captureDirectoryRoot, verifyDirectoryRoot, verifyDescendantDirectory } from './files.mjs';
@@ -292,6 +293,7 @@ export async function createService(options = {}) {
       if (!inside(realRoot, directory) || !(await exists(directory)) || !inside(realRoot, await fs.realpath(directory))) fail(422, 'SOURCE_BOUNDARY', '子路径不存在或越出来源根目录。');
       const candidate = path.join(staging, 'candidate'); const tree = await copySkill(directory, candidate);
       const detail = kind === 'plugin' ? await inspectPlugin(candidate) : await metadata(candidate);
+      if (kind === 'skill') { const icons = createIconCatalog(); detail.icon = await icons.skill(candidate); detail.iconAssets = icons.assets; }
       return { staging, candidate, source, sourceType: request.sourceType, subpath, ref, commit, originalDirectory: directory, detail, tree };
     } catch (e) { await fs.rm(staging, { recursive: true, force: true }); throw e; }
   }
@@ -610,7 +612,7 @@ export async function createService(options = {}) {
           const destination = path.join(env.skills, name);
           if (await exists(destination)) { await fs.rm(staged.staging, { recursive: true, force: true }); fail(409, 'TARGET_EXISTS', '同名安装目录已存在，不能覆盖。'); }
           const id = crypto.randomUUID(); previews.set(id, { ...staged, id, mode: env.mode, kind: 'install', target: destination, created: previewNow() });
-          return { message: '预览已准备；确认后才会安装。', preview: { id, name: staged.detail.name, description: staged.detail.description, target: destination, source: staged.source, subpath: staged.subpath, ref: staged.ref, commit: staged.commit, files: staged.tree.files, bytes: staged.tree.bytes } };
+          return { message: '预览已准备；确认后才会安装。', preview: { id, name: staged.detail.name, description: staged.detail.description, icon: staged.detail.icon, iconAssets: staged.detail.iconAssets, target: destination, source: staged.source, subpath: staged.subpath, ref: staged.ref, commit: staged.commit, files: staged.tree.files, bytes: staged.tree.bytes } };
         }
         case 'skill.install': {
           const preview = await assertPreview(env, request.previewId, 'install'); await assertTargetRoot(env);

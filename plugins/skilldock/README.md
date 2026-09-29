@@ -26,6 +26,8 @@ A Testany Product · macOS + Codex · 中文 / English / 日本語 · 深色 / �
 
 来源信息取决于原安装方式留下的记录；无法识别时，可以手动关联更新源。受宿主权限或系统保护限制的条目，会显示相应的操作限制。
 
+0.9.0 优先展示技能和插件在包内声明的原始图标，覆盖列表、详情与安装预览；支持深色版本，缺失时保留默认图标。SkillDock 自身采用蓝色三层 Logo 与 Ubuntu 字标，统一应用、网页标签和 Codex 原生入口的图标资源。升级后刷新网页；若 Codex 入口仍保留旧图标，重新加载插件或重启 Codex。详见[图标规则与验证](skills/skill-manager/references/32-provider-icons.md)。
+
 0.8.0 更新正式产品界面：紧凑列表、详情侧栏、统一搜索与筛选，导航和工具栏采用 Liquid Glass 风格材质。支持右键菜单、键盘导航、浏览状态恢复，以及“减少透明度”。原生入口和浏览器共用这套界面；[设计与验证记录](skills/skill-manager/references/31-desktop-interface.md)随源码提供。
 
 0.7.0 在 Skills 页搜索栏旁新增“仅显示重复”，可叠加关键词、来源、状态和标签筛选。重复判定基于完整扫描结果；同名副本处理到只剩一份后，剩余技能自动退出重复列表。支持中英日文及深浅色模式。
@@ -87,6 +89,6 @@ $skill-manager 打开技能管理面板
 
 ## 版本、许可与开发
 
-当前源码版本 **0.8.0**，通过 Git 仓库分发。[变更记录](../../CHANGELOG.md) · [AGPL-3.0-only](LICENSE) · [第三方许可](skills/skill-manager/THIRD_PARTY_NOTICES.md)。仓库中其他现有 skills 的 MIT 许可不变。
+当前源码版本 **0.9.0**，通过 Git 仓库分发。[变更记录](../../CHANGELOG.md) · [AGPL-3.0-only](LICENSE) · [第三方许可](skills/skill-manager/THIRD_PARTY_NOTICES.md)。仓库中其他现有 skills 的 MIT 许可不变。
 
 开发、启动与验证命令见[应用 README](skills/skill-manager/assets/app/README.md)。实现边界与验证记录：[种子反馈](skills/skill-manager/references/19-seed-feedback.md)、[来源链接与 diff](skills/skill-manager/references/20-source-links-and-diff.md)、[同名技能管理](skills/skill-manager/references/21-duplicate-selection.md)、[更新进度与标签](skills/skill-manager/references/22-progress-and-tags.md)、[导航与私仓](skills/skill-manager/references/23-navigation-and-private-git.md)、[独立后台更新](skills/skill-manager/references/24-background-updates.md)、[后台状态修复](skills/skill-manager/references/25-background-status.md)、[外部同步恢复](skills/skill-manager/references/26-baseline-recovery.md)、[安装入口与统一布局](skills/skill-manager/references/27-library-install-and-projects.md)。

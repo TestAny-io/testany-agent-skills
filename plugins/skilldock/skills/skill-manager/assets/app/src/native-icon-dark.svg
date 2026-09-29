@@ -1,4 +1,4 @@
-<svg xmlns="http://www.w3.org/2000/svg" width="64" height="64" viewBox="0 0 64 64" fill="none" color="#0764d9">
+<svg xmlns="http://www.w3.org/2000/svg" width="64" height="64" viewBox="0 0 64 64" fill="none" color="#83b6ff">
   <!-- Approved E: three layers; top two rotate -8 degrees. Node cutouts stay transparent for native navigation masks. -->
   <defs><mask id="skilldock-cutout" x="0" y="0" width="64" height="64" maskUnits="userSpaceOnUse" style="mask-type:luminance">
       <rect width="64" height="64" fill="white" />

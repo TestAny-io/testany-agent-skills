@@ -2,6 +2,7 @@ import { useEffect, useRef, useState } from "react";
 import { ArrowLeft, ArrowRight, Blocks, FolderOpen, GitBranch, Globe2, Plus, Search, ShieldCheck, Sparkles } from "lucide-react";
 import type { InstallPreview, PluginInstallPreview, Plugin, Snapshot } from "../shared/contracts";
 import { Modal } from "./Modal";
+import { IconProvider, ProviderIcon } from "./ProviderIcon";
 import { LibraryButton as Button, InstallSteps, type ActionHandler } from "./LibraryUI";
 import { GitSourceFields, ResolvedGitSource } from "./GitSourceFields";
 import { ServiceMessage, t } from "./i18n";
@@ -42,12 +43,12 @@ export function InstallDialog({ kind, data, initialPlugin, initialMarket = false
       else if (result) onClose();
     } catch (failure) { setError((failure as Error).message); }
   }
-  return <Modal wide={plugin} className="install-dialog" title={t(review ? plugin ? "确认安装插件" : "确认安装技能" : plugin ? "安装插件" : "安装技能")} eyebrow={plugin ? "INSTALL A PLUGIN" : "INSTALL A SKILL"} onClose={() => { if (!busy) onClose(); }}>
+  return <IconProvider assets={preview?.iconAssets}><Modal wide={plugin} className="install-dialog" title={t(review ? plugin ? "确认安装插件" : "确认安装技能" : plugin ? "安装插件" : "安装技能")} eyebrow={plugin ? "INSTALL A PLUGIN" : "INSTALL A SKILL"} onClose={() => { if (!busy) onClose(); }}>
     <form onSubmit={event => void submit(event)}>
       <div className="modal-body">
         <InstallSteps preview={!!review} />
         {review ? <>
-          <div className={`install-preview ${plugin ? "plugin-install-summary" : ""}`}><span className="skill-icon tone-1">{plugin ? <Blocks size={23} /> : <Sparkles size={23} />}</span><h3>{review.name}</h3><p>{review.description || t("未提供描述")}</p>
+          <div className={`install-preview ${plugin ? "plugin-install-summary" : ""}`}><ProviderIcon icon={review.icon} className="skill-icon tone-1" large>{plugin ? <Blocks size={23} /> : <Sparkles size={23} />}</ProviderIcon><h3>{review.name}</h3><p>{review.description || t("未提供描述")}</p>
             {"version" in review && <span className="badge badge-neutral">{review.version || t("版本未提供")}</span>}
             {preview && typeof preview.files === "number" && typeof preview.bytes === "number" && <span className="badge badge-neutral">{t("{v0} 个文件", { v0: preview.files })} · {(preview.bytes / 1024).toFixed(1)} KB</span>}
           </div>
@@ -71,7 +72,7 @@ export function InstallDialog({ kind, data, initialPlugin, initialMarket = false
             </div>
             {busy?.startsWith("plugin.previewMarketplace:") && <p role="status" className="field-hint">{t("正在读取插件的技能和组件…")}</p>}
             <div className="install-catalog">{listed.slice(0, limit).map(item => <button type="button" className="install-catalog-row" key={item.id} disabled={!!busy || item.installed || !item.canInstall} onClick={() => void choosePlugin(item)}>
-              <Blocks size={21} /><div><strong>{item.name}</strong><small>{item.directSource ? t("单插件来源") : item.marketplace} · {item.version || t("版本未提供")}</small>{item.description && <p>{item.description}</p>}{!item.canInstall && !item.installed && <small><ServiceMessage value={item.reason || "请通过 Codex 的插件管理入口安装。"} /></small>}</div><span>{item.installed ? t("已安装") : item.canInstall ? t("预览插件") : t("由 Codex 管理")}</span><ArrowRight size={15} />
+              <ProviderIcon icon={item.icon}><Blocks size={21} /></ProviderIcon><div><strong>{item.name}</strong><small>{item.directSource ? t("单插件来源") : item.marketplace} · {item.version || t("版本未提供")}</small>{item.description && <p>{item.description}</p>}{!item.canInstall && !item.installed && <small><ServiceMessage value={item.reason || "请通过 Codex 的插件管理入口安装。"} /></small>}</div><span>{item.installed ? t("已安装") : item.canInstall ? t("预览插件") : t("由 Codex 管理")}</span><ArrowRight size={15} />
             </button>)}</div>
             {!listed.length && <div className="empty-state"><Globe2 size={28} /><h3>{t("没有找到匹配的插件")}</h3><p>{t("调整筛选，或添加一个 Marketplace 来源。")}</p><Button onClick={onMarket}>{t("添加来源")}</Button></div>}
             {listed.length > limit && <Button onClick={() => setLimit(limit + 30)}>{t("显示更多")}</Button>}
@@ -84,5 +85,5 @@ export function InstallDialog({ kind, data, initialPlugin, initialMarket = false
         {(review || sourceType !== "market") && <Button type="submit" variant="primary" busy={!!busy} disabled={!review && !source.trim()}>{t(review ? "确认安装" : plugin ? "预览插件" : "预览技能")}<ArrowRight size={15} /></Button>}
       </div>
     </form>
-  </Modal>;
+  </Modal></IconProvider>;
 }
