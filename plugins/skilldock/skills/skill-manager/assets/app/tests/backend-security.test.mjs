@@ -147,6 +147,9 @@ else {console.error('bad argv');process.exit(3);}
   await fs.writeFile(path.join(root, '.agents/plugins/marketplace.json'), JSON.stringify({ name: 'market', plugins: [{ name: 'demo', source: './plugin', strict: false, skills: ['./custom-skills'] }] }));
   await fs.writeFile(fixtureState, JSON.stringify({ installed: true }));
   const declared = await adapter.list(); assert.deepEqual(declared.plugins[0]._componentRoots, ['custom-skills']); assert.equal(declared.plugins[0].canRemove, true);
+  // Installed contents must come from the cache, never the marketplace source.
+  await fs.mkdir(path.join(root, 'plugins/cache/market/demo'), { recursive: true });
+  await fs.cp(path.join(root, 'plugin'), path.join(root, 'plugins/cache/market/demo/1.0.0'), { recursive: true });
   const declaredState = await scan(service.environments.local, { sources: {}, activity: [] }, declared);
   assert.equal(declaredState.plugins[0].skillCount, 1); assert.ok(declaredState.skills.some(s => s.name === 'demo' && s.scope === 'plugin'));
   await fs.rm(path.join(root, '.agents/plugins/marketplace.json'));

@@ -1,5 +1,6 @@
 // SPDX-License-Identifier: AGPL-3.0-only
 import fs from 'node:fs/promises';
+import { pluginPath } from './paths.mjs';
 import path from 'node:path';
 import { createService } from './service.mjs';
 import { readJson, writeJson, redact, safeSegment } from './files.mjs';
@@ -25,7 +26,7 @@ export async function resolveBackgroundSource(context, adapter) {
   }
   if (installed.enabled === false) return null;
   if (!safeSegment(installed.version)) throw new Error('无法确认 SkillDock 的已安装版本。');
-  const source = path.join(identity.codexHome, 'plugins/cache', identity.marketplace, identity.plugin, installed.version, identity.appPath);
+  const source = path.join(pluginPath(identity.codexHome, identity.marketplace, identity.plugin, installed.version), identity.appPath);
   if (!sameInstallation(identity, await installationIdentity(source, context.codexHome))) throw new Error('新版 SkillDock 的安装身份不匹配。');
   return source;
 }

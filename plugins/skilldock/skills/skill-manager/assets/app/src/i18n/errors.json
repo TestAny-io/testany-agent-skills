@@ -478,5 +478,13 @@
   "PLUGIN_ALREADY_INSTALLED": {
     "en": "This plugin source is already installed. Manage it on the Updates page.",
     "ja": "このソースのプラグインはインストール済みです。更新ページで管理してください。"
+  },
+  "SKILL_LINK_CHANGED": {
+    "en": "The skill link or its target changed while SkillDock was running. Reopen SkillDock and verify its location.",
+    "ja": "SkillDock の実行中にリンクまたはリンク先が変更されました。再度開き、場所を確認してください。"
+  },
+  "LINK_MANAGED": {
+    "en": "Update this linked skill in its source directory.",
+    "ja": "リンク先のディレクトリでこのスキルを更新してください。"
   }
 }

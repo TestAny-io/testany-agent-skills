@@ -69,8 +69,13 @@ test('separate MCP instances share the startup lock', async t => {
   assert.equal(results[0].data.instanceId, results[1].data.instanceId); assert.equal(f.starts(), 1);
 });
 
-test('an open MCP session restarts the newer installation after self-update removes its old cache', async t => {
+for (const linked of [false, true]) test(`an open MCP session restarts the newer installation after self-update removes its old cache (linked cache: ${linked})`, async t => {
   const f = await fixture(t);
+  if (linked) {
+    const storage = path.join(f.root, 'relocated cache'); await fs.mkdir(storage);
+    await fs.mkdir(path.join(f.env.CODEX_HOME, 'plugins'), { recursive: true });
+    await fs.symlink(storage, path.join(f.env.CODEX_HOME, 'plugins/cache'));
+  }
   const installed = async version => {
     const root = path.join(f.env.CODEX_HOME, 'plugins/cache/local/skilldock', version);
     const skill = path.join(root, 'skills/skill-manager');

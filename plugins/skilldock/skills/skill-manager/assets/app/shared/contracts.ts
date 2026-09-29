@@ -141,6 +141,8 @@ export interface Skill {
   name: string;
   description: string;
   path: string;
+  realPath?: string;
+  configPath?: string;
   scope: Scope;
   sourceLabel: string;
   enabled: boolean | null;
@@ -154,6 +156,7 @@ export interface Skill {
   duplicateNames?: string[];
   aliases?: string[];
   isLink?: boolean;
+  removeKind?: "link" | "directory";
   canToggle: boolean;
   canRemove: boolean;
   canUpdate: boolean;
@@ -175,6 +178,8 @@ export interface Plugin {
   enabled: boolean | null;
   skillCount: number;
   sourcePath?: string;
+  installedPath?: string;
+  realPath?: string;
   canInstall: boolean;
   canRemove: boolean;
   canToggle: boolean;
@@ -231,7 +236,8 @@ export interface Snapshot {
   scannedAt: string;
   durationMs: number;
   cli: { available: boolean; version?: string; path?: string; error?: string };
-  paths: { skills: string; config: string; state: string; project: string };
+  paths: { skills: string; config: string; state: string; project: string; cache?: string };
+  locations?: { directory: string; real: string | null; scope: string; label: string }[];
   examples?: {
     skillSource: string;
     marketplaceSource: string;

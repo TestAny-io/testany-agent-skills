@@ -390,5 +390,21 @@
   "Codex 已在刷新市场时更新包，已核对版本和内容。": {
     "en": "Codex updated the package while refreshing its marketplace. The version and contents have been verified.",
     "ja": "マーケットプレイスの更新時に Codex がプラグインを更新しました。バージョンと内容を確認済みです。"
+  },
+  "此技能通过链接接入；移除只处理链接，更新请在真实来源目录进行。": {
+    "en": "This skill is linked. Removing it only removes the link; update its files in the source directory.",
+    "ja": "このスキルはリンク経由です。削除するのはリンクのみです。更新はリンク先のディレクトリで行ってください。"
+  },
+  "此技能位于链接目录内；可调整启用状态，请在真实来源目录管理文件。": {
+    "en": "This skill is inside a linked directory. You can change its enabled state here; manage its files in the source directory.",
+    "ja": "このスキルはリンク先のディレクトリ内にあります。有効状態はここで変更できます。ファイルはリンク先で管理してください。"
+  },
+  "技能链接或其目标在运行中发生变化，请重新打开 SkillDock 后核实。": {
+    "en": "The skill link or its target changed while SkillDock was running. Reopen SkillDock and verify its location.",
+    "ja": "SkillDock の実行中にリンクまたはリンク先が変更されました。再度開き、場所を確認してください。"
+  },
+  "移动已完成，另有未清理的恢复副本：{v0}": {
+    "en": "The move completed. An additional recovery copy remains at: {v0}",
+    "ja": "移動が完了しました。未削除の復旧用コピーがあります：{v0}"
   }
 }

@@ -1970,5 +1970,33 @@
   "使用实色背景，让文字和控件更加清晰。": {
     "en": "Use solid surfaces for clearer text and controls.",
     "ja": "背景を不透明にして、文字とコントロールを見やすくします。"
+  },
+  "实际路径": {
+    "en": "Resolved path",
+    "ja": "実際のパス"
+  },
+  "实际目录": {
+    "en": "Resolved directory",
+    "ja": "実際のディレクトリ"
+  },
+  "复制实际路径": {
+    "en": "Copy resolved path",
+    "ja": "実際のパスをコピー"
+  },
+  "插件缓存目录": {
+    "en": "Plugin cache directory",
+    "ja": "プラグインキャッシュ"
+  },
+  "移除这个技能链接？": {
+    "en": "Remove this skill link?",
+    "ja": "このスキルへのリンクを削除しますか？"
+  },
+  "移除链接": {
+    "en": "Remove link",
+    "ja": "リンクを削除"
+  },
+  "请在真实来源目录更新此链接技能。": {
+    "en": "Update this linked skill in its source directory.",
+    "ja": "リンク先のディレクトリでこのスキルを更新してください。"
   }
 }
