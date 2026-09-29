@@ -11,7 +11,7 @@ export const exists = async value => { try { await fs.lstat(value); return true;
 export const inside = (root, value) => { const rel = path.relative(path.resolve(root), path.resolve(value)); return rel === '' || (!rel.startsWith(`..${path.sep}`) && rel !== '..' && !path.isAbsolute(rel)); };
 export const now = () => new Date().toISOString();
 export const safeName = value => typeof value === 'string' && /^[a-z0-9]+(?:[a-z0-9._-]*[a-z0-9])?$/.test(value) && value.length <= 100 && value !== '.' && value !== '..';
-export const safeSegment = value => typeof value === 'string' && /^[A-Za-z0-9][A-Za-z0-9._+-]{0,127}$/.test(value) && !['__proto__', 'prototype', 'constructor'].includes(value);
+export { safeSegment } from './cache-paths.mjs';
 
 export async function captureDirectoryRoot(directory) {
   const absolute = path.resolve(directory); let anchor = absolute; const missing = [];

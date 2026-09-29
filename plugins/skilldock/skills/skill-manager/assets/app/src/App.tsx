@@ -590,10 +590,8 @@ export default function App() {
     }
     setDialog({
       type: "confirm",
-      title: t("移除这个技能？"),
-      description: t(
-        "技能将移到本应用的可恢复区。之后可以在「操作记录」恢复；如果它是链接，来源目录会保留。",
-      ),
+      title: t(skill.removeKind === "link" ? "移除这个技能链接？" : "移除这个技能？"),
+      description: t(skill.removeKind === "link" ? "仅移除这个链接，目标内容保留。" : "技能将移到本应用的可恢复区。之后可以在「操作记录」恢复；如果它是链接，来源目录会保留。"),
       target: skill.path,
       request: { action: "skill.remove", id: skill.id },
       danger: true,
@@ -687,7 +685,7 @@ export default function App() {
     if (kind === "skill") {
       const skill = item as Skill;
       if (skill.duplicateNames?.length) common.push({ label: t("管理同名技能"), icon: <Copy size={15} />, run: () => manageDuplicates(skill.name) });
-      common.push({ label: t("移除技能"), icon: <Trash2 size={15} />, danger: true, disabled: !skill.canRemove || !!busy, run: () => confirmRemoveSkill(skill) });
+      common.push({ label: t(skill.removeKind === "link" ? "移除链接" : "移除技能"), icon: <Trash2 size={15} />, danger: true, disabled: !skill.canRemove || !!busy, run: () => confirmRemoveSkill(skill) });
     } else {
       const plugin = item as Plugin;
       common.push(plugin.installed ? { label: t("卸载"), icon: <Trash2 size={15} />, danger: true, disabled: !plugin.canRemove || !!busy, run: () => confirmRemovePlugin(plugin) } : { label: t("安装插件"), icon: <Plus size={15} />, disabled: !plugin.canInstall || !!busy, run: () => setDialog({ type: "plugin-install", plugin }) });
@@ -769,7 +767,7 @@ export default function App() {
               {data.projectContext && <div><span>{t("目录来源")}</span><code>{t({ argument: "启动参数", environment: "环境变量", saved: "界面保存的选择", "working-directory": "启动工作目录" }[data.projectContext.source])}</code></div>}
               {data.projectContext && <div><span>{t("请求目录")}</span><code>{data.projectContext.requested}</code></div>}
               {data.cli.path && <div><span>Codex CLI</span><code>{data.cli.path}</code></div>}
-              {Object.entries(data.paths).map(([key, value]) => (
+              {Object.entries(data.paths).filter((entry): entry is [string, string] => typeof entry[1] === "string").map(([key, value]) => (
                 <div key={key}>
                   <span>
                     {(
@@ -778,6 +776,7 @@ export default function App() {
                         config: t("配置文件"),
                         state: t("应用数据"),
                         project: t("当前项目"),
+                        cache: t("插件缓存目录"),
                       } as Record<string, string>
                     )[key] || key}
                   </span>
@@ -791,6 +790,7 @@ export default function App() {
                   </button>
                 </div>
               ))}
+              {data.locations?.filter(item => item.real).map(item => <div key={item.directory}><span>{t(item.label)}</span><code>{item.directory}{item.real !== item.directory && <><br />{t("实际目录")} · {item.real}</>}</code></div>)}
             </div>
           )}
           {busy && (
@@ -1510,7 +1510,7 @@ function PluginCard({ plugin, busy, onToggle, onInstall, onDetails, onEditTags, 
 }
 function PluginDetail({ plugin, skills, busy, onClose, onToggle, onRemove, onInstall, onUpdates, onSkill }: { plugin: Plugin; skills: Skill[]; busy: string | null; onClose: () => void; onToggle: () => void; onRemove: () => void; onInstall: () => void; onUpdates: () => void; onSkill: (skill: Skill) => void }) {
   return <Inspector title={t("插件详情")} onClose={onClose}>
-    <div className="modal-body"><ProviderIcon icon={plugin.icon} className="skill-icon tone-2 inspector-provider-icon" large><Blocks size={26} /></ProviderIcon><h3 className="inspector-object-name">{plugin.name}</h3><p className="dialog-description">{plugin.description || t("未提供描述")}</p><dl className="preview-paths"><dt>{t("版本")}</dt><dd>{plugin.version || t("版本未提供")}</dd><dt>{t("来自")}</dt><dd><code>{plugin.directSource?.source || plugin.marketplace}</code></dd><dt>ID</dt><dd><code>{plugin.id}</code></dd>{plugin.sourcePath && <><dt>{t("来源路径")}</dt><dd><code>{plugin.sourcePath}</code></dd></>}</dl>
+    <div className="modal-body"><ProviderIcon icon={plugin.icon} className="skill-icon tone-2 inspector-provider-icon" large><Blocks size={26} /></ProviderIcon><h3 className="inspector-object-name">{plugin.name}</h3><p className="dialog-description">{plugin.description || t("未提供描述")}</p><dl className="preview-paths"><dt>{t("版本")}</dt><dd>{plugin.version || t("版本未提供")}</dd><dt>{t("来自")}</dt><dd><code>{plugin.directSource?.source || plugin.marketplace}</code></dd><dt>ID</dt><dd><code>{plugin.id}</code></dd>{plugin.sourcePath && <><dt>{t("来源路径")}</dt><dd><code>{plugin.sourcePath}</code></dd></>}{plugin.installedPath && <><dt>{t("安装路径")}</dt><dd><code>{plugin.installedPath}</code></dd></>}{plugin.realPath && plugin.realPath !== plugin.installedPath && <><dt>{t("实际路径")}</dt><dd><code>{plugin.realPath}</code></dd></>}</dl>
       {plugin.directSource && <ResolvedGitSource source={plugin.directSource} />}
       {plugin.installed && <div className="inline-toggle"><Toggle checked={plugin.enabled} disabled={!plugin.canToggle || !!busy} label={`${plugin.enabled ? t("禁用") : t("启用")} ${plugin.name}`} onChange={onToggle} /><span>{t(plugin.enabled === null ? "状态待确认" : plugin.enabled ? "已启用" : "已禁用")}</span></div>}
       {plugin.reason && <div className="dialog-note"><ServiceMessage value={plugin.reason} /></div>}
@@ -1719,6 +1719,7 @@ function SkillDetail({
                 <Copy size={14} />
               </button>
             </dd>
+            {skill.realPath && skill.realPath !== skill.path && <><dt>{t("实际路径")}</dt><dd className="path-value"><code>{skill.realPath}</code><button className="icon-button" aria-label={t("复制实际路径")} onClick={() => onCopy(skill.realPath!)}><Copy size={14} /></button></dd></>}
             <dt>{t("状态证据")}</dt>
             <dd>
               <ServiceMessage value={skill.statusEvidence} />
@@ -1784,7 +1785,7 @@ function SkillDetail({
           disabled={!skill.canUpdate || !!busy}
           title={
             !skill.canUpdate
-              ? t("仅对本应用追踪来源的独立技能提供更新")
+              ? t(skill.isLink ? "请在真实来源目录更新此链接技能。" : "仅对本应用追踪来源的独立技能提供更新")
               : undefined
           }
           busy={busy === `skill.checkUpdate:${skill.id}`}
@@ -1805,7 +1806,7 @@ function SkillDetail({
           onClick={onRemove}
         >
           <Trash2 size={15} />
-          {t("移除技能")}
+          {t(skill.removeKind === "link" ? "移除链接" : "移除技能")}
         </Button>
       </div>
     </Inspector>

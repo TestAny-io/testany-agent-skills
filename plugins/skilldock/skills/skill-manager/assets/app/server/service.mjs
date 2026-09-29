@@ -9,6 +9,8 @@ import { toggleConfig, toggleSkillConfigs, readConfig } from './config.mjs';
 import { CodexAdapter, validateSource, validateSubpath, validateRef, checkoutGit, readMarketplace, readComponentEntry, readPluginManifest, discoverSkillRoots } from './cli.mjs';
 import { initializeSandbox, emptyRegistry } from './fixtures.mjs';
 import { scan, sandboxCatalog, rootsFor } from './scanner.mjs';
+import { pluginCacheRoot, pluginPath, verifyPluginPath, protectedRoots, skillLocation } from './paths.mjs';
+import { moveObject } from './move.mjs';
 import { enrichSources, buildUpdateItems, targetKey } from './sources.mjs';
 import { createScheduler, validateTarget, validateSchedule } from './scheduler.mjs';
 import { resolveProject, projectContext, validateProjectPath } from './project-context.mjs';
@@ -95,7 +97,10 @@ export async function createService(options = {}) {
   for (const env of Object.values(environments)) {
     env.stateBoundary = await captureDirectoryRoot(env.root);
     env.codexBoundary = await captureDirectoryRoot(env.codexHome); env.codexRootReal = env.codexBoundary.real;
-    env.managedRoots = await Promise.all(rootsFor(env).filter(root => root.scope !== 'system').map(root => captureDirectoryRoot(root.directory)));
+    env.discoveryRoots = await rootsFor(env);
+    env.managedRoots = await Promise.all(env.discoveryRoots.filter(root => root.scope !== 'system').map(root => captureDirectoryRoot(root.directory)));
+    env.cacheBoundary = await captureDirectoryRoot(pluginCacheRoot(env.codexHome));
+    env.skillLinks = new Map();
   }
   const adapter = options.adapter || new CodexAdapter({ codexHome, codexBin: options.codexBin || process.env.SKILLDOCK_CODEX_BIN, timeout: options.cliTimeout });
   const projectIntegration = options.projectIntegration || createProjectIntegration();
@@ -208,8 +213,8 @@ export async function createService(options = {}) {
     if (!record.pluginId) {
       const boundary = env.managedRoots.find(root => inside(root.directory, directory));
       if (!boundary) fail(403, 'ROOT_BOUNDARY', '技能不属于启动时确认的受管根。');
-      await verifyDirectoryRoot(boundary);
-      if (!inside(boundary.real, realDirectory)) fail(403, 'ROOT_BOUNDARY', '技能实际位置越出原受管根。');
+      const location = await skillLocation(boundary, directory, env.skillLinks);
+      if (!inside(boundary.real, realDirectory) && (!location.isLink || capability !== 'canToggle' && !(capability === 'canRemove' && location.directLink))) fail(403, 'ROOT_BOUNDARY', '技能实际位置越出原受管根。');
     }
     if (inside(realDirectory, fileURLToPath(import.meta.url)) || directory.split(path.sep).includes('.system') || inside('/etc/codex/skills', realDirectory)) fail(403, 'PROTECTED_SKILL', '应用自身或系统内容不可修改。');
     if (capability === 'canUpdate' && await exists(path.join(directory, '.git'))) fail(422, 'GIT_OWNER_MANAGED', '该目录本身是 Git 仓库，SkillDock 不替换工作树或 .git 元数据。');
@@ -250,7 +255,8 @@ export async function createService(options = {}) {
     const boundary = env.managedRoots.find(root => root.directory === env.skills); await verifyDirectoryRoot(boundary);
     if (env.mode === 'sandbox' && !inside(env.root, boundary.real)) fail(403, 'SANDBOX_BOUNDARY', '安装根越出演练范围。');
     await fs.mkdir(env.skills, { recursive: true });
-    if (await fs.realpath(env.codexHome) !== env.codexRootReal || (await fs.lstat(env.skills)).isSymbolicLink() || !inside(env.codexRootReal, await fs.realpath(env.skills))) fail(403, 'TARGET_BOUNDARY', '技能安装根的身份已变化或是越界链接，不能写入。');
+    await verifyDirectoryRoot(boundary);
+    if ((await protectedRoots(env)).some(root => inside(root, boundary.real))) fail(403, 'TARGET_BOUNDARY', '技能安装根指向插件或系统管理目录，不能写入。');
     Object.assign(boundary, await captureDirectoryRoot(env.skills));
   }
   async function assertConfigBoundary(env) {
@@ -266,7 +272,7 @@ export async function createService(options = {}) {
     const actual = await parentIdentity(entry.directory);
     if (!entry.parentReal || actual.parentReal !== entry.parentReal || actual.parentDev !== entry.parentDev || actual.parentIno !== entry.parentIno) fail(409, 'RESTORE_BOUNDARY', '原父目录身份或链接发生变化，已停止恢复。');
     if (env.mode === 'sandbox' && !inside(env.root, actual.parentReal)) fail(403, 'RESTORE_BOUNDARY', '恢复目标越出演练范围。');
-    const protectedPaths = [path.join(env.codexRootReal, 'plugins'), path.join(env.codexRootReal, 'skills/.system'), '/etc/codex/skills'];
+    const protectedPaths = await protectedRoots(env);
     if (protectedPaths.some(root => inside(root, actual.parentReal))) fail(403, 'RESTORE_BOUNDARY', '恢复目标位于托管或系统目录。');
   }
   function assertSandboxSource(env, source) {
@@ -305,16 +311,18 @@ export async function createService(options = {}) {
     return preview;
   }
   const provenance = (preview, directory) => ({ directory, source: preview.source, sourceType: preview.sourceType, subpath: preview.subpath, ref: preview.ref, commit: preview.commit, fingerprint: preview.tree.fingerprint, files: preview.tree.entries, installedAt: now(), generation: crypto.randomUUID() });
+  const moveWarnings = [];
   async function move(from, to) {
-    const boundaries = Object.values(environments).flatMap(env => [env.stateBoundary, ...env.managedRoots]).sort((a, b) => b.directory.length - a.directory.length);
-    for (const target of [from, to]) {
-      const parent = path.dirname(target); const boundary = boundaries.find(root => inside(root.directory, parent));
-      if (!boundary) fail(403, 'ROOT_BOUNDARY', '移动位置不在固定受管根内。');
-      await verifyDescendantDirectory(boundary, parent);
-    }
-    await fs.mkdir(path.dirname(to), { recursive: true, mode: 0o700 });
-    try { await fs.rename(from, to); }
-    catch (e) { if (e.code === 'EXDEV') fail(422, 'CROSS_DEVICE', '来源与备份区不在同一文件系统，未移动原目录；请把 SKILLDOCK_STATE_DIR 放在同一磁盘。'); throw e; }
+    const boundaries = Object.values(environments).flatMap(env => [env.stateBoundary, env.cacheBoundary, ...env.managedRoots]).sort((a, b) => b.directory.length - a.directory.length);
+    const guard = async () => {
+      for (const target of [from, to]) {
+        const parent = path.dirname(target); const boundary = boundaries.find(root => inside(root.directory, parent));
+        if (!boundary) fail(403, 'ROOT_BOUNDARY', '移动位置不在固定受管根内。');
+        await verifyDescendantDirectory(boundary, parent);
+      }
+    };
+    const result = await moveObject(from, to, { guard, ...(options.moveRename ? { rename: options.moveRename } : {}) });
+    if (result?.retainedCopy) moveWarnings.push(`移动已完成，另有未清理的恢复副本：${result.retainedCopy}`);
   }
   async function refreshDirectSource(env, registry, marketId) {
     const source = registry.directPlugins[marketId];
@@ -342,7 +350,7 @@ export async function createService(options = {}) {
     const market = catalog.marketplaces.find(item => item.id === plugin.marketplace);
     if (refreshMarketplace && market?.canRefresh && (market.type === 'git' || market.direct)) {
       if (market.direct) await refreshDirectSource(env, registry, market.id);
-      else if (env.mode === 'local') await adapter.command(['plugin', 'marketplace', 'upgrade', market.name, '--json'], { mutation: true });
+      else if (env.mode === 'local') { await verifyPluginPath(env, pluginCacheRoot(env.codexHome)); await adapter.command(['plugin', 'marketplace', 'upgrade', market.name, '--json'], { mutation: true }); }
       else {
         const entry = registry.marketplaces[market.id]; assertSandboxSource(env, entry.source);
         const stage = path.join(env.root, 'marketplace-sources', crypto.randomUUID()); await verifyDescendantDirectory(env.stateBoundary, stage); await fs.mkdir(path.dirname(stage), { recursive: true });
@@ -368,8 +376,8 @@ export async function createService(options = {}) {
     if (entry.version !== undefined && manifest.version !== undefined) fail(422, 'VERSION_AUTHORITY', '版本有多个 authority，无法安全更新。');
     const availableVersion = manifest.version ?? entry.version;
     if (!safeSegment(availableVersion)) fail(422, 'VERSION_UNVERIFIED', '来源未声明可验证的版本；请由包维护者发布明确版本后再更新。');
-    const installedPath = path.join(env.codexHome, 'plugins/cache', plugin.marketplace, plugin.name, plugin.version);
-    await verifyDescendantDirectory(env.codexBoundary, installedPath);
+    const installedPath = pluginPath(env.codexHome, plugin.marketplace, plugin.name, plugin.version);
+    await verifyPluginPath(env, installedPath);
     if (!(await exists(installedPath))) fail(422, 'INSTALLATION_UNVERIFIED', 'CLI 对应的已安装缓存不存在，不能验证更新前内容。');
     const sourceBoundary = await captureDirectoryRoot(source), targetBoundary = await captureDirectoryRoot(installedPath);
     const installed = await inspectTree(installedPath);
@@ -391,7 +399,7 @@ export async function createService(options = {}) {
         const live = await catalogFor(env, registry, true);
         if (origin(live.plugins.find(item => item.id === id && item.installed), live) !== originalOrigin) fail(409, 'INSTALLATION_CHANGED', '插件安装或来源身份发生变化，请重新检查。');
         await verifyDirectoryRoot(sourceBoundary); await verifyDirectoryRoot(targetBoundary);
-        await verifyDescendantDirectory(env.codexBoundary, installedPath);
+        await verifyPluginPath(env, installedPath);
         if (JSON.stringify(await readComponentEntry(marketRoot, plugin.name, source)) !== JSON.stringify(entry)
           || JSON.stringify(await readPluginManifest(candidate)) !== JSON.stringify(manifest)
           || (await inspectTree(source)).fingerprint !== tree.fingerprint) fail(409, 'SOURCE_CHANGED', '来源在复制期间发生变化，请重新预览。');
@@ -445,8 +453,8 @@ export async function createService(options = {}) {
     if (!skills.every(skill => inside(directory, path.resolve(directory, skill.path)))) fail(422, 'UNSUPPORTED_COMPONENTS', '共享目录中的技能暂不支持逐项启用，请通过 Codex 管理。');
     if (selection?.some(value => !skills.some(skill => skill.path === value))) fail(400, 'INVALID_SELECTION', '请选择预览中有效且不重复的技能。');
     await assertConfigBoundary(env);
-    await verifyDescendantDirectory(env.codexBoundary, directory);
-    const configDirectory = path.resolve(env.codexRootReal, path.relative(env.codexHome, directory));
+    await verifyPluginPath(env, directory);
+    const configDirectory = path.resolve(env.cacheBoundary.real, path.relative(env.cacheBoundary.directory, directory));
     const config = (await readConfig(env.config)).data.skills?.config ?? [];
     if (!Array.isArray(config)) fail(422, 'CONFIG_SYNTAX', 'skills.config 不是数组，不能安全修改。');
     const preference = { ...(prior || {}) };
@@ -465,7 +473,7 @@ export async function createService(options = {}) {
   async function executeAction(request, { pluginCheckOptions } = {}) {
     const env = environment(request.mode);
     if (busy) fail(409, 'BUSY', '另一个操作正在进行，请等待后重试。');
-    busy = true; let registry; let originalRegistry;
+    busy = true; moveWarnings.length = 0; let registry; let originalRegistry;
     const undo = []; const individualActivities = []; let restore; let activityPath; let consumedPreview; let target = request.id || request.source || 'skill'; const activityId = crypto.randomUUID(); let result;
     try {
       await verifyDirectoryRoot(env.stateBoundary);
@@ -515,8 +523,8 @@ export async function createService(options = {}) {
           // already have registered/installed the package when a command fails.
           originalRegistry.directPlugins ||= {}; originalRegistry.directPlugins[market] = tracked;
           await writeJson(env.registryFile, registry);
-          const selectedCache = path.join(env.codexHome, 'plugins/cache', market, staged.detail.name, staged.detail.version);
-          await verifyDescendantDirectory(env.codexBoundary, selectedCache);
+          const selectedCache = pluginPath(env.codexHome, market, staged.detail.name, staged.detail.version);
+          await verifyPluginPath(env, selectedCache);
           const selectedTransaction = await writePluginSkills(env, registry, { id: pluginId }, selectedCache, staged.detail.skillDetails, request.enabledSkills);
           if (selectedTransaction && env.mode === 'sandbox') undo.push(selectedTransaction.undo);
           if (env.mode === 'local' && selectedTransaction) originalRegistry.pluginSkillPreferences = structuredClone(registry.pluginSkillPreferences);
@@ -526,13 +534,13 @@ export async function createService(options = {}) {
             if (nativeMarket?._root !== root) fail(502, 'READBACK_FAILED', '未能确认单插件来源登记，请刷新后核实。');
             await adapter.command(['plugin', 'add', pluginId, '--json'], { mutation: true });
             const installed = (await adapter.list()).plugins.find(item => item.id === pluginId && item.installed);
-            const cache = path.join(env.codexHome, 'plugins/cache', market, staged.detail.name, staged.detail.version);
-            await verifyDescendantDirectory(env.codexBoundary, cache);
+            const cache = pluginPath(env.codexHome, market, staged.detail.name, staged.detail.version);
+            await verifyPluginPath(env, cache);
             if (!installed || installed.version !== staged.detail.version || typeof installed.enabled !== 'boolean' || (await inspectTree(cache)).fingerprint !== staged.tree.fingerprint) fail(502, 'READBACK_FAILED', '插件安装的版本、内容或状态未能全部确认，请刷新后核实。');
           } else {
             registry.marketplaces[market] = { source: root, root, type: 'local', refreshedAt: now() };
-            const cache = path.join(env.codexHome, 'plugins/cache', market, staged.detail.name, staged.detail.version);
-            await verifyDescendantDirectory(env.codexBoundary, cache);
+            const cache = pluginPath(env.codexHome, market, staged.detail.name, staged.detail.version);
+            await verifyPluginPath(env, cache);
             await fs.mkdir(path.dirname(cache), { recursive: true }); await copySkill(staged.candidate, cache);
             registry.plugins[pluginId] = { name: staged.detail.name, version: staged.detail.version, marketplace: market, directory: cache, enabled: true, updateSourcePath: destination, componentRoots: (await discoverSkillRoots(destination)).map(item => path.relative(destination, item) || '.') };
           }
@@ -556,13 +564,13 @@ export async function createService(options = {}) {
           const preview = await assertPreview(env, request.previewId, 'plugin-update');
           if (preview.pluginId !== request.id) fail(409, 'PREVIEW_MISMATCH', '预览不属于该插件。');
           await verifyDirectoryRoot(preview.sourceBoundary); await verifyDirectoryRoot(preview.targetBoundary);
-          await verifyDescendantDirectory(env.codexBoundary, preview.target);
+          await verifyPluginPath(env, preview.target);
           if ((await inspectTree(preview.target)).fingerprint !== preview.baseline) fail(409, 'LOCAL_CHANGES', '已安装包在预览后发生变化。');
           const catalog = await catalogFor(env, registry, true); const plugin = catalog.plugins.find(item => item.id === request.id && item.installed);
           if (!plugin || plugin.version !== preview.installedVersion || typeof plugin.enabled !== 'boolean' || plugin._updateSourcePath !== preview.source) fail(409, 'INSTALLATION_CHANGED', '插件安装或来源身份发生变化，请重新检查。');
           target = plugin.name; const enabled = plugin.enabled;
           const backup = path.join(env.root, 'quarantine', `${activityId}-plugin-backup`); await verifyDescendantDirectory(env.stateBoundary, backup); await fs.mkdir(path.dirname(backup), { recursive: true }); await copySkill(preview.target, backup);
-          const destination = path.join(env.codexHome, 'plugins/cache', plugin.marketplace, plugin.name, preview.availableVersion); await verifyDescendantDirectory(env.codexBoundary, path.dirname(destination));
+          const destination = pluginPath(env.codexHome, plugin.marketplace, plugin.name, preview.availableVersion); await verifyPluginPath(env, path.dirname(destination));
           if (registry.pluginSkillPreferences?.[plugin.id]) {
             const contents = await pluginContents(preview.candidate, { roots: preview.componentRoots.map(relative => path.resolve(preview.candidate, relative)) });
             const transaction = await writePluginSkills(env, registry, plugin, destination, contents.skillDetails, undefined, false);
@@ -584,7 +592,7 @@ export async function createService(options = {}) {
             }
             if (commandError) throw commandError;
             const readback = await adapter.list(); cachedCatalog = readback; catalogTime = Date.now(); const actual = readback.plugins.find(item => item.id === plugin.id && item.installed);
-            await verifyDescendantDirectory(env.codexBoundary, destination);
+            await verifyPluginPath(env, destination);
             if (!actual || actual.version !== preview.availableVersion || actual.enabled !== enabled || !(await exists(destination)) || (await inspectTree(destination)).fingerprint !== preview.tree.fingerprint) fail(502, 'READBACK_FAILED', '包更新后版本、内容或启用状态无法全部确认。旧包备份与未完成记录已保留，请核实。');
             await fs.rm(pending, { force: true });
           }
@@ -629,12 +637,12 @@ export async function createService(options = {}) {
             const plugin = current.plugins.find(item => item.id === record.pluginId);
             if (!plugin?.canToggle) fail(403, 'PROTECTED_PLUGIN', '所属插件不支持此操作。');
             if (!plugin.enabled) fail(409, 'PLUGIN_DISABLED', '请先启用所属插件，再调整其中的技能。');
-            const transaction = await toggleConfig(env.config, 'skill', record.path, request.enabled, path.join(env.root, 'config-backups')); undo.push(transaction.undo);
+            const transaction = await toggleConfig(env.config, 'skill', record.configPath || record.path, request.enabled, path.join(env.root, 'config-backups')); undo.push(transaction.undo);
             registry.pluginSkillPreferences ||= {};
             const config = (await readConfig(env.config)).data.skills?.config ?? [];
             registry.pluginSkillPreferences[record.pluginId] = { ...registry.pluginSkillPreferences[record.pluginId], ...Object.fromEntries(current.skills.filter(item => item.pluginId === record.pluginId && item.packagePath).map(item => [item.packagePath, config.find(value => value.path === item.path)?.enabled ?? true])) };
           } else {
-            const transaction = await toggleConfig(env.config, 'skill', record.path, request.enabled, path.join(env.root, 'config-backups')); undo.push(transaction.undo);
+            const transaction = await toggleConfig(env.config, 'skill', record.configPath || record.path, request.enabled, path.join(env.root, 'config-backups')); undo.push(transaction.undo);
           }
           result = { message: `已${request.enabled ? '启用' : '禁用'} ${target}。配置已读回；新会话生效。`, needsReload: true }; break;
         }
@@ -706,7 +714,7 @@ export async function createService(options = {}) {
           if (entry.kind === 'remove') {
             if (await exists(entry.directory)) fail(409, 'TARGET_EXISTS', '原位置已被占用，不能覆盖恢复。');
             const parent = await fs.realpath(path.dirname(entry.directory));
-            const managedRoots = await Promise.all(rootsFor(env).filter(root => root.scope !== 'system').map(async root => { try { return await fs.realpath(root.directory); } catch { return root.directory; } }));
+            const managedRoots = await Promise.all((env.discoveryRoots || await rootsFor(env)).filter(root => root.scope !== 'system').map(async root => { try { return await fs.realpath(root.directory); } catch { return root.directory; } }));
             if (!managedRoots.some(root => inside(root, parent)) || parent.split(path.sep).includes('.system')) fail(403, 'RESTORE_BOUNDARY', '原位置的管理边界已变化。');
             await move(entry.backup, entry.directory); undo.push(async () => { await move(entry.directory, entry.backup); });
           } else {
@@ -716,6 +724,7 @@ export async function createService(options = {}) {
             await move(entry.backup, entry.directory); undo.push(async () => { await move(entry.directory, entry.backup); });
           }
           if (entry.source) registry.sources[entry.skillId] = entry.source; else delete registry.sources[entry.skillId];
+          env.skillLinks.delete(entry.directory);
           previous.canRestore = false; target = previous.target; activityPath = previous.path || path.join(entry.directory, 'SKILL.md'); result = { message: `已恢复 ${target}。`, needsReload: true }; break;
         }
         case 'plugin.toggle': {
@@ -739,8 +748,8 @@ export async function createService(options = {}) {
             await verifyDirectoryRoot(preview.boundary);
             const current = await marketplaceInstallation(env, registry, plugin.id);
             if (current.source !== preview.source || current.signature !== preview.signature || current.public.version !== preview.public.version) fail(409, 'SOURCE_CHANGED', '来源在预览后发生变化，请重新预览。');
-            const destination = path.join(env.codexHome, 'plugins/cache', plugin.marketplace, plugin.name, current.public.version);
-            await verifyDescendantDirectory(env.codexBoundary, destination);
+            const destination = pluginPath(env.codexHome, plugin.marketplace, plugin.name, current.public.version);
+            await verifyPluginPath(env, destination);
             const transaction = await writePluginSkills(env, registry, plugin, destination, current.public.skillDetails, request.enabledSkills);
             if (transaction && env.mode === 'sandbox') undo.push(transaction.undo);
             if (transaction && env.mode === 'local') originalRegistry.pluginSkillPreferences = structuredClone(registry.pluginSkillPreferences);
@@ -749,10 +758,10 @@ export async function createService(options = {}) {
             if (installing) {
               if (!inside(env.root, await fs.realpath(plugin.sourcePath))) fail(403, 'SANDBOX_BOUNDARY', '插件来源越出演练目录。');
               if (![plugin.marketplace, plugin.name, plugin.version].every(safeSegment)) fail(422, 'PLUGIN_IDENTITY', '插件身份或版本不是安全的单段路径。');
-              const destination = path.join(env.codexHome, 'plugins/cache', plugin.marketplace, plugin.name, plugin.version);
-              const cacheRoot = path.join(env.codexRootReal, 'plugins/cache');
+              const destination = pluginPath(env.codexHome, plugin.marketplace, plugin.name, plugin.version);
+              const cacheRoot = env.cacheBoundary.real;
               if (!inside(cacheRoot, destination) || await fs.realpath(env.codexHome) !== env.codexRootReal) fail(403, 'PLUGIN_BOUNDARY', '插件安装目标越出缓存根目录。');
-              await verifyDescendantDirectory(env.codexBoundary, path.dirname(destination));
+              await verifyPluginPath(env, path.dirname(destination));
               if (await exists(destination)) fail(409, 'TARGET_EXISTS', '插件缓存目标已存在，不能覆盖。');
               await inspectTree(plugin.sourcePath); await fs.mkdir(path.dirname(destination), { recursive: true });
               if (!inside(cacheRoot, await fs.realpath(path.dirname(destination)))) fail(403, 'PLUGIN_BOUNDARY', '插件父目录链接越出缓存根目录。');
@@ -763,11 +772,12 @@ export async function createService(options = {}) {
               const configuredEnabled = (await readConfig(env.config)).data.plugins?.[plugin.id]?.enabled;
               registry.plugins[plugin.id] = { name: plugin.name, description: plugin.description, marketplace: plugin.marketplace, directory: destination, version: plugin.version, componentRoots, updateSourcePath: plugin._updateSourcePath || plugin.sourcePath, fingerprint: (await inspectTree(destination)).fingerprint, generation: crypto.randomUUID(), enabled: configuredEnabled !== false };
             } else {
-              if (!inside(path.join(env.codexRootReal, 'plugins/cache'), await fs.realpath(registry.plugins[plugin.id].directory))) fail(403, 'PLUGIN_BOUNDARY', '插件目录越出缓存根目录。');
+              if (!inside(env.cacheBoundary.real, await fs.realpath(registry.plugins[plugin.id].directory))) fail(403, 'PLUGIN_BOUNDARY', '插件目录越出缓存根目录。');
               const backup = path.join(env.root, 'quarantine', `${activityId}-plugin`); await move(registry.plugins[plugin.id].directory, backup); undo.push(async () => { await move(backup, registry.plugins[plugin.id]?.directory || plugin.sourcePath); });
               delete registry.plugins[plugin.id];
             }
           } else {
+            await verifyPluginPath(env, plugin.version ? pluginPath(env.codexHome, plugin.marketplace, plugin.name, plugin.version) : pluginCacheRoot(env.codexHome));
             await adapter.command(['plugin', installing ? 'add' : 'remove', plugin.id, '--json'], { mutation: true });
             const readback = await adapter.list(); cachedCatalog = readback; catalogTime = Date.now();
             if (readback.diagnostics.length || readback.plugins.some(item => item.id === plugin.id && item.installed) !== installing) fail(502, 'READBACK_FAILED', 'CLI 操作已返回，但无法确认安装终态；请刷新官方清单后再操作。');
@@ -786,6 +796,7 @@ export async function createService(options = {}) {
           if (env.mode === 'sandbox') { registry.marketplaces[catalog.name] = { source, root: catalog.root, type: request.sourceType, ref: request.ref, refreshedAt: now() }; }
           else {
             const args = ['plugin', 'marketplace', 'add', source]; if (request.ref) args.push('--ref', request.ref); args.push('--json');
+            await verifyPluginPath(env, pluginCacheRoot(env.codexHome));
             await adapter.command(args, { mutation: true }); const readback = await adapter.list(); cachedCatalog = readback; catalogTime = Date.now();
             if (!readback.marketplaces.some(item => item.id === catalog.name)) fail(502, 'READBACK_FAILED', 'CLI 未能确认市场已添加，请刷新核实。');
           }
@@ -806,6 +817,7 @@ export async function createService(options = {}) {
               entry.root = staged; entry.refreshedAt = now();
             }
           } else {
+            await verifyPluginPath(env, pluginCacheRoot(env.codexHome));
             await adapter.command(['plugin', 'marketplace', removing ? 'remove' : 'upgrade', market.name, '--json'], { mutation: true });
             const readback = await adapter.list(); cachedCatalog = readback; catalogTime = Date.now();
             if (readback.diagnostics.length || readback.marketplaces.some(item => item.id === market.id) === removing) fail(502, 'READBACK_FAILED', 'CLI 未能确认市场操作终态，请刷新核实。');
@@ -814,6 +826,7 @@ export async function createService(options = {}) {
         }
       }
       if (!result) fail(400, 'INVALID_ACTION', '操作未实现。');
+      if (moveWarnings.length) result.message += `\n${moveWarnings.join('\n')}`;
       registry.activity.unshift(...(individualActivities.length ? individualActivities : [{ id: activityId, action: request.action, target, ...(activityPath ? { path: activityPath } : {}), createdAt: now(), status: 'success', message: result.message, canRestore: !!restore, ...(restore ? { restore } : {}) }]));
       await writeJson(env.registryFile, registry);
       await cleanupTemporary(env, registry, consumedPreview).catch(() => {});
@@ -841,7 +854,7 @@ export async function createService(options = {}) {
     } else if (target.kind === 'plugin') {
       const plugin = current.plugins.find(candidate => candidate.id === target.id && candidate.installed);
       if (![plugin?.marketplace, plugin?.name, plugin?.version].every(safeSegment)) fail(422, 'PLUGIN_IDENTITY', '无法绑定插件安装身份。');
-      directory = path.join(env.codexHome, 'plugins/cache', plugin.marketplace, plugin.name, plugin.version); generation = registry.plugins?.[target.id]?.generation;
+      directory = pluginPath(env.codexHome, plugin.marketplace, plugin.name, plugin.version); generation = registry.plugins?.[target.id]?.generation;
     } else directory = env.codexHome;
     const real = await fs.realpath(directory); const stat = await fs.stat(directory);
     const source = item.sourceInfo || {}; const sourceIdentity = {};
@@ -867,7 +880,8 @@ export async function createService(options = {}) {
   let requestBusy = false; let restarting = false; let closing = false;
   async function selectProject(directory) {
     const next = await projectContext(directory, 'saved').catch(error => fail(error.status || 422, error.code || 'PROJECT_UNAVAILABLE', error.message));
-    const managedRoots = await Promise.all(rootsFor({ ...local, project: next.effective }).filter(root => root.scope !== 'system').map(root => captureDirectoryRoot(root.directory)));
+    const discoveryRoots = await rootsFor({ ...local, project: next.effective });
+    const managedRoots = await Promise.all(discoveryRoots.filter(root => root.scope !== 'system').map(root => captureDirectoryRoot(root.directory)));
     await verifyDirectoryRoot(applicationBoundary);
     const file = path.join(stateDir, 'project.json');
     const saved = await readJson(file, {}) || {};
@@ -878,7 +892,7 @@ export async function createService(options = {}) {
     try { if (backgroundContext) await writeJson(contextFile, { ...backgroundContext, projectDir: next.effective }); }
     catch (error) { await writeJson(file, saved); throw error; }
     project = next.effective; projectInfo = next;
-    local.project = project; local.managedRoots = managedRoots;
+    local.project = project; local.managedRoots = managedRoots; local.discoveryRoots = discoveryRoots;
     previews.clear(); removalPreviews.clear(); pluginCatalogPreviews.clear();
     return next;
   }

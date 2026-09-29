@@ -1,89 +1,190 @@
-# SkillDock
+<div align="center">
 
-**A visual home for your Codex skills and plugins.**
+<picture>
+  <source media="(prefers-color-scheme: dark)" srcset="assets/readme/brand-dark.svg">
+  <img src="assets/readme/brand-light.svg" alt="SkillDock" width="300" height="64">
+</picture>
 
-A Testany Product · macOS + Codex · English / 中文 / 日本語 · Light / dark themes
+<h3>A clearer home for your Codex skills.</h3>
 
-[简体中文](README.md) · [Install & open](#install--open) · [Give feedback](#tell-us-how-it-went) · [More Testany plugins](../../README.en.md#choose-a-plugin) · [Meet Testany](https://testany.io)
+<p>Browse, install, organize, and update skills, plugins, and marketplaces.<br>
+Right inside Codex.</p>
 
-As your skill collection grows, sources, versions, and duplicate copies become harder to track. SkillDock brings skills, plugins, marketplaces, and updates into Codex’s main content area through a native sidebar entry, with the browser panel still available.
+<p>
+  <img src="https://img.shields.io/badge/macOS-Codex-0764D9?style=flat-square" alt="macOS · Codex">
+  <img src="https://img.shields.io/badge/languages-中文%20%2F%20EN%20%2F%20日本語-586174?style=flat-square" alt="中文 / English / 日本語">
+  <a href="LICENSE"><img src="https://img.shields.io/badge/license-AGPL--3.0--only-586174?style=flat-square" alt="AGPL-3.0-only"></a>
+</p>
 
-![SkillDock skill library with status, tag filters, and management controls](assets/skills-overview.png)
+<p><strong><a href="#install--open">Get started</a></strong> · <a href="#what-you-can-do">Explore features</a> · <a href="#tell-us-how-it-went">Give feedback</a> · <a href="README.md">简体中文</a></p>
 
-*Actual SkillDock 0.3.0 interface in Chinese, using isolated example data. English and Japanese are also available in the app.*
+<sub>A <a href="https://testany.io">Testany</a> Product</sub>
 
-## What you can do
+</div>
 
-| Task | In SkillDock |
-| --- | --- |
-| See what is installed | Browse skills and plugins, their installation paths, and discoverable source information |
-| Install a single plugin | Click “Install plugin” and choose a local directory, Git URL, or connected Marketplace |
-| Find a skill in a large collection | Add your own tags to skills / plugins, then search and filter |
-| Choose between duplicate skills | Turn on “Duplicates only”, then inspect each installation path and select the copies to keep or remove; restore removed copies from Activity |
-| Understand an update | Follow check progress and expand file diffs before applying changes |
-| Keep selected tools current | Choose targets and an interval in hours; optionally apply updates automatically. Bundled skills update with their plugin |
-| Use a private repository | Reuse your locally configured Git credentials; paste a GitHub directory URL when linking a source |
+<br>
 
-Source discovery depends on records left by the original installation. You can connect an update source when those records are missing. Host permissions and system protection can limit available actions; the app shows those restrictions.
+<picture>
+  <source media="(prefers-color-scheme: dark)" srcset="assets/readme/library-dark-en.png">
+  <img src="assets/readme/library-light-en.png" alt="SkillDock library with search, tags, duplicate filtering, and individual skill switches" width="1440">
+</picture>
 
-Version 0.9.0 displays artwork declared in skill and plugin packages across lists, details, and installation previews. Dark variants are supported, with default icons when artwork is unavailable. SkillDock uses a blue three-layer logo and Ubuntu wordmark, with consistent assets for the app, browser tab, and Codex entry. Refresh the page after upgrading; reload the plugin or restart Codex if its entry still shows the old icon. See the [icon rules and verification notes](skills/skill-manager/references/32-provider-icons.md).
-
-Version 0.8.0 updates the product interface with compact lists, a detail inspector, consistent search and filters, and Liquid Glass-inspired navigation and toolbars. It supports context menus, keyboard navigation, restored browsing state, and a Reduce transparency preference. The native entry and browser share the same interface; [design and verification notes](skills/skill-manager/references/31-desktop-interface.md) are included with the source.
-
-Version 0.7.0 adds “Duplicates only” beside the Skills search bar. Combine it with keywords, source, status, and tags. Duplicate detection uses the full scanned inventory; once only one copy remains, it leaves the duplicate results automatically. Available in English, Chinese, and Japanese, with light and dark themes.
-
-Version 0.6.0 adds [skill previews and activation choices](skills/skill-manager/references/28-plugin-skill-selection.md): review names, descriptions, and paths, then search and select which skills to enable. The whole plugin is still installed; unchecked skills stay disabled. After installation, each skill can be toggled independently, and updates preserve those choices.
-
-If an older version disabled an entire plugin when you switched off one skill, re-enable that plugin in Plugins after upgrading, then disable the intended skill in Skills. Existing plugin-wide switches are not changed automatically.
+<p align="center"><sub>Actual product UI · Isolated example data · Follows your GitHub light or dark theme</sub></p>
 
 ## Install & open
 
-The standalone `skilldock` plugin includes the `skill-manager` skill and a native MCP application entry. The engineering, prompt, content, and testing plugins are separate choices.
-
-Copy this into Codex on your Mac:
+**Send this to Codex on your Mac:**
 
 ```text
 Install the standalone SkillDock plugin from https://github.com/TestAny-io/testany-agent-skills and open its skill management panel.
 ```
 
-You need Git and a Codex CLI with plugin management support. You do not need to clone the repository manually or install a global Node.js/npm runtime first. The launcher selects or prepares the runtime; the first launch needs network access and may take a little while.
+This installs the standalone **`skilldock`** plugin, with the `skill-manager` skill and graphical app entry. Other plugins and skills in the repository are separate choices.
 
-Starting with 0.8.0, open **SkillDock** from More / Explore and choose **Pin to sidebar**. Opening the page starts the local backend on demand; a restart reconnects without replaying writes. The entry has been verified in desktop build 26.924.22138. Use the existing browser flow when your host does not expose it. The earlier Preview has a separate pin identity.
+Open **More / Explore → SkillDock** in Codex, then choose **Pin to sidebar**. The sidebar entry opens the full app in the main content area and starts its backend on demand.
 
-You can also open the browser panel from a new Codex task:
+Or open the browser panel from a new Codex task:
 
 ```text
 $skill-manager Open the skill management panel
 ```
 
-If the `codex` command on your PATH fails, the [installation guide](../../README.md#在-codex-中使用-skilldock) covers checking desktop app CLI candidates and reporting the executable and project paths actually used. Ask Codex to follow that guide; it is maintained in Chinese. If you previously installed SkillDock 0.1.0 with testany-eng 2.4.0, use the [migration instructions](../../README.md#从旧版-testany-eng-迁移) to retain your schedule, history, and source records.
+<details>
+<summary><strong>Requirements, a missing entry, or a broken command?</strong></summary>
+
+- You need **macOS, Git, and a Codex CLI with plugin management support**.
+- No global Node.js/npm installation is required. The launcher selects or prepares its runtime; the first launch needs internet access to prepare dependencies.
+- If an installation or update leaves the old entry, icon, or UI, fully quit and reopen Codex. The native entry has been verified in desktop build `26.924.22138`; use the browser flow when your host does not expose it.
+- If `codex` on your PATH fails, follow the [full installation guide](../../README.md#在-codex-中使用-skilldock) to check the desktop app CLI. An old npm wrapper may be broken. The detailed guide is maintained in Chinese and can be followed by Codex.
+- Previously installed SkillDock with `testany-eng 2.4.0`? Use the [migration instructions](../../README.md#从旧版-testany-eng-迁移) to retain schedules, history, and source records.
+
+</details>
+
+## What you can do
+
+| Find the right capability | Manage it through its lifecycle |
+| :--- | :--- |
+| **Search & tags** — Filter by name, purpose, source, status, and your own tags. | **Preview before installing** — See the skills inside a plugin and choose which to enable. |
+| **Duplicate skills** — Filter matching names, then choose copies to keep or remove by path. | **Individual switches** — Toggle bundled skills separately; the plugin switch controls the whole package. |
+| **Sources & locations** — Inspect project context, installation paths, and verifiable source and version records. | **Updates & diffs** — Follow check progress and review file changes before applying. |
+| **Project switching** — Choose a saved Codex project, recent directory, or existing local folder. | **History & recovery** — Review operations and restore removed personal or project skills. |
+
+### See what a plugin includes before installing it
+
+Click **Install plugin** and choose a local directory, Git repository, or connected Marketplace. The preview lists skill names, purposes, and paths. Select the capabilities you want to use.
+
+**The whole plugin is installed; unchecked skills stay disabled.** Adjust the choices later, and keep them through plugin updates.
+
+<details>
+<summary>See the plugin installation preview</summary>
+
+![Plugin installation preview with skill descriptions and activation checkboxes](assets/readme/plugin-selection.png)
+
+<sub>Actual installation preview using isolated example data; no user skill library is modified. UI shown in Chinese.</sub>
+
+</details>
+
+### See what changes before you update
+
+Connect a skill to a local or Git source; GitHub directory URLs can be pasted directly. Plugins with verified sources update as whole packages, including their bundled skills. Checks show progress, and file diffs stay collapsed until you want to inspect them.
+
+<details>
+<summary>See the file diff</summary>
+
+![Skill update preview with files, numbered additions and deletions, and an explicit apply action](assets/readme/update-diff.png)
+
+<sub>Isolated example data. Reading the diff does not apply the update. UI shown in Chinese.</sub>
+
+</details>
+
+### Set a schedule. Close the app.
+
+In **Updates → Configure schedule**, choose targets, an interval in hours, and whether to apply updates automatically. Include **`skilldock` itself** to keep the app updated too.
+
+macOS starts an independent update task when needed, then the task exits. **Both SkillDock and Codex can stay closed.** Scheduling resumes after reboot and sign-in, with one catch-up for checks missed during sleep or offline periods.
+
+<details>
+<summary>Automatic update scope and operating conditions</summary>
+
+- Only selected targets that support automatic application are updated. System and platform-managed items show their owner and available actions.
+- The system checks whether work is due every five minutes. Runs can start about five minutes late in normal conditions; sleep, connectivity, and system scheduling can add delays. Failures and retry status appear on Updates.
+- The user must be signed in and macOS must allow background tasks. Disabling the schedule removes the system task.
+- After a self-update, an already running SkillDock service restarts and reconnects. Codex may still need a restart to refresh its entry or cached UI.
+- Local clones are not automatically pulled with Git. Update the clone before refreshing the installed copy.
+- Older schedules migrate when the newer background-task implementation first runs. Updating plugin files alone may require opening the new version once.
+
+</details>
 
 ## Try these first
 
-1. **Check your project.** Use the project dropdown to select a saved Codex project or recent directory, or choose an existing local folder.
-2. **Organize a few skills.** Tag a favorite and filter by that tag. Turn on “Duplicates only” to find matching names, then choose “Manage duplicate skills” to review each installation path.
-3. **Review updates.** Click “Check all” on Updates, watch the progress, then expand a diff before choosing an update.
+1. **Check your project.** Select the directory you are working in from the sidebar.
+2. **Organize a few skills.** Add a tag, or turn on “Duplicates only” to compare copies by path.
+3. **Check for updates.** Review the source and diff, then schedule the targets you want to maintain.
 
-To schedule updates, choose an interval, select targets, and decide whether to enable automatic application. Include `skilldock` itself to update the app and restart it automatically.
+Switch between Chinese, English, and Japanese. Choose light, dark, or system appearance, with an option to reduce transparency.
 
-Enabling a schedule registers a per-user macOS background task that runs on demand and exits. SkillDock’s web service and Codex can stay closed. Scheduling resumes after reboot and sign-in; missed checks are coalesced into one catch-up. The system checks whether work is due every five minutes, so a run may start up to about five minutes after its planned time. Failures are recorded and retried with backoff. The Updates page shows actual background status; if macOS blocks background activity, restore that permission. Disabling the schedule removes the task. Existing enabled plans migrate when 0.4.0 first starts, including an automatic restart after updating. A manual launch is only needed if the plugin files were updated while the app was stopped and the new version has not run yet. Local-clone sources are not automatically pulled with Git.
+## Frequently asked questions
+
+<details>
+<summary>Can I install and update from a private Git repository?</summary>
+
+SkillDock reuses Git credentials already configured on your machine, including private repositories you can access. There is no separate account sign-in inside SkillDock. First confirm that Git on the machine can access the repository. See the [private repository notes](skills/skill-manager/references/23-navigation-and-private-git.md).
+
+</details>
+
+<details>
+<summary>Why are some sources, versions, or icons missing?</summary>
+
+The available information depends on records left by the original installation. Declared package artwork is preferred, with default icons when it is unavailable. Personal skills with missing provenance can be connected to an update source. Copying files may not preserve the original repository or commit; SkillDock does not infer them from filenames or modification times.
+
+</details>
+
+<details>
+<summary>Can every skill be updated or uninstalled separately?</summary>
+
+Personal and project skills can be managed within verified directory and source boundaries. Bundled skills can be toggled individually, while updates and uninstallation apply to the whole plugin. System and host-managed content retains its management restrictions. Local edits, unknown sources, and restore conflicts are explained while existing content is preserved.
+
+</details>
+
+<details>
+<summary>What about custom installation directories?</summary>
+
+SkillDock uses the `CODEX_HOME` provided at launch and marketplaces registered with Codex. It does not search the entire disk. Version **0.9.1** fixes compatibility with relocated skills and plugin cache roots, and external skill links. See the [scope and verification record](skills/skill-manager/references/33-directory-compatibility.md).
+
+</details>
 
 ## Tell us how it went
 
-**Did installation work? What helped? What was confusing?** A few sentences are enough, in English or Chinese.
+**Did installation work? What was useful? What was confusing?** A sentence or two is enough. English and Chinese are both welcome.
 
-- [Questions / installation help](https://github.com/TestAny-io/testany-agent-skills/discussions/categories/q-a)
-- [Ideas / trial feedback](https://github.com/TestAny-io/testany-agent-skills/discussions/categories/ideas)
-- [Report a bug](https://github.com/TestAny-io/testany-agent-skills/issues/new?template=bug-report.yml) · [Support guide](../../.github/SUPPORT.md#english)
+[Installation & usage help](https://github.com/TestAny-io/testany-agent-skills/discussions/categories/q-a) · [Ideas & trial feedback](https://github.com/TestAny-io/testany-agent-skills/discussions/categories/ideas) · [Report a bug](https://github.com/TestAny-io/testany-agent-skills/issues/new?template=bug-report.yml)
+
+Include your SkillDock version, Codex version, and reproduction steps when useful. Remove private paths and credentials from screenshots and logs. See the [support guide](../../.github/SUPPORT.md#english).
 
 ## Built by Testany
 
-[Testany](https://testany.io) is building a software testing platform for human testers and AI testing agents. SkillDock is an open-source tool we built for everyday use. This repository also includes [engineering workflows](../testany-eng/README.md), [prompt optimization](../testany-llm/README.md), [content writing](../testany-mrkt/README.md), and [Testany platform workflows](../testany-bot/README.md).
+[Testany](https://testany.io) is building a software testing platform for human testers and AI testing agents. SkillDock is an open-source tool we built for everyday work. This repository also includes these independently installable plugins:
 
-Explore [Testany](https://testany.io), read the [platform docs](https://docs.testany.io), or [contact the team](mailto:engineering@testany.io).
+| Plugin | What it helps with |
+| :--- | :--- |
+| [testany-eng](../testany-eng/README.md) | Requirements, design, reviews, testing, and delivery preparation |
+| [testany-llm](../testany-llm/README.md) | Prompt optimization |
+| [testany-mrkt](../testany-mrkt/README.md) | Content creation across marketing channels |
+| [testany-bot](../testany-bot/README.md) | Authoring, orchestrating, running, and diagnosing tests through Testany MCP |
+
+**Bring your agents’ testing work onto the platform:** [Meet Testany](https://testany.io) · [Platform docs](https://docs.testany.io) · [Contact the team](mailto:engineering@testany.io)
 
 ## Version, license, and development
 
-Current source version: **0.9.0**, distributed through this Git repository. [Changelog](../../CHANGELOG.md) · [AGPL-3.0-only](LICENSE) · [Third-party notices](skills/skill-manager/THIRD_PARTY_NOTICES.md).
+Distributed through this GitHub repository. Current version: **0.9.1**. [Changelog](../../CHANGELOG.md) · [AGPL-3.0-only](LICENSE) · [Third-party notices](skills/skill-manager/THIRD_PARTY_NOTICES.md). Other plugins follow their respective licenses.
 
-See the [application README](skills/skill-manager/assets/app/README.md) for development and verification commands, and the [Chinese product page](README.md#版本许可与开发) for implementation and UAT records. Other existing skills in this repository remain MIT-licensed.
+See the [application README](skills/skill-manager/assets/app/README.md) for development, launch, and verification commands.
+
+<details>
+<summary>Design and implementation records</summary>
+
+[Native entry](skills/skill-manager/references/30-native-app.md) · [Desktop interface](skills/skill-manager/references/31-desktop-interface.md) · [Brand & icons](skills/skill-manager/references/32-provider-icons.md) · [Directory compatibility](skills/skill-manager/references/33-directory-compatibility.md)
+
+[Sources & diffs](skills/skill-manager/references/20-source-links-and-diff.md) · [Duplicate management](skills/skill-manager/references/21-duplicate-selection.md) · [Progress & tags](skills/skill-manager/references/22-progress-and-tags.md) · [Background updates](skills/skill-manager/references/24-background-updates.md) · [Skill activation choices](skills/skill-manager/references/28-plugin-skill-selection.md)
+
+</details>

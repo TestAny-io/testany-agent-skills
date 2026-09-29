@@ -2,6 +2,7 @@ import fs from 'node:fs/promises';
 import path from 'node:path';
 import { exists, inside, publicSource, safeSegment } from './files.mjs';
 import { runProcess } from './cli.mjs';
+import { pluginPath } from './paths.mjs';
 
 const gitCache = new Map();
 export const OWNER_HELP = 'https://learn.chatgpt.com/docs/enterprise/manage-app-updates';
@@ -64,7 +65,7 @@ export function buildUpdateItems(snapshot, observations = {}, hasPreview = () =>
   for (const plugin of snapshot.plugins.filter(item => item.installed)) {
     const source = plugin.sourceInfo; const attached = snapshot.skills.filter(skill => skill.pluginId === plugin.id);
     const local = (source?.sourceType === 'local' || !!plugin.directSource) && source?.confidence === 'verified' && !!plugin.sourcePath && typeof plugin.enabled === 'boolean' && [plugin.marketplace, plugin.name, plugin.version].every(safeSegment);
-    const installedPath = [plugin.marketplace, plugin.name, plugin.version].every(safeSegment) ? path.join(path.dirname(snapshot.paths.config), 'plugins/cache', plugin.marketplace, plugin.name, plugin.version) : undefined;
+    const installedPath = plugin.realPath || plugin.installedPath || ([plugin.marketplace, plugin.name, plugin.version].every(safeSegment) ? pluginPath(path.dirname(snapshot.paths.config), plugin.marketplace, plugin.name, plugin.version) : undefined);
     items.push({ target: { kind: 'plugin', id: plugin.id }, name: plugin.name, owner: source?.owner || 'Codex', route: local ? 'plugin-reinstall' : 'owner-managed', status: local ? 'unchecked' : 'blocked', canCheck: true, canApply: false, canAutoApply: local,
       message: local ? '检查已验证来源；通过 Codex 包级重新安装更新，并保留启用状态。' : '由 Codex 远程插件管理器维护；在 Codex 插件页检查更新，随后刷新此处状态。', reasonCode: local ? undefined : 'OWNER_MANAGED', sourceInfo: source, installedVersion: plugin.version, installedPath, affectedSkillIds: attached.map(skill => skill.id) });
   }
@@ -72,6 +73,11 @@ export function buildUpdateItems(snapshot, observations = {}, hasPreview = () =>
   if (system.length) items.push({ target: { kind: 'host', id: 'codex-system-skills' }, name: 'Codex system skills', owner: 'Codex', route: 'owner-managed', status: 'blocked', canCheck: true, canApply: false, canAutoApply: false,
     message: '系统内置技能随 Codex 宿主维护。请通过 Codex 应用的更新入口更新宿主，再刷新状态；SkillDock 不替换内置文件。', reasonCode: 'OWNER_MANAGED', sourceInfo: system[0].sourceInfo, installedVersion: snapshot.cli.version, installedPath: system[0].path, affectedSkillIds: system.map(skill => skill.id) });
   for (const skill of snapshot.skills.filter(item => item.scope !== 'system' && !snapshot.plugins.some(plugin => plugin.installed && plugin.id === item.pluginId))) {
+    if (skill.isLink) {
+      items.push({ target: { kind: 'skill', id: skill.id }, name: skill.name, owner: skill.sourceInfo?.owner || 'User', route: 'owner-managed', status: 'blocked', canCheck: true, canApply: false, canAutoApply: false,
+        message: skill.removeKind === 'link' ? '此技能通过链接接入；移除只处理链接，更新请在真实来源目录进行。' : '此技能位于链接目录内；可调整启用状态，请在真实来源目录管理文件。', reasonCode: 'LINK_MANAGED', sourceInfo: skill.sourceInfo, installedPath: skill.realPath || skill.path, affectedSkillIds: [skill.id] });
+      continue;
+    }
     const tracked = skill.sourceInfo?.kind === 'tracked' && skill.canUpdate;
     const git = skill.sourceInfo?.kind === 'git-checkout'; const gitRoot = git && (skill.sourceInfo.subpath === '.' || !skill.canRemove); const cache = skill.scope === 'cache' || !!skill.pluginId;
     items.push({ target: { kind: 'skill', id: skill.id }, name: skill.name, owner: skill.sourceInfo?.owner || 'User', route: tracked ? 'skill-source' : gitRoot || cache ? 'owner-managed' : 'connect-source', status: tracked ? 'unchecked' : 'blocked', canCheck: tracked || gitRoot || cache, canApply: false, canAutoApply: tracked,

@@ -1,5 +1,6 @@
 // SPDX-License-Identifier: AGPL-3.0-only
 import fs from 'node:fs/promises';
+import { pluginPath } from './paths.mjs';
 import path from 'node:path';
 import crypto from 'node:crypto';
 import { spawn } from 'node:child_process';
@@ -53,7 +54,7 @@ export function createSelfUpdater({ service, codexHome, pollMs = 1000, startTime
         const snapshot = await service.snapshot('local', true);
         const installed = snapshot.plugins.find(item => item.installed && item.id === `${current.plugin}@${current.marketplace}`);
         if (!installed || !safeSegment(installed.version)) return;
-        source = path.join(current.codexHome, 'plugins/cache', current.marketplace, current.plugin, installed.version, current.appPath);
+        source = path.join(pluginPath(current.codexHome, current.marketplace, current.plugin, installed.version), current.appPath);
         if (!sameInstallation(current, await installationIdentity(source, codexHome))) throw new Error('新版应用的安装身份不匹配。');
       }
       const { sourceDigest } = await captureSource(source);

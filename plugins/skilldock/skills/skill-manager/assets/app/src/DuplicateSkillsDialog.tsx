@@ -51,7 +51,7 @@ export function DuplicateSkillsDialog({ name, skills, busy, action, onClose, onP
       {items.length ? <ul>{items.map(skill => <li key={skill.id}>
         {removing ? <Trash2 size={14} /> : <Check size={14} />}
         <div><code>{skill.path}</code><span>{t(scopes[skill.scope])} · {t(skill.sourceLabel)}</span>
-          {skill.isLink && <p>{t("仅移除这个链接，目标内容保留。")}</p>}
+          {skill.removeKind === "link" && <p>{t("仅移除这个链接，目标内容保留。")}</p>}
         </div>
       </li>)}</ul> : <p>{t("没有保留项；这个同名组的所有已列出安装都将移除。")}</p>}
     </section>;
@@ -82,13 +82,14 @@ export function DuplicateSkillsDialog({ name, skills, busy, action, onClose, onP
               </div>
               <code className="duplicate-path">{skill.path}</code>
               <p className="duplicate-source">{t("来源")} · {t(skill.sourceLabel)}{skill.version ? ` · ${skill.version}` : ""}{skill.pluginId ? ` · ${skill.pluginId}` : ""}</p>
-              {skill.isLink && <p className="duplicate-note"><Link2 size={14} />{t("仅移除这个链接，目标内容保留。")}</p>}
+              {skill.realPath && skill.realPath !== skill.path && <p className="duplicate-note"><Link2 size={14} />{t("实际路径")} · <code>{skill.realPath}</code></p>}
+              {skill.removeKind === "link" && <p className="duplicate-note"><Link2 size={14} />{t("仅移除这个链接，目标内容保留。")}</p>}
               {!!skill.aliases?.length && <details className="duplicate-aliases"><summary>{t("同一份内容的其他路径")}</summary>
                 <p>{t("这些路径指向同一份内容，不计为额外副本。移除实际目录后，指向它的链接可能失效。")}</p>
                 {skill.aliases.map(alias => <code key={alias}>{alias}</code>)}
               </details>}
               {!skill.canRemove && <div className="duplicate-protection"><LockKeyhole size={14} /><div>
-                <p>{t(skill.scope === "plugin" ? "插件附带技能不能单独卸载；本次选择不会卸载整个插件。" : skill.scope === "cache" ? "这是未核实的插件缓存，不能按已安装技能移除。" : "系统或宿主管理的技能不支持在此移除。")}</p>
+                <p>{t(skill.reason || (skill.scope === "plugin" ? "插件附带技能不能单独卸载；本次选择不会卸载整个插件。" : skill.scope === "cache" ? "这是未核实的插件缓存，不能按已安装技能移除。" : "系统或宿主管理的技能不支持在此移除。"))}</p>
                 {skill.pluginId && <button className="text-button" disabled={!!busy} onClick={() => onPlugin(skill.pluginId!)}>{t("查看所属插件")}<ArrowUpRight size={12} /></button>}
               </div></div>}
             </article>;

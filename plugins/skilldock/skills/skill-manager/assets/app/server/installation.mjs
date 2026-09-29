@@ -1,6 +1,7 @@
 // SPDX-License-Identifier: AGPL-3.0-only
 import fs from 'node:fs/promises';
 import path from 'node:path';
+import { pluginCacheRoot, safeSegment } from './cache-paths.mjs';
 
 export async function canonicalPath(value) {
   try { return await fs.realpath(value); }
@@ -14,12 +15,12 @@ export async function canonicalPath(value) {
 export async function installationIdentity(appDir, codexHome, { expected } = {}) {
   const source = await canonicalPath(path.resolve(appDir));
   const home = await canonicalPath(path.resolve(codexHome));
-  const segments = path.relative(path.join(home, 'plugins/cache'), source).split(path.sep);
+  const cache = await canonicalPath(pluginCacheRoot(home));
+  const segments = path.relative(cache, source).split(path.sep);
   const [marketplace, plugin, version, ...tail] = segments;
-  const segment = value => typeof value === 'string' && /^[a-zA-Z0-9][a-zA-Z0-9._-]*$/.test(value);
-  if (segments.length !== 7 || ![marketplace, plugin, version].every(segment)
+  if (segments.length !== 7 || ![marketplace, plugin, version].every(safeSegment)
     || tail.join('/') !== 'skills/skill-manager/assets/app') return { kind: 'directory', source };
-  const root = path.join(home, 'plugins/cache', marketplace, plugin, version);
+  const root = path.join(cache, marketplace, plugin, version);
   const identity = { kind: 'plugin', codexHome: home, marketplace, plugin, appPath: tail.join('/') };
   let manifest;
   for (const relative of ['.codex-plugin/plugin.json', 'plugin.json', '.claude-plugin/plugin.json']) {

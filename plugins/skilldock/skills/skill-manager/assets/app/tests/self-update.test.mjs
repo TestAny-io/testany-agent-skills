@@ -10,11 +10,15 @@ import { captureSource } from '../scripts/source-bundle.mjs';
 
 const delay = ms => new Promise(resolve => setTimeout(resolve, ms));
 async function until(predicate) { for (let i = 0; i < 100; i++) { if (await predicate()) return; await delay(10); } assert.fail('condition not reached'); }
-async function fixture(t) {
+async function fixture(t, { linkedCache = false } = {}) {
   const root = await fs.realpath(await fs.mkdtemp(path.join(os.tmpdir(), 'skilldock-self-update-')));
   const codexHome = path.join(root, 'codex'); const stateDir = path.join(root, 'state'); const project = path.join(root, 'project');
   const runtime = path.join(root, 'runtime');
   for (const directory of [codexHome, stateDir, project, runtime]) await fs.mkdir(directory, { recursive: true });
+  if (linkedCache) {
+    const storage = path.join(root, 'external cache'); await fs.mkdir(storage); await fs.mkdir(path.join(codexHome, 'plugins'));
+    await fs.symlink(storage, path.join(codexHome, 'plugins/cache'));
+  }
   const sourceRoot = fileURLToPath(new URL('../../../', import.meta.url));
   const versions = {};
   for (const version of ['2.4.0', '2.5.0']) {
@@ -39,8 +43,8 @@ async function fixture(t) {
   return { root, codexHome, stateDir, runtime, service, versions, setBusy: value => { busy = value; }, setVersion: value => { installedVersion = value; }, isPaused: () => paused };
 }
 
-test('self restart waits for a whole busy batch, coalesces updates, and launches the installed version once', async t => {
-  const f = await fixture(t); const calls = []; let finish;
+for (const linkedCache of [false, true]) test(`self restart waits for a whole busy batch, coalesces updates, and launches the installed version once (linked cache: ${linkedCache})`, async t => {
+  const f = await fixture(t, { linkedCache }); const calls = []; let finish;
   const updater = createSelfUpdater({ ...f, startTimer: false, worker: job => { calls.push(job); return new Promise(resolve => { finish = resolve; }); } });
   t.after(() => updater.close());
   f.setBusy(true); updater.request(); await updater.tick(); assert.equal(calls.length, 0);

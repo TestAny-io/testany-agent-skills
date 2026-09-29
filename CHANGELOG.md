@@ -189,6 +189,24 @@
   - `testany-llm` 的命令列表和 plugin 描述改为仅保留 `prompt-optimizer`
   - 根 README、`AGENTS.md`、`CLAUDE.md` 不再引用已删除的 `skill-creator` 脚本与路径
 
+## [skilldock 0.9.1] - 2026-09-29
+
+### 修复
+
+- **SkillDock 目录兼容性**：统一自定义 CODEX_HOME、已登记 marketplace 与迁移后的 skills / 插件缓存根路径；补齐外部技能链接和外置项目的仓库范围发现。链接移除保留真实目标，详情显示入口与实际路径；迁移缓存的插件更新、自更新和原生恢复使用一致身份。保留运行期目录替换保护，并支持经校验的跨磁盘技能移动与恢复。实现与隔离验证见 [目录兼容性记录](plugins/skilldock/skills/skill-manager/references/33-directory-compatibility.md)。
+
+### 文档与资源
+
+- **SkillDock 产品 README**：重写中英文产品入口，使用蓝色三层 Logo 与 Ubuntu 字标、深浅色新版界面实拍图，以及插件技能选择和更新 diff 展示；突出安装、侧栏入口、后台更新、反馈与 Testany 相关插件，并同步安装、管理和自定义目录的支持范围。
+- 归档此前的独立界面原型及设计、自检记录；明确它使用示例数据、不接入正式业务，生产入口与源码构建范围不变。
+- SkillDock 插件 manifest、应用 package 与 lockfile 同步到 0.9.1；更新根目录与应用说明，重新生成 Codex 原生 UI / MCP 产物。
+
+### 验证
+
+- 0.9.1 后端回归 202/202、浏览器回归 72/72 通过；正式与原型 TypeScript 检查、Web / 原生构建、原型独立构建及仓库发现校验通过。Vite 保留既有大 chunk 提示，不影响构建成功。
+- 在隔离 HOME/CODEX_HOME 中使用真实 Codex CLI 安装 0.9.1，验证 MCP 发现、按需冷启动、标签写入读回、后台重启与过期会话拒绝、MCP 重连；测试结束清理隔离环境，未修改用户日常安装。
+- 核对原生构建的 45 个输入和 4 个产物摘要；中英文产品 README 的深浅色、移动端与链接检查通过。跨磁盘分支采用 EXDEV 注入，不代表实体外置磁盘断连或断电验收。
+
 ## [skilldock 0.9.0] - 2026-09-29
 
 ### 提供者图标与品牌更新
