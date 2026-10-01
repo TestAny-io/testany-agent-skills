@@ -58,6 +58,12 @@ function imageType(bytes) {
   return null;
 }
 
+export function imageData(bytes) {
+  if (!bytes || bytes.length > IMAGE_LIMIT) return null;
+  const type = imageType(bytes);
+  return type ? `data:${type};base64,${bytes.toString('base64')}` : null;
+}
+
 export function createIconCatalog({ budget = CATALOG_LIMIT } = {}) {
   const assets = {}; let size = 0;
   const reads = new Map(); const plugins = new Map();

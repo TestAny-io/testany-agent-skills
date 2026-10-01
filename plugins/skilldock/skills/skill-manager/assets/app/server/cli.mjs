@@ -6,6 +6,7 @@ import { pluginSourceInfo } from './sources.mjs';
 import { resolveCodexCli } from './codex-runtime.mjs';
 import { resolveGithubDirectory } from './git-source.mjs';
 import { gitNetworkEnvironment, gitAccessError } from './git-access.mjs';
+import { AppDirectory, officialAppUrl } from './app-directory.mjs';
 
 export function runProcess(binary, args, options = {}) {
   return new Promise((resolve, reject) => {
@@ -73,7 +74,17 @@ export async function checkoutGit(source, ref, destination, options = {}) {
 }
 
 export class CodexAdapter {
-  constructor({ codexHome, codexBin, timeout = 20000, env = process.env }) { this.codexHome = codexHome; this.explicit = codexBin; this.timeout = timeout; this.env = env; this.info = { available: false }; this.probePromise = null; }
+  constructor({ codexHome, codexBin, timeout = 20000, env = process.env, appDirectory }) { this.codexHome = codexHome; this.explicit = codexBin; this.timeout = timeout; this.env = env; this.info = { available: false }; this.probePromise = null; this.appDirectory = appDirectory; }
+  async directory() {
+    await this.probe();
+    if (!this.info.available) fail(422, 'CLI_UNAVAILABLE', this.info.error);
+    return this.appDirectory ||= new AppDirectory({ binary: this.info.path, env: { ...this.env, CODEX_HOME: this.codexHome } });
+  }
+  async remoteDetails(plugin) {
+    if (!plugin.directory?.appId) fail(422, 'DIRECTORY_UNAVAILABLE', '无法核实这个插件的官方应用身份。');
+    return (await this.directory()).read(plugin.directory.appId);
+  }
+  async refreshDirectory() { return (await this.directory()).list(true); }
   async probe() {
     if (this.probePromise) return this.probePromise;
     this.probePromise = resolveCodexCli({ codexHome: this.codexHome, explicit: this.explicit, env: this.env })
@@ -91,7 +102,7 @@ export class CodexAdapter {
     try { return JSON.parse(result.stdout); } catch { fail(502, 'CLI_JSON', 'CLI 没有返回有效 JSON，无法确认实际状态。'); }
   }
   async list() {
-    const diagnostics = []; let plugins = []; let marketplaces = [];
+    const diagnostics = []; let plugins = []; let marketplaces = []; let directoryError;
     await this.probe();
     if (!this.info.available) return { plugins, marketplaces, diagnostics: [this.info.error], cli: this.info };
     const results = await Promise.allSettled([this.command(['plugin', 'list', '--available', '--json']), this.command(['plugin', 'marketplace', 'list', '--json'])]);
@@ -106,7 +117,8 @@ export class CodexAdapter {
           seen.add(p.pluginId);
           const local = p.source?.source === 'local' && typeof p.source?.path === 'string';
           const managed = /^(openai-bundled|openai-primary-runtime|openai-curated-remote)$/.test(p.marketplaceName);
-          const plugin = { id: p.pluginId, name: p.name, description: '', marketplace: p.marketplaceName, version: typeof p.version === 'string' ? p.version : undefined, installed, enabled: typeof p.enabled === 'boolean' ? p.enabled : null, skillCount: 0, sourcePath: local ? p.source.path : undefined, canInstall: !installed && !managed, canRemove: installed && local && !managed, canToggle: installed && local && !managed, reason: managed ? '平台托管插件，请使用 Codex 官方管理入口。' : !local && installed ? '未建立可靠的本地包管理边界。' : undefined };
+          const plugin = { id: p.pluginId, name: p.name, displayName: p.interface?.displayName, description: p.interface?.shortDescription || '', marketplace: p.marketplaceName, version: typeof p.version === 'string' ? p.version : undefined, installed, enabled: typeof p.enabled === 'boolean' ? p.enabled : null, skillCount: 0, sourcePath: local ? p.source.path : undefined, canInstall: !installed && !managed, canRemove: installed && local && !managed, canToggle: installed && local && !managed, reason: managed ? '平台托管插件，请使用 Codex 官方管理入口。' : !local && installed ? '未建立可靠的本地包管理边界。' : undefined };
+          if (p.source?.source === 'remote') plugin._remote = { id: p.source.id, installPolicy: p.installPolicy, authPolicy: p.authPolicy };
           plugin.sourceInfo = pluginSourceInfo(plugin, { sourceType: local ? 'local' : undefined, remoteId: p.source?.id });
           plugin._updateSourcePath = local ? p.source.path : undefined;
           plugins.push(plugin);
@@ -122,6 +134,27 @@ export class CodexAdapter {
         marketplaces.push({ id: m.name, name: m.name, source: publicSource(typeof source === 'string' ? source : m.root), type, pluginCount: plugins.filter(p => p.marketplace === m.name).length, canRemove: !!m.marketplaceSource && !managed, canRefresh: type === 'git' && !managed, reason: managed ? '平台维护的市场来源。' : undefined, _root: m.root });
       }
     } else diagnostics.push(redact(results[1].reason.message));
+    // Canonical app plugins declare plugin_<app id> as their remote source ID.
+    // Match that exact identity, never a fuzzy display name or a hardcoded brand.
+    if (plugins.some(plugin => typeof plugin._remote?.id === 'string' && plugin._remote.id.startsWith('plugin_'))) {
+      try {
+        const apps = await (await this.directory()).list();
+        for (const plugin of plugins) {
+          const remote = plugin._remote, app = remote && apps.get(remote.id);
+          if (!app) continue;
+          plugin.displayName = app.name;
+          plugin.description = typeof app.description === 'string' ? app.description : plugin.description;
+          plugin.keywords = (app.pluginDisplayNames || []).filter(value => typeof value === 'string');
+          const installUrl = officialAppUrl(app.installUrl);
+          plugin.directory = { appId: app.id, installUrl, connected: app.isAccessible === true, installPolicy: remote.installPolicy, authPolicy: remote.authPolicy };
+          plugin._remoteIcon = { light: app.iconAssets?.['256_square'] || app.logoUrl || app.iconAssets?.['256_circle'], dark: app.iconDarkAssets?.['256_square'] || app.logoUrlDark };
+          plugin.icon = { remote: plugin.id };
+          plugin.canInstall = !plugin.installed && remote.installPolicy === 'AVAILABLE' && !!installUrl;
+          plugin.reason = plugin.installed ? '官方目录插件由 Codex 管理；账号授权可在插件详情中完成。'
+            : plugin.canInstall ? undefined : '当前账号或工作区不允许安装此插件，请在 Codex 官方目录查看原因。';
+        }
+      } catch { directoryError = '官方应用目录暂不可用，部分插件名称与安装入口尚未补全。请确认 Codex 已登录，再刷新重试。'; }
+    }
     for (const plugin of plugins.filter(item => item.installed && item.sourcePath)) {
       const market = marketplaces.find(item => item.name === plugin.marketplace);
       try {
@@ -129,6 +162,7 @@ export class CodexAdapter {
         const entry = await readComponentEntry(market._root, plugin.name, plugin.sourcePath);
         const manifest = await readPluginManifest(plugin.sourcePath, market._root);
         plugin.description = typeof manifest.description === 'string' ? manifest.description : typeof entry.description === 'string' ? entry.description : '';
+        plugin.displayName = manifest.extensions?.['com.openai']?.interface?.displayName || manifest.interface?.displayName || entry.interface?.displayName || plugin.displayName;
         const sourceReal = await fs.realpath(plugin.sourcePath);
         const roots = await discoverSkillRoots(plugin.sourcePath, { marketRoot: market._root, entry });
         const relatives = roots.map(root => path.relative(sourceReal, root) || '.');
@@ -136,7 +170,10 @@ export class CodexAdapter {
         plugin._componentRoots = relatives;
       } catch (e) { plugin.canRemove = false; plugin.reason = '无法完整确认市场声明的组件范围，暂不提供卸载。'; plugin.sourceInfo.confidence = 'inferred'; diagnostics.push(`插件 ${plugin.name}：${redact(e.message)}`); }
     }
-    return { plugins, marketplaces, diagnostics, cli: this.info };
+    if (plugins.some(item => item.marketplace === 'openai-curated-remote') && !marketplaces.some(item => item.name === 'openai-curated-remote')) {
+      marketplaces.push({ id: 'openai-curated-remote', name: 'openai-curated-remote', displayName: 'Codex Plugin Directory', type: 'remote', source: 'https://developers.openai.com/plugins', pluginCount: plugins.filter(item => item.marketplace === 'openai-curated-remote').length, canRemove: false, canRefresh: false, reason: '官方目录随 Codex 账号提供。' });
+    }
+    return { plugins, marketplaces, diagnostics, directoryError, cli: this.info };
   }
 }
 

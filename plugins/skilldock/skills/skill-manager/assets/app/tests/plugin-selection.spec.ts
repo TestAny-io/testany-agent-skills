@@ -71,7 +71,7 @@ for (const sourceType of ['local', 'git']) test(`${sourceType} plugin preview su
   await page.goto('/'); await page.getByRole('navigation').getByRole('button', { name: '插件', exact: true }).click();
   await page.getByRole('button', { name: '安装插件', exact: true }).first().click();
   let dialog = page.getByRole('dialog');
-  if (sourceType === 'git') await dialog.getByRole('button', { name: 'Git 仓库', exact: true }).click();
+  await dialog.getByRole('button', { name: sourceType === 'git' ? 'Git 仓库' : '本地目录', exact: true }).click();
   await dialog.getByLabel(sourceType === 'git' ? 'Git 仓库或目录链接' : '插件目录路径', { exact: true }).fill(f.plugin);
   await dialog.getByRole('button', { name: '预览插件', exact: true }).click();
   await expect(dialog.getByRole('checkbox')).toHaveCount(3);

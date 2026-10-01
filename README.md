@@ -70,7 +70,7 @@ claude plugin update testany-eng@testany-agent-skills
 
 查看 [SkillDock 产品页与界面](plugins/skilldock/README.md)，了解标签与重复技能筛选、同名技能管理、更新 diff 与自动更新。
 
-**安装 `skilldock` 只会添加一个 SkillDock 应用入口，不会安装 testany-eng 的研发 skills。** 当前版本为 SkillDock **0.9.1**，修复自定义目录、外部技能链接与迁移缓存的管理兼容性，并更新中英文产品说明与截图。自 0.2.0 起独立分发；旧版 testany-eng 2.4.0 所带的 SkillDock 0.1.0 用户请按下方迁移说明接续数据。
+**安装 `skilldock` 只会添加一个 SkillDock 应用入口，不会安装 testany-eng 的研发 skills。** 当前版本为 SkillDock **0.10.0**，支持按真实名称查找 Miro 等 Codex 官方应用插件，查看介绍与 Logo、预览安装，并分别核对安装与账号连接状态。自 0.2.0 起独立分发；旧版 testany-eng 2.4.0 所带的 SkillDock 0.1.0 用户请按下方迁移说明接续数据。
 
 无需用户手动 clone。可以在 Codex 中提出：
 

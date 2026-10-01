@@ -1,3 +1,5 @@
+import { matchesPlugin, pluginTitle } from "./plugin-presentation";
+import { ExternalLink } from './ExternalLink';
 import { useEffect, useLayoutEffect, useMemo, useRef, useState, type ReactNode } from "react";
 import packageInfo from "../package.json";
 import brandIcon from "./native-icon.svg";
@@ -547,7 +549,7 @@ export default function App() {
           ? `已启用固定 ${savedSchedule.intervalMinutes / 60} 小时周期，${savedSchedule.targets.length} 个明确目标；${savedSchedule.autoApply ? "自动应用已验证更新。" : "仅检查。"}`
           : result.message;
         setToast({
-          kind: result.run && result.run.status !== "success" ? "error" : "success",
+          kind: (result.run && result.run.status !== "success") || (result.remoteInstall && !result.remoteInstall.installed) ? "error" : "success",
           message:
             (result.run ? t(result.run.status === "success" ? "更新检查已完成" : result.run.status === "partial" ? "更新检查部分完成" : "更新检查未完成") : message) +
             (result.needsReload ? " 新的 Codex 会话或重载后生效。" : ""),
@@ -575,7 +577,7 @@ export default function App() {
     setDialog({ type: "duplicates", name });
   }
   function editTags(kind: "skill" | "plugin", item: Skill | Plugin) {
-    setDialog({ type: "tags", subject: { kind, id: item.id, name: item.name, tags: item.tags, path: "path" in item ? item.path : item.id } });
+    setDialog({ type: "tags", subject: { kind, id: item.id, name: 'marketplace' in item ? pluginTitle(item) : item.name, tags: item.tags, path: "path" in item ? item.path : item.id } });
   }
   function toggleSkill(skill: Skill) {
     run({ action: "skill.toggle", id: skill.id, enabled: !skill.enabled });
@@ -661,10 +663,9 @@ export default function App() {
           : pluginFilter === "enabled" ? plugin.installed && plugin.enabled === true : !plugin.installed)) &&
       (marketFilter === "all" || plugin.marketplace === marketFilter) &&
       matchesTags(plugin.tags, pluginTags) &&
-      `${plugin.name} ${plugin.description} ${plugin.marketplace}`
-        .toLowerCase()
-        .includes(query.toLowerCase()),
+      matchesPlugin(plugin, query),
   );
+  const pluginMatchesOutsideFilter = query.trim() && !filteredPlugins.length ? (data?.plugins || []).filter(plugin => matchesPlugin(plugin, query)).length : 0;
   const availableUpdates = data?.updates
     ? data.updates.filter((item) => item.status === "available").length
     : Object.values(updates).filter((update) => update.available).length;
@@ -1064,6 +1065,7 @@ export default function App() {
               )}
               {page === "plugins" && (
                 <>
+                  {data.directoryError && <div className="notice" role="status"><CircleAlert size={18} /><p><ServiceMessage value={data.directoryError} /></p></div>}
                   {!data.cli.available && (
                     <div className="notice">
                       <Terminal size={18} />
@@ -1150,6 +1152,7 @@ export default function App() {
                     </>
                   ) : (
                     <Empty icon={Blocks} title={t(data.plugins.length ? "没有找到匹配的插件" : "这里还没有插件")} description={t(data.plugins.length ? "试试其他关键词，或调整来源与状态筛选。" : "从本地目录、Git 仓库或 Marketplace 安装第一个插件。")}>
+                      {!!pluginMatchesOutsideFilter && <Button variant="primary" onClick={() => { setMarketFilter('all'); setPluginFilter('all'); setPluginTags([]); }}>{t('查看全部匹配（{v0} 项）', { v0: pluginMatchesOutsideFilter })}</Button>}
                       <Button onClick={() => { if (data.plugins.length) { setQuery(""); setMarketFilter("all"); setPluginFilter("all"); setPluginTags([]); } else setDialog({ type: "plugin-install" }); }}>{t(data.plugins.length ? "清除筛选" : "安装插件")}</Button>
                     </Empty>
                   )}
@@ -1496,24 +1499,25 @@ function PluginCard({ plugin, busy, onToggle, onInstall, onDetails, onEditTags, 
   plugin: Plugin; busy: string | null; onToggle: () => void; onInstall: () => void; onDetails: () => void; onEditTags: () => void;
 }) {
   return <article onContextMenu={onMenu} className={classNames("skill-card", selected && "is-selected", plugin.installed && plugin.enabled === false && "skill-disabled")}>
-    <button className="skill-card-open" aria-pressed={selected} onClick={onDetails} aria-label={t("查看 {v0} 详情", { v0: plugin.name })}>
-      <div className="skill-card-heading"><ProviderIcon icon={plugin.icon} className="skill-icon tone-2"><Blocks size={21} strokeWidth={1.6} /></ProviderIcon><div><h3>{plugin.name}</h3><span className="skill-kind">{plugin.version || t("版本未提供")} · {t(plugin.installed ? "已安装" : "未安装")}</span></div><ChevronRight className="card-chevron" size={17} /></div>
+    <button className="skill-card-open" aria-pressed={selected} onClick={onDetails} aria-label={t("查看 {v0} 详情", { v0: pluginTitle(plugin) })}>
+      <div className="skill-card-heading"><ProviderIcon icon={plugin.icon} className="skill-icon tone-2"><Blocks size={21} strokeWidth={1.6} /></ProviderIcon><div><h3>{pluginTitle(plugin)}</h3><span className="skill-kind">{plugin.version || t("版本未提供")} · {t(plugin.installed ? "已安装" : "未安装")}</span></div><ChevronRight className="card-chevron" size={17} /></div>
       <p className="skill-description">{plugin.description || t("这个插件尚未提供描述。请根据来源与附带技能判断是否适合你的工作流。")}</p>
     </button>
-    <TagStrip subject={{ ...plugin, kind: "plugin" }} disabled={!!busy} onEdit={onEditTags} />
+    <TagStrip subject={{ ...plugin, name: pluginTitle(plugin), kind: "plugin" }} disabled={!!busy} onEdit={onEditTags} />
     {plugin.enabled === null && plugin.installed && <div className="skill-reason skill-reason-attention"><CircleAlert size={13} /><span>{t("安装或启用状态尚未核实。")}</span></div>}
     <div className="skill-card-footer"><span className="source-tag" title={plugin.marketplace}><Globe2 size={12} />{plugin.directSource ? t("单插件来源") : plugin.marketplace}</span><div className="card-status">
-      {plugin.installed ? <Toggle checked={plugin.enabled} disabled={!plugin.canToggle || !!busy} busy={busy === `plugin.toggle:${plugin.id}`} label={`${plugin.enabled ? t("禁用") : t("启用")} ${plugin.name}`} reason={plugin.reason ? t(plugin.reason) : undefined} onChange={onToggle} /> : <Button variant="ghost" disabled={!plugin.canInstall || !!busy} onClick={onInstall}><Plus size={14} />{t("安装插件")}</Button>}
-      <button className="icon-button row-more" aria-label={t("{v0} 的更多操作", { v0: plugin.name })} aria-haspopup="menu" onClick={onMenu}><MoreHorizontal size={17} /></button>
+      {plugin.installed ? <Toggle checked={plugin.enabled} disabled={!plugin.canToggle || !!busy} busy={busy === `plugin.toggle:${plugin.id}`} label={`${plugin.enabled ? t("禁用") : t("启用")} ${pluginTitle(plugin)}`} reason={plugin.reason ? t(plugin.reason) : undefined} onChange={onToggle} /> : <Button variant="ghost" disabled={!plugin.canInstall || !!busy} onClick={onInstall}><Plus size={14} />{t("安装插件")}</Button>}
+      <button className="icon-button row-more" aria-label={t("{v0} 的更多操作", { v0: pluginTitle(plugin) })} aria-haspopup="menu" onClick={onMenu}><MoreHorizontal size={17} /></button>
     </div></div>
   </article>;
 }
 function PluginDetail({ plugin, skills, busy, onClose, onToggle, onRemove, onInstall, onUpdates, onSkill }: { plugin: Plugin; skills: Skill[]; busy: string | null; onClose: () => void; onToggle: () => void; onRemove: () => void; onInstall: () => void; onUpdates: () => void; onSkill: (skill: Skill) => void }) {
   return <Inspector title={t("插件详情")} onClose={onClose}>
-    <div className="modal-body"><ProviderIcon icon={plugin.icon} className="skill-icon tone-2 inspector-provider-icon" large><Blocks size={26} /></ProviderIcon><h3 className="inspector-object-name">{plugin.name}</h3><p className="dialog-description">{plugin.description || t("未提供描述")}</p><dl className="preview-paths"><dt>{t("版本")}</dt><dd>{plugin.version || t("版本未提供")}</dd><dt>{t("来自")}</dt><dd><code>{plugin.directSource?.source || plugin.marketplace}</code></dd><dt>ID</dt><dd><code>{plugin.id}</code></dd>{plugin.sourcePath && <><dt>{t("来源路径")}</dt><dd><code>{plugin.sourcePath}</code></dd></>}{plugin.installedPath && <><dt>{t("安装路径")}</dt><dd><code>{plugin.installedPath}</code></dd></>}{plugin.realPath && plugin.realPath !== plugin.installedPath && <><dt>{t("实际路径")}</dt><dd><code>{plugin.realPath}</code></dd></>}</dl>
+    <div className="modal-body"><ProviderIcon icon={plugin.icon} className="skill-icon tone-2 inspector-provider-icon" large><Blocks size={26} /></ProviderIcon><h3 className="inspector-object-name">{pluginTitle(plugin)}</h3><p className="dialog-description">{plugin.description || t("未提供描述")}</p><dl className="preview-paths"><dt>{t("版本")}</dt><dd>{plugin.version || t("版本未提供")}</dd><dt>{t("来自")}</dt><dd><code>{plugin.directSource?.source || plugin.marketplace}</code></dd><dt>ID</dt><dd><code>{plugin.id}</code></dd>{plugin.sourcePath && <><dt>{t("来源路径")}</dt><dd><code>{plugin.sourcePath}</code></dd></>}{plugin.installedPath && <><dt>{t("安装路径")}</dt><dd><code>{plugin.installedPath}</code></dd></>}{plugin.realPath && plugin.realPath !== plugin.installedPath && <><dt>{t("实际路径")}</dt><dd><code>{plugin.realPath}</code></dd></>}</dl>
       {plugin.directSource && <ResolvedGitSource source={plugin.directSource} />}
-      {plugin.installed && <div className="inline-toggle"><Toggle checked={plugin.enabled} disabled={!plugin.canToggle || !!busy} label={`${plugin.enabled ? t("禁用") : t("启用")} ${plugin.name}`} onChange={onToggle} /><span>{t(plugin.enabled === null ? "状态待确认" : plugin.enabled ? "已启用" : "已禁用")}</span></div>}
+      {plugin.installed && <div className="inline-toggle"><Toggle checked={plugin.enabled} disabled={!plugin.canToggle || !!busy} label={`${plugin.enabled ? t("禁用") : t("启用")} ${pluginTitle(plugin)}`} onChange={onToggle} /><span>{t(plugin.enabled === null ? "状态待确认" : plugin.enabled ? "已启用" : "已禁用")}</span></div>}
       {plugin.reason && <div className="dialog-note"><ServiceMessage value={plugin.reason} /></div>}
+      {plugin.directory?.installUrl && plugin.installed && <div className="dialog-note"><ExternalLink href={plugin.directory.installUrl} target="_blank" rel="noopener noreferrer">{t('查看官方详情与授权')}</ExternalLink><span>{t(plugin.directory.connected ? '应用连接可用' : '请完成或核实账号授权')}</span></div>}
       {plugin.installed && <div className="install-components"><strong>{t("附带技能（{v0}）", { v0: skills.length })}</strong><div className="plugin-skill-list">{skills.map(skill => <button className="text-button" key={skill.id} onClick={() => onSkill(skill)}><ProviderIcon icon={skill.icon}><Sparkles size={15} /></ProviderIcon>{skill.name}<ChevronRight size={14} /></button>)}</div></div>}
       <p className="field-hint">{t("插件附带的技能与组件一起安装、更新和卸载。")}</p>
     </div><div className="modal-footer">{plugin.installed ? <><Button variant="danger" disabled={!plugin.canRemove || !!busy} onClick={onRemove}><Trash2 size={15} />{t("卸载")}</Button><Button disabled={!!busy} onClick={onUpdates}><RefreshCw size={15} />{t("管理更新")}</Button></> : <><Button onClick={onClose}>{t("关闭")}</Button><Button variant="primary" disabled={!plugin.canInstall || !!busy} onClick={onInstall}>{t("安装插件")}</Button></>}</div>

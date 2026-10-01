@@ -75,6 +75,10 @@ $skill-manager 打开技能管理面板
 
 **插件整包安装，未勾选的技能保持禁用。** 安装后仍可逐项调整，插件更新会保留选择。
 
+**Codex 官方目录中的应用插件（例如 Miro）也可以从这里查找和安装。** SkillDock 按官方应用身份补全名称、介绍和 Logo，保留插件的原始 ID。点击 **安装插件 → Marketplace** 搜索，预览后确认安装；需要账号连接时，继续前往官方页面授权，再回到 SkillDock 刷新安装状态。只浏览或预览不会安装插件。
+
+官方应用插件使用 Codex CLI 安装，安装与账号连接分别核实。当前官方应用接口不提供完整远程插件组件清单，因此这类预览展示应用介绍，不提供安装前的逐项技能选择。无法可靠关联应用身份或账号策略不允许安装的条目会保留限制；目录读取失败时会给出提示，本地技能管理仍可使用。
+
 <details>
 <summary>查看插件安装预览</summary>
 
@@ -176,7 +180,7 @@ $skill-manager 打开技能管理面板
 
 ## 版本、许可与开发
 
-通过 GitHub 仓库分发，当前版本为 **0.9.1**。[变更记录](../../CHANGELOG.md) · [AGPL-3.0-only](LICENSE) · [第三方声明](skills/skill-manager/THIRD_PARTY_NOTICES.md)。其他插件遵循各自的许可证。
+通过 GitHub 仓库分发，当前版本为 **0.10.0**。[变更记录](../../CHANGELOG.md) · [AGPL-3.0-only](LICENSE) · [第三方声明](skills/skill-manager/THIRD_PARTY_NOTICES.md)。其他插件遵循各自的许可证。
 
 开发、启动与验证命令见[应用 README](skills/skill-manager/assets/app/README.md)。
 

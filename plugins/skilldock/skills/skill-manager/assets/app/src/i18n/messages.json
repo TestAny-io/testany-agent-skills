@@ -1668,7 +1668,7 @@
     "ja": "コマンド"
   },
   "应用连接": {
-    "en": "App connections",
+    "en": "App connection",
     "ja": "アプリ接続"
   },
   "已有同名插件，将作为另一个来源单独安装：": {
@@ -1998,5 +1998,101 @@
   "请在真实来源目录更新此链接技能。": {
     "en": "Update this linked skill in its source directory.",
     "ja": "リンク先のディレクトリでこのスキルを更新してください。"
+  },
+  "从 Codex 官方目录或已连接的 Marketplace 选择插件。": {
+    "en": "Choose a plugin from the Codex directory or a connected marketplace.",
+    "ja": "Codex 公式ディレクトリまたは接続済みのマーケットプレイスから選択します。"
+  },
+  "插件安装状态": {
+    "en": "Plugin installation status",
+    "ja": "プラグインのインストール状況"
+  },
+  "插件已安装": {
+    "en": "Plugin installed",
+    "ja": "プラグインをインストール済み"
+  },
+  "安装尚未确认": {
+    "en": "Installation not yet confirmed",
+    "ja": "インストールは未確認です"
+  },
+  "应用连接可用，请在新的 Codex 会话中使用。": {
+    "en": "The app connection is available. Use it in a new Codex chat.",
+    "ja": "アプリ接続は利用可能です。新しい Codex チャットで使用してください。"
+  },
+  "请在官方页面完成账号授权，然后返回这里刷新安装状态。": {
+    "en": "Complete account authorization on the official page, then return here and refresh the installation status.",
+    "ja": "公式ページでアカウント連携を完了し、ここに戻ってインストール状況を更新してください。"
+  },
+  "连接账号": {
+    "en": "Connect account",
+    "ja": "アカウントを接続"
+  },
+  "刷新安装状态": {
+    "en": "Refresh installation status",
+    "ja": "インストール状況を更新"
+  },
+  "重新预览": {
+    "en": "Preview again",
+    "ja": "もう一度プレビュー"
+  },
+  "将由 Codex 安装官方目录插件。账号登录与权限授权在官方页面完成；SkillDock 不接触你的账号密码。": {
+    "en": "Codex installs the directory plugin. Sign-in and permission consent take place on the official page; SkillDock never handles your password.",
+    "ja": "Codex が公式プラグインをインストールします。ログインと権限の承認は公式ページで行います。SkillDock はパスワードを扱いません。"
+  },
+  "远程插件的完整组件清单与技能选择尚未开放；这里展示官方应用介绍。": {
+    "en": "The complete remote component list and skill selection are not available yet. This preview shows the official app description.",
+    "ja": "リモートプラグインの全コンポーネント一覧とスキル選択はまだ利用できません。ここでは公式アプリの説明を表示します。"
+  },
+  "查看完整介绍": {
+    "en": "Read full description",
+    "ja": "説明をすべて表示"
+  },
+  "查看官方详情与授权": {
+    "en": "Official details and authorization",
+    "ja": "公式の詳細とアカウント連携"
+  },
+  "安装后会核对官方清单。插件安装与账号连接会分别显示状态。": {
+    "en": "Installation is verified against the official inventory. Plugin installation and account connection are shown separately.",
+    "ja": "インストール後に公式一覧で確認します。インストールとアカウント接続は別々に表示します。"
+  },
+  "应用连接可用": {
+    "en": "App connection available",
+    "ja": "アプリ接続は利用可能です"
+  },
+  "请完成或核实账号授权": {
+    "en": "Complete or verify account authorization",
+    "ja": "アカウント連携を完了または確認してください"
+  },
+  "插件已安装，应用连接可用。请在新的 Codex 会话中使用。": {
+    "en": "The plugin is installed and the app connection is available. Use it in a new Codex chat.",
+    "ja": "プラグインをインストール済みで、アプリ接続は利用可能です。新しい Codex チャットで使用してください。"
+  },
+  "插件已安装，请继续完成或核实账号授权。": {
+    "en": "Plugin installed. Complete or verify account authorization to continue.",
+    "ja": "プラグインをインストールしました。アカウント連携を完了または確認してください。"
+  },
+  "安装尚未确认，请完成官方授权后刷新安装状态。": {
+    "en": "Installation is not confirmed. Complete official authorization and refresh the installation status.",
+    "ja": "インストールは未確認です。公式のアカウント連携を完了し、状況を更新してください。"
+  },
+  "官方目录插件由 Codex 管理；账号授权可在插件详情中完成。": {
+    "en": "Codex manages this directory plugin. Complete account authorization from the plugin details.",
+    "ja": "この公式プラグインは Codex が管理します。詳細からアカウント連携を完了できます。"
+  },
+  "当前账号或工作区不允许安装此插件，请在 Codex 官方目录查看原因。": {
+    "en": "This account or workspace cannot install the plugin. Check the Codex directory for details.",
+    "ja": "このアカウントまたはワークスペースではインストールできません。Codex 公式ディレクトリで確認してください。"
+  },
+  "官方目录随 Codex 账号提供。": {
+    "en": "The official directory is provided by your Codex account.",
+    "ja": "公式ディレクトリは Codex アカウントから提供されます。"
+  },
+  "官方应用目录暂不可用，部分插件名称与安装入口尚未补全。请确认 Codex 已登录，再刷新重试。": {
+    "en": "The official app directory is unavailable. Some names and installation options could not be loaded. Sign in to Codex and refresh to retry.",
+    "ja": "公式アプリディレクトリを読み込めません。一部の名前とインストール項目が未取得です。Codex にログインして再読み込みしてください。"
+  },
+  "查看全部匹配（{v0} 项）": {
+    "en": "Show all matches ({v0})",
+    "ja": "一致するすべての項目を表示（{v0} 件）"
   }
 }
