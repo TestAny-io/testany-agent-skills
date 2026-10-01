@@ -109,7 +109,7 @@ export async function scan(environment, registry, catalog) {
   }
   for (const root of rootList) await walk(root);
   const plugins = catalog.plugins.map(plugin => ({ ...plugin }));
-  for (const plugin of plugins.filter(item => !item.installed && item.sourcePath)) plugin.icon = await icons.plugin(plugin.sourcePath);
+  for (const plugin of plugins.filter(item => !item.installed && item.sourcePath)) plugin.icon = await icons.plugin(plugin.sourcePath) || plugin.icon;
   // Verified installed packages first; stale cached versions never override their status.
   for (const plugin of plugins.filter(p => p.installed)) {
     if (!safeSegment(plugin.marketplace) || !safeSegment(plugin.name) || (plugin.version !== undefined && !safeSegment(plugin.version))) { diagnostics.push('插件身份或版本不安全，未扫描其路径。'); plugin.canRemove = false; plugin.canToggle = false; continue; }
@@ -119,7 +119,7 @@ export async function scan(environment, registry, catalog) {
       if (environment.cacheBoundary) await verifyPluginPath(environment, directory);
       if (!(await exists(directory))) { diagnostics.push(`插件 ${plugin.name}：已安装缓存目录不存在，未用来源目录替代已安装内容。`); continue; }
       plugin.installedPath = directory; plugin.realPath = await fs.realpath(directory);
-      plugin.icon = await icons.plugin(directory);
+      plugin.icon = await icons.plugin(directory) || plugin.icon;
       let roots = await discoverSkillRoots(directory);
       if (plugin._componentRoots) {
         if (!Array.isArray(plugin._componentRoots) || plugin._componentRoots.some(relative => typeof relative !== 'string' || !inside(directory, path.resolve(directory, relative)))) throw new Error('缓存组件映射越出插件根。');
@@ -155,5 +155,5 @@ export async function scan(environment, registry, catalog) {
     const duplicates = records.filter(other => other.id !== record.id && other.name === record.name).map(other => other.path);
     if (duplicates.length) record.duplicateNames = duplicates;
   }
-  return { mode: environment.mode, iconAssets: icons.assets, skills: records, plugins: plugins.map(({ _skillRoots, _componentRoots, _updateSourcePath, ...plugin }) => plugin), marketplaces: catalog.marketplaces.map(({ _root, ...marketplace }) => ({ ...marketplace, ...(marketplace.direct ? { icon: plugins.find(plugin => plugin.marketplace === marketplace.id)?.icon } : {}) })), diagnostics, scannedAt: new Date().toISOString(), durationMs: Math.round(performance.now() - started), cli: catalog.cli, paths: { skills: environment.skills, config: environment.config, state: environment.root, project: environment.project, cache }, locations: await Promise.all(rootList.map(async root => ({ ...root, real: await fs.realpath(root.directory).catch(() => null) }))), examples: environment.examples, activity: registry.activity.map(({ backup, restore, ...activity }) => activity).slice(0, 200) };
+  return { mode: environment.mode, directoryError: catalog.directoryError, iconAssets: icons.assets, skills: records, plugins: plugins.map(({ _skillRoots, _componentRoots, _updateSourcePath, _remote, _remoteIcon, ...plugin }) => plugin), marketplaces: catalog.marketplaces.map(({ _root, ...marketplace }) => ({ ...marketplace, ...(marketplace.direct ? { icon: plugins.find(plugin => plugin.marketplace === marketplace.id)?.icon } : {}) })), diagnostics, scannedAt: new Date().toISOString(), durationMs: Math.round(performance.now() - started), cli: catalog.cli, paths: { skills: environment.skills, config: environment.config, state: environment.root, project: environment.project, cache }, locations: await Promise.all(rootList.map(async root => ({ ...root, real: await fs.realpath(root.directory).catch(() => null) }))), examples: environment.examples, activity: registry.activity.map(({ backup, restore, ...activity }) => activity).slice(0, 200) };
 }

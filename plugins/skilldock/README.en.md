@@ -75,6 +75,10 @@ Click **Install plugin** and choose a local directory, Git repository, or connec
 
 **The whole plugin is installed; unchecked skills stay disabled.** Adjust the choices later, and keep them through plugin updates.
 
+**Official Codex app plugins, such as Miro, are also searchable and installable here.** SkillDock uses the app's official identity to display its name, description, and logo while retaining the original plugin ID. Search under **Install plugin → Marketplace**, review the preview, then confirm installation. If account authorization is needed, continue on the official page and return to refresh the installation status. Browsing or previewing does not install anything.
+
+Official app plugins are installed through the Codex CLI, with installation and account connection verified separately. The app metadata API does not expose the complete remote plugin component list, so these previews show the app description without individual skill selection. Entries without a verified app identity, or restricted by account policy, remain protected. Directory failures show a clear message while local skill management remains available.
+
 <details>
 <summary>See the plugin installation preview</summary>
 
@@ -176,7 +180,7 @@ Include your SkillDock version, Codex version, and reproduction steps when usefu
 
 ## Version, license, and development
 
-Distributed through this GitHub repository. Current version: **0.9.1**. [Changelog](../../CHANGELOG.md) · [AGPL-3.0-only](LICENSE) · [Third-party notices](skills/skill-manager/THIRD_PARTY_NOTICES.md). Other plugins follow their respective licenses.
+Distributed through this GitHub repository. Current version: **0.10.0**. [Changelog](../../CHANGELOG.md) · [AGPL-3.0-only](LICENSE) · [Third-party notices](skills/skill-manager/THIRD_PARTY_NOTICES.md). Other plugins follow their respective licenses.
 
 See the [application README](skills/skill-manager/assets/app/README.md) for development, launch, and verification commands.
 

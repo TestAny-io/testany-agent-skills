@@ -129,6 +129,8 @@ export interface SourcePreview {
   changes: FileChange[];
 }
 export interface ProviderIcon {
+  /** Known plugin identity, resolved by the backend; never an arbitrary URL. */
+  remote?: string;
   small?: string;
   large?: string;
   dark?: string;
@@ -171,6 +173,9 @@ export interface Plugin {
   id: string;
   tags?: string[];
   name: string;
+  displayName?: string;
+  keywords?: string[];
+  directory?: { appId: string; installUrl?: string; connected: boolean; installPolicy?: string; authPolicy?: string };
   description: string;
   marketplace: string;
   version?: string;
@@ -224,6 +229,7 @@ export interface ProjectCatalog {
   warning?: string;
 }
 export interface Snapshot {
+  directoryError?: string;
   iconAssets?: IconAssets;
   mode: Mode;
   projectContext?: ProjectContext;
@@ -271,7 +277,8 @@ export interface PluginInstallPreview {
   version: string;
   description: string;
   source: string;
-  sourceType: "local" | "git";
+  sourceType: "local" | "git" | "remote";
+  remote?: { appId: string; name: string; description: string; installUrl: string };
   subpath?: string;
   ref?: string;
   commit?: string;
@@ -316,6 +323,7 @@ export type Action =
   | "plugin.install"
   | "plugin.previewInstall"
   | "plugin.previewMarketplace"
+  | "plugin.connectionStatus"
   | "plugin.installSource"
   | "plugin.remove"
   | "plugin.toggle"
@@ -351,6 +359,7 @@ export interface ActionRequest {
   schedule?: ScheduleInput;
 }
 export interface ActionResult {
+  remoteInstall?: { id: string; name: string; installed: boolean; connected: boolean; installUrl?: string };
   removalPreview?: RemovalPreview;
   diff?: FileDiff;
   projectContext?: ProjectContext;

@@ -22,6 +22,8 @@ import { createBackgroundManager, backgroundPaths } from './background.mjs';
 import { projectCatalog, createProjectIntegration } from './projects.mjs';
 import { inspectPlugin, directLocation, writeDirectMarketplace, decorateDirectCatalog } from './direct-plugins.mjs';
 import { pluginContents } from './plugin-contents.mjs';
+import { officialAppUrl } from './app-directory.mjs';
+import { createDirectoryIcons } from './directory-icons.mjs';
 
 const ACTION_FIELDS = {
   'tags.set': ['target', 'tags'],
@@ -34,6 +36,7 @@ const ACTION_FIELDS = {
   'skill.remove': ['id'], 'activity.restore': ['id'], 'plugin.install': ['id', 'previewId', 'enabledSkills'], 'plugin.remove': ['id'],
   'plugin.previewInstall': ['sourceType', 'source', 'subpath', 'ref'], 'plugin.installSource': ['previewId', 'enabledSkills'],
   'plugin.previewMarketplace': ['id'],
+  'plugin.connectionStatus': ['id'],
   'plugin.toggle': ['id', 'enabled'], 'marketplace.add': ['sourceType', 'source', 'ref'],
   'marketplace.refresh': ['id'], 'marketplace.remove': ['id'],
   'skill.previewSource': ['id', 'sourceType', 'source', 'subpath', 'ref'], 'skill.connectSource': ['id', 'previewId'],
@@ -103,6 +106,7 @@ export async function createService(options = {}) {
     env.skillLinks = new Map();
   }
   const adapter = options.adapter || new CodexAdapter({ codexHome, codexBin: options.codexBin || process.env.SKILLDOCK_CODEX_BIN, timeout: options.cliTimeout });
+  const directoryIcons = options.directoryIcons || createDirectoryIcons();
   const projectIntegration = options.projectIntegration || createProjectIntegration();
   const projects = () => projectCatalog({ codexHome, stateDir, current: project, integration: projectIntegration });
   const defaultMode = options.enableTestSandbox === true ? 'sandbox' : 'local'; const previews = new Map(); let busy = false; let cachedCatalog; let catalogTime = 0; let scheduler;
@@ -433,6 +437,14 @@ export async function createService(options = {}) {
     const plugin = catalog.plugins.find(item => item.id === id);
     if (!plugin) fail(404, 'NOT_FOUND', '插件不存在，请刷新市场。');
     if (!plugin.canInstall || plugin.installed) fail(403, 'PROTECTED_PLUGIN', plugin.reason || '该插件不支持此操作。');
+    if (env.mode === 'local' && plugin.directory) {
+      const app = await adapter.remoteDetails(plugin);
+      const installUrl = officialAppUrl(app.installUrl);
+      if (app.id !== plugin.directory.appId || !installUrl) fail(422, 'DIRECTORY_UNAVAILABLE', '无法核实这个插件的官方应用身份。');
+      const remote = { appId: app.id, name: app.name, description: app.description || '', installUrl };
+      const signature = hash(JSON.stringify({ id: plugin.id, version: plugin.version, remoteId: plugin._remote?.id, appId: app.id, installUrl, installPolicy: plugin.directory.installPolicy, authPolicy: plugin.directory.authPolicy }));
+      return { plugin, signature, public: { name: plugin.displayName || plugin.name, description: plugin.description, version: plugin.version || '', icon: plugin.icon, source: 'Codex Plugin Directory', sourceType: 'remote', marketplace: plugin.marketplace, pluginId: plugin.id, skills: [], skillDetails: [], components: ['apps'], canSelectSkills: false, duplicates: [], remote } };
+    }
     const market = catalog.marketplaces.find(item => item.id === plugin.marketplace);
     const marketRoot = market?._root || registry.marketplaces[plugin.marketplace]?.root || registry.marketplaces[plugin.marketplace]?.source;
     if (!marketRoot || !plugin.sourcePath) fail(422, 'PLUGIN_PREVIEW_UNAVAILABLE', '无法读取这个插件的技能清单，请先刷新或重新连接市场来源。');
@@ -479,6 +491,15 @@ export async function createService(options = {}) {
       await verifyDirectoryRoot(env.stateBoundary);
       registry = await registryFor(env); originalRegistry = structuredClone(registry);
       switch (request.action) {
+        case 'plugin.connectionStatus': {
+          if (env.mode !== 'local') fail(403, 'PROTECTED_PLUGIN', '此操作仅适用于官方目录插件。');
+          const existing = (await catalogFor(env, registry)).plugins.find(item => item.id === request.id);
+          if (!existing?.directory) fail(404, 'NOT_FOUND', '插件不存在，请刷新市场。');
+          await adapter.refreshDirectory();
+          const current = (await catalogFor(env, registry, true)).plugins.find(item => item.id === request.id);
+          if (!current?.directory) fail(502, 'READBACK_FAILED', '无法确认安装终态，请刷新官方清单后再操作。');
+          return remoteInstallationResult(current);
+        }
         case 'plugin.previewMarketplace': {
           const preview = await marketplaceInstallation(env, registry, request.id);
           for (const [id, item] of pluginCatalogPreviews) if (previewNow() - item.created > 30 * 60000) pluginCatalogPreviews.delete(id);
@@ -742,6 +763,22 @@ export async function createService(options = {}) {
           if (!plugin) fail(404, 'NOT_FOUND', '插件不存在，请刷新市场。');
           if (!plugin[installing ? 'canInstall' : 'canRemove']) fail(403, 'PROTECTED_PLUGIN', plugin.reason || '该插件不支持此操作。');
           target = plugin.name;
+          if (installing && env.mode === 'local' && plugin.directory) {
+            const preview = pluginCatalogPreviews.get(request.previewId);
+            if (!preview || preview.mode !== env.mode || preview.plugin.id !== plugin.id || previewNow() - preview.created > 30 * 60000) fail(409, 'STALE_PREVIEW', '预览已过期或属于其他环境，请重新预览。');
+            if (request.enabledSkills !== undefined) fail(400, 'INVALID_SELECTION', '官方目录插件的组件由 Codex 管理，不能在这里选择本地技能路径。');
+            const current = await marketplaceInstallation(env, registry, plugin.id);
+            if (current.signature !== preview.signature) fail(409, 'SOURCE_CHANGED', '来源在预览后发生变化，请重新预览。');
+            await verifyPluginPath(env, plugin.version ? pluginPath(env.codexHome, plugin.marketplace, plugin.name, plugin.version) : pluginCacheRoot(env.codexHome));
+            target = plugin.displayName || plugin.name;
+            try { await adapter.command(['plugin', 'add', plugin.id, '--json'], { mutation: true }); }
+            catch (error) { throw new AppError(error.status || 502, 'REMOTE_INSTALL_UNCONFIRMED', '安装结果尚未确认。请先刷新安装状态，必要时完成官方授权，再决定是否重试。'); }
+            const readback = await adapter.list(); cachedCatalog = readback; catalogTime = Date.now();
+            const installed = readback.plugins.find(item => item.id === plugin.id);
+            if (readback.diagnostics.length || !installed?.directory) fail(502, 'READBACK_FAILED', 'CLI 操作已返回，但无法确认安装终态；请刷新官方清单后再操作。');
+            pluginCatalogPreviews.delete(request.previewId);
+            result = remoteInstallationResult(installed); break;
+          }
           if (installing && request.previewId) {
             const preview = pluginCatalogPreviews.get(request.previewId);
             if (!preview || preview.mode !== env.mode || preview.plugin.id !== plugin.id || previewNow() - preview.created > 30 * 60000) fail(409, 'STALE_PREVIEW', '预览已过期或属于其他环境，请重新预览。');
@@ -827,7 +864,7 @@ export async function createService(options = {}) {
       }
       if (!result) fail(400, 'INVALID_ACTION', '操作未实现。');
       if (moveWarnings.length) result.message += `\n${moveWarnings.join('\n')}`;
-      registry.activity.unshift(...(individualActivities.length ? individualActivities : [{ id: activityId, action: request.action, target, ...(activityPath ? { path: activityPath } : {}), createdAt: now(), status: 'success', message: result.message, canRestore: !!restore, ...(restore ? { restore } : {}) }]));
+      registry.activity.unshift(...(individualActivities.length ? individualActivities : [{ id: activityId, action: request.action, target, ...(activityPath ? { path: activityPath } : {}), createdAt: now(), status: result.remoteInstall && !result.remoteInstall.installed ? 'error' : 'success', message: result.message, canRestore: !!restore, ...(restore ? { restore } : {}) }]));
       await writeJson(env.registryFile, registry);
       await cleanupTemporary(env, registry, consumedPreview).catch(() => {});
       cachedCatalog = undefined;
@@ -843,6 +880,19 @@ export async function createService(options = {}) {
       cachedCatalog = undefined;
       throw new AppError(error.status || 500, error.code || 'OPERATION_FAILED', message);
     } finally { busy = false; }
+  }
+  function remoteInstallationResult(plugin) {
+    const installed = plugin.installed === true, connected = plugin.directory.connected === true;
+    return { message: installed ? connected ? '插件已安装，应用连接可用。请在新的 Codex 会话中使用。' : '插件已安装，请继续完成或核实账号授权。' : '安装尚未确认，请完成官方授权后刷新安装状态。',
+      needsReload: installed && connected,
+      remoteInstall: { id: plugin.id, name: plugin.displayName || plugin.name, installed, connected, installUrl: plugin.directory.installUrl } };
+  }
+  async function directoryIcon(mode, id, theme) {
+    const env = environment(mode);
+    const plugin = (await catalogFor(env, await registryFor(env))).plugins.find(item => item.id === id);
+    if (!plugin?.directory) fail(404, 'NOT_FOUND', '插件不存在，请刷新市场。');
+    const urls = plugin._remoteIcon;
+    return { data: await directoryIcons.get(theme === 'dark' ? urls?.dark || urls?.light : urls?.light || urls?.dark) };
   }
   async function targetSignature(mode, target, current) {
     const env = environment(mode); current ||= await snapshot(mode); const registry = await registryFor(env);
@@ -1018,7 +1068,7 @@ export async function createService(options = {}) {
       }
     });
   } catch (error) { if (error.code !== 'BUSY') throw error; }
-  return { stateDir, get project() { return project; }, launchProject, get projectContext() { return projectInfo; }, defaultMode, environments, adapter, snapshot, skill, action, projects,
+  return { stateDir, get project() { return project; }, launchProject, get projectContext() { return projectInfo; }, defaultMode, environments, adapter, snapshot, skill, action, projects, directoryIcon,
     updateProgress: async mode => { environment(mode); await refreshSchedule(); return scheduler.progress(mode); },
     tickScheduler: () => withOperation(() => scheduler.tick()), isBusy,
     pauseForRestart: () => { if (isBusy()) return false; restarting = true; return true; }, resumeAfterRestart: () => { restarting = false; },

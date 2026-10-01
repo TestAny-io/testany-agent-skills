@@ -1,6 +1,6 @@
 {
   "name": "skilldock",
-  "version": "0.9.1",
+  "version": "0.10.0",
   "private": true,
   "type": "module",
   "description": "A local visual workspace for Codex skills, plugins, and marketplaces",

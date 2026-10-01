@@ -486,5 +486,13 @@
   "LINK_MANAGED": {
     "en": "Update this linked skill in its source directory.",
     "ja": "リンク先のディレクトリでこのスキルを更新してください。"
+  },
+  "DIRECTORY_UNAVAILABLE": {
+    "en": "The Codex app directory is unavailable. Check your Codex sign-in and retry.",
+    "ja": "Codex アプリディレクトリを読み込めません。ログインを確認して再試行してください。"
+  },
+  "REMOTE_INSTALL_UNCONFIRMED": {
+    "en": "The installation result is unconfirmed. Refresh its status and complete official authorization if needed before retrying.",
+    "ja": "インストール結果は未確認です。再試行する前に状況を更新し、必要なら公式のアカウント連携を完了してください。"
   }
 }

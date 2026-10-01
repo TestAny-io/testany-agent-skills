@@ -12,6 +12,7 @@ const delay = ms => new Promise(resolve => setTimeout(resolve, ms));
 const routes = new Map([
   ['/api/health', []], ['/api/session', []], ['/api/state', ['mode', 'refresh']],
   ['/api/skill', ['mode', 'id']], ['/api/updates/progress', ['mode']],
+  ['/api/plugin-icon', ['mode', 'id', 'theme']],
 ]);
 
 export function localOrigin(value) {

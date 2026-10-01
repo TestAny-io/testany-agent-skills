@@ -2985,6 +2985,12 @@ main {
 .install-dialog > form { display: flex; flex-direction: column; min-height: 0; }
 .install-dialog .modal-body { min-height: 0; overflow-y: auto; }
 .install-dialog .modal-footer { flex-shrink: 0; }
+.remote-plugin-preview { display: grid; gap: 12px; padding: 18px; border: 1px solid var(--line); border-radius: 14px; }
+.remote-plugin-preview summary { cursor: pointer; }
+.remote-plugin-preview a { display: inline-flex; align-items: center; gap: 6px; }
+.remote-description { white-space: pre-wrap; line-height: 1.65; overflow-wrap: anywhere; }
+.remote-install-result { display: flex; flex-direction: column; align-items: flex-start; gap: 14px; padding-block: 18px; }
+.remote-install-result h3, .remote-install-result p { margin: 0; }
 .install-preview.plugin-install-summary { display: grid; grid-template-columns: 44px minmax(0, 1fr); gap: 8px 14px; text-align: left; padding: 0; margin: 20px 0; }
 .plugin-install-summary .skill-icon { grid-row: 1 / 5; align-self: start; margin: 0; }
 .plugin-install-summary h3, .plugin-install-summary p { margin: 0; overflow-wrap: anywhere; }

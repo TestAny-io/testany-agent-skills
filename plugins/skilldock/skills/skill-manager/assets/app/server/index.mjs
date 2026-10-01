@@ -41,6 +41,7 @@ export async function createApp(options = {}) {
       if (request.method === 'GET' && url.pathname === '/api/state') return send(response, 200, await service.snapshot(url.searchParams.get('mode') || 'local', url.searchParams.get('refresh') === 'true'));
       if (request.method === 'GET' && url.pathname === '/api/updates/progress') return send(response, 200, { progress: await service.updateProgress(url.searchParams.get('mode') || 'local') });
       if (request.method === 'GET' && url.pathname === '/api/skill') return send(response, 200, await service.skill(url.searchParams.get('mode') || 'local', url.searchParams.get('id')));
+      if (request.method === 'GET' && url.pathname === '/api/plugin-icon') return send(response, 200, await service.directoryIcon(url.searchParams.get('mode') || 'local', url.searchParams.get('id'), url.searchParams.get('theme')));
       if (request.method === 'POST' && url.pathname === '/api/actions') {
         const supplied = request.headers['x-skilldock-token'];
         if (typeof supplied !== 'string' || supplied.length !== token.length || !crypto.timingSafeEqual(Buffer.from(supplied), Buffer.from(token))) fail(403, 'TOKEN_REJECTED', '请求凭证已失效，请刷新页面。');
