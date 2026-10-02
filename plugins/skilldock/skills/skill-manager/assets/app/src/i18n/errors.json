@@ -208,8 +208,8 @@
     "ja": "プラグインまたはマーケットの宣言が無効、または未対応です。修正してから取り込んでください。"
   },
   "STRICT_CONFLICT": {
-    "en": "The plugin or marketplace manifest is invalid or unsupported. Correct its declaration before importing.",
-    "ja": "プラグインまたはマーケットの宣言が無効、または未対応です。修正してから取り込んでください。"
+    "en": "With strict:false and an existing plugin.json, the marketplace entry cannot also declare commands, agents, skills, hooks, outputStyles or themes.",
+    "ja": "strict:false で plugin.json が存在する場合、マーケットのエントリーに commands、agents、skills、hooks、outputStyles、themes を同時に宣言できません。"
   },
   "VERSION_AUTHORITY": {
     "en": "The plugin or marketplace manifest is invalid or unsupported. Correct its declaration before importing.",

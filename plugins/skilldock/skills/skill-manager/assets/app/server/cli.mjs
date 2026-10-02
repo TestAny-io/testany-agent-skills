@@ -155,12 +155,14 @@ export class CodexAdapter {
         }
       } catch { directoryError = '官方应用目录暂不可用，部分插件名称与安装入口尚未补全。请确认 Codex 已登录，再刷新重试。'; }
     }
-    for (const plugin of plugins.filter(item => item.installed && item.sourcePath)) {
+    for (const plugin of plugins.filter(item => item.sourcePath)) {
       const market = marketplaces.find(item => item.name === plugin.marketplace);
       try {
         if (!market?._root) throw new Error('市场来源不在当前已确认清单中。');
         const entry = await readComponentEntry(market._root, plugin.name, plugin.sourcePath);
-        const manifest = await readPluginManifest(plugin.sourcePath, market._root);
+        const { manifest, warnings } = await readPluginDefinition(plugin.sourcePath, { marketRoot: market._root, entry });
+        plugin.warnings = warnings;
+        if (!plugin.installed) continue;
         plugin.description = typeof manifest.description === 'string' ? manifest.description : typeof entry.description === 'string' ? entry.description : '';
         plugin.displayName = manifest.extensions?.['com.openai']?.interface?.displayName || manifest.interface?.displayName || entry.interface?.displayName || plugin.displayName;
         const sourceReal = await fs.realpath(plugin.sourcePath);
@@ -168,11 +170,12 @@ export class CodexAdapter {
         const relatives = roots.map(root => path.relative(sourceReal, root) || '.');
         if (relatives.some(relative => relative === '..' || relative.startsWith(`..${path.sep}`) || path.isAbsolute(relative))) throw new Error('组件复用路径位于插件根外，初版无法证明缓存映射。');
         plugin._componentRoots = relatives;
-      } catch (e) { plugin.canRemove = false; plugin.reason = '无法完整确认市场声明的组件范围，暂不提供卸载。'; plugin.sourceInfo.confidence = 'inferred'; diagnostics.push(`插件 ${plugin.name}：${redact(e.message)}`); }
+      } catch (e) { if (!plugin.installed) continue; plugin.canRemove = false; plugin.reason = '无法完整确认市场声明的组件范围，暂不提供卸载。'; plugin.sourceInfo.confidence = 'inferred'; diagnostics.push(`插件 ${plugin.name}：${redact(e.message)}`); }
     }
     if (plugins.some(item => item.marketplace === 'openai-curated-remote') && !marketplaces.some(item => item.name === 'openai-curated-remote')) {
       marketplaces.push({ id: 'openai-curated-remote', name: 'openai-curated-remote', displayName: 'Codex Plugin Directory', type: 'remote', source: 'https://developers.openai.com/plugins', pluginCount: plugins.filter(item => item.marketplace === 'openai-curated-remote').length, canRemove: false, canRefresh: false, reason: '官方目录随 Codex 账号提供。' });
     }
+    for (const market of marketplaces) market.warnings = plugins.filter(plugin => plugin.marketplace === market.name).flatMap(plugin => plugin.warnings || []);
     return { plugins, marketplaces, diagnostics, directoryError, cli: this.info };
   }
 }
@@ -194,19 +197,18 @@ export async function readMarketplace(root) {
     if (typeof relative !== 'string' || (relative !== '.' && !relative.startsWith('./'))) fail(422, 'UNSUPPORTED_MARKETPLACE', '初版本地市场仅支持明确的 ./ 相对插件来源。');
     const directory = path.resolve(realRoot, relative);
     if (!inside(realRoot, directory) || !(await exists(directory)) || !inside(realRoot, await fs.realpath(directory))) fail(422, 'MARKETPLACE_BOUNDARY', '市场插件路径缺失、悬空或越出市场根目录。');
-    let manifest = {};
-    for (const name of ['.codex-plugin/plugin.json', '.claude-plugin/plugin.json', 'plugin.json']) if (await exists(path.join(directory, name))) {
-      if (!inside(realRoot, await fs.realpath(path.join(directory, name)))) fail(422, 'MARKETPLACE_BOUNDARY', '插件 manifest 链接越出市场根目录。');
-      manifest = JSON.parse(await fs.readFile(path.join(directory, name), 'utf8')); break;
+    let definition;
+    try { definition = await readPluginDefinition(directory, { marketRoot: realRoot, entry }); }
+    catch (error) {
+      if (error.code === 'PLUGIN_BOUNDARY') fail(422, 'MARKETPLACE_BOUNDARY', '插件 manifest 链接越出市场根目录。');
+      throw error;
     }
-    if (entry.version !== undefined && manifest.version !== undefined) fail(422, 'VERSION_AUTHORITY', '插件版本在市场和 manifest 中重复声明。');
-    if (manifest.version !== undefined && !safeSegment(manifest.version) || entry.version !== undefined && !safeSegment(entry.version)) fail(422, 'INVALID_VERSION', '插件版本必须是安全的单段字符串，不能包含路径。');
-    if (entry.strict === false && ['skills', 'commands', 'agents', 'hooks', 'mcpServers'].some(key => key in manifest)) fail(422, 'STRICT_CONFLICT', 'strict:false 与插件 manifest 组件声明冲突。');
+    const { manifest, version, warnings } = definition;
     const skillRoots = await discoverSkillRoots(directory, { marketRoot: realRoot, entry });
     const sourceReal = await fs.realpath(directory);
-    plugins.push({ id: `${entry.name}@${catalog.name}`, name: entry.name, description: typeof manifest.description === 'string' ? manifest.description : typeof entry.description === 'string' ? entry.description : '', marketplace: catalog.name, sourcePath: directory, version: String(manifest.version ?? entry.version ?? 'local'), installed: false, enabled: false, skillCount: 0, canInstall: true, canRemove: false, canToggle: false, _skillRoots: skillRoots, _componentRoots: skillRoots.map(root => path.relative(sourceReal, root) || '.') });
+    plugins.push({ id: `${entry.name}@${catalog.name}`, name: entry.name, description: typeof manifest.description === 'string' ? manifest.description : typeof entry.description === 'string' ? entry.description : '', marketplace: catalog.name, sourcePath: directory, version: version ?? 'local', warnings, installed: false, enabled: false, skillCount: 0, canInstall: true, canRemove: false, canToggle: false, _skillRoots: skillRoots, _componentRoots: skillRoots.map(root => path.relative(sourceReal, root) || '.') });
   }
-  return { name: catalog.name, root: realRoot, plugins };
+  return { name: catalog.name, root: realRoot, plugins, warnings: plugins.flatMap(plugin => plugin.warnings) };
 }
 
 export async function readComponentEntry(marketRoot, pluginName, sourcePath) {
@@ -226,26 +228,44 @@ export async function readComponentEntry(marketRoot, pluginName, sourcePath) {
   return entry;
 }
 
-export async function readPluginManifest(directory, boundary = directory) {
+// Claude's strict check covers only these entry component fields. Other fields
+// such as mcpServers/lspServers apply from the entry only without a manifest.
+const ENTRY_COMPONENT_FIELDS = ['commands', 'agents', 'skills', 'hooks', 'outputStyles', 'themes'];
+async function readManifestRecord(directory, boundary) {
   const realBoundary = await fs.realpath(boundary);
   for (const relative of ['.codex-plugin/plugin.json', 'plugin.json', '.claude-plugin/plugin.json']) {
     const file = path.join(directory, relative); if (!(await exists(file))) continue;
     if (!inside(realBoundary, await fs.realpath(file))) fail(422, 'PLUGIN_BOUNDARY', '插件 manifest 越出来源范围。');
-    try { return JSON.parse(await fs.readFile(file, 'utf8')); } catch { fail(422, 'INVALID_MANIFEST', '插件 manifest 无法解析。'); }
+    let manifest;
+    try { manifest = JSON.parse(await fs.readFile(file, 'utf8')); } catch { fail(422, 'INVALID_MANIFEST', '插件 manifest 无法解析。'); }
+    if (!manifest || typeof manifest !== 'object' || Array.isArray(manifest)) fail(422, 'INVALID_MANIFEST', '插件 manifest 必须是 JSON 对象。');
+    return { manifest, hasManifest: true };
   }
-  return {};
+  return { manifest: {}, hasManifest: false };
+}
+export async function readPluginManifest(directory, boundary = directory) {
+  return (await readManifestRecord(directory, boundary)).manifest;
+}
+export async function readPluginDefinition(directory, { marketRoot = directory, entry = {} } = {}) {
+  const definition = await readManifestRecord(directory, marketRoot);
+  const { manifest, hasManifest } = definition;
+  if (entry.strict !== undefined && typeof entry.strict !== 'boolean') fail(422, 'INVALID_MARKETPLACE', 'strict 必须是布尔值。');
+  if (hasManifest && entry.strict === false && ENTRY_COMPONENT_FIELDS.some(field => Object.hasOwn(entry, field))) {
+    fail(422, 'STRICT_CONFLICT', 'strict:false 时，存在 plugin.json 的插件不能同时在 marketplace 条目声明 commands、agents、skills、hooks、outputStyles 或 themes。');
+  }
+  if (manifest.version !== undefined && !safeSegment(manifest.version) || entry.version !== undefined && !safeSegment(entry.version)) fail(422, 'INVALID_VERSION', '插件版本必须是安全的单段字符串，不能包含路径。');
+  const warnings = manifest.version !== undefined && entry.version !== undefined
+    ? [`两处版本声明：${entry.name || manifest.name || 'plugin'} 的市场版本为 ${entry.version}，plugin.json 版本为 ${manifest.version}；采用 plugin.json 版本。`] : [];
+  return { ...definition, version: manifest.version ?? entry.version, warnings };
+}
+export function componentValues(field, { manifest, hasManifest }, entry) {
+  return hasManifest ? ENTRY_COMPONENT_FIELDS.includes(field) ? [manifest[field], entry[field]] : [manifest[field]] : [entry[field]];
 }
 
 export async function discoverSkillRoots(directory, { marketRoot = directory, entry = {} } = {}) {
-  const boundary = await fs.realpath(marketRoot); const realDirectory = await fs.realpath(directory); let manifest = {};
+  const boundary = await fs.realpath(marketRoot); const realDirectory = await fs.realpath(directory);
   if (!inside(boundary, realDirectory)) fail(422, 'PLUGIN_BOUNDARY', '插件目录越出来源范围。');
-  for (const relative of ['.codex-plugin/plugin.json', 'plugin.json', '.claude-plugin/plugin.json']) {
-    const file = path.join(directory, relative); if (!(await exists(file))) continue;
-    if (!inside(boundary, await fs.realpath(file))) fail(422, 'PLUGIN_BOUNDARY', '插件 manifest 越出来源范围。');
-    try { manifest = JSON.parse(await fs.readFile(file, 'utf8')); } catch { fail(422, 'INVALID_MANIFEST', '插件 manifest 不是有效 JSON。'); }
-    break;
-  }
-  if (entry.strict === false && ['skills', 'commands', 'agents', 'hooks', 'mcpServers'].some(key => key in manifest)) fail(422, 'STRICT_CONFLICT', 'strict:false 与 manifest 组件声明冲突。');
+  const { manifest } = await readPluginDefinition(directory, { marketRoot: boundary, entry });
   const validate = value => {
     if (value === undefined) return [];
     const values = typeof value === 'string' ? [value] : value;
@@ -254,7 +274,6 @@ export async function discoverSkillRoots(directory, { marketRoot = directory, en
   };
   const manifestPaths = validate(manifest.skills); const entryPaths = validate(entry.skills);
   let relativePaths = ['skills', ...manifestPaths, ...entryPaths];
-  if (entry.strict === false) relativePaths = ['skills', ...entryPaths];
   // Repository root entries with explicit existing subdirectories restrict discovery.
   if (realDirectory === boundary && entryPaths.length && !entryPaths.some(value => ['.', './', './skills', './skills/'].includes(value))) {
     const existing = [];

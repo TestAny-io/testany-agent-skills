@@ -2094,5 +2094,13 @@
   "查看全部匹配（{v0} 项）": {
     "en": "Show all matches ({v0})",
     "ja": "一致するすべての項目を表示（{v0} 件）"
+  },
+  "兼容性提示": {
+    "en": "Compatibility notice",
+    "ja": "互換性に関するお知らせ"
+  },
+  "两处版本声明：{v0} 的市场版本为 {v1}，plugin.json 版本为 {v2}；采用 plugin.json 版本。": {
+    "en": "Plugin {v0} declares marketplace version {v1} and plugin.json version {v2}; the plugin.json version takes precedence.",
+    "ja": "プラグイン {v0} にはマーケットのバージョン {v1} と plugin.json のバージョン {v2} が宣言されています。plugin.json のバージョンを使用します。"
   }
 }

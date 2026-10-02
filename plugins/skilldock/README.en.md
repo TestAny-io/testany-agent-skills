@@ -130,6 +130,13 @@ Switch between Chinese, English, and Japanese. Choose light, dark, or system app
 ## Frequently asked questions
 
 <details>
+<summary>Can I install a marketplace with duplicate versions or strict:false?</summary>
+
+Yes. When both the entry and `plugin.json` declare a version, SkillDock uses the manifest version and shows a compatibility notice without blocking installation or updates. `strict:false` is also valid when only the manifest declares components. Escaping paths, dangling links, and actual component conflicts still block the operation. See the [compatibility rules and validation scope](skills/skill-manager/references/marketplace-compatibility.md).
+
+</details>
+
+<details>
 <summary>Can I install and update from a private Git repository?</summary>
 
 SkillDock reuses Git credentials already configured on your machine, including private repositories you can access. There is no separate account sign-in inside SkillDock. First confirm that Git on the machine can access the repository. See the [private repository notes](skills/skill-manager/references/23-navigation-and-private-git.md).
@@ -180,7 +187,7 @@ Include your SkillDock version, Codex version, and reproduction steps when usefu
 
 ## Version, license, and development
 
-Distributed through this GitHub repository. Current version: **0.10.0**. [Changelog](../../CHANGELOG.md) · [AGPL-3.0-only](LICENSE) · [Third-party notices](skills/skill-manager/THIRD_PARTY_NOTICES.md). Other plugins follow their respective licenses.
+Distributed through this GitHub repository. Current version: **0.10.1**. [Changelog](../../CHANGELOG.md) · [AGPL-3.0-only](LICENSE) · [Third-party notices](skills/skill-manager/THIRD_PARTY_NOTICES.md). Other plugins follow their respective licenses.
 
 See the [application README](skills/skill-manager/assets/app/README.md) for development, launch, and verification commands.
 

@@ -29,7 +29,7 @@ Testany Agent Skills 按领域聚合 plugin（testany-eng / testany-llm / testan
 
 - 根 README 与各 plugin README 是对外事实源；marketplace、默认组件约定及存在时的 plugin.json 是发现事实源。
 - 同一领域新增 skill 不新增 marketplace plugin；新增/删除/重命名时同步相关入口、README、发现配置与 CHANGELOG。
-- Plugin version 只能有一个 authority；同一 marketplace 内可复用 symlink，但 dangling 或越出 marketplace root 必须 fail closed。
+- 本仓库编写的 plugin version 只能有一个 authority；SkillDock 读取第三方 marketplace 时按上游兼容规则解析重复版本并提示，不把仓库编写规范作为安装限制。同一 marketplace 内可复用 symlink，但 dangling 或越出 marketplace root 必须 fail closed。
 - 修改或审查 manifest、组件发现路径、symlink、skill 增删改名，或准备安装/发布时，先读 [发现与发布维护](docs/plugin-development.md)，保留 strict/合并/路径/版本语义。
 - 仅本地或功能分支编辑时执行相关验证，不因此自动安装、提交、推送或合并；准备合并 `main` 时必须执行上述发布规则，不能沿用“普通编辑不升版”作为豁免。已有用户明确约定的版本规则优先。TeamDesk 每次本地迭代升 patch、每次合并远程 main 升 minor，major 由用户决定，详见 [TeamDesk 版本规则](plugins/teamdesk/AGENTS.md#版本规则)。
 

@@ -1,3 +1,4 @@
+import { CompatibilityWarnings } from "./CompatibilityWarnings";
 import { useEffect, useRef, useState } from "react";
 import { ArrowLeft, ArrowRight, Blocks, CheckCircle2, CircleHelp, ExternalLink as LinkIcon, FolderOpen, GitBranch, Globe2, Plus, RefreshCw, Search, ShieldCheck, Sparkles } from "lucide-react";
 import type { ActionResult, InstallPreview, PluginInstallPreview, Plugin, Snapshot } from "../shared/contracts";
@@ -75,6 +76,7 @@ export function InstallDialog({ kind, data, initialPlugin, initialMarket = false
             {preview && "target" in preview && <><dt>{t("安装到")}</dt><dd><code>{preview.target}</code></dd></>}
           </dl>
           {preview && <ResolvedGitSource source={preview} />}
+          <CompatibilityWarnings warnings={direct?.warnings} />
           {direct?.remote && <section className="remote-plugin-preview">
             <strong>{t('应用连接')}: {direct.remote.name}</strong>
             <p className="field-hint">{t('将由 Codex 安装官方目录插件。账号登录与权限授权在官方页面完成；SkillDock 不接触你的账号密码。')}</p>

@@ -189,6 +189,24 @@
   - `testany-llm` 的命令列表和 plugin 描述改为仅保留 `prompt-optimizer`
   - 根 README、`AGENTS.md`、`CLAUDE.md` 不再引用已删除的 `skill-creator` 脚本与路径
 
+## [skilldock 0.10.1] - 2026-10-02
+
+### 修复
+
+- 修复第三方 marketplace 因重复声明版本而无法添加、预览或更新的问题：以 `plugin.json.version` 为准，保留原文件并展示非阻断提示。
+- 修正 `strict:false` 判定：manifest 存在且条目自身声明六类组件字段时才冲突；仅 manifest 声明组件合法。组件发现与预览遵循相同规则，保留来源身份、路径边界、悬空链接与非法版本保护。
+- 在市场卡片、插件详情、安装预览和更新检查中展示中、英、日兼容性提示，提示不进入会阻断操作的错误诊断。
+
+### 文档与分发
+
+- SkillDock manifest、应用 package 与 lockfile 同步到 0.10.1，重新构建网页和 Codex 原生 UI；同步中英文 README、第三方测试样本许可与[兼容性说明](plugins/skilldock/skills/skill-manager/references/marketplace-compatibility.md)。
+- 根级 AGENTS / CLAUDE 与发现维护文档区分本仓库单一版本的编写政策和第三方安装兼容规则；其他插件内容与版本不在本轮发布范围内。
+
+### 验证
+
+- 后端回归 219/219、浏览器回归 84/84 通过；包括中英日、浅深色的完整提示与安装流程。TypeScript、Web / 原生构建、候选树发现校验、107 个文档本地链接和 47 个原生输入 / 4 个产物摘要核验通过。
+- Codex CLI 0.159.2 在隔离目录完成原始 metadata 加合成技能的安装、版本优先级更新和启用选择读回；真实 `ui-ux-pro-max-skill` 仓库只读核验 7 个技能、682 个文件，未在用户环境安装该插件。
+
 ## [skilldock 0.10.0] - 2026-10-01
 
 ### 新增与修复
