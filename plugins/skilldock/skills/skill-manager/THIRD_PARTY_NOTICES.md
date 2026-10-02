@@ -233,3 +233,7 @@ OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 ## Native MCP app bundles
 
 The native UI and server use @modelcontextprotocol/sdk 1.30.1, @modelcontextprotocol/ext-apps 1.7.5 and zod 4.6.5, together with their bundled dependencies. The reproducible `npm run build:native` build preserves inline notices and generates the complete dependency license texts in `assets/native/THIRD_PARTY_NOTICES.txt`. Their upstream licenses remain unchanged. Build sources are included in the corresponding source archive.
+
+## Marketplace compatibility test fixture
+
+The two metadata JSON files under `assets/app/tests/fixtures/ui-ux-pro-max/` are from [nextlevelbuilder/ui-ux-pro-max-skill](https://github.com/nextlevelbuilder/ui-ux-pro-max-skill) at commit `09170eec67eefd46a7ae85de61b40c194020f997`, under the MIT license. The upstream copyright and full license are preserved in that fixture directory. Tests generate their own harmless skill content.

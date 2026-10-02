@@ -1,3 +1,4 @@
+import { CompatibilityWarnings } from "./CompatibilityWarnings";
 import { matchesPlugin, pluginTitle } from "./plugin-presentation";
 import { ExternalLink } from './ExternalLink';
 import { useEffect, useLayoutEffect, useMemo, useRef, useState, type ReactNode } from "react";
@@ -1514,6 +1515,7 @@ function PluginCard({ plugin, busy, onToggle, onInstall, onDetails, onEditTags, 
 function PluginDetail({ plugin, skills, busy, onClose, onToggle, onRemove, onInstall, onUpdates, onSkill }: { plugin: Plugin; skills: Skill[]; busy: string | null; onClose: () => void; onToggle: () => void; onRemove: () => void; onInstall: () => void; onUpdates: () => void; onSkill: (skill: Skill) => void }) {
   return <Inspector title={t("插件详情")} onClose={onClose}>
     <div className="modal-body"><ProviderIcon icon={plugin.icon} className="skill-icon tone-2 inspector-provider-icon" large><Blocks size={26} /></ProviderIcon><h3 className="inspector-object-name">{pluginTitle(plugin)}</h3><p className="dialog-description">{plugin.description || t("未提供描述")}</p><dl className="preview-paths"><dt>{t("版本")}</dt><dd>{plugin.version || t("版本未提供")}</dd><dt>{t("来自")}</dt><dd><code>{plugin.directSource?.source || plugin.marketplace}</code></dd><dt>ID</dt><dd><code>{plugin.id}</code></dd>{plugin.sourcePath && <><dt>{t("来源路径")}</dt><dd><code>{plugin.sourcePath}</code></dd></>}{plugin.installedPath && <><dt>{t("安装路径")}</dt><dd><code>{plugin.installedPath}</code></dd></>}{plugin.realPath && plugin.realPath !== plugin.installedPath && <><dt>{t("实际路径")}</dt><dd><code>{plugin.realPath}</code></dd></>}</dl>
+      <CompatibilityWarnings warnings={plugin.warnings} />
       {plugin.directSource && <ResolvedGitSource source={plugin.directSource} />}
       {plugin.installed && <div className="inline-toggle"><Toggle checked={plugin.enabled} disabled={!plugin.canToggle || !!busy} label={`${plugin.enabled ? t("禁用") : t("启用")} ${pluginTitle(plugin)}`} onChange={onToggle} /><span>{t(plugin.enabled === null ? "状态待确认" : plugin.enabled ? "已启用" : "已禁用")}</span></div>}
       {plugin.reason && <div className="dialog-note"><ServiceMessage value={plugin.reason} /></div>}
@@ -1567,6 +1569,7 @@ function MarketCard({
             {formatDate(market.refreshedAt)}
           </span>
         </div>
+        <CompatibilityWarnings warnings={market.warnings} />
         {market.reason && (
           <div className="capability-reason">
             <CircleAlert size={13} />

@@ -33,6 +33,7 @@ export interface FileDiff extends FileChange {
     lines: { kind: "added" | "removed" | "context" | "note"; content: string; oldLine?: number; newLine?: number }[] }[];
 }
 export interface UpdateItem {
+  warnings?: string[];
   target: UpdateTarget;
   name: string;
   owner: string;
@@ -168,6 +169,7 @@ export interface Skill {
   sourceInfo?: SourceInfo;
 }
 export interface Plugin {
+  warnings?: string[];
   icon?: ProviderIcon;
   directSource?: { source: string; sourceType: "local" | "git"; subpath?: string; ref?: string; commit?: string };
   id: string;
@@ -192,6 +194,7 @@ export interface Plugin {
   sourceInfo?: SourceInfo;
 }
 export interface Marketplace {
+  warnings?: string[];
   /** Only a direct single-plugin source inherits that plugin’s branding. */
   icon?: ProviderIcon;
   displayName?: string;
@@ -270,6 +273,7 @@ export interface InstallPreview {
   bytes: number;
 }
 export interface PluginInstallPreview {
+  warnings?: string[];
   iconAssets?: IconAssets;
   icon?: ProviderIcon;
   id: string;
@@ -359,6 +363,7 @@ export interface ActionRequest {
   schedule?: ScheduleInput;
 }
 export interface ActionResult {
+  warnings?: string[];
   remoteInstall?: { id: string; name: string; installed: boolean; connected: boolean; installUrl?: string };
   removalPreview?: RemovalPreview;
   diff?: FileDiff;

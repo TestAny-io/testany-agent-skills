@@ -2,7 +2,7 @@
 import fs from 'node:fs/promises';
 import path from 'node:path';
 import { exists, fail, hash, inside, metadata } from './files.mjs';
-import { discoverSkillRoots, readPluginManifest } from './cli.mjs';
+import { discoverSkillRoots, readPluginDefinition, componentValues } from './cli.mjs';
 import { createIconCatalog } from './provider-icons.mjs';
 
 // Read the same declared/default roots as the installed library. Names are not
@@ -12,7 +12,8 @@ export async function pluginContents(directory, { marketRoot = directory, entry 
   const icon = await icons.plugin(directory);
   const boundary = await fs.realpath(marketRoot);
   const pluginRoot = await fs.realpath(directory);
-  const manifest = await readPluginManifest(directory, boundary);
+  const definition = await readPluginDefinition(directory, { marketRoot: boundary, entry });
+  const { manifest, warnings } = definition;
   roots ||= await discoverSkillRoots(directory, { marketRoot: boundary, entry });
   const seen = new Set(); const seenSkills = new Set(); const skillDetails = []; let visited = 0;
   async function visit(location, depth = 0) {
@@ -43,9 +44,9 @@ export async function pluginContents(directory, { marketRoot = directory, entry 
   for (const root of roots) await visit(root);
   const components = [];
   for (const [kind, field, files] of [['commands', 'commands', ['commands']], ['agents', 'agents', ['agents']], ['hooks', 'hooks', ['hooks/hooks.json']], ['mcp', 'mcpServers', ['.mcp.json', 'mcp.json']], ['apps', 'apps', ['.app.json']]]) {
-    if (entry[field] || manifest[field]) components.push(kind);
+    if (componentValues(field, definition, entry).some(Boolean)) components.push(kind);
     else for (const file of files) if (await exists(path.join(directory, file))) { components.push(kind); break; }
   }
   const signature = hash(JSON.stringify({ manifest, entry, skills: skillDetails.map(({ icon, ...skill }) => skill), components }));
-  return { icon, iconAssets: icons.assets, skills: skillDetails.map(skill => skill.name), skillDetails: skillDetails.map(({ digest, ...skill }) => skill), components, signature };
+  return { warnings, icon, iconAssets: icons.assets, skills: skillDetails.map(skill => skill.name), skillDetails: skillDetails.map(({ digest, ...skill }) => skill), components, signature };
 }

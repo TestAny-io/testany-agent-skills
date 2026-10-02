@@ -6,7 +6,7 @@ import crypto from 'node:crypto';
 import { fileURLToPath } from 'node:url';
 import { AppError, fail, exists, inside, identity, hash, now, metadata, inspectTree, copySkill, objectFingerprint, diffFiles, readJson, writeJson, safeName, safeSegment, redact, captureDirectoryRoot, verifyDirectoryRoot, verifyDescendantDirectory } from './files.mjs';
 import { toggleConfig, toggleSkillConfigs, readConfig } from './config.mjs';
-import { CodexAdapter, validateSource, validateSubpath, validateRef, checkoutGit, readMarketplace, readComponentEntry, readPluginManifest, discoverSkillRoots } from './cli.mjs';
+import { CodexAdapter, validateSource, validateSubpath, validateRef, checkoutGit, readMarketplace, readComponentEntry, readPluginManifest, readPluginDefinition, discoverSkillRoots } from './cli.mjs';
 import { initializeSandbox, emptyRegistry } from './fixtures.mjs';
 import { scan, sandboxCatalog, rootsFor } from './scanner.mjs';
 import { pluginCacheRoot, pluginPath, verifyPluginPath, protectedRoots, skillLocation } from './paths.mjs';
@@ -376,9 +376,8 @@ export async function createService(options = {}) {
     const marketRoot = env.mode === 'sandbox' ? registry.marketplaces[plugin.marketplace]?.root || registry.marketplaces[plugin.marketplace]?.source : catalog.marketplaces.find(item => item.id === plugin.marketplace)?._root;
     if (!marketRoot) fail(422, 'SOURCE_MISSING', '所属市场未配置，无法核实更新来源。');
     if (env.mode === 'sandbox' && !inside(env.root, await fs.realpath(source))) fail(403, 'SANDBOX_BOUNDARY', '包来源越出演练范围。');
-    const entry = await readComponentEntry(marketRoot, plugin.name, source); const manifest = await readPluginManifest(source, marketRoot);
-    if (entry.version !== undefined && manifest.version !== undefined) fail(422, 'VERSION_AUTHORITY', '版本有多个 authority，无法安全更新。');
-    const availableVersion = manifest.version ?? entry.version;
+    const entry = await readComponentEntry(marketRoot, plugin.name, source);
+    const { manifest, version: availableVersion, warnings } = await readPluginDefinition(source, { marketRoot, entry });
     if (!safeSegment(availableVersion)) fail(422, 'VERSION_UNVERIFIED', '来源未声明可验证的版本；请由包维护者发布明确版本后再更新。');
     const installedPath = pluginPath(env.codexHome, plugin.marketplace, plugin.name, plugin.version);
     await verifyPluginPath(env, installedPath);
@@ -413,7 +412,7 @@ export async function createService(options = {}) {
       const updatedDuringCheck = current && market?.type === 'git' && compareVersions(plugin.version, initialVersion) === 1;
       const blocked = !current && (availableVersion === plugin.version || order !== null && order < 0);
       const previewId = crypto.randomUUID();
-      const item = { target: { kind: 'plugin', id }, name: plugin.name, owner: plugin.sourceInfo.owner, route: 'plugin-reinstall', status: current ? 'current' : blocked ? 'blocked' : 'available', canCheck: true, canApply: !current && !blocked, canAutoApply: !blocked && order === 1,
+      const item = { target: { kind: 'plugin', id }, name: plugin.name, owner: plugin.sourceInfo.owner, route: 'plugin-reinstall', warnings, status: current ? 'current' : blocked ? 'blocked' : 'available', canCheck: true, canApply: !current && !blocked, canAutoApply: !blocked && order === 1,
         message: current ? '已安装版本和内容与来源一致。' : blocked ? availableVersion === plugin.version ? '来源内容变化但版本未递增；Codex 可能复用旧缓存，请维护者递增版本。' : '来源版本低于已安装版本，自动更新不会降级。' : order === null || order === 0 ? '来源版本不同但无法证明先后；可手动确认更新，定时计划不会自动应用。' : '发现新包版本；通过 Codex 重新安装并恢复原启用状态。', reasonCode: current ? undefined : blocked ? availableVersion === plugin.version ? 'VERSION_UNCHANGED' : 'DOWNGRADE_BLOCKED' : order !== 1 ? 'MANUAL_VERSION_ORDER' : undefined,
         checkedAt: now(), installedVersion: plugin.version, availableVersion, changes, sourceInfo: plugin.sourceInfo, installedPath, ...(updatedDuringCheck ? { updatedDuringCheck: true } : {}), ...(!current && !blocked ? { previewId } : {}) };
       if (updatedDuringCheck) item.message = 'Codex 已在刷新市场时更新包，已核对版本和内容。';
@@ -449,10 +448,9 @@ export async function createService(options = {}) {
     const marketRoot = market?._root || registry.marketplaces[plugin.marketplace]?.root || registry.marketplaces[plugin.marketplace]?.source;
     if (!marketRoot || !plugin.sourcePath) fail(422, 'PLUGIN_PREVIEW_UNAVAILABLE', '无法读取这个插件的技能清单，请先刷新或重新连接市场来源。');
     const entry = await readComponentEntry(marketRoot, plugin.name, plugin.sourcePath);
-    const manifest = await readPluginManifest(plugin.sourcePath, marketRoot);
+    const { manifest, version: resolvedVersion } = await readPluginDefinition(plugin.sourcePath, { marketRoot, entry });
     const { signature, ...contents } = await pluginContents(plugin.sourcePath, { marketRoot, entry });
-    if (manifest.version !== undefined && entry.version !== undefined) fail(422, 'VERSION_AUTHORITY', '插件版本在市场和 manifest 中重复声明。');
-    const version = String(manifest.version ?? entry.version ?? 'local');
+    const version = resolvedVersion ?? 'local';
     if (!safeSegment(version)) fail(422, 'INVALID_VERSION', '插件版本必须是安全的单段字符串，不能包含路径。');
     const canSelectSkills = contents.skillDetails.every(skill => inside(plugin.sourcePath, path.resolve(plugin.sourcePath, skill.path)));
     return { plugin, signature, source: plugin.sourcePath, boundary: await captureDirectoryRoot(plugin.sourcePath),
@@ -837,7 +835,7 @@ export async function createService(options = {}) {
             await adapter.command(args, { mutation: true }); const readback = await adapter.list(); cachedCatalog = readback; catalogTime = Date.now();
             if (!readback.marketplaces.some(item => item.id === catalog.name)) fail(502, 'READBACK_FAILED', 'CLI 未能确认市场已添加，请刷新核实。');
           }
-          target = catalog.name; result = { message: `已添加市场 ${target}，可以浏览并安装其中的插件。` }; break;
+          target = catalog.name; result = { message: `已添加市场 ${target}，可以浏览并安装其中的插件。`, warnings: catalog.warnings }; break;
         }
         case 'marketplace.refresh':
         case 'marketplace.remove': {

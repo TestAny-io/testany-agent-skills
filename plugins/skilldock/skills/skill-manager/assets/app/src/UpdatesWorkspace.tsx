@@ -1,3 +1,4 @@
+import { CompatibilityWarnings } from "./CompatibilityWarnings";
 import { useEffect, useMemo, useRef, useState } from "react";
 import {
   ArrowDownToLine,
@@ -852,6 +853,7 @@ export function UpdatesWorkspace({
             </details>
             <p className="uw-hint">{hint(item)}</p>
             {technical(item.message)}
+            <CompatibilityWarnings warnings={item.warnings} />
             {item.sourceInfo && (
               <details className="uw-evidence">
                 <summary>

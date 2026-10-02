@@ -130,6 +130,13 @@ $skill-manager 打开技能管理面板
 ## 常见问题
 
 <details>
+<summary>第三方 marketplace 重复声明版本，或使用 strict:false，能安装吗？</summary>
+
+可以。市场条目与 `plugin.json` 同时声明版本时，以 `plugin.json` 为准，并显示兼容性提示；提示不会阻止安装或更新。`strict:false` 且组件只在 manifest 声明也是合法组合。来源越界、悬空链接和真正的组件冲突仍会阻止操作。详见[兼容规则与验证范围](skills/skill-manager/references/marketplace-compatibility.md)。
+
+</details>
+
+<details>
 <summary>能从私有 Git 仓库安装和更新吗？</summary>
 
 可以复用本机已经配置好的 Git 凭据，包括有权限的私有仓库。SkillDock 不提供单独的账号登录；先确保当前机器能通过 Git 访问对应仓库。详见[私仓支持与边界](skills/skill-manager/references/23-navigation-and-private-git.md)。
@@ -180,7 +187,7 @@ $skill-manager 打开技能管理面板
 
 ## 版本、许可与开发
 
-通过 GitHub 仓库分发，当前版本为 **0.10.0**。[变更记录](../../CHANGELOG.md) · [AGPL-3.0-only](LICENSE) · [第三方声明](skills/skill-manager/THIRD_PARTY_NOTICES.md)。其他插件遵循各自的许可证。
+通过 GitHub 仓库分发，当前版本为 **0.10.1**。[变更记录](../../CHANGELOG.md) · [AGPL-3.0-only](LICENSE) · [第三方声明](skills/skill-manager/THIRD_PARTY_NOTICES.md)。其他插件遵循各自的许可证。
 
 开发、启动与验证命令见[应用 README](skills/skill-manager/assets/app/README.md)。
 

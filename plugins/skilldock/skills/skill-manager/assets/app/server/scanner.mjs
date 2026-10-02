@@ -15,7 +15,7 @@ export async function sandboxCatalog(environment, registry) {
   for (const [id, entry] of Object.entries(registry.marketplaces)) {
     try {
       const catalog = await readMarketplace(entry.root || entry.source);
-      marketplaces.push({ id, name: id, source: entry.source, type: entry.type, pluginCount: catalog.plugins.length, canRemove: true, canRefresh: entry.type === 'git', refreshedAt: entry.refreshedAt });
+      marketplaces.push({ id, name: id, source: entry.source, type: entry.type, pluginCount: catalog.plugins.length, warnings: catalog.warnings, canRemove: true, canRefresh: entry.type === 'git', refreshedAt: entry.refreshedAt });
       for (const plugin of catalog.plugins) {
         const installed = registry.plugins[plugin.id];
         const record = { ...plugin, version: installed?.version || plugin.version, installed: !!installed, enabled: enabled(plugin.id, installed), sourcePath: installed?.directory || plugin.sourcePath, _updateSourcePath: plugin.sourcePath, _skillRoots: installed ? undefined : plugin._skillRoots, _componentRoots: installed?.componentRoots || plugin._componentRoots, canInstall: !installed, canRemove: !!installed, canToggle: !!installed && !!configuration };
