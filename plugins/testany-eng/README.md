@@ -4,7 +4,7 @@
 
 研发流程工具集：从业务需求、设计到源码评审、测试设计与运维准备的完整链路。
 
-SkillDock 已迁移为独立的 [skilldock 插件](../skilldock/README.md)。`testany-eng 2.6.0` 包含 22 个研发与协作 skills，新增交付秘书及可选 Reviewer 协作接口；需要图形管理器时单独安装 SkillDock。发布版本以 plugin.json 和 CHANGELOG 为准。
+SkillDock 已迁移为独立的 [skilldock 插件](../skilldock/README.md)。`testany-eng 2.7.0` 包含 23 个研发与协作 skills，新增 `code-writer`，同时更新 Reviewer 恢复能力及 Delivery Secretary 协作接口。需要图形管理器时单独安装 SkillDock。发布版本以 plugin.json 和 CHANGELOG 为准；使用新版需要更新完整插件，发布不表示本机已安装或在线线程已采用。
 
 ## 概述
 
@@ -602,6 +602,21 @@ flowchart TD
 
 ---
 
+### code-writer
+
+**用途**：在明确请求/批准范围内实现、排障、补必要测试和整改，形成精确 Candidate。
+
+- 从真实入口定位根因，保留反证、未执行测试、失败与必要验证；不以节省上下文降低质量。
+- 工程恢复位置留在原 Record；小入口显式绑定当前任务，切换/返回不默用旧状态。
+- 与 Reviewer 使用同包公共工具，支持有界 JSON/浏览器读取、依赖自检及可信证据复用；不依赖本机源仓库或固定缓存版本。
+- Delivery Manager 继续使用现有 `delivery-secretary` 管理承诺、依赖和进度；工程判断由对应角色维护，不新增一个同职责 skill 或台账。
+
+**示例**：`/code-writer ./backend 修复已批准的重复回调问题`
+
+完整插件资源、项目接入与宿主边界见 [持久入口](references/workflow-runtime.md)；静态工具测试、独立行为样例和真实宿主持续效果分别验证。
+
+---
+
 ### code-reviewer
 
 **用途**：对精确 Implementation Candidate 做独立 Lead Dev Code Review，验证源码是否正确实现已批准范围
@@ -619,6 +634,7 @@ flowchart TD
 - 使用一份可核验 Review Record，报告/子任务引用，不重复抄历史；只有内容、依赖、命令、工具、配置和基线核验一致才能复用 source/local 证据，新 Candidate 仍需新绑定与 verdict
 - 机器证据默认完整落盘、stdout 摘要不超过 4096 bytes；复用内置 snapshot 比较和 manifest/archive/source 校验，避免反复输出全量清单或临时重写校验代码，详见[工具约定](skills/code-reviewer/references/artifact-tools.md)
 - 可选[秘书协作](skills/code-reviewer/references/delivery-coordination.md)：在既有授权内同步实质状态变化与 Record 引用；纯状态询问不重启评审，秘书收件/记账不成为准出条件
+- 持久入口与 Writer 共用同包资源校验、任务身份匹配和有界读取；保持独立核验、新 Candidate/反证处理与既有准出要求
 - Skill 自身有缩小的生产语义正反样本与盲测控制，分别评估漏报、误报、越界和收敛；不把样本通过冒充真实部署通过
 
 `snapshot_worktree.py` 的默认 stdout 改为附件摘要；读取旧版全量 JSON stdout 的机器消费者需显式加 `--full-json` 并重定向。原 snapshot schema、digest 算法和 Python `create_snapshot()` 接口保持不变。这些工具按已有证据需要调用，不新增每轮门禁或要求复跑测试。

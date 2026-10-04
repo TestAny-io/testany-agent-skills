@@ -49,6 +49,8 @@ LLD 准出后还存在一条与测试文档准备并行的实现门禁：
 
 `Implementation Candidate -> Code Review -> exact-SHA CI / PR / merge`
 
+已有明确实现/修复请求且正在编写或排障时使用 `/code-writer`；形成精确 Candidate 后进入 `/code-reviewer`。有限修复沿现有批准范围，不因为新增 Writer 入口要求回补完整设计；请求只评方案时仍按 HLD/LLD 层级路由。
+
 对应 skill：
 
 - `/brd-interviewer`
@@ -63,6 +65,7 @@ LLD 准出后还存在一条与测试文档准备并行的实现门禁：
 - `/test-strategy-reviewer`
 - `/lld-writer`
 - `/lld-reviewer`
+- `/code-writer`（已有授权实现、修复、排障或工程续接）
 - `/code-reviewer`（仅当 exact Implementation Candidate 已存在）
 - `/test-spec-writer`
 - `/test-reviewer`

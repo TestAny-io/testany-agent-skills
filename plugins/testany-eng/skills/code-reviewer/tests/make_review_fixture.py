@@ -16,7 +16,8 @@ HERE = Path(__file__).resolve().parent
 RAW = HERE / "raw"
 SKILL = HERE.parent
 SHARED_REFERENCES = SKILL.parents[1] / "references"
-SHARED_REFERENCE_NAMES = ("language-policy.md", "subagent-result-contract.md", "review-boundaries.md")
+SHARED_REFERENCE_NAMES = ("language-policy.md", "subagent-result-contract.md", "review-boundaries.md",
+                          "workflow-runtime.md", "browser-context.md")
 CASES = {
     "CRB-001": ("resource", "r1", None),
     "CRB-002": ("resource", "r2", None),
@@ -116,6 +117,13 @@ def materialize(case_id: str, bundle: Path, *, include_skill: bool = True) -> di
         shared_snapshot.mkdir(parents=True)
         for name in SHARED_REFERENCE_NAMES:
             shutil.copyfile(SHARED_REFERENCES / name, shared_snapshot / name)
+        # Copy the declared runtime closure without copying any grader/test tasks.
+        plugin_root = SHARED_REFERENCES.parent
+        manifest = json.loads((plugin_root / "workflow-package.json").read_text())
+        for relative in ["workflow-package.json", *manifest["files"]]:
+            target = bundle / "plugin" / relative
+            target.parent.mkdir(parents=True, exist_ok=True)
+            shutil.copyfile(plugin_root / relative, target)
     skill_path = bundle / "plugin" / "skills" / "code-reviewer" / "SKILL.md" if include_skill else SKILL / "SKILL.md"
     request = f"""请使用 {skill_path} 对此本地 Candidate 做首次完整 Code Review。
 

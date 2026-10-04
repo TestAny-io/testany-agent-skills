@@ -13,10 +13,12 @@ python3 plugins/testany-eng/skills/code-reviewer/tests/make_review_fixture.py CR
 ```
 
 导出命令创建临时目录，内含 `request.md`、`binding.json`、真实两/三次 commit 的
-`repository/` 和剔除 tests 的 `plugin/skills/code-reviewer/` 快照，以及其使用的三份
+`repository/` 和剔除 tests 的 `plugin/skills/code-reviewer/` 快照，以及其使用的必要
 `plugin/references/` 共享 reference。只在该临时 Git 仓库 commit，
 不会提交工作仓库，不联网。已有非空输出目录会被拒绝。精确 SHA/tree 随材料提供；
 配对 fixed 输入保留相同的 r1 commit，便于核对上一轮 Candidate。
+
+导出包同时复制 `workflow-package.json` 声明的同包运行资源及两份恢复参考，保证公共读取入口在隔离目录可用；不复制 grader。维护持久入口时也运行 `../../../scripts/tests/test_workflow_runtime.py`，见 `../../code-writer/tests/evaluation.md` 的生命周期边界。资源变更后从源包运行 `scripts/build_workflow_package.py` 刷新清单，再用 `--check` 校验，禁止用重建清单掩盖已安装包的不完整。
 
 ## 独立盲测
 
@@ -54,6 +56,14 @@ python3 plugins/testany-eng/skills/code-reviewer/tests/make_review_fixture.py CR
 3. **实际输入变化**：自动 binding 回归分别改变 bytes/path/mode/gitlink、过滤后的 raw 内容、外部 mutable baseline；必须报告 CONTENT_CHANGED/UNVERIFIED，不能走同内容 fast path。CI、commit-sensitive 命令及新 blocker 是额外上下文，工具不作批准判断。
 
 评分增加“多余工作”维度：记录工具调用、重跑的等价测试、重复加载的材料、实质 review 轮数。仅对同样输入作比较；文档缩短比例不是实际 token/延迟节省比例。达到门禁就停止测试样本，不为刷分反复重审。未实际执行的对照如实记为未评估。
+
+### 恢复与证据格式
+
+维护最小读取规则时，沿用上述同一 blind reviewer：在初审后仅询问当前状态，并提供它自己的 Record 定位；检查是否直接回答且不重读全套材料、不生成新 binding/测试。随后提供配对 Candidate，检查它确实读取并验证变更及原 blocker，不能把“复用”当成忽略新输入。此项验证状态续接，不假装实际发生过宿主压缩；真实压缩后的读取行为要在实际会话中另行观察。
+
+证据格式由 `test_code_reviewer_artifacts.py` 的真实 CLI 用例验证：既有 entries 与显式 evidence/source map、错误 pin/字段、内容变化、路径越界和重复项。Hash-only 结果必须保留仅列出文件的验证边界，不能合成历史 size 或完整源码批准。无需为格式兼容再跑产品长链测试。
+
+有界 JSON 读取由 `test_code_reviewer_context.py` 验证真实 CLI：超大单行/多字节内容只给定位、显式选中值与缺失项不混淆、错误 pin/歧义 JSON 拒绝、聚合输出仍在预算内；不靠截断字符串通过。恢复盲测使用 agent 自己的当前判断、已核验输入/结果和下一步，随后给新 Candidate 检查它仍补审变化。正常支线及其必要上下文读取不算多余工作；仅将同一事实、同一判断的不必要重复计入。未发生真实压缩时，不能声称已经验证压缩恢复效果。
 
 ## 可选秘书协作
 

@@ -1,0 +1,4 @@
+interface:
+  display_name: "Code Writer"
+  short_description: "Implement, troubleshoot, and resume engineering work"
+  default_prompt: "Use $code-writer to implement this change within its approved scope, verify affected behavior, and prepare a precise review handoff."

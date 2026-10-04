@@ -4,7 +4,7 @@
 
 ## 输出约定
 
-- 默认 stdout ≤4096 bytes：状态、数量、附件路径/摘要、最多 20 个完整差异路径；`*_count` 是总数，`*_omitted` 表示还有多少。完整差异在附件中，摘要省略不代表没有其他差异。
+- 下列证据校验工具默认 stdout ≤4096 bytes：状态、数量、附件路径/摘要、最多 20 个完整差异路径；`*_count` 是总数，`*_omitted` 表示还有多少。完整差异在附件中，摘要省略不代表没有其他差异。只读导航工具的独立约定见第 5 节。
 - `--output` 指定新的附件文件；父目录应已存在，统一选择 Candidate 外的评审目录。工具拒绝覆盖；带 snapshot/repo 输入的模式还会拒绝 Candidate/Git 控制目录，manifest 模式拒绝其 evidence root 内的输出。不传则保存到临时目录并返回路径；需长期引用时明确指定持久评审目录。
 - snapshot 的 `snapshot_sha256` 是 manifest 的语义摘要；`artifact_sha256`、`receipt_sha256`、manifest/archive 的 pin 是文件字节摘要，不混用。pin 应来自此前捕获或已核验引用，不能重新从当前待验文件取值自证。
 - 退出码：0 为 CAPTURED/MATCH/SAME_CONTENT，1 为 DRIFT/MISMATCH/CONTENT_CHANGED，2 为 UNVERIFIED（输入、格式或执行问题）。错误不构成内容一致证明；只补必要缺口，不自动全审。
@@ -31,7 +31,15 @@ python3 <skill-dir>/scripts/snapshot_worktree.py --repo <repo> --base <base> \
 
 ## 3. 现有证据清单
 
-支持现有格式 `{"entries":[{"path":"relative/file","bytes":123,"sha256":"..."}]}`；逐条验证，不递归打开文件里提到的其他引用。相对路径以显式 `--root` 为准，不能越界或通过 symlink 逃逸。确实属于本次证据的绝对路径用精确文件白名单声明，不放行整个外部目录。
+显式选择已有格式；不先手写 adapter，也不猜测 JSON 是数组还是对象：
+
+| `--format` | 读取字段与形状 | 验证内容 |
+|---|---|---|
+| `entries`（默认） | `{"entries":[{"path":"relative/file","bytes":123,"sha256":"..."}]}` | 已声明 size + SHA-256 |
+| `evidence-map` | `{"evidence":{"relative/file":{"size":123,"sha256":"..."}}}` | 已声明 size + SHA-256 |
+| `source-files` | `{"source_files":{"relative/file":"<SHA-256>"}}` | 已列文件 SHA-256 |
+
+仅逐条验证所选字段，不递归打开文件里提到的其他引用；同一文档的 `external_evidence` 等未选字段不在结果范围内。相对路径以显式 `--root` 为准，不能越界或通过 symlink 逃逸。确实属于本次证据的绝对路径用精确文件白名单声明，不放行整个外部目录。
 
 ```sh
 python3 <skill-dir>/scripts/verify_review_evidence.py manifest \
@@ -40,7 +48,9 @@ python3 <skill-dir>/scripts/verify_review_evidence.py manifest \
   --output <review-dir>/evidence-check.json
 ```
 
-没有绝对引用时省略 `--allow-external-file`，多份时重复该参数。不支持的清单格式只在确实需要时添加一次窄 adapter/工具支持，不要求迁移历史证据或重新跑测试。
+没有绝对引用时省略 `--allow-external-file`，多份时重复该参数。现有 `SOURCE-BINDING.json` 的 evidence map 加 `--format evidence-map`，已测源码 hash map 加 `--format source-files`，其 `--root` 分别指向证据目录和要核对的源码目录。未知形状先取字段名、类型和单个样例，再决定一次窄 adapter/工具支持，不要求迁移历史证据或重新跑测试。
+
+摘要/receipt 标明 `manifest_field`、`verified_fields` 和 `verification_scope=listed_files_only`。Hash-only 清单可以证明已列文件的内容匹配，但没有声明的 size 不补造成历史证据；当前文件大小不能冒充测试时的元数据。三种 manifest 都不证明整个 Candidate 的 path set、mode/gitlink、执行时点或 oracle；需要完整源码绑定时用下一节的 snapshot/source 或同内容 binding 工具，并核对原测试执行引用。`MATCH` 不升级为整体 source approval。
 
 ## 4. 归档与已测源码
 
@@ -65,3 +75,20 @@ python3 <skill-dir>/scripts/verify_review_evidence.py source \
 ```
 
 该模式比较整个候选文件集合、bytes、原始 permission bits 和 gitlink；允许 checkout 路径/index 不同。不支持排除 WIP。它不证明这份 tested snapshot 就是当时运行测试的输入，仍须核对执行绑定；不为获得这一附件要求复跑长测，也不把当前 checkout 冒充历史已测输入。
+
+## 5. 按字段读取大型 JSON
+
+恢复状态、找 manifest 字段或定位失败项时，用只读导航工具；不要求小文件也走此路径：
+
+```sh
+python3 <skill-dir>/scripts/read_machine_context.py <state.json> \
+  --pointer /current/binding --pointer /current/open --pointer /current/next_action
+```
+
+字段用真实 JSON Pointer；数组索引如 `/failures/0`，键中的 `/`、`~` 分别写成 `~1`、`~0`。无 selector 时只返回根类型、数量和少量子路径。输出默认最多 6144 UTF-8 bytes，单值超过 1200 bytes 时给类型、数量和子路径，不切断原值。沿返回路径细读当前所需字段；确需完整较大字段时显式调整 `--value-bytes`/`--max-bytes`（总量上限 65536），避免重复打印同一大子树。
+
+`SELECTED`/`complete=true` 只说明显式选择的值已完整显示；`PARTIAL`、`value_omitted`、`children_omitted` 均保留未读范围。缺字段返回码 1，文件/JSON/预算等问题返回码 2；0 也可能是有意省略的 `PARTIAL`。这些都不是评审或验证结论，不能用未显示的内容宣告 PASS。重复 JSON key、非有限数值不静默接受。
+
+`observed_sha256` 仅标识本次实际读到的文件。只有显式传入此前固定的 `--sha256` 才核对该 pin；新算的摘要不证明历史版本、测试执行、源码绑定或批准。脚本不写状态、不追读引用；需要证据核验时继续用前述专用工具。
+
+该兼容入口使用同一个 `testany-eng` 包中的 `scripts/context_json.py`，不查其他版本缓存或源码目录；必须安装完整插件。超长单字段可用 `--chunk-offset 0` 取得无损分段，按 `next_args` 继续（后续 offset 必须固定源 SHA）；`field_end` 不代表前文已读。长期工作位置及整包资源校验见 [持久入口](../../../references/workflow-runtime.md)。

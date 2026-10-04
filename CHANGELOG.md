@@ -189,6 +189,21 @@
   - `testany-llm` 的命令列表和 plugin 描述改为仅保留 `prompt-optimizer`
   - 根 README、`AGENTS.md`、`CLAUDE.md` 不再引用已删除的 `skill-creator` 脚本与路径
 
+## [testany-eng 2.7.0] - 2026-10-04
+
+### 新增与修复
+
+- 新增 `code-writer` 及 command、导航和发现说明，覆盖已授权实现、排障、必要测试、精确 Candidate 交接与工程续接。
+- Writer / Reviewer 共用随完整插件发布的资源校验、任务绑定和有界读取工具，按实际安装位置解析依赖。小入口只定位原工程记录；任务切换明确核对身份，长 JSON 字段支持固定来源的无损续读，浏览器适配支持重装与缓存失效检测。
+- Reviewer 兼容既有 entries 与显式 evidence/source map，保留 pin、路径和内容核验；hash-only 结果明确只验证列出的文件，不补造历史 size 或批准。状态查询复用已有结论，新 Candidate、反证和独立核验仍按原要求处理。
+- 配套更新 `delivery-secretary`，继续担任 Delivery Manager，维护目标、承诺、依赖和进度；工程判断由 Writer / Reviewer 各自维护，不新增同职责 skill、审批门禁或 ACK 往返。
+
+### 文档、分发与验证
+
+- `testany-eng` 从 2.6.0 升至 2.7.0，共 23 个研发与协作 skills；同步中英文 README、marketplace 和完整包资源清单，版本仍仅由插件 `plugin.json` 声明。
+- 生命周期 / 任务切换 / 依赖失败 / JSON 与浏览器读取、Reviewer 回归和路由检查共 125 项自动测试通过；仓库发现校验与三份核心 skill 的 frontmatter 校验通过。隔离独立样例覆盖 Writer 修复、状态恢复与切换、Reviewer 初审 / 整改复审 / 控制输入。
+- 工具测试和隔离样例不代表真实宿主压缩、在线线程采用或长期 Token / 时间节省已经验证；浏览器适配仅适用于文档列出的宿主能力。本轮发布未更新用户安装缓存或在线角色状态。
+
 ## [skilldock 0.10.1] - 2026-10-02
 
 ### 修复

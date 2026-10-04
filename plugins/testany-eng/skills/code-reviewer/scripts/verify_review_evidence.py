@@ -51,12 +51,49 @@ def differences(before: dict, after: dict) -> list:
             for path in sorted(set(before) | set(after)) if before.get(path) != after.get(path)]
 
 
-def verify_manifest(path: Path, expected: str, root: Path, allowed: list[Path]) -> dict:
+def unique_object(pairs: list) -> dict:
+    result = {}
+    for key, value in pairs:
+        if key in result:
+            raise ValueError(f"duplicate JSON key: {key}")
+        result[key] = value
+    return result
+
+
+def manifest_entries(payload: dict, manifest_format: str) -> tuple[list, str, list]:
+    if not isinstance(payload, dict):
+        raise ValueError("manifest must be a JSON object; select its declared format explicitly")
+    if manifest_format == "entries":
+        entries = payload.get("entries")
+        if not isinstance(entries, list) or not entries:
+            raise ValueError("entries format requires a non-empty entries list of path/bytes/sha256")
+        field, fields = "entries", ["size", "sha256"]
+    elif manifest_format in ("evidence-map", "source-files"):
+        field = "evidence" if manifest_format == "evidence-map" else "source_files"
+        values = payload.get(field)
+        if not isinstance(values, dict) or not values:
+            raise ValueError(f"{manifest_format} format requires a non-empty {field} object")
+        entries = []
+        for name, item in values.items():
+            if manifest_format == "evidence-map":
+                if not isinstance(item, dict) or not {"size", "sha256"} <= item.keys():
+                    raise ValueError(f"evidence-map requires size/sha256 for: {name}")
+                entries.append({"path": name, "bytes": item["size"], "sha256": item["sha256"]})
+            else:
+                entries.append({"path": name, "sha256": item})
+        fields = ["size", "sha256"] if manifest_format == "evidence-map" else ["sha256"]
+    else:
+        raise ValueError(f"unsupported manifest format: {manifest_format}")
+    required = {"path", "sha256"} | ({"bytes"} if "size" in fields else set())
+    if any(not isinstance(entry, dict) or not required <= entry.keys() for entry in entries):
+        raise ValueError(f"{manifest_format} entries require {', '.join(sorted(required))}")
+    return entries, field, fields
+
+
+def verify_manifest(path: Path, expected: str, root: Path, allowed: list[Path], manifest_format: str = "entries") -> dict:
     pinned_file(path, expected)
-    payload = json.loads(path.read_bytes())
-    entries = payload["entries"]
-    if not isinstance(entries, list) or not entries:
-        raise ValueError("manifest requires a non-empty entries list of path/bytes/sha256")
+    payload = json.loads(path.read_bytes(), object_pairs_hook=unique_object)
+    entries, field, fields = manifest_entries(payload, manifest_format)
     root = root.resolve(strict=True)
     allowed = {item.resolve(strict=True) for item in allowed}
     checked, seen = [], set()
@@ -78,21 +115,29 @@ def verify_manifest(path: Path, expected: str, root: Path, allowed: list[Path]) 
         if target in seen:
             raise ValueError(f"duplicate evidence path: {value}")
         seen.add(target)
-        size, sha = entry["bytes"], entry["sha256"]
-        if type(size) is not int or size < 0 or not isinstance(sha, str) or not re.fullmatch(r"[0-9a-f]{64}", sha):
-            raise ValueError(f"invalid evidence size/digest: {value}")
-        wanted = {"size": size, "sha256": sha}
+        sha = entry["sha256"]
+        if not isinstance(sha, str) or not re.fullmatch(r"[0-9a-f]{64}", sha):
+            raise ValueError(f"invalid evidence digest: {value}")
+        wanted = {"sha256": sha}
+        if "size" in fields:
+            size = entry["bytes"]
+            if type(size) is not int or size < 0:
+                raise ValueError(f"invalid evidence size: {value}")
+            wanted["size"] = size
         try:
             record = snapshot._file_record(supplied, value, allow_symlink=False)
-            actual = {key: record[key] for key in ("size", "sha256")}
+            actual = {key: record[key] for key in fields}
             checked.append({"path": value, "match": wanted == actual, "expected": wanted, "actual": actual})
         except (OSError, snapshot.SnapshotError) as exc:
             checked.append({"path": value, "match": False, "error": str(exc)})
     pinned_file(path, expected)
     return {"manifest_path": str(path.resolve()), "manifest_sha256": expected, "evidence_root": str(root),
+            "manifest_format": manifest_format, "manifest_field": field, "verified_fields": fields,
+            "verification_scope": "listed_files_only",
             "files_checked": len(checked), "checks": checked,
             "failures": [item for item in checked if not item["match"]],
-            "unverified_by_tool": ["manifest_completeness", "test_execution_and_oracle", "source_approval"]}
+            "unverified_by_tool": ["manifest_completeness", "unselected_manifest_fields", "source_path_set_and_modes",
+                                   "test_execution_and_oracle", "source_approval"]}
 
 
 def verify_archive(path: Path, expected: str, snapshot_path: Path, snapshot_sha: str, prefix: str) -> tuple[dict, list]:
@@ -167,6 +212,8 @@ def main() -> int:
     manifest.add_argument("--manifest", type=Path, required=True)
     manifest.add_argument("--manifest-sha256", required=True)
     manifest.add_argument("--root", type=Path, required=True)
+    manifest.add_argument("--format", choices=("entries", "evidence-map", "source-files"), default="entries",
+                          help="explicit field/shape; source-files verifies listed hashes only")
     manifest.add_argument("--allow-external-file", type=Path, action="append", default=[])
     archive = modes.add_parser("archive", help="compare pinned tar raw content against reviewed snapshot")
     archive.add_argument("--archive", type=Path, required=True)
@@ -183,7 +230,7 @@ def main() -> int:
     args = parser.parse_args()
     try:
         if args.mode == "manifest":
-            receipt = verify_manifest(args.manifest, args.manifest_sha256, args.root, args.allow_external_file)
+            receipt = verify_manifest(args.manifest, args.manifest_sha256, args.root, args.allow_external_file, args.format)
             roots = [args.root]
         elif args.mode == "archive":
             receipt, roots = verify_archive(args.archive, args.archive_sha256, args.snapshot, args.snapshot_sha256, args.prefix)
@@ -193,6 +240,8 @@ def main() -> int:
                        result="MISMATCH" if receipt["failures"] else "MATCH", approval_granted=False)
         output, sha = save_json(receipt, args.output, forbidden_roots=roots, prefix="review-evidence-")
         summary = {key: receipt[key] for key in ("result", "approval_granted", "files_checked", "mode")}
+        if args.mode == "manifest":
+            summary.update({key: receipt[key] for key in ("manifest_format", "manifest_field", "verified_fields", "verification_scope")})
         summary.update(receipt_path=str(output), receipt_sha256=sha)
         print_summary(summary, paths=[item["path"] for item in receipt["failures"]], path_key="failed_paths")
         return 1 if receipt["failures"] else 0

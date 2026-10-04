@@ -18,6 +18,9 @@ review_routing:
   bounded_alias: amendment
   document_amendments_reference: ../../../references/document-amendments.md
   rules:
+    - when: authorized_implementation_troubleshooting_or_remediation
+      command: /code-writer
+      constraints: "Implement within the current request/approved scope; no historical design backfill or implied publish/deploy permission."
     - when: exact_implementation_review
       command: /code-reviewer
       constraints: "Use existing Candidate and policy rules; do not sign a code verdict for a plan."
@@ -372,7 +375,18 @@ nodes:
     requires_apply_to: formal_design
     bounded_inputs: [engineering_repair_plan, relevant_approved_baseline_or_owner_decision]
     approves: LLD
-    next: [test-spec-writer, code-reviewer]
+    next: [test-spec-writer, code-writer, code-reviewer]
+
+  - id: code-writer
+    lane: implementation
+    kind: writer
+    command: /code-writer
+    requires:
+      - LLD: preferred
+      - GUARDRAILS: optional
+    bounded_inputs: [authorized_implementation_request, relevant_approved_baseline_or_owner_decision]
+    produces: IMPLEMENTATION_CANDIDATE
+    next: [code-reviewer]
 
   - id: code-reviewer
     lane: implementation

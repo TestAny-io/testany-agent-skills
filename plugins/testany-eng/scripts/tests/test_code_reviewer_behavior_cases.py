@@ -115,13 +115,18 @@ class CodeReviewerBehaviorCasesTests(unittest.TestCase):
             self.assertEqual(target_shared, bundle / "plugin" / "references")
             self.assertEqual(
                 {path.name for path in target_shared.iterdir()},
-                {"language-policy.md", "subagent-result-contract.md", "review-boundaries.md"},
+                {"language-policy.md", "subagent-result-contract.md", "review-boundaries.md",
+                 "workflow-runtime.md", "browser-context.md"},
             )
             for name in EXPORT.SHARED_REFERENCE_NAMES:
                 self.assertTrue((source_shared / name).is_file())
                 self.assertEqual((target_shared / name).read_bytes(), (source_shared / name).read_bytes())
             self.assertEqual(list(bundle.rglob("expected.json")), [])
             self.assertEqual(list(bundle.rglob("evaluation.md")), [])
+            check = subprocess.run([sys.executable, str(bundle / "plugin/scripts/workflow_context.py"), "check"],
+                                   cwd=repository, env=environment(), capture_output=True, text=True)
+            self.assertEqual(check.returncode, 0, check.stderr)
+            self.assertEqual(json.loads(check.stdout)["status"], "PACKAGE_OK")
             self.assertEqual(EXPORT.git(repository, "status", "--porcelain"), "")
             self.assertEqual(EXPORT.git(repository, "rev-parse", "HEAD"), binding["candidate"])
             self.assertEqual(EXPORT.git(repository, "rev-parse", "HEAD^{tree}"), binding["candidate_tree"])

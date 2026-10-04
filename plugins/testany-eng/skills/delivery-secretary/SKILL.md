@@ -1,6 +1,6 @@
 ---
 name: delivery-secretary
-description: 'Delivery secretary / delivery management，交付秘书、持续任务与进度跟踪。Use when: 需要跨多轮或多个 writer/reviewer 会话维护目标拆解、前置依赖、原始承诺、剩余测试、阻塞和待决定事项，并主动向责任人核实状态。单次流程导航用 guide；技术方案、实现、测试判定和评审仍由对应角色负责。'
+description: 'Delivery secretary / delivery manager / delivery management，交付秘书、持续任务与进度跟踪。Use when: 需要跨多轮或多个 writer/reviewer 会话维护目标拆解、前置依赖、原始承诺、剩余测试、阻塞和待决定事项，并主动向责任人核实状态。单次流程导航用 guide；技术方案、实现、测试判定和评审仍由对应角色负责。'
 ---
 
 # Delivery Secretary
@@ -14,6 +14,8 @@ description: 'Delivery secretary / delivery management，交付秘书、持续�
 3. 首次建立、变更结构或统计口径时读 [台账与视图](references/ledger-and-views.md)。可选的 [JSON 空模板](assets/ledger.json) 和只读 `scripts/ledger.py` 帮助稳定编号、检查结构与统计；已有工具可提供同样事实时不要求迁移，也不新增产品门禁。
 4. 需要主动询问、提醒、等待回复或长期跟踪时读 [角色协作](references/coordination.md)，确认实际 thread 身份、当前可用工具和已有用户授权。仅写下角色名不等于已绑定或已通知。
 5. 恢复时读当前摘要、未闭环问题和上次读取位置之后的变化；只有缺失或冲突的局部才回溯。历史重建不完整时明确覆盖范围，不声称全部承诺已找齐。
+
+与 `code-writer` / `code-reviewer` 一起使用时，沿用 [工程恢复入口](../../references/workflow-runtime.md) 的位置引用。秘书拥有交付台账；工程角色拥有各自 Record 与恢复判断。`workflow-entry.json` 只定位当前工程任务，不是另一份交付台账，`PACKAGE_OK` 也不证明角色已加载新版或任务已完成。秘书不代写工程 resume、不替角色修入口、不为核对进度执行 package/hash/测试门禁。入口切换只在既有状态变化中更新引用；缺少秘书 ID、登记或 ACK 不阻断工程推进。
 
 ## 目标、拆解与依赖
 
