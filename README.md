@@ -10,7 +10,7 @@
 
 | 你想做什么 | Plugin | 从这里开始 |
 | --- | --- | --- |
-| 把业务想法推进到需求、设计、评审、测试与交付准备 | **[testany-eng](plugins/testany-eng/README.md)** | 从 `guide` 判断下一步，或直接使用 22 个研发与协作 skills 中的一项 |
+| 把业务想法推进到需求、设计、评审、测试与交付准备 | **[testany-eng](plugins/testany-eng/README.md)** | 从 `guide` 判断下一步，或直接使用 23 个研发与协作 skills 中的一项 |
 | 改写和优化提示词 | **[testany-llm](plugins/testany-llm/README.md)** | 把原提示词和目标交给 `prompt-optimizer` |
 | 创作多平台营销内容 | **[testany-mrkt](plugins/testany-mrkt/README.md)** | 用 `media-writer` 说明受众、平台和写作目标 |
 | 在 Testany 上编写、编排、执行和诊断测试 | **[testany-bot](plugins/testany-bot/README.md)** | 连接 Testany MCP，按用例、流水线或执行结果选择入口 |
@@ -153,13 +153,15 @@ GitHub 来源更新：先执行 `"$CODEX_CLI" plugin marketplace upgrade testany
 
 ### testany-eng（研发流程）
 
-[插件说明与工作流](plugins/testany-eng/README.md) · 22 个研发与协作 skills
+[插件说明与工作流](plugins/testany-eng/README.md) · 23 个研发与协作 skills
 
 `testany-eng` 默认跟随用户输入语言输出；用户显式指定语言时以用户指定为准；`TRACEABILITY-METADATA` 的字段名、枚举值与稳定 ID 保持英文。
 
 正式新功能按完整流程推进；存量系统有限修复按问题层级进入 HLD/LLD/Code，不强制重做全链文档。四个相关 skill 共用 [评审边界规则](plugins/testany-eng/references/review-boundaries.md)：技术合理性、设计授权与执行许可分离，技术理由不能自授权，旧 review comment 不能循环变成批准基线。P2 在 HLD/LLD/Code Review 中均不阻断。
 
 `code-reviewer` 的机器证据默认完整落盘、仅返回有上限的摘要，并提供可复用的证据校验工具；调用方式及旧版全量 stdout 的 `--full-json` 选项见[机器证据工具约定](plugins/testany-eng/skills/code-reviewer/references/artifact-tools.md)。
+
+`testany-eng 2.7.0` 新增 [code-writer](plugins/testany-eng/skills/code-writer/SKILL.md)，与 Reviewer 共用随包恢复/读取工具，并对齐现有 Delivery Secretary 接口；配置与宿主边界见[持久入口](plugins/testany-eng/references/workflow-runtime.md)。使用新版需要更新完整插件；发布不表示本机已安装或在线线程已采用。
 
 `testany-eng 2.6.0` 新增 [delivery-secretary](plugins/testany-eng/skills/delivery-secretary/SKILL.md)，持续跟踪多轮、多角色工作：维护目标拆解、共享依赖、原始承诺与剩余工作，在授权内主动补问状态；`code-reviewer` 提供可选协作接口，复用已有结论回答进度，不新增评审门禁。
 
@@ -183,6 +185,7 @@ GitHub 来源更新：先执行 `"$CODEX_CLI" plugin marketplace upgrade testany
 | `/testany-eng:test-strategy-reviewer` | 测试策略评审门禁，检查风险覆盖、分层、环境和入口/出口标准 |
 | `/testany-eng:lld-writer` | LLD 写作技能，将 HLD 和 Contract 细化为可实现的详细设计 |
 | `/testany-eng:lld-reviewer` | 正式 LLD / 已批准范围内有限工程设计评审；局部修复不强制全套 Manifest |
+| `/testany-eng:code-writer` | 在已授权范围内实现、排障、验证与工程续接，形成精确 Candidate |
 | `/testany-eng:code-reviewer` | 可溯源批准范围内的源码评审：核验生产语义、管理入口及整改整链；保留有限漏审规则，拒绝循环自证授权 |
 | `/testany-eng:test-spec-writer` | 测试规格与测试用例包写作助手，输出完整 test case package |
 | `/testany-eng:test-reviewer` | 测试评审门禁，检查测试包覆盖、证据与残余风险 |

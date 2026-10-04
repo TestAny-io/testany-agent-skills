@@ -35,6 +35,11 @@ def materialize(case_id: str, output: Path) -> Path:
         shutil.copy2(PLUGIN / "commands" / command.name, command)
     for directory in ("references", "scripts"):
         shutil.copytree(PLUGIN / directory, plugin / directory, ignore=IGNORED)
+    manifest = json.loads((PLUGIN / "workflow-package.json").read_text())
+    for relative in ["workflow-package.json", *manifest["files"]]:
+        target = plugin / relative
+        target.parent.mkdir(parents=True, exist_ok=True)
+        shutil.copyfile(PLUGIN / relative, target)
     shutil.copy2(source, output / "request.md")
     (output / "entry.md").write_text(
         "# 独立评审任务\n\n"

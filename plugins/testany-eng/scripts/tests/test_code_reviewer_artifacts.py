@@ -223,6 +223,81 @@ class ReviewArtifactTests(unittest.TestCase):
         self.run_tool("verify_review_evidence.py", "manifest", "--manifest", manifest, "--manifest-sha256", "0" * 64,
                       "--root", evidence, code=2)
 
+    def map_manifest(self, manifest_format, entries):
+        self.serial += 1
+        path = self.root / f"map-{self.serial}.json"
+        field = "evidence" if manifest_format == "evidence-map" else "source_files"
+        path.write_text(json.dumps({field: entries, "external_evidence": {"not-selected": "not-a-proof"}}))
+        return path
+
+    def test_explicit_map_formats_check_real_files_without_adapters_or_invented_size(self):
+        path = self.repo / "source.txt"
+        for fmt in ("evidence-map", "source-files"):
+            with self.subTest(format=fmt):
+                declared = {"size": path.stat().st_size, "sha256": sha(path)} if fmt == "evidence-map" else sha(path)
+                manifest = self.map_manifest(fmt, {path.name: declared})
+                self.manifest(manifest, self.repo, code=2)  # No guessing/default fallback.
+                result = self.manifest(manifest, self.repo, "--format", fmt)
+                receipt = json.loads(Path(result["receipt_path"]).read_bytes())
+                fields = ["size", "sha256"] if fmt == "evidence-map" else ["sha256"]
+                self.assertEqual(result["verified_fields"], fields)
+                self.assertEqual(result["verification_scope"], "listed_files_only")
+                self.assertEqual(result["files_checked"], 1)
+                self.assertFalse(result["approval_granted"])
+                self.assertEqual(set(receipt["checks"][0]["expected"]), set(fields))
+                self.assertEqual(set(receipt["checks"][0]["actual"]), set(fields))
+                self.assertIn("unselected_manifest_fields", receipt["unverified_by_tool"])
+                self.assertIn("source_path_set_and_modes", receipt["unverified_by_tool"])
+                self.run_tool("verify_review_evidence.py", "manifest", "--manifest", manifest,
+                              "--manifest-sha256", "0" * 64, "--root", self.repo, "--format", fmt, code=2)
+
+    def test_map_formats_detect_changed_and_missing_files(self):
+        a, b = self.repo / "source.txt", self.repo / "run.sh"
+        manifests = []
+        for fmt in ("evidence-map", "source-files"):
+            entries = {p.name: ({"size": p.stat().st_size, "sha256": sha(p)} if fmt == "evidence-map" else sha(p)) for p in (a, b)}
+            manifests.append((fmt, self.map_manifest(fmt, entries)))
+        a.write_bytes(b"unreviewed")
+        b.unlink()
+        for fmt, manifest in manifests:
+            with self.subTest(format=fmt):
+                result = self.manifest(manifest, self.repo, "--format", fmt, code=1)
+                self.assertEqual(result["result"], "MISMATCH")
+                self.assertEqual(set(result["failed_paths"]), {a.name, b.name})
+
+    def test_map_formats_reject_bad_shape_size_and_digest(self):
+        invalid = [("evidence-map", {}), ("source-files", {}),
+                   ("evidence-map", {"source.txt": {"sha256": sha(self.repo / "source.txt")}}),
+                   ("evidence-map", {"source.txt": {"size": True, "sha256": "a" * 64}}),
+                   ("evidence-map", {"source.txt": "a" * 64}),
+                   ("source-files", {"source.txt": {"sha256": "a" * 64}}),
+                   ("source-files", {"source.txt": "not-a-hash"})]
+        for fmt, entries in invalid:
+            with self.subTest(format=fmt, entries=entries):
+                self.manifest(self.map_manifest(fmt, entries), self.repo, "--format", fmt, code=2)
+        path = self.repo / "source.txt"
+        incorrect_size = self.map_manifest("evidence-map", {path.name: {"size": 0, "sha256": sha(path)}})
+        self.assertEqual(self.manifest(incorrect_size, self.repo, "--format", "evidence-map", code=1)["result"], "MISMATCH")
+        self.manifest(self.save_manifest([{"path": path.name, "sha256": sha(path)}]), self.repo, code=2)
+
+    def test_map_formats_preserve_path_boundaries_and_reject_duplicate_json_keys(self):
+        file = self.repo / "source.txt"
+        (self.root / "outside.txt").write_bytes(file.read_bytes())
+        (self.repo / "escaped").symlink_to(self.root, target_is_directory=True)
+        for fmt in ("evidence-map", "source-files"):
+            declared = {"size": file.stat().st_size, "sha256": sha(file)} if fmt == "evidence-map" else sha(file)
+            for label in ("../repo/source.txt", "escaped/outside.txt"):
+                with self.subTest(format=fmt, label=label):
+                    self.manifest(self.map_manifest(fmt, {label: declared}), self.repo, "--format", fmt, code=2)
+            manifest = self.map_manifest(fmt, {str(file): declared})
+            self.manifest(manifest, self.repo, "--format", fmt, code=2)
+            self.manifest(manifest, self.repo, "--format", fmt, "--allow-external-file", file)
+            field = "evidence" if fmt == "evidence-map" else "source_files"
+            item = json.dumps(declared)
+            manifest.write_text('{"' + field + '":{"source.txt":' + item + ',"source.txt":' + item + '}}')
+            result = self.manifest(manifest, self.repo, "--format", fmt, code=2)
+            self.assertEqual(result["result"], "UNVERIFIED")
+
     def test_git_archive_group_write_mode_is_not_false_source_drift(self):
         first = self.capture()
         archive = self.make_tar(mode_change=lambda name, mode: mode | 0o020)

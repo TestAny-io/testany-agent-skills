@@ -4,6 +4,8 @@ from __future__ import annotations
 import importlib.util
 import json
 import re
+import subprocess
+import sys
 import tempfile
 import unittest
 from pathlib import Path
@@ -54,6 +56,10 @@ class ReviewBoundariesTests(unittest.TestCase):
                 (PLUGIN / "references" / "review-boundaries.md").read_bytes(),
             )
             self.assertTrue((root / "plugin" / "scripts" / "trace_lint.py").is_file())
+            check = subprocess.run([sys.executable, "-B", str(root / "plugin/scripts/workflow_context.py"), "check"],
+                                   cwd=root, capture_output=True, text=True)
+            self.assertEqual(check.returncode, 0, check.stderr)
+            self.assertEqual(json.loads(check.stdout)["status"], "PACKAGE_OK")
             for forbidden in ("tests", "grader", "expected.json", "evaluation.md", "__pycache__"):
                 self.assertEqual(list(root.rglob(forbidden)), [], forbidden)
 

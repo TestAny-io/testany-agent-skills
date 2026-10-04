@@ -20,18 +20,26 @@ description: 'Code review, implementation review, 源码评审、实现复审。
 
 每次新会话先读本文件；已读且版本未变不重复加载。**首次完整评审**再读 `references/reviewer-checklist.md` 的适用章节、所需语言的 `references/scope-lock-template.md` / `.en.md` 和 `references/report-templates.md` / `.en.md`。**整改/补审**只读上一轮短结论、未闭合项、delta 与受影响证据；沿引用按需取原文，不能把作者摘要当证据。`references/review-policy.yaml` 是规则索引，模式/冲突不明确时查对应段，不要求每轮全量加载所有参考。
 
+**同一会话的压缩/恢复不是新评审。** 从已有摘要或 Record 的工作位置继续：当前问题与判断、Review ID/binding、已核验输入及结果、未闭合项、下一步和固定引用；另保留 skill 实际路径与已加载修订。只有“读过 skill”不能恢复判断，也不因此默认重读全部材料。先处理新消息与失效条件，再补当前判断缺失的规则或原文；指令确已丢失或收到更新通知时重读相应部分。同版本本地补丁以文件摘要区分，不为证明“未变”逐轮重算。正常支线分别保留工作位置，切回时仅处理新增事实与受影响证据。具体复用边界见 `references/evidence-reuse.md`。
+
 **仅询问既有评审状态**时，从当前 Record 回答已知事实与截至时间，不进入下文实质评审步骤、不新建 Review ID 或重跑验证；消息带来新 Candidate、反证或批准撤回时，按第 5 节处理受影响判断。
+
+本 skill 的公共读取/恢复工具随完整 `testany-eng` 插件发布，从实际 skill 目录上两层解析。首次使用、安装更新或依赖错误时核对资源：本次 `resume`/`bind`/`locate` 的内置检查即可，否则运行 `python3 <plugin-dir>/scripts/workflow_context.py check`，不重复首检或逐轮重验。错误时恢复完整包，不借旧缓存或源仓库补依赖。跨会话/阶段的长评审按 [持久入口](../../references/workflow-runtime.md) 登记自己的 Record 工作位置。需从磁盘恢复时用 `resume --entry <已登记入口> --role reviewer --task <当前请求的任务>` 核对资源、任务身份并只读当前字段；新任务不得默用入口里旧 task ID。入口只是位置索引，不新增评审门禁、历史台账或秘书职责；摘要不代替独立判断，缺工具只限定受影响能力。
 
 | 触发 | 读取 |
 |------|------|
 | 证据复用、snapshot 漂移或提交重绑 | `references/evidence-reuse.md` |
-| 捕获/比较 snapshot、核验证据清单或源码归档 | `references/artifact-tools.md`（现有工具参数与短输出，不另写遍历器） |
+| 按字段读大型 JSON，或捕获/核验机器证据 | `references/artifact-tools.md`（有界读取、现有工具参数，不另写遍历器） |
+| 首次接入长期工作流、安装更新或任务入口切换 | `../../references/workflow-runtime.md` |
+| 使用长 DOM 快照或恢复浏览器运行时 | `../../references/browser-context.md`（仅适用宿主） |
 | 确需并行独立审查 | `../../references/subagent-result-contract.md` 与 `references/subagent-result-extension.md` |
 | 批准来源争议、真实职责/信任/架构增量 | `../../references/review-boundaries.md` |
 | 已绑定交付秘书，需要同步状态或回应其询问 | `references/delivery-coordination.md` |
 | 维护本 Skill | `tests/evaluation.md`；评审产品时不加载答案 |
 
 一份 Review Record 保存 scope、当前 binding、覆盖/证据索引与未闭合项。大 manifest、逐文件 hash、命令原始输出交给脚本存成附件，正文只给结果、差异和引用；**不把机器附件全量读进模型，也不在消息中来回复制**。原始证据须可读；首次使用核验版本/摘要，同一会话同一不可变版本缓存核验结果，版本变动再验。签名/摘要不能代替首次实质审查。无需额外 ledger、sealer、逐轮空表或递归读回整条历史。
+
+读取前明确要回答的判断：大型机器 JSON 用 `scripts/read_machine_context.py` 按 JSON Pointer 取字段；过大值返回数量与定位，`PARTIAL`/缺失必须按需继续读取，不当作无问题或已核验。小文件无需套工具。不能先输出整棵子树再用字符/行数截断。代码、调用链和失败日志按问题读取足够上下文，必要时扩大；已截断的输出沿附件补相关部分，不重放全量。节省上下文不能成为跳过源码、独立反例、关键堆栈或必要验证的理由。
 
 ## 1. 冻结边界与精确输入
 
