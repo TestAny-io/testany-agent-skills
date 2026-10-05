@@ -1,14 +1,14 @@
 {
   "schema_version": 1,
   "files": {
-    ".claude-plugin/plugin.json": "dccda7724c7d3d108ada3f24e5a58becbaa7eb8094088143c57ce99a7a1a8f05",
+    ".claude-plugin/plugin.json": "c2874358cbdc0ca7d38ea3ede124b738e693609655e6159b41cb97cd40920ddd",
     "references/browser-context.md": "69247ccad5cad70bc43755e112a0414267137a59f90cdd1e842cc86ea352c0c8",
-    "references/workflow-runtime.md": "c6422913b5296eb8e0f25e53697d2a0925d52f2eb912f87768dfd715fdb26b2a",
+    "references/workflow-runtime.md": "56d71b5f4b49dbb01e8daa8d6a71cf98cffa73434d4f27faefa8e60db2927b50",
     "scripts/browser_context.js": "9a8482c7ea7fd4860fe33e4d516bc19948f2a0194c7471522c86be18048ae17a",
-    "scripts/context_json.py": "fe50de49c0333057ea761f9a4a677420469f9848fa3329556e611b5c13a8e5a4",
-    "scripts/workflow_context.py": "015b8600237c169774f38a8f6d2a043747398d421918dd7275eb4c063ab0856c",
-    "skills/code-reviewer/SKILL.md": "00ab730db49cd5997d108ca73c24dafd1270214dc4a3cf73a51736e5c2b9b3f3",
-    "skills/code-reviewer/references/artifact-tools.md": "b83ff718fdbb3fadb1f8c89dc7687c199b8e32b1eb958e1f375d76f30b220559",
+    "scripts/context_json.py": "a894d8a6bfb59beee6179b4547b73c86eec41378f0b0b080e89fc090052dba8d",
+    "scripts/workflow_context.py": "d1b9e4ed8e24cc21cdf3cceccb342ec8a41e0711ca5de50f5da25a5193b40e45",
+    "skills/code-reviewer/SKILL.md": "a25f5462eae4b3449ac1ab965a96ec7d8b8038c933945221d7046dbef7e4379b",
+    "skills/code-reviewer/references/artifact-tools.md": "2ef04f8866aaff724e8e7316e41e4b0eb4f84820518d690a6d6d74768a269518",
     "skills/code-reviewer/references/evidence-reuse.md": "5634ad347e86831057a182dc22cb6792389fae75b7915b07931364a530a46ae9",
     "skills/code-reviewer/scripts/read_machine_context.py": "38e646b3ca25a722778743b83f578d89f76f8365465f2aa90730806cf1e200ab",
     "skills/code-reviewer/scripts/review_artifacts.py": "98060512c08b5d806e9732a8450628dacc747ad175b46f61d7c9f1e0fd7a9337",
@@ -17,7 +17,7 @@
     "skills/code-reviewer/scripts/terminal_artifact_envelope.py": "f0a84d2e6f42b7b93172695e71e2e40b57a5ba01acb6c04b7d2651d5e53ca22f",
     "skills/code-reviewer/scripts/verify_candidate_binding.py": "4f5cb1911bc5d92e57795fad94bf4c33228e4138f75ff22179441c71bd28076a",
     "skills/code-reviewer/scripts/verify_review_evidence.py": "8cb07c4ee9be335bea2b0d4aef575450f17a7dfb216bc33e76316fedee6edc16",
-    "skills/code-writer/SKILL.md": "414270b844bd5e2eb159eaa09a32e479772814421dbb9db7c1015242aff06cb8",
+    "skills/code-writer/SKILL.md": "2aac9f8b054ac1f38886bd4fe76ee179885d5ef5de77c0e96e41234fe38c878f",
     "skills/delivery-secretary/SKILL.md": "80e74b1cbb6ff4a2f29728b65b029356e9c78ab953618e6e8aa4eb57bf3817a0"
   }
 }

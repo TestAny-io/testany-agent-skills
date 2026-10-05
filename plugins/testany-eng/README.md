@@ -4,7 +4,7 @@
 
 研发流程工具集：从业务需求、设计到源码评审、测试设计与运维准备的完整链路。
 
-SkillDock 已迁移为独立的 [skilldock 插件](../skilldock/README.md)。`testany-eng 2.7.0` 包含 23 个研发与协作 skills，新增 `code-writer`，同时更新 Reviewer 恢复能力及 Delivery Secretary 协作接口。需要图形管理器时单独安装 SkillDock。发布版本以 plugin.json 和 CHANGELOG 为准；使用新版需要更新完整插件，发布不表示本机已安装或在线线程已采用。
+SkillDock 已迁移为独立的 [skilldock 插件](../skilldock/README.md)。`testany-eng 2.7.1` 包含 23 个研发与协作 skills，本版修复 Writer / Reviewer 的恢复读取往返和参数探索问题，沿用 Delivery Secretary 协作接口。需要图形管理器时单独安装 SkillDock。发布版本以 plugin.json 和 CHANGELOG 为准；使用新版需要更新完整插件，发布不表示本机已安装或在线线程已采用。
 
 ## 概述
 
@@ -614,6 +614,8 @@ flowchart TD
 **示例**：`/code-writer ./backend 修复已批准的重复回调问题`
 
 完整插件资源、项目接入与宿主边界见 [持久入口](references/workflow-runtime.md)；静态工具测试、独立行为样例和真实宿主持续效果分别验证。
+
+`2.7.1` 的恢复读取：已知入口/任务时直接 `resume`，六项核心字段共用 8192-byte 总预算；超长字段复制返回的精确参数续读，同时固定入口和状态版本。普通 JSON 显式选择使用总预算，不因旧的单值门槛先返回目录。离线验证不等于在线角色已采用或真实工程 Token 节省已确认。
 
 ---
 

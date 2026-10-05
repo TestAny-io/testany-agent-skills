@@ -24,7 +24,16 @@ description: 'Code review, implementation review, 源码评审、实现复审。
 
 **仅询问既有评审状态**时，从当前 Record 回答已知事实与截至时间，不进入下文实质评审步骤、不新建 Review ID 或重跑验证；消息带来新 Candidate、反证或批准撤回时，按第 5 节处理受影响判断。
 
-本 skill 的公共读取/恢复工具随完整 `testany-eng` 插件发布，从实际 skill 目录上两层解析。首次使用、安装更新或依赖错误时核对资源：本次 `resume`/`bind`/`locate` 的内置检查即可，否则运行 `python3 <plugin-dir>/scripts/workflow_context.py check`，不重复首检或逐轮重验。错误时恢复完整包，不借旧缓存或源仓库补依赖。跨会话/阶段的长评审按 [持久入口](../../references/workflow-runtime.md) 登记自己的 Record 工作位置。需从磁盘恢复时用 `resume --entry <已登记入口> --role reviewer --task <当前请求的任务>` 核对资源、任务身份并只读当前字段；新任务不得默用入口里旧 task ID。入口只是位置索引，不新增评审门禁、历史台账或秘书职责；摘要不代替独立判断，缺工具只限定受影响能力。
+本 skill 的公共读取/恢复工具随完整 `testany-eng` 插件发布，从实际 skill 目录上两层解析。首次使用、安装更新或依赖错误时核对资源：本次 `resume`/`bind`/`locate` 的内置检查即可，否则运行 `python3 <plugin-dir>/scripts/workflow_context.py check`，不重复首检或逐轮重验。错误时恢复完整包，不借旧缓存或源仓库补依赖。跨会话/阶段的长评审按 [持久入口](../../references/workflow-runtime.md) 登记自己的 Record 工作位置。入口只是位置索引，不新增评审门禁、历史台账或秘书职责；摘要不代替独立判断，缺工具只限定受影响能力。
+
+需要磁盘恢复且已知入口/当前任务时直接执行以下命令，不先 `locate`、读状态目录或重读持久入口说明。上下文已充分则直接评审；仅缺个别字段时重复 `--field` 一次读取。新任务不得默用入口里旧 task ID。
+
+```sh
+python3 <plugin-dir>/scripts/workflow_context.py resume \
+  --entry <已登记入口> --role reviewer --task <当前请求对应的task-id>
+```
+
+核心字段在总预算内完整返回；过长字段的下一次 argv = `continuation_prefix`（若有）+ 该字段的 `next_args`，交给同一工具续读，不猜 pointer、depth 或预算。`PARTIAL`/缺失不等于已读；来源变化则重新恢复受影响内容，不拼接旧段。`bind`/`locate` 的 `resume_args` 可直接复用，但须匹配当前请求，且不要求已有充分判断时再次恢复。参数数组按 argv 传递，或逐项正确 shell quoting。
 
 | 触发 | 读取 |
 |------|------|
@@ -39,7 +48,7 @@ description: 'Code review, implementation review, 源码评审、实现复审。
 
 一份 Review Record 保存 scope、当前 binding、覆盖/证据索引与未闭合项。大 manifest、逐文件 hash、命令原始输出交给脚本存成附件，正文只给结果、差异和引用；**不把机器附件全量读进模型，也不在消息中来回复制**。原始证据须可读；首次使用核验版本/摘要，同一会话同一不可变版本缓存核验结果，版本变动再验。签名/摘要不能代替首次实质审查。无需额外 ledger、sealer、逐轮空表或递归读回整条历史。
 
-读取前明确要回答的判断：大型机器 JSON 用 `scripts/read_machine_context.py` 按 JSON Pointer 取字段；过大值返回数量与定位，`PARTIAL`/缺失必须按需继续读取，不当作无问题或已核验。小文件无需套工具。不能先输出整棵子树再用字符/行数截断。代码、调用链和失败日志按问题读取足够上下文，必要时扩大；已截断的输出沿附件补相关部分，不重放全量。节省上下文不能成为跳过源码、独立反例、关键堆栈或必要验证的理由。
+读取前明确要回答的判断：大型机器 JSON 用 `scripts/read_machine_context.py` 按 JSON Pointer 取字段；选中值尽量在总预算内读全，过大值返回数量、定位及精确 `next_args`。根 pointer 是空字符串，不是 `/`；没有 depth 参数。`PARTIAL`/缺失必须按需继续读取，不当作无问题或已核验。小文件无需套工具。不能先输出整棵子树再用字符/行数截断。代码、调用链和失败日志按问题读取足够上下文，必要时扩大；已截断的输出沿附件补相关部分，不重放全量。节省上下文不能成为跳过源码、独立反例、关键堆栈或必要验证的理由。
 
 ## 1. 冻结边界与精确输入
 

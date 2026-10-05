@@ -18,7 +18,7 @@ except (ImportError, SyntaxError):
 
 ROOT = Path(__file__).resolve().parents[1]
 FIELDS = ("question", "binding", "completed", "open", "next_action", "evidence")
-LIMIT = 6144
+LIMIT = 8192
 
 
 def package_check() -> dict:
@@ -48,8 +48,8 @@ def short_id(value: object) -> str:
     return value
 
 
-def load_entry(path: Path) -> tuple[dict, dict]:
-    entry, source = load_document(path)
+def load_entry(path: Path, expected_sha: str | None = None) -> tuple[dict, dict]:
+    entry, source = load_document(path, expected_sha)
     if source["bytes"] > 16384 or not isinstance(entry, dict) or entry.get("schema_version") != 1:
         raise ValueError("invalid workflow entry; expected a small schema_version 1 locator")
     if set(entry) != {"schema_version", "roles"} or not isinstance(entry["roles"], dict):
@@ -63,12 +63,17 @@ def load_entry(path: Path) -> tuple[dict, dict]:
     return entry, source
 
 
-def task_record(state: Path, pointer: str, task: str) -> tuple[dict, dict]:
-    document, source = load_document(state)
+def task_record(state: Path, pointer: str, task: str, expected_sha: str | None = None) -> tuple[dict, dict]:
+    document, source = load_document(state, expected_sha)
     record = select(document, pointer)
     if not isinstance(record, dict) or record.get("task_id") != short_id(task):
         raise ValueError("TARGET_MISMATCH: selected record does not identify the requested task")
     return record, source
+
+
+def resume_args(entry: Path, role: str, task: str, entry_sha: str) -> list[str]:
+    return ["resume", "--entry", str(entry.resolve()), "--role", role, "--task", task,
+            "--expected-entry-sha256", entry_sha]
 
 
 def bind(args) -> dict:
@@ -111,9 +116,11 @@ def bind(args) -> dict:
             handle.flush()
             os.fsync(handle.fileno())
         os.replace(temporary, entry_path)
+        entry_sha = hashlib.sha256(data).hexdigest()
         return {"status": "BOUND", "purpose": "navigation_only", "entry": str(entry_path),
                 "role": args.role, "task_id": args.task,
-                "entry_sha256": hashlib.sha256(data).hexdigest(),
+                "entry_sha256": entry_sha,
+                "resume_args": resume_args(entry_path, args.role, args.task, entry_sha),
                 "engineering_record_modified": False}
     finally:
         if temporary and temporary.exists():
@@ -121,23 +128,34 @@ def bind(args) -> dict:
         lock.unlink()
 
 
-def resume(args) -> dict:
-    entry, source = load_entry(args.entry)
+def resume(args, package: dict) -> dict:
+    if args.chunk_offset is not None and args.chunk_offset > 0 and not args.expected_entry_sha256:
+        raise ValueError("continuation requires the prior entry SHA; use the returned next_args")
+    entry, source = load_entry(args.entry, args.expected_entry_sha256)
     target = entry["roles"].get(args.role)
     if not target or target["task_id"] != short_id(args.task):
         raise ValueError("TARGET_MISMATCH: bind the task requested by the current work; do not use another task's state")
     state = (args.entry.resolve().parent / target["state"]).resolve()
-    record, state_source = task_record(state, target["pointer"], args.task)
+    record, state_source = task_record(state, target["pointer"], args.task, args.state_sha256)
     fields = args.field or list(FIELDS)
     if len(fields) > 16 or len(set(fields)) != len(fields) or any(not f or len(f) > 128 for f in fields):
         raise ValueError("select at most 16 distinct field names")
     pointers = [child_pointer(target["pointer"], field) for field in fields]
-    result = read_view(state, pointers, max_bytes=4608, value_bytes=4608 if args.field else 1200,
-                       expected_sha=state_source["observed_sha256"])
+    if args.chunk_offset is not None and (len(fields) != 1 or
+                                         (args.chunk_offset > 0 and not args.state_sha256)):
+        raise ValueError("chunks require one field and the prior state SHA; use the returned next_args")
     extras = [key for key in record if key not in (*FIELDS, "task_id")]
-    result.update(task_id=args.task, role=args.role, entry_sha256=source["observed_sha256"],
-                  additional_fields=[key[:128] for key in extras[:8]],
-                  additional_fields_omitted=max(0, len(extras) - 8))
+    metadata = dict(task_id=args.task, role=args.role, entry_sha256=source["observed_sha256"],
+                    additional_fields=[key[:128] for key in extras[:8]],
+                    additional_fields_omitted=max(0, len(extras) - 8), package=package)
+
+    def continuation(pointer: str, offset: int) -> list[str]:
+        return [*resume_args(args.entry, args.role, args.task, source["observed_sha256"]),
+                "--state-sha256", state_source["observed_sha256"],
+                "--field", fields[pointers.index(pointer)], "--chunk-offset", str(offset)]
+
+    result = read_view(state, pointers, max_bytes=LIMIT, expected_sha=state_source["observed_sha256"],
+                       chunk_offset=args.chunk_offset, metadata=metadata, continuation=continuation)
     # Ensure the binding was not replaced while its state was being read.
     load_document(args.entry, source["observed_sha256"])
     return result
@@ -154,12 +172,14 @@ def main() -> int:
         p.add_argument("--entry", type=Path, required=True)
         p.add_argument("--role", choices=("writer", "reviewer"), required=True)
         p.add_argument("--task", required=True, help="task identified from the current request, not guessed from old state")
+        p.add_argument("--expected-entry-sha256")
         if name == "bind":
             p.add_argument("--state", type=Path, required=True)
             p.add_argument("--pointer", required=True)
-            p.add_argument("--expected-entry-sha256")
         else:
             p.add_argument("--field", action="append", help="repeat for multiple fields; no last-argument-wins")
+            p.add_argument("--state-sha256", help="pin a continuation to the previously observed state")
+            p.add_argument("--chunk-offset", type=int, help="lossless continuation; copy the returned next_args")
     args = parser.parse_args()
     try:
         package = package_check()
@@ -170,9 +190,11 @@ def main() -> int:
         elif args.command == "locate":
             entry, source = load_entry(args.entry)
             result = {"status": "LOCATORS", "purpose": "navigation_only", "entry": source,
-                      "roles": entry["roles"]}
+                      "roles": entry["roles"],
+                      "resume_args": {role: resume_args(args.entry, role, target["task_id"], source["observed_sha256"])
+                                      for role, target in entry["roles"].items()}}
         else:
-            result = resume(args)
+            result = resume(args, package)
         if args.command != "check":
             result["package"] = package
         if len(encoded(result)) + 1 > LIMIT:

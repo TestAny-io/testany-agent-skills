@@ -85,10 +85,10 @@ python3 <skill-dir>/scripts/read_machine_context.py <state.json> \
   --pointer /current/binding --pointer /current/open --pointer /current/next_action
 ```
 
-字段用真实 JSON Pointer；数组索引如 `/failures/0`，键中的 `/`、`~` 分别写成 `~1`、`~0`。无 selector 时只返回根类型、数量和少量子路径。输出默认最多 6144 UTF-8 bytes，单值超过 1200 bytes 时给类型、数量和子路径，不切断原值。沿返回路径细读当前所需字段；确需完整较大字段时显式调整 `--value-bytes`/`--max-bytes`（总量上限 65536），避免重复打印同一大子树。
+字段用真实 JSON Pointer；数组索引如 `/failures/0`，键中的 `/`、`~` 分别写成 `~1`、`~0`。根 pointer 是 `""`，`/` 表示空键；没有 depth 参数。无 selector 时只返回根类型、数量和少量子路径。输出默认最多 6144 UTF-8 bytes，选中的值尽量在总预算内完整显示，不另设 1200-byte 单值门槛；显式 `--value-bytes` 仍可限制单值。过长值返回类型、数量、子路径和 `next_args`，不切断原值。沿子路径细读当前所需字段，或用顶层 `continuation_prefix`（若有）+ 字段 `next_args` 给同一工具无损续读，无需试调预算。
 
 `SELECTED`/`complete=true` 只说明显式选择的值已完整显示；`PARTIAL`、`value_omitted`、`children_omitted` 均保留未读范围。缺字段返回码 1，文件/JSON/预算等问题返回码 2；0 也可能是有意省略的 `PARTIAL`。这些都不是评审或验证结论，不能用未显示的内容宣告 PASS。重复 JSON key、非有限数值不静默接受。
 
 `observed_sha256` 仅标识本次实际读到的文件。只有显式传入此前固定的 `--sha256` 才核对该 pin；新算的摘要不证明历史版本、测试执行、源码绑定或批准。脚本不写状态、不追读引用；需要证据核验时继续用前述专用工具。
 
-该兼容入口使用同一个 `testany-eng` 包中的 `scripts/context_json.py`，不查其他版本缓存或源码目录；必须安装完整插件。超长单字段可用 `--chunk-offset 0` 取得无损分段，按 `next_args` 继续（后续 offset 必须固定源 SHA）；`field_end` 不代表前文已读。长期工作位置及整包资源校验见 [持久入口](../../../references/workflow-runtime.md)。
+该兼容入口使用同一个 `testany-eng` 包中的 `scripts/context_json.py`，不查其他版本缓存或源码目录；必须安装完整插件。上述两个数组拼接后是给该入口或 `context_json.py` 的精确参数，公共参数只返回一份；按 argv 传递，或逐项正确 shell quoting，不能拼接成未经转义的 shell 文本。每段使用本次返回参数，不沿用上一输出的 prefix。`field_end` 不代表前文已读；源变化则重新读取相关内容，不拼接不同版本。长期工作位置优先用 `workflow_context.py resume`，其续读仍使用该工具，并额外核对角色、任务及入口 SHA，见 [持久入口](../../../references/workflow-runtime.md)。

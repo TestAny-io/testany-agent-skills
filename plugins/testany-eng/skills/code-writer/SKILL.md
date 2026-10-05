@@ -20,9 +20,16 @@ description: 'Implement and troubleshoot code, 源码实现、修复与工程交
 恢复遵循下面的顺序；当前上下文充分时直接工作，不为流程而重读：
 
 1. **当前请求先于旧记录。** 区分同一任务续接、正常支线、新 Candidate、新反证或批准撤回。任务已切换时明确新任务标识；不能把入口里旧的 task ID 当成用户当前目标。
-2. 从当前可信摘要/工程记录保留的问题与判断、binding、有效结果、未闭合事项、下一步和证据引用继续。需要磁盘恢复时，使用 `workflow_context.py resume --entry <已登记入口> --role writer --task <当前任务>`；已知缺失字段用重复的 `--field` 精确读取。`TARGET_MISMATCH` 必须先修正任务绑定，不能悄悄使用旧状态。
-3. 检查新事实导致的失效范围，只补缺失的规则、源码与证据。`PARTIAL`/缺失不是无问题或已读；必要时按返回 JSON Pointer 继续读取。package 摘要变化才重新加载相关 skill；“读过 skill”不等于工具已运行、进度已落盘或质量已验证。
+2. 从当前可信摘要/工程记录保留的问题与判断、binding、有效结果、未闭合事项、下一步和证据引用继续。需要磁盘恢复且已知入口/当前 task 时，直接执行下方 `resume`，不先 `locate`、读状态目录或重读持久入口说明；说明仅在接入、切换绑定或排除相应错误时查。已知只缺哪些字段时重复 `--field` 合并读取。`TARGET_MISMATCH` 必须修正任务绑定，不能悄悄使用旧状态。
+3. 检查新事实导致的失效范围，只补缺失的规则、源码与证据。`resume` 在总预算内完整返回核心字段；过长字段按返回参数续读：下一次 argv = `continuation_prefix`（若有）+ 该字段的 `next_args`，交给同一工具，不猜 pointer、depth 或预算。`PARTIAL`/缺失不是无问题或已读；来源变化则重新恢复受影响内容，不拼接旧段。package 摘要变化才重新加载相关 skill；“读过 skill”不等于工具已运行、进度已落盘或质量已验证。
 4. 实质交接、当前目标/Candidate/结论变化时，更新原工程记录的工作位置；入口位置变化时同步 `bind`。普通进度回复不逐轮 checkpoint。正常暂停任务保留各自位置，切回时使用其精确记录，关闭项的详细历史留在原证据中。
+
+```sh
+python3 <plugin-dir>/scripts/workflow_context.py resume \
+  --entry <已登记入口> --role writer --task <当前请求对应的task-id>
+```
+
+`bind`/`locate` 返回可直接复用的 `resume_args`；使用前仍须匹配当前请求。参数数组按 argv 传递，或逐项正确 shell quoting，不能直接拼接成 shell 文本。工作判断已完整时不为使用该回执再读一次。
 
 每个工作位置仅保留 `task_id` 和六项核心字段：`question`（当前问题及判断）、`binding`、`completed`、`open`、`next_action`、`evidence`。未执行测试、反证、撤回与阻塞不能省略；完整清单过长时保留可读取的固定引用及未闭合数量。不要把历史部署/CI 回执不断追加到恢复摘要。Delivery Secretary 负责目标/承诺/依赖台账，这里只是工程恢复位置。
 
@@ -35,7 +42,7 @@ description: 'Implement and troubleshoot code, 源码实现、修复与工程交
 
 ## 读取、证据和测试
 
-大 JSON 用本插件 `scripts/context_json.py <file> --pointer /field`，多个字段重复 `--pointer`；默认只有目录信息。过长字段按明确子路径或 `--chunk-offset 0` 无损续读，后续分段必须携带源 SHA。完整机器附件留在磁盘，不能先打印整棵历史再截断。用法见 [持久入口与读取](../../references/workflow-runtime.md)。小文件、必要源码与失败堆栈无需强套 JSON 工具。
+其他大 JSON 用本插件 `scripts/context_json.py <file> --pointer /field`，多个字段重复 `--pointer`；选中的值在总预算内完整返回，未指定 pointer 才只给目录。过长字段沿精确子路径细读，确需全文则同样用 `continuation_prefix`（若有）+ 该字段的 `next_args` 给同一工具无损续读。根 pointer 是空字符串，不是 `/`；没有 depth 参数。完整机器附件留在磁盘，不能先打印整棵历史再截断。小文件、必要源码与失败堆栈无需强套 JSON 工具。
 
 浏览器遵守当前宿主的首次初始化、文档与恢复要求。已知单个控件可直接读取受支持 locator；需要长 DOM 快照时用 [浏览器适配](../../references/browser-context.md)，完整文本留在运行时，仅返回当前范围及未读位置。REPL 丢失时重装函数，页面或 tab 变化时重新观察；无标记、歧义、缺 API 不回退成整页输出。错误/警告和有风险的省略区域仍须核对。该适配不拦截宿主工具，也不适用于所有宿主。
 

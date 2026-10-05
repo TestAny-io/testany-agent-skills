@@ -54,6 +54,7 @@ class WorkflowRuntimeTests(unittest.TestCase):
         return json.loads(raw)
 
     def workflow(self, *args, **kwargs):
+        kwargs.setdefault("budget", 8192)
         return self.run_cli("scripts/workflow_context.py", *args, **kwargs)
 
     def bind(self, task="enterprise", role="writer", state=None, pointer="/resume", pin=None, code=0):
@@ -153,17 +154,84 @@ class WorkflowRuntimeTests(unittest.TestCase):
         self.assertEqual(result["status"], "PARTIAL")
         self.assertEqual(result["selections"][3]["count"], 40)
         self.assertTrue(result["selections"][3]["value_omitted"])
-        full = self.read_chunks("/resume/open")
+        full = self.resume_chunks(result.get("continuation_prefix", []) + result["selections"][3]["next_args"])
         self.assertEqual(json.loads(full), self.record["open"])
 
-    def test_explicit_medium_field_uses_available_budget_without_extra_round_trip(self):
+    def test_medium_core_field_does_not_require_an_extra_round_trip(self):
         self.record["open"] = "未解决" * 180
         self.save({"resume": self.record})
         self.bind()
-        self.assertTrue(self.resume()["selections"][3]["value_omitted"])
+        result = self.resume()
+        self.assertTrue(result["complete"])
+        self.assertEqual(result["selections"][3]["value"], self.record["open"])
         selected = self.resume("enterprise", "writer", "--field", "open")
         self.assertTrue(selected["complete"])
         self.assertEqual(selected["selections"][0]["value"], self.record["open"])
+
+    def test_observed_recovery_field_sizes_fit_in_one_read(self):
+        # Sanitized sizes from the 2026-10-04 14:14 recovery: the whole record
+        # was 4623 UTF-8 bytes, yet the old per-field cap returned inventories.
+        sizes = {"question": 326, "binding": 563, "completed": 1003,
+                 "open": 1030, "next_action": 404, "evidence": 1193}
+        meanings = {"question": "Investigate new counterevidence. ", "binding": "candidate-6. ",
+                    "completed": "Old review only; new candidate not approved. ",
+                    "open": "27 tests not run; approval withdrawn after a new failure. ",
+                    "next_action": "Check the real consumer and independent oracle. ",
+                    "evidence": "records/failure.json#new-evidence. "}
+        for key, size in sizes.items():
+            self.record[key] = meanings[key] + "x" * (size - 2 - len(meanings[key]))
+        # Also exercise one core field above the former 1200-byte threshold.
+        self.record["open"] += "新反证" * 80
+        self.save({"resume": self.record, "history": "HISTORY_MUST_NOT_BE_OUTPUT" * 5000})
+        receipt = self.bind()
+        result = self.workflow(*receipt["resume_args"])
+        self.assertTrue(result["complete"])
+        self.assertEqual(result["status"], "SELECTED")
+        self.assertEqual([row["value"] for row in result["selections"]],
+                         [self.record[field] for field in sizes])
+        self.assertGreater(result["source"]["bytes"], 100000)
+
+    def test_resume_continuation_pins_both_entry_and_source(self):
+        self.record["open"] = "pending-" * 1800 + "批准撤回；尾部反证不能丢失"
+        self.save({"resume": self.record})
+        bound = self.bind()
+        first = self.resume()
+        args = first.get("continuation_prefix", []) + first["selections"][3]["next_args"]
+        self.assertEqual(self.resume_chunks(args), self.record["open"])
+        self.save({"resume": {**self.record, "open": "new version"}})
+        self.workflow(*args, code=2)
+        self.save({"resume": self.record})
+        self.bind(role="reviewer", pin=bound["entry_sha256"])
+        self.workflow(*args, code=2)
+        self.resume("enterprise", "writer", "--field", "open", "--chunk-offset", "1", code=2)
+
+    def test_locator_commands_and_escaped_fields_need_no_pointer_guessing(self):
+        key = 'risk/~"$(not-a-command)'
+        self.record[key] = "尾部反证" * 1000
+        self.save({"odd/~": self.record})
+        self.bind(pointer="/odd~1~0")
+        located = self.workflow("locate", "--entry", self.entry)
+        self.assertTrue(self.workflow(*located["resume_args"]["writer"])["complete"])
+        first = self.resume("enterprise", "writer", "--field", key)
+        self.assertEqual(self.resume_chunks(first["selections"][0]["next_args"]), self.record[key])
+
+    def resume_chunks(self, args):
+        chunks = []
+        end = 0
+        before_state, before_entry = self.state.read_bytes(), self.entry.read_bytes()
+        for _ in range(100):
+            result = self.workflow(*args)
+            row = result["selections"][0]
+            self.assertEqual(row["start"], end)
+            end = row["end"]
+            chunks.append(row["chunk"])
+            self.assertEqual(self.state.read_bytes(), before_state)
+            self.assertEqual(self.entry.read_bytes(), before_entry)
+            if row["field_end"]:
+                self.assertIsNone(row["next_args"])
+                return "".join(chunks)
+            args = row["next_args"]
+        self.fail("resume continuation did not finish")
 
     def read_chunks(self, pointer):
         args = [self.state, "--pointer", pointer, "--chunk-offset", "0", "--max-bytes", "1800"]
