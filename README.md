@@ -161,7 +161,7 @@ GitHub 来源更新：先执行 `"$CODEX_CLI" plugin marketplace upgrade testany
 
 `code-reviewer` 的机器证据默认完整落盘、仅返回有上限的摘要，并提供可复用的证据校验工具；调用方式及旧版全量 stdout 的 `--full-json` 选项见[机器证据工具约定](plugins/testany-eng/skills/code-reviewer/references/artifact-tools.md)。
 
-`testany-eng 2.7.0` 新增 [code-writer](plugins/testany-eng/skills/code-writer/SKILL.md)，与 Reviewer 共用随包恢复/读取工具，并对齐现有 Delivery Secretary 接口；配置与宿主边界见[持久入口](plugins/testany-eng/references/workflow-runtime.md)。使用新版需要更新完整插件；发布不表示本机已安装或在线线程已采用。
+`testany-eng 2.7.1` 修复 [code-writer](plugins/testany-eng/skills/code-writer/SKILL.md) 与 Reviewer 的恢复读取：核心字段按总预算一次取全，超长字段返回固定来源的精确续读参数，已知任务直接从稳定入口恢复，减少目录探索和参数重试。配置与宿主边界见[持久入口](plugins/testany-eng/references/workflow-runtime.md)。使用新版需要更新完整插件；发布不表示本机已安装或在线线程已采用，真实工程 Token 节省仍须观察。
 
 `testany-eng 2.6.0` 新增 [delivery-secretary](plugins/testany-eng/skills/delivery-secretary/SKILL.md)，持续跟踪多轮、多角色工作：维护目标拆解、共享依赖、原始承诺与剩余工作，在授权内主动补问状态；`code-reviewer` 提供可选协作接口，复用已有结论回答进度，不新增评审门禁。
 

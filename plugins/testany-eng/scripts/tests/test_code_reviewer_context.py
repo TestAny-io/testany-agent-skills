@@ -57,8 +57,32 @@ class MachineContextTests(unittest.TestCase):
         self.assertEqual(row['children'], ['/current/results/0'])
         self.assertTrue(row['value_omitted'])
         self.assertNotIn('value', row)
+        args = row['next_args']
+        self.assertEqual(args[0], str(self.path.resolve()))
+        first_chunk = self.run_reader(*args[1:])
+        self.assertEqual(first_chunk['selections'][0]['start'], 0)
+        self.assertTrue(first_chunk['source']['prior_pin_checked'])
+        self.save({'current': {'results': ['new counterevidence']}})
+        self.run_reader(*args[1:], code=2)
+        self.save({'current': {'results': [{'failed': True, 'trace': '错' * 5000}]}})
         narrow = self.run_reader('--pointer', '/current/results/0/failed')
         self.assertIs(narrow['selections'][0]['value'], True)
+
+    def test_explicit_selection_uses_total_budget_without_an_inventory_round_trip(self):
+        current = {'binding': 'candidate-7', 'open': ['未执行测试' * 80],
+                   'question': 'Diagnose the new failure', 'evidence': '失败' * 150}
+        self.save({'history': 'x' * 100000, 'current': current})
+        result = self.run_reader('--pointer', '/current')
+        self.assertTrue(result['complete'])
+        self.assertEqual(result['selections'][0]['value'], current)
+        self.assertNotIn('next_args', result['selections'][0])
+
+    def test_many_small_fields_fit_even_when_initial_continuation_metadata_does_not(self):
+        self.save({str(i): i for i in range(32)})
+        args = [arg for i in range(32) for arg in ('--pointer', '/' + str(i))]
+        result = self.run_reader(*args)
+        self.assertTrue(result['complete'])
+        self.assertEqual([row['value'] for row in result['selections']], list(range(32)))
 
     def test_utf8_budget_applies_to_bytes_not_characters(self):
         self.save({'value': '中文' * 200})
@@ -73,6 +97,17 @@ class MachineContextTests(unittest.TestCase):
         self.assertEqual(len(result['selections']), 12)
         self.assertTrue(any(r['value_omitted'] for r in result['selections']))
         self.assertTrue(any(not r['value_omitted'] for r in result['selections']))
+        row = next(row for row in result['selections'] if row['value_omitted'])
+        args = result.get('continuation_prefix', []) + row['next_args']
+        continued = self.run_reader(*args[1:], budget=2300)
+        self.assertEqual(continued['selections'][0]['chunk'], '文' * 150)
+        self.assertTrue(continued['complete'])
+
+    def test_chunk_does_not_page_a_field_that_fits_without_continuation_metadata(self):
+        self.save({'value': 'x' * 500})
+        result = self.run_reader('--pointer', '/value', '--chunk-offset', '0', '--max-bytes', '1100', budget=1100)
+        self.assertTrue(result['complete'])
+        self.assertEqual(result['selections'][0]['chunk'], 'x' * 500)
 
     def test_giant_key_inventory_drops_paths_explicitly(self):
         self.save({'k' * 20000: 'value'})

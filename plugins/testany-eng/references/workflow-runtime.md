@@ -51,7 +51,7 @@ python3 <plugin-dir>/scripts/workflow_context.py bind \
 
 入口已存在时（包括 Reviewer 加入），须同时传 `--expected-entry-sha256 <最近读到的入口摘要>` 防止覆盖另一角色的更新。`locate --entry ...` 只读小入口，可找已登记角色/任务；不能按最新 mtime 猜工作流。工具锁冲突时等待当前写入结束再重试；异常遗留锁须确认没有写者后才能移除。
 
-已知入口与当前任务不同时，直接用已有入口摘要和新记录位置 `bind`，不要故意先触发一次 `resume` 错误。新记录已含工作位置时，`bind` 自己检查其身份/字段，无需先读整条记录；不知道入口摘要才 `locate` 一次，绑定后再 `resume` 取得当前判断。已经知道字段/附件结构就直接选字段，省去无变化的 inventory；一次必要读回即可确认更新，不为记录同一事实另做多轮 hash/全文回读。
+已知入口与当前任务不同时，直接用已有入口摘要和新记录位置 `bind`，不要故意先触发一次 `resume` 错误。新记录已含工作位置时，`bind` 自己检查其身份/字段，无需先读整条记录；不知道入口摘要才 `locate` 一次。两者均返回固定该入口修订的 `resume_args`；当前判断仍缺失时才用它恢复，不把绑定后再读变成门禁。`locate` 提供各角色参数，但角色/task 必须符合当前请求，不能据此替用户选任务。已知入口与任务就直接 `resume`，不先做目录发现；一次必要读回即可确认更新，不为记录同一事实另做多轮 hash/全文回读。
 
 切到新阶段或支线时，先在其正确记录建立工作位置，再 `bind` 更新本角色入口。返回旧任务也显式绑定回去。既有暂停任务记录仍保留；入口不积累历史。旧 trial 字段无需全量迁移：只转接当前/暂停工作位置，原证据继续保留。
 
@@ -66,18 +66,13 @@ python3 <plugin-dir>/scripts/workflow_context.py resume \
   --field open --field next_action
 ```
 
-`resume` 同时校验同包资源、入口任务和目标记录的 `task_id`，返回最多 6144 UTF-8 bytes。只输出当前六项或显式字段；额外字段给名称，过长值给类型、数量、子路径。缺失项 exit 1；错任务、损坏/变化来源或资源错误 exit 2，不自动回到旧记录。换任务、更新包或出现新证据后重新理解相应内容；旧判断不能自动移植。
+`resume` 同时校验同包资源、入口任务和目标记录的 `task_id`，总输出最多 8192 UTF-8 bytes，包含包/来源/续读元数据。当前六项或显式字段按总预算完整返回，不再对每项设 1200-byte 门槛；额外字段只给名称，不读取整份工程历史。缺失项 exit 1；错任务、损坏/变化来源或资源错误 exit 2，不自动回到旧记录。换任务、更新包或出现新证据后重新理解相应内容；旧判断不能自动移植。
 
-较长值使用返回的绝对 source path 和 JSON Pointer 继续：
+确实放不下的字段给类型、数量、子路径和 `next_args`。下一次 argv = 顶层 `continuation_prefix`（若有）+ 该字段的 `next_args`，交给 **同一个 workflow_context.py** 即可无损分段读取，无需手写 state path、pointer、offset 或预算。公共参数只返回一份，避免多个长字段的续读命令挤占内容预算；数组拼接不需要推导任何参数。这条路径继续核对 task，且同时 pin 入口和状态 SHA。按 argv 传递，或逐项正确 shell quoting，不能直接拼接 shell 文本。续读返回 `start/end/field_end/chunk_encoding/next_args`；下一段仍使用本次返回参数，不沿用前一输出的 prefix。来源变化先从当前任务重新 `resume`，不得拼接不同版本；缺失字段须查清实际缺口，不能用旧段或空值补齐。
 
-```sh
-python3 <plugin-dir>/scripts/context_json.py <state.json> \
-  --pointer /work_context/writer/open --pointer /work_context/writer/next_action
-python3 <plugin-dir>/scripts/context_json.py <state.json> \
-  --pointer /work_context/writer/open --chunk-offset 0
-```
+已知其他 JSON 的结构时直接用 `context_json.py <file> --pointer /field`，多个字段重复 `--pointer`；它没有任务绑定，应只用于普通附件或明确局部读取。默认总输出 6144 bytes，选中值使用可用总预算；未指定 pointer 才只返回目录。超长字段同样使用本次 `continuation_prefix`（若有）+ 字段 `next_args`，交给 **context_json.py** 续读，后续 pin 源 SHA。根 pointer 是 `""`，`/` 表示空键；没有 `--depth` / `--max-depth` 参数。需要当前恢复状态时优先用上方 `resume`，不用多层 inventory 推测工程路径。
 
-分段返回 `start/end/field_end/chunk_encoding/next_args`。`next_args` 是下一次 **context_json.py** 的参数数组，按 argv 传递，不能拼接成未经转义的 shell 代码。后续分段 pin 源 SHA，源改变先重选；组合需核对连续范围。`field_end` 仅指到达字段末尾，`complete` 仅指本次选中内容，不证明全部证据读完、测试通过或批准存在。不能用 `cat` 整棵 JSON 再截断替代。
+组合分段需核对连续范围。`field_end` 仅指到达字段末尾，`complete` 仅指本次选中内容，不证明全部证据读完、测试通过或批准存在。不能用 `cat` 整棵 JSON 再截断替代，也不能因摘要放不下而删除未做项或反证。
 
 ## 可验证的边界
 

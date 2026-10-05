@@ -9,6 +9,7 @@ import os
 from pathlib import Path
 import re
 import sys
+from typing import Callable
 
 
 def encoded(value: object) -> bytes:
@@ -85,8 +86,10 @@ def load_document(path: Path, expected_sha: str | None = None) -> tuple[object, 
 
 
 def read_view(path: Path, pointers: list[str], *, max_bytes: int = 6144,
-              value_bytes: int = 1200, expected_sha: str | None = None,
-              chunk_offset: int | None = None) -> dict:
+              value_bytes: int | None = None, expected_sha: str | None = None,
+              chunk_offset: int | None = None, metadata: dict | None = None,
+              continuation: Callable[[str, int], list[str]] | None = None) -> dict:
+    value_bytes = max_bytes if value_bytes is None else value_bytes
     if not 512 <= max_bytes <= 65536 or not 1 <= value_bytes <= max_bytes:
         raise ValueError("max-bytes must be 512..65536; value-bytes must be 1..max-bytes")
     if len(pointers) > 32 or len(set(pointers)) != len(pointers):
@@ -95,8 +98,15 @@ def read_view(path: Path, pointers: list[str], *, max_bytes: int = 6144,
                                      (chunk_offset > 0 and expected_sha is None)):
         raise ValueError("chunks require one pointer, nonnegative offset, and prior SHA after offset 0")
     document, source = load_document(path, expected_sha)
-    result = {"purpose": "navigation_only", "status": "PARTIAL", "complete": False,
+    result = {**(metadata or {}), "purpose": "navigation_only", "status": "PARTIAL", "complete": False,
               "source": source, "selections": []}
+
+    def next_args(pointer: str, offset: int) -> list[str]:
+        if continuation is not None:
+            return continuation(pointer, offset)
+        return [str(path.resolve()), "--sha256", source["observed_sha256"],
+                "--max-bytes", str(max_bytes), "--pointer", pointer, "--chunk-offset", str(offset)]
+
     if chunk_offset is not None:
         value = select(document, pointers[0])
         content = value if isinstance(value, str) else encoded(value).decode("utf-8")
@@ -110,11 +120,15 @@ def read_view(path: Path, pointers: list[str], *, max_bytes: int = 6144,
 
         def chunk(end: int) -> None:
             row.update(end=end, chunk=content[chunk_offset:end], field_end=end == len(content),
-                       next_args=([str(path.resolve()), "--pointer", pointers[0], "--chunk-offset", str(end),
-                                   "--sha256", source["observed_sha256"], "--max-bytes", str(max_bytes),
-                                   "--value-bytes", str(min(value_bytes, max_bytes))]
-                                  if end < len(content) else None))
-        low, high = chunk_offset, len(content)
+                       next_args=next_args(pointers[0], end) if end < len(content) else None)
+        # At the field end next_args disappears, so encoded size is not
+        # monotonic at that endpoint. Try a complete field before bisecting.
+        chunk(len(content))
+        if len(encoded(result)) + 1 <= max_bytes:
+            result["complete"] = chunk_offset == 0
+            result["status"] = "SELECTED" if result["complete"] else "PARTIAL"
+            return result
+        low, high = chunk_offset, len(content) - 1
         while low < high:
             mid = (low + high + 1) // 2
             chunk(mid)
@@ -138,40 +152,72 @@ def read_view(path: Path, pointers: list[str], *, max_bytes: int = 6144,
             candidates.append(omitted)
             continue
         row = describe(value, pointer)
+        if pointers:
+            # An omitted selection has an executable, pinned continuation. An
+            # unselected root inventory must not invite reading all history.
+            row["next_args"] = next_args(pointer, 0)
         result["selections"].append(row)
         # No selector means an inventory, even for a small root document.
         candidates.append(value if pointers and len(encoded(value)) <= value_bytes else omitted)
-    # Very long keys must not overflow the budget before selected values are considered.
+    # Share repeated file/task/pin arguments instead of spending the budget on
+    # one copy per omitted field. Concatenation produces exact argv, not a shell
+    # template. Single-field chunks retain the existing standalone next_args.
+    continuations = [row["next_args"] for row in result["selections"] if "next_args" in row]
+    if len(continuations) > 1:
+        common = []
+        for parts in zip(*continuations):
+            if len(set(parts)) != 1:
+                break
+            common.append(parts[0])
+        if common:
+            result["continuation_prefix"] = common
+            for row in result["selections"]:
+                if "next_args" in row:
+                    row["next_args"] = row["next_args"][len(common):]
+    # Long paths can dominate inventories; keep their omitted count explicit.
     if len(encoded(result)) + 1 > max_bytes:
         for row in result["selections"]:
             if "children" in row:
                 row["children_omitted"] = row["count"]
                 row.pop("children")
-    if len(encoded(result)) + 1 > max_bytes:
-        raise ValueError("selection metadata exceeds output budget; select fewer/shorter pointers")
+    replacements = {}
     for i, candidate in enumerate(candidates):
-        if candidate is omitted:
-            continue
+        if candidate is not omitted:
+            row = {k: v for k, v in result["selections"][i].items()
+                   if k not in ("children", "children_omitted", "next_args")}
+            replacements[i] = {**row, "value": candidate, "value_omitted": False}
+    if len(replacements) == len(result["selections"]):
+        full = {k: v for k, v in result.items() if k != "continuation_prefix"}
+        full.update(selections=list(replacements.values()), complete=True, status="SELECTED")
+        if len(encoded(full)) + 1 <= max_bytes:
+            return full
+    # Fit cheaper substitutions first so continuation metadata cannot prevent a
+    # set of complete values that fits together from being returned in one read.
+    order = sorted(replacements, key=lambda i: len(encoded(replacements[i])) - len(encoded(result["selections"][i])))
+    for i in order:
         previous = result["selections"][i]
-        row = {k: v for k, v in previous.items() if k not in ("children", "children_omitted")}
-        row.update(value=candidate, value_omitted=False)
-        result["selections"][i] = row
-        if len(encoded(result)) + 1 > max_bytes:
+        before_size = len(encoded(result)) + 1
+        result["selections"][i] = replacements[i]
+        # Replacing a continuation with a small complete value can itself make
+        # an initially oversized metadata envelope fit.
+        if len(encoded(result)) + 1 > max(max_bytes, before_size):
             result["selections"][i] = previous
     result["complete"] = all(not row["value_omitted"] for row in result["selections"])
     result["status"] = "SELECTED" if result["complete"] else "PARTIAL"
+    if not any("next_args" in row for row in result["selections"]):
+        result.pop("continuation_prefix", None)
     # complete refers only to explicitly selected values, never to a whole review.
     if len(encoded(result)) + 1 > max_bytes:
-        raise ValueError("output budget exceeded")
+        raise ValueError("selection metadata exceeds output budget; select fewer/shorter pointers")
     return result
 
 
 def main() -> int:
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("file", type=Path)
-    parser.add_argument("--pointer", action="append", default=[], help="exact JSON Pointer; repeat for needed fields")
+    parser.add_argument("--pointer", action="append", default=[], help='exact JSON Pointer; repeat for fields; root is "", not /')
     parser.add_argument("--max-bytes", type=int, default=6144)
-    parser.add_argument("--value-bytes", type=int, default=1200, help="larger values become location/count summaries")
+    parser.add_argument("--value-bytes", type=int, help="optional per-value cap; default uses the total output budget")
     parser.add_argument("--sha256", help="optional previously fixed file digest; observed digest alone is not proof")
     parser.add_argument("--chunk-offset", type=int, help="lossless continuation for one oversized field")
     args = parser.parse_args()
