@@ -406,5 +406,245 @@
   "移动已完成，另有未清理的恢复副本：{v0}": {
     "en": "The move completed. An additional recovery copy remains at: {v0}",
     "ja": "移動が完了しました。未削除の復旧用コピーがあります：{v0}"
+  },
+  "已关闭自动更新；当前单项完成后停止。": {
+    "en": "Automatic updates are disabled. The current item will finish before the run stops.",
+    "ja": "自動更新を無効にしました。実行中の項目が完了したら停止します。"
+  },
+  "检查期间来源或安装身份发生变化；重新选择后才会自动应用。": {
+    "en": "The source or installation identity changed during the check. Select the target again before automatic updates can apply.",
+    "ja": "確認中に配布元またはインストール情報が変更されました。自動更新を適用するには対象を再選択してください。"
+  },
+  "该技能目录本身包含 Git 仓库元数据，或属于链接；请在所属 Git 工作区更新，SkillDock 不替换 .git。": {
+    "en": "This skill directory contains Git metadata or is linked. Update it in its Git working tree; SkillDock does not replace .git.",
+    "ja": "このスキルは Git メタデータを含むか、リンク経由です。所属する Git ワークツリーで更新してください。SkillDock は .git を置き換えません。"
+  },
+  "已读取 Git 来源。确认关联后可更新此技能子目录，会形成工作树变更；不会 pull 整个仓库。": {
+    "en": "Git source detected. After connecting it, you can update this skill subdirectory. This changes the working tree without pulling the entire repository.",
+    "ja": "Git の配布元を検出しました。関連付け後にこのスキルのサブディレクトリを更新できます。ワークツリーに変更が生じますが、リポジトリ全体の pull は行いません。"
+  },
+  "插件安装预览已准备好。": {
+    "en": "The plugin installation preview is ready.",
+    "ja": "プラグインのインストールプレビューを用意しました。"
+  },
+  "安装结果尚未确认。请先刷新安装状态，必要时完成官方授权，再决定是否重试。": {
+    "en": "The installation result is unconfirmed. Refresh its status and complete official authorization if needed before retrying.",
+    "ja": "インストール結果は未確認です。再試行する前に状況を更新し、必要なら公式のアカウント連携を完了してください。"
+  },
+  "安装记录保留，但所属 marketplace 已移除；重新关联市场后才能更新。": {
+    "en": "The installation record is retained, but its marketplace was removed. Reconnect the marketplace to enable updates.",
+    "ja": "インストール記録は残っていますが、所属マーケットは削除されています。更新するにはマーケットを再接続してください。"
+  },
+  "存在未确认的包更新记录 {v0}；请核对插件版本和启用状态，旧写请求不会自动重放。": {
+    "en": "An unverified package update record exists: {v0}. Check the plugin version and enabled state; previous write requests will not be replayed.",
+    "ja": "未確認のパッケージ更新記録があります：{v0}。プラグインの版と有効状態を確認してください。以前の書き込み要求は再実行しません。"
+  },
+  "CLI 返回了无法安全使用的插件身份或版本，已忽略该记录。": {
+    "en": "The CLI returned an unsafe plugin identity or version. That record was ignored.",
+    "ja": "CLI が安全に使用できないプラグイン ID または版を返したため、その記録を無視しました。"
+  },
+  "市场来源不在当前已确认清单中。": {
+    "en": "The marketplace source is not in the verified inventory.",
+    "ja": "マーケットの配布元が確認済みの一覧にありません。"
+  },
+  "组件复用路径位于插件根外，初版无法证明缓存映射。": {
+    "en": "A shared component path is outside the plugin root. Its cache mapping could not be verified.",
+    "ja": "共有コンポーネントのパスがプラグインのルート外にあり、キャッシュとの対応を確認できません。"
+  },
+  "插件身份或版本不安全，未扫描其路径。": {
+    "en": "The plugin identity or version is unsafe. Its path was not scanned.",
+    "ja": "プラグイン ID または版が安全ではないため、そのパスはスキャンしていません。"
+  },
+  "未确认插件安装版本，未用来源目录替代已安装内容。": {
+    "en": "The installed plugin version is unverified. Source files were not substituted for installed content.",
+    "ja": "インストール済みの版を確認できません。配布元のファイルをインストール済みの内容として扱うことはしません。"
+  },
+  "已安装缓存目录不存在，未用来源目录替代已安装内容。": {
+    "en": "The installed cache directory is missing. Source files were not substituted for installed content.",
+    "ja": "インストール済みキャッシュのディレクトリがありません。配布元のファイルをインストール済みの内容として扱うことはしません。"
+  },
+  "缓存组件映射越出插件根。": {
+    "en": "A cached component mapping is outside the plugin root.",
+    "ja": "キャッシュ内のコンポーネントの対応先がプラグインのルート外です。"
+  },
+  "安装缓存中的声明组件缺失或越界。": {
+    "en": "A declared component in the installation cache is missing or outside the allowed boundary.",
+    "ja": "インストール済みキャッシュの宣言済みコンポーネントが見つからないか、許可された範囲外にあります。"
+  },
+  "技能文件链接越出技能目录：{v0}": {
+    "en": "A skill file link is outside its skill directory: {v0}",
+    "ja": "スキルファイルのリンクがスキルのディレクトリ外を指しています：{v0}"
+  },
+  "演练目录链接越出隔离范围：{v0}": {
+    "en": "A test directory link is outside the isolated environment: {v0}",
+    "ja": "テスト用ディレクトリのリンクが隔離環境の範囲外です：{v0}"
+  },
+  "Codex 应用目录读取超时，请稍后重试。": {
+    "en": "Reading the Codex app directory timed out. Try again shortly.",
+    "ja": "Codex アプリディレクトリの読み取りがタイムアウトしました。しばらくしてから再試行してください。"
+  },
+  "无法启动 Codex 应用目录连接。": {
+    "en": "The Codex app directory connection could not be started.",
+    "ja": "Codex アプリディレクトリへの接続を開始できません。"
+  },
+  "Codex 应用目录连接已关闭。": {
+    "en": "The Codex app directory connection closed.",
+    "ja": "Codex アプリディレクトリへの接続が終了しました。"
+  },
+  "Codex 应用目录响应超过限制。": {
+    "en": "The Codex app directory response exceeded the size limit.",
+    "ja": "Codex アプリディレクトリの応答がサイズ制限を超えました。"
+  },
+  "Codex 应用目录暂不可用，请确认已登录并更新 Codex。": {
+    "en": "The Codex app directory is unavailable. Make sure you are signed in and Codex is up to date.",
+    "ja": "Codex アプリディレクトリを利用できません。ログイン済みで、Codex が最新版であることを確認してください。"
+  },
+  "不支持该应用目录操作。": {
+    "en": "This app directory operation is unsupported.",
+    "ja": "このアプリディレクトリ操作には対応していません。"
+  },
+  "Codex 应用目录格式不受支持。": {
+    "en": "The Codex app directory format is unsupported.",
+    "ja": "Codex アプリディレクトリの形式に対応していません。"
+  },
+  "Codex 应用目录分页无效。": {
+    "en": "The Codex app directory returned invalid pagination.",
+    "ja": "Codex アプリディレクトリのページ情報が無効です。"
+  },
+  "无法读取这个插件的官方介绍，请刷新后重试。": {
+    "en": "The official plugin description could not be loaded. Refresh and try again.",
+    "ja": "このプラグインの公式説明を読み込めません。再読み込みしてから再試行してください。"
+  },
+  "无法确认 SkillDock 安装状态；未删除后台任务，请恢复 Codex CLI 后重试。": {
+    "en": "The SkillDock installation status could not be verified. The background task was retained; restore the Codex CLI and retry.",
+    "ja": "SkillDock のインストール状態を確認できません。バックグラウンドタスクは保持しています。Codex CLI を復旧して再試行してください。"
+  },
+  "无法确认 SkillDock 的已安装版本。": {
+    "en": "The installed SkillDock version could not be verified.",
+    "ja": "インストール済みの SkillDock の版を確認できません。"
+  },
+  "新版 SkillDock 的安装身份不匹配。": {
+    "en": "The new SkillDock version belongs to a different installation.",
+    "ja": "新しい版の SkillDock のインストール情報が一致しません。"
+  },
+  "无法核实 SkillDock 所属插件的安装身份。": {
+    "en": "The installation identity of the SkillDock plugin could not be verified.",
+    "ja": "SkillDock プラグインのインストール情報を確認できません。"
+  },
+  "SkillDock 数据目录属于另一个安装来源；未接管其后台。": {
+    "en": "The SkillDock data directory belongs to another installation source. Its background service was left unchanged.",
+    "ja": "SkillDock のデータディレクトリは別のインストール元に属しています。そのバックグラウンドサービスは変更していません。"
+  },
+  "端口上的服务与 SkillDock 启动记录不匹配；未替换或停止该服务。": {
+    "en": "The service on this port does not match the SkillDock launch record. It was not replaced or stopped.",
+    "ja": "このポートのサービスは SkillDock の起動記録と一致しません。そのサービスの置換や停止は行っていません。"
+  },
+  "SkillDock 后台启动未完成。": {
+    "en": "The SkillDock background service has not finished starting.",
+    "ja": "SkillDock のバックグラウンドサービスの起動が完了していません。"
+  },
+  "SkillDock 后台启动未完成。{v0}": {
+    "en": "The SkillDock background service has not finished starting. {v0}",
+    "ja": "SkillDock のバックグラウンドサービスの起動が完了していません。{v0}"
+  },
+  "SkillDock 后台尚未就绪，请重试。": {
+    "en": "The SkillDock background service is not ready. Try again.",
+    "ja": "SkillDock のバックグラウンドサービスの準備ができていません。再試行してください。"
+  },
+  "后台已重启，请刷新清单后重新操作。": {
+    "en": "The background service restarted. Refresh the inventory before trying again.",
+    "ja": "バックグラウンドサービスが再起動しました。一覧を更新してから再操作してください。"
+  },
+  "命令超时，未确认执行结果；请刷新查看实际状态后再操作。": {
+    "en": "The command timed out and its result is unconfirmed. Refresh to check the actual state before trying again.",
+    "ja": "コマンドがタイムアウトし、実行結果は未確認です。再操作の前に再読み込みして実際の状態を確認してください。"
+  },
+  "命令输出超过限制，无法确认结果。": {
+    "en": "The command output exceeded the limit. Its result could not be verified.",
+    "ja": "コマンド出力が制限を超えたため、結果を確認できません。"
+  },
+  "无法启动命令：{v0}": {
+    "en": "The command could not be started: {v0}",
+    "ja": "コマンドを開始できません：{v0}"
+  },
+  "命令失败（{v0}）：没有返回详情": {
+    "en": "The command failed ({v0}); no details were returned.",
+    "ja": "コマンドが失敗しました（{v0}）。詳細は返されていません。"
+  },
+  "命令失败（{v0}）：{v1}": {
+    "en": "The command failed ({v0}): {v1}",
+    "ja": "コマンドが失敗しました（{v0}）：{v1}"
+  },
+  "CLI 路径必须为绝对路径。": {
+    "en": "The CLI path must be absolute.",
+    "ja": "CLI のパスには絶対パスを指定してください。"
+  },
+  "CLI 文件不存在或不可访问。": {
+    "en": "The CLI executable does not exist or cannot be accessed.",
+    "ja": "CLI の実行ファイルが存在しないか、アクセスできません。"
+  },
+  "未返回可识别的 Codex 版本。": {
+    "en": "The CLI did not return a recognizable Codex version.",
+    "ja": "CLI が認識可能な Codex の版を返しませんでした。"
+  },
+  "此 CLI 不支持 plugin 管理。": {
+    "en": "This CLI does not support plugin management.",
+    "ja": "この CLI はプラグイン管理に対応していません。"
+  },
+  "CLI 检查超时。": {
+    "en": "The CLI check timed out.",
+    "ja": "CLI の確認がタイムアウトしました。"
+  },
+  "CLI wrapper 或其依赖不存在。": {
+    "en": "The CLI wrapper or one of its dependencies is missing.",
+    "ja": "CLI ラッパーまたはその依存ファイルがありません。"
+  },
+  "CLI 检查失败（退出码 {v0}）。": {
+    "en": "The CLI check failed (exit code {v0}).",
+    "ja": "CLI の確認が失敗しました（終了コード {v0}）。"
+  },
+  "指定的 Codex CLI 不可用；请检查 SKILLDOCK_CODEX_BIN 的绝对路径。": {
+    "en": "The specified Codex CLI is unavailable. Check the absolute path in SKILLDOCK_CODEX_BIN.",
+    "ja": "指定した Codex CLI を利用できません。SKILLDOCK_CODEX_BIN の絶対パスを確認してください。"
+  },
+  "未找到支持插件管理的 Codex CLI。请检查桌面应用安装位置，或设置 SKILLDOCK_CODEX_BIN 后重启。": {
+    "en": "No Codex CLI with plugin management support was found. Check the desktop app location, or set SKILLDOCK_CODEX_BIN and restart.",
+    "ja": "プラグイン管理に対応した Codex CLI が見つかりません。デスクトップアプリの保存先を確認するか、SKILLDOCK_CODEX_BIN を設定して再起動してください。"
+  },
+  "无法读取状态文件 {v0}：{v1}": {
+    "en": "Could not read state file {v0}: {v1}",
+    "ja": "状態ファイル {v0} を読み取れません：{v1}"
+  },
+  "项目目录必须为有效的本机绝对路径。": {
+    "en": "Enter a valid absolute path to a local project directory.",
+    "ja": "ローカルのプロジェクトディレクトリの有効な絶対パスを入力してください。"
+  },
+  "项目目录不存在、不是目录或不可访问；原扫描目录保持不变。": {
+    "en": "The project path is missing, is not a directory, or cannot be accessed. The scan directory was not changed.",
+    "ja": "プロジェクトのパスが存在しないか、ディレクトリではないか、アクセスできません。スキャン先は変更していません。"
+  },
+  "保存的项目选择无法读取：{v0}": {
+    "en": "The saved project selection could not be read: {v0}",
+    "ja": "保存済みのプロジェクト選択を読み取れません：{v0}"
+  },
+  "重启启动器退出（{v0}）。": {
+    "en": "The restart launcher exited ({v0}).",
+    "ja": "再起動ランチャーが終了しました（{v0}）。"
+  },
+  "新版应用的安装身份不匹配。": {
+    "en": "The new app version belongs to a different installation.",
+    "ja": "新しい版のアプリのインストール情報が一致しません。"
+  },
+  "运行目录源码摘要与启动记录不一致。": {
+    "en": "The runtime source digest does not match the launch record.",
+    "ja": "実行ディレクトリのソースダイジェストが起動記録と一致しません。"
+  },
+  "运行目录中的公开源码或许可证与构建快照不一致。": {
+    "en": "The runtime source or license does not match the build snapshot.",
+    "ja": "実行ディレクトリの公開ソースまたはライセンスがビルド時のスナップショットと一致しません。"
+  },
+  "未找到 npm，请使用 /bin/sh scripts/launch.sh 自动选择运行环境。": {
+    "en": "npm was not found. Use /bin/sh scripts/launch.sh to select a runtime automatically.",
+    "ja": "npm が見つかりません。/bin/sh scripts/launch.sh で実行環境を自動選択してください。"
   }
 }

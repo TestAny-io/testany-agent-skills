@@ -1289,6 +1289,7 @@ export default function App() {
                             {item.path && <code className="activity-path">{item.path}</code>}
                             <ServiceMessage
                               value={item.message}
+                              code={item.reasonCode}
                               error={item.status === "error"}
                             />
                           </div>
