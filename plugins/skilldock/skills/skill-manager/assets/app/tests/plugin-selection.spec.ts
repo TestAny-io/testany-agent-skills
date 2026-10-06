@@ -3,6 +3,7 @@ import fs from 'node:fs/promises';
 import path from 'node:path';
 import { execFileSync } from 'node:child_process';
 import messages from '../src/i18n/messages.json' with { type: 'json' };
+import serverMessages from '../src/i18n/server-messages.json' with { type: 'json' };
 
 async function action(request: APIRequestContext, action: string, fields = {}) {
   const session = await (await request.get('/api/session')).json();
@@ -53,6 +54,11 @@ for (const language of ['zh', 'en', 'ja'] as const) for (const theme of ['light'
     await page.screenshot({ path: testInfo.outputPath(`plugin-skill-choice-${language}-${theme}.png`), fullPage: true });
     await dialog.getByRole('button', { name: tr('确认安装'), exact: true }).click();
     await expect(dialog).toHaveCount(0);
+    const installedMessage = '已安装插件 {v0}，请在新会话中确认能力。';
+    const expectedToast = (language === 'zh' ? installedMessage : serverMessages[installedMessage][language]).replace('{v0}', f.name)
+      + tr(' 新的 Codex 会话或重载后生效。');
+    await expect(page.locator('.toast .service-message > span')).toHaveText(expectedToast);
+    await page.screenshot({ path: testInfo.outputPath(`plugin-installed-${language}-${theme}.png`), fullPage: true });
     const state = await (await request.get('/api/state?mode=sandbox')).json();
     expect(state.plugins.find((plugin: any) => plugin.id === f.id).enabled).toBe(true);
     const skills = state.skills.filter((skill: any) => skill.pluginId === f.id && skill.scope === 'plugin');

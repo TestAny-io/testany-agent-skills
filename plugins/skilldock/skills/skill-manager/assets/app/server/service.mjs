@@ -872,7 +872,7 @@ export async function createService(options = {}) {
       for (const reverse of undo.reverse()) try { await reverse(); } catch (e) { rollbackError = e; }
       let message = redact(error.message); if (rollbackError) message += `；自动恢复未完成：${redact(rollbackError.message)}，请保留备份区。`;
       if (originalRegistry) {
-        originalRegistry.activity.unshift({ id: activityId, action: request.action, target, createdAt: now(), status: 'error', message, canRestore: false });
+        originalRegistry.activity.unshift({ id: activityId, action: request.action, target, createdAt: now(), status: 'error', message, reasonCode: error.code || 'OPERATION_FAILED', canRestore: false });
         try { await writeJson(env.registryFile, originalRegistry); } catch { message += '；操作记录无法写入。'; }
       }
       cachedCatalog = undefined;

@@ -217,6 +217,7 @@ export interface Activity {
   createdAt: string;
   status: "success" | "error";
   message: string;
+  reasonCode?: string;
   canRestore: boolean;
 }
 export interface ProjectContext {

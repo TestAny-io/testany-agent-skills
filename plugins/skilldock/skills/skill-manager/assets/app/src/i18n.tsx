@@ -5,6 +5,14 @@ import { preferences } from "./preferences";
 
 type Translation = { en: string; ja: string };
 const catalog: Record<string, Translation> = { ...messages, ...serverMessages };
+// Only these slots contain another application message. Names, paths and
+// provider descriptions in every other slot must remain verbatim.
+const messageSlots: Record<string, string> = {
+  "市场 {v0}：{v1}": "v1",
+  "插件 {v0}：{v1}": "v1",
+  "缓存 {v0}：{v1}": "v1",
+  "无法读取状态文件 {v0}：{v1}": "v1",
+};
 const escapeRegex = (text: string) =>
   text.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
 const templates = Object.entries(catalog)
@@ -18,8 +26,14 @@ const templates = Object.entries(catalog)
       }
       return escapeRegex(part);
     });
-    return { match: new RegExp("^" + parts.join("") + "$"), slots, value };
-  });
+    return {
+      match: new RegExp("^" + parts.join("") + "$"), slots, value, messageSlot: messageSlots[key],
+      literalLength: key.replace(/\{v\d+\}/g, "").length,
+    };
+  })
+  // Full messages must win over short labels such as "{v0}插件 {v1}".
+  // Rank by fixed text, leaving captured names and other user values literal.
+  .sort((a, b) => b.literalLength - a.literalLength || a.slots.length - b.slots.length);
 export function locale() {
   return { zh: "zh-CN", en: "en-US", ja: "ja-JP" }[preferences().language];
 }
@@ -49,7 +63,11 @@ function translated(value: string): string | undefined {
       return interpolate(
         template.value[language],
         Object.fromEntries(
-          template.slots.map((slot, index) => [slot, match[index + 1]]),
+          template.slots.map((slot, index) => [slot,
+            slot === template.messageSlot
+              ? (translated(match[index + 1]) ?? match[index + 1])
+              : match[index + 1],
+          ]),
         ),
       );
   }
@@ -81,12 +99,14 @@ const supplemental = {
 export function ServiceMessage({
   value,
   error = false,
+  code: suppliedCode,
 }: {
   value: string;
   error?: boolean;
+  code?: string;
 }) {
   const language = preferences().language;
-  let code: string | undefined;
+  let code = suppliedCode;
   let original = value;
   if (value.startsWith("SKILLDOCK_ERROR:")) {
     try {

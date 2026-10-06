@@ -494,5 +494,37 @@
   "REMOTE_INSTALL_UNCONFIRMED": {
     "en": "The installation result is unconfirmed. Refresh its status and complete official authorization if needed before retrying.",
     "ja": "インストール結果は未確認です。再試行する前に状況を更新し、必要なら公式のアカウント連携を完了してください。"
+  },
+  "STAGING_BOUNDARY": {
+    "en": "The staging cleanup path is outside the managed directory. Cleanup was stopped.",
+    "ja": "一時ファイルの削除先が管理ディレクトリの範囲外です。削除処理を停止しました。"
+  },
+  "TARGET_BINDING_CHANGED": {
+    "en": "The source or installation changed. Select the target again before updating.",
+    "ja": "配布元またはインストール情報が変更されました。更新する前に対象を再選択してください。"
+  },
+  "PLUGIN_PREVIEW_UNAVAILABLE": {
+    "en": "The plugin skill list could not be loaded. Refresh or reconnect its marketplace source.",
+    "ja": "プラグインのスキル一覧を読み込めません。再読み込みするか、マーケットの配布元を再接続してください。"
+  },
+  "PLUGIN_DISABLED": {
+    "en": "Enable the owning plugin before changing its skills.",
+    "ja": "スキルを変更する前に、所属プラグインを有効にしてください。"
+  },
+  "APP_RESTARTING": {
+    "en": "SkillDock is preparing to restart. Wait for the interface to reconnect.",
+    "ja": "SkillDock は再起動を準備しています。画面が再接続されるまでお待ちください。"
+  },
+  "SESSION_CHANGED": {
+    "en": "The background service restarted. Refresh the inventory before trying again.",
+    "ja": "バックグラウンドサービスが再起動しました。一覧を更新してから再操作してください。"
+  },
+  "RUN_INTERRUPTED": {
+    "en": "The previous update run was interrupted. Check the current state before retrying.",
+    "ja": "前回の更新が中断されました。再試行する前に現在の状態を確認してください。"
+  },
+  "TARGET_MISSING": {
+    "en": "The original target no longer exists. Select it again to include it in the schedule.",
+    "ja": "元の対象が存在しません。スケジュールに含めるには再選択してください。"
   }
 }

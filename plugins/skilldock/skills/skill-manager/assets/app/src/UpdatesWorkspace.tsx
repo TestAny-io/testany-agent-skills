@@ -610,10 +610,10 @@ export function UpdatesWorkspace({
     setSubpath(item.sourceInfo?.subpath || "");
     setRef(item.sourceInfo?.ref || "");
   };
-  const technical = (message?: string) =>
+  const technical = (message?: string, code?: string) =>
     message ? (
       <div className="uw-message">
-        <ServiceMessage value={message} />
+        <ServiceMessage value={message} code={code} />
       </div>
     ) : null;
   const changes = (list?: SourcePreview["changes"]) =>
@@ -753,7 +753,7 @@ export function UpdatesWorkspace({
               <li key={`${targetKey(item.target)}:${i}`}>
                 <div><strong>{item.name}</strong><span className="badge badge-orange">{statusLabel(item.status)}</span></div>
                 {runContext(item, lastCompletedRun.finishedAt || lastCompletedRun.startedAt)}
-                {technical(item.message)}
+                {technical(item.message, item.reasonCode)}
               </li>
             ))}</ul>
           </section>
@@ -852,7 +852,7 @@ export function UpdatesWorkspace({
             </dl>
             </details>
             <p className="uw-hint">{hint(item)}</p>
-            {technical(item.message)}
+            {technical(item.message, item.reasonCode)}
             <CompatibilityWarnings warnings={item.warnings} />
             {item.sourceInfo && (
               <details className="uw-evidence">
@@ -971,7 +971,7 @@ export function UpdatesWorkspace({
                     <strong>{item.name}</strong>
                     <span>{statusLabel(item.status)}</span>
                     {runContext(item, run.finishedAt || run.startedAt)}
-                    {technical(item.message)}
+                    {technical(item.message, item.reasonCode)}
                   </li>
                 ))}
               </ul>

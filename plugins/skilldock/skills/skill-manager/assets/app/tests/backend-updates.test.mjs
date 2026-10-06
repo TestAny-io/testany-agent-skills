@@ -35,6 +35,9 @@ test('existing skills expose tracked, system and unknown provenance; source conf
   let preview = (await act(service, 'skill.previewSource', { id: regular.id, sourceType: 'local', source })).sourcePreview;
   await fs.appendFile(regular.path, '\nnew local edit');
   await assert.rejects(act(service, 'skill.connectSource', { id: regular.id, previewId: preview.id }), { code: 'LOCAL_CHANGES' });
+  const failure = (await service.snapshot('sandbox')).activity.find(item => item.action === 'skill.connectSource' && item.status === 'error');
+  assert.equal(failure.reasonCode, 'LOCAL_CHANGES', 'saved failures retain the code needed to localize Activity');
+  assert.match(failure.message, /变化|修改/, 'the original diagnostic is preserved');
   await fs.writeFile(regular.path, original);
   preview = (await act(service, 'skill.previewSource', { id: regular.id, sourceType: 'local', source })).sourcePreview;
   await fs.appendFile(path.join(source, 'SKILL.md'), '\nsource edit');
