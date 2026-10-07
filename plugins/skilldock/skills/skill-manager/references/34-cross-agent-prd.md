@@ -1,7 +1,7 @@
 # PRD: SkillDock 跨 Agent 管理（Codex + Claude）
 
-> **文档版本**: 0.2
-> **状态**: 已批准（产品 Owner：用户，2026-10-07，批准对象为本文 0.2 版）
+> **文档版本**: 0.3
+> **状态**: 已批准（产品 Owner：用户，2026-10-07；0.2 版整体批准，0.3 为 Owner 批准的运行环境有限修订）
 > **作者**: Claude（起草）；产品 Owner：用户
 > **创建日期**: 2026-10-07
 > **最后更新**: 2026-10-07
@@ -27,6 +27,7 @@ artifact:
     - BRIEF-SDX-001
     - EVID-SDX-001
     - BRIEF-SDX-002
+    - BRIEF-SDX-003
 entities:
   requirements:
     - id: REQ-SDX-001
@@ -153,20 +154,25 @@ entities:
           note: 第三方 MCP App 界面在 Code 标签页不渲染；内置浏览器可打开本机 SkillDock 页面
     - id: REQ-SDX-009
       class: non_functional
-      title: 三种安装场景的运行环境
-      statement: 只装 Codex、只装 Claude、两者都装的 macOS 用户都无需预装 Node.js/npm；两侧共用同一份运行环境，不重复下载。
+      title: 运行环境：扫描本机 Node，找不到时引导安装
+      statement: SkillDock 在本机扫描可用的 Node.js，找到即自动选用并保存路径、后续复用，失效时重新扫描；找不到时以 macOS 对话框引导用户安装，不自动下载运行环境；两侧共用同一选择与运行目录。
       priority: P0
       status: approved
       scope: in
       acceptance_criteria:
-        - 在没有系统 Node.js/npm、只装 Claude 的干净 macOS 账户中，首次打开可完成准备并显示清单。
-        - 两侧都装时，第二个入口首次打开不再下载运行环境。
-        - 首次准备需要联网时事先说明；断网失败不影响已运行的旧服务与数据。
+        - 本机已有满足要求的 Node.js 时，首次打开自动选用并保存其路径，设置中可见；之后打开直接复用，不再扫描。
+        - 保存的 Node.js 被删除或不再满足要求时，下次打开自动重新扫描并更新保存值。
+        - 本机没有可用的 Node.js 时，弹出 macOS 对话框，提供“打开 Node.js 下载页”“重新检测”“取消”；不下载任何运行环境；用户安装后点“重新检测”即可继续。
+        - 两侧都装时共用同一保存的选择与运行目录，第二个入口不重复准备。
+        - 0.10.x 已在用的 Codex 自带 Node 与已下载的 SkillDock 私有 Node 仍作为扫描对象，升级用户无需另装。
+        - 首次构建需要联网下载依赖时事先说明；断网失败不影响已运行的旧服务与数据。
       source_refs:
         - artifact_id: BRIEF-SDX-001
           note: 运行环境的三种场景
         - artifact_id: PRD-SKILLDOCK-001
           note: 18-codex-node-runtime 现有专用运行时
+        - artifact_id: BRIEF-SDX-003
+          note: Owner 决定改为扫描本机 Node、找不到时引导安装
     - id: REQ-SDX-010
       class: functional
       title: 同源跟踪（两边都跟上）
@@ -320,8 +326,8 @@ entities:
       source_refs:
         - artifact_id: BRIEF-SDX-001
     - id: RISK-SDX-004
-      title: Claude-only 用户首次准备失败
-      statement: 只装 Claude 的用户没有可复用的 Node.js，首次打开依赖联网下载运行环境，受限网络下失败。
+      title: 没有 Node.js 的用户需先安装
+      statement: 只装 Claude 且本机没有可用 Node.js 的用户，必须先按引导安装 Node.js 才能使用 SkillDock；扫描遗漏非常规安装位置时也会误报为没有。
       status: proposed
       scope: in
       level: medium
@@ -372,7 +378,7 @@ entities:
   must_not_regress:
     - id: MR-SDX-001
       title: Codex-only 用户行为不变
-      statement: 未启用 Claude 管理时，Codex 的清单、操作、原生入口、后台更新与 0.10.2 一致。
+      statement: 未启用 Claude 管理时，Codex 的清单、操作、原生入口、后台更新与 0.10.2 一致。例外（Owner 2026-10-07 决定）：运行环境统一改为扫描本机 Node、找不到时引导安装；Codex 自带 Node 与已下载的私有 Node 仍是扫描对象。
       status: approved
       scope: in
       priority: P0
@@ -454,6 +460,40 @@ relations:
     from: REQ-SDX-009
     to: BRIEF-SDX-001
     status: active
+  - id: REL-SDX-035
+    type: derived_from
+    from: REQ-SDX-009
+    to: BRIEF-SDX-003
+    status: active
+  - id: REL-SDX-036
+    type: derived_from
+    from: MR-SDX-001
+    to: BRIEF-SDX-003
+    status: active
+  - id: REL-SDX-037
+    type: derived_from
+    from: RISK-SDX-006
+    to: REQ-SDX-004
+    status: active
+    note: Claude 若补齐差异预览或后台更新，该需求的增量价值收缩
+  - id: REL-SDX-038
+    type: derived_from
+    from: RISK-SDX-006
+    to: REQ-SDX-008
+    status: active
+    note: Code 标签页若支持第三方 MCP App，入口方式需调整
+  - id: REL-SDX-039
+    type: derived_from
+    from: RISK-SDX-007
+    to: REQ-SDX-006
+    status: active
+    note: 后台计划仅支持 macOS
+  - id: REL-SDX-040
+    type: derived_from
+    from: RISK-SDX-007
+    to: REQ-SDX-017
+    status: active
+    note: Windows 上的 Claude 用户无法从 Claude 安装使用
   - id: REL-SDX-012
     type: derived_from
     from: REQ-SDX-010
@@ -585,7 +625,7 @@ waivers: []
 | 所属产品 | SkillDock（独立 `skilldock` 插件） |
 | 优先级 | P0 / P1 / P2 按需求分列 |
 | 预计版本 | 0.11.0（minor，Owner 2026-10-07 决定；当前 0.10.2） |
-| PRD 基线版本 | 0.2，已批准（HLD 基于此版本） |
+| PRD 基线版本 | 0.3，已批准（HLD 基于此版本） |
 | 最后同步日期 | 2026-10-07 |
 | 上游基线 | [PRD-SKILLDOCK-001](01-product-requirements.md)（本文只新增跨 Agent 部分，不改写其中需求） |
 
@@ -596,6 +636,7 @@ waivers: []
 | 0.1 | 2026-10-07 | 初稿：整理 2026-10-07 关于 Claude 桌面版适配、跨 Agent 架构、运行环境和兼容性推断的讨论 | Claude |
 | 0.2 | 2026-10-07 | 纳入 Owner 意见：能力对等原则（新增 REQ-SDX-016 与 5.6 对照表）；从 Claude 安装（新增 REQ-SDX-017）；Q1–Q6 决定（REQ-SDX-015、013 升为 P0，允许逐次确认写入项目共享设置，版本 0.11.0，不做独立应用）；新增 RISK-SDX-008 | Claude |
 | 0.2 | 2026-10-07 | 产品 Owner（用户）批准本版本；需求与回归保护条目状态改为 approved；风险条目保持 proposed，交测试策略阶段评估 | 用户 / Claude |
+| 0.3 | 2026-10-07 | 有限修订（Owner 批准）：运行环境改为“扫描本机 Node → 保存路径复用 → 找不到时弹窗引导安装”，不再自动下载；规则对 Codex 与 Claude 统一（REQ-SDX-009、MR-SDX-001 例外说明、RISK-SDX-004、2.2、2.3、4.2、5.5.3、8.2、8.3、AC-009）；marketplace 拆分维持只做标注；补齐 RISK-SDX-006、007 的追溯关系（仅元数据） | 用户 / Claude |
 
 ### 1.3 来源文档
 
@@ -604,6 +645,7 @@ waivers: []
 | PRD-SKILLDOCK-001 | [SkillDock 产品需求 v0.2](01-product-requirements.md) 及其后续阶段记录 | 现行基线 |
 | BRIEF-SDX-001 | 2026-10-07 用户与 Claude 的对话：Claude 桌面版用户是否需要 SkillDock、两个 Agent 都装时是否开两个进程、版本不一致是否要改做独立应用、三种安装场景的运行环境、技能规范没有 Agent 声明怎么办；用户同意把“同步到另一边”作为方向 | 讨论记录，未形成正式批准 |
 | BRIEF-SDX-002 | 2026-10-07 产品 Owner（用户）评审意见：0.10.2 已有能力在 Claude 下不专门关闭，除非与原生能力冲突；Q1 第一版做 Claude 插件启禁；Q2 本期面向只装 Claude 的用户分发；Q3 允许逐次确认后写入项目共享 `.claude/settings.json`；Q4 minor；Q5 改为跨 Agent 表述；Q6 不做独立 Mac 应用 | Owner 决定 |
+| BRIEF-SDX-003 | 2026-10-07 产品 Owner（用户）对运行环境与 HLD 待决项的决定：扫描本机 Node、找到即保存复用、找不到时弹窗引导安装；规则对 Codex 与 Claude 统一；marketplace 先只做标注 | Owner 决定 |
 | EVID-SDX-001 | 2026-10-07 实测与只读核对：Claude 桌面版 2.19675.1 / Claude Code 2.1.288 界面截图、MCP App 探针日志、本机两侧插件版本、Claude 官方文档（见附录 A） | 证据 |
 
 ### 1.4 术语表
@@ -645,7 +687,7 @@ SkillDock 0.10.2 只管理 Codex：服务只建立 Codex 一个本机环境，�
 1. **成为跨 Agent 的“更新守护”**：一台电脑、一个 SkillDock、一个计划，让 Codex 与 Claude 中的技能和插件都能被追踪来源、预览差异、在后台按计划更新。
 2. **能力对等，原生优先**：0.10.2 对 Codex 已有的能力在 Claude 侧默认同样提供；与 Claude 原生行为冲突时按原生语义调整；平台不支持的能力（插件内单技能开关）不伪造，并说明原因。
 3. **两个 Agent 都装的用户只需维护一次**：同一上游在两侧的版本并列可见，一次操作让两边都跟上。
-4. **任何安装组合都能直接用**：只装 Codex、只装 Claude、两者都装，都无需预装 Node.js，且本机始终只有一个 SkillDock 在运行。
+4. **任何安装组合都能顺畅用**：只装 Codex、只装 Claude、两者都装，本机已有 Node.js 时自动选用，没有时清楚引导安装；本机始终只有一个 SkillDock 在运行。
 
 ### 2.3 成功指标
 
@@ -654,7 +696,7 @@ SkillDock 没有遥测；以下指标在 UAT 与种子用户自愿提供的本�
 | 指标 | 目标值 | 数据来源 | 度量方式 |
 |------|--------|----------|----------|
 | 同源版本一致率 | 加入计划的同源插件，在一个计划周期 + 24 小时内两侧都达到上游最新版本的比例 ≥ 95% | SkillDock 本机更新记录 | UAT 机器上统计计划内同源对象的两侧版本 |
-| Claude-only 首次可用时间 | 干净 macOS 账户（无 Node.js、已联网）从安装 SkillDock 到看到清单 ≤ 3 分钟 | UAT 计时 | 记录硬件与网络条件，3 次取中位数 |
+| Claude-only 首次可用时间 | 干净 macOS 账户（已装满足要求的 Node.js、已联网）从安装 SkillDock 到看到清单 ≤ 3 分钟；没有 Node.js 时，打开后 10 秒内出现安装引导 | UAT 计时 | 记录硬件与网络条件，3 次取中位数 |
 | 单实例 | 先后从两个入口打开后，服务进程数 = 1，后台计划任务数 = 1 | 系统进程与后台任务列表 | UAT 与自动化测试读回 |
 | 越界写入 | 0 次：覆盖本地修改、写入“不兼容”Agent、改写托管或项目共享设置而未经用户逐次选择 | 自动化测试 + 本机操作记录 | 测试断言；UAT 后检查记录 |
 | Codex-only 回归 | 0 项：现有 Node 与浏览器回归全部通过 | 现有测试集 | CI / 本地测试结果 |
@@ -764,7 +806,8 @@ SkillDock 没有遥测；以下指标在 UAT 与种子用户自愿提供的本�
 | macOS，当前用户已登录 | 后台计划属于当前登录用户 |
 | 至少安装 Codex 或 Claude 之一 | 用于提供入口与被管理的环境 |
 | Git 可用 | 与现有 Git 来源能力一致 |
-| 首次准备时可联网 | 准备运行环境与依赖 |
+| 本机有满足要求的 Node.js，或按引导安装 | SkillDock 扫描并选用本机 Node.js，不自动下载 |
+| 首次构建时可联网 | 下载应用依赖 |
 
 ### 4.3 主流程
 
@@ -969,7 +1012,8 @@ Claude 用户在 Code 标签页通过 SkillDock 技能打开界面，界面显�
 
 | 状态 | 条件 | UI 表现 |
 |------|------|---------|
-| 首次准备 | 本机没有可用运行环境 | 说明正在准备与是否需要联网 |
+| 首次准备 | 首次打开或保存的 Node.js 失效 | 扫描并选用本机 Node.js，说明所用路径；构建需要联网时说明 |
+| 缺少 Node.js | 扫描不到可用的 Node.js | 弹出 macOS 对话框引导安装（下载页 / 重新检测 / 取消），入口同时给出文字说明 |
 | 复用 | 已有实例 | 直接打开 |
 | 入口较旧 | 本入口版本低于运行实例 | 正常打开，并在界面提示可更新该入口 |
 
@@ -1105,7 +1149,7 @@ erDiagram
 - Claude 桌面应用及其自带的 Claude Code 命令行。
 - Codex 桌面应用 / Codex CLI（现有依赖）。
 - macOS LaunchAgent（现有依赖）。
-- Git、npm registry、nodejs.org（首次准备）。
+- 用户本机的 Node.js（已有或按引导安装）；Git；npm registry（首次构建）。
 
 > 技术依赖详见 HLD。
 
@@ -1114,7 +1158,7 @@ erDiagram
 以下来自 BRIEF-SDX-001 的讨论，供 HLD 评估；最终选型属于 HLD：
 
 1. **插件只做入口与安装器，运行实例与宿主无关**：Codex 与 Claude 中的 SkillDock 插件只负责准备、启动或复用实例、打开界面；服务代码在共享数据目录下按版本存放，“当前版本”指向已安装的最新版本；入口与服务之间的约定带版本号，便于判断旧入口能否继续使用。
-2. **运行环境的选择顺序**：SkillDock 自带的固定版本 Node > 系统中满足版本要求的 Node > 宿主自带的 Node（仅 Codex 有可用的）；长期可评估打包为单一可执行文件，去掉 Node 依赖。
+2. **运行环境的选择顺序**（已由 0.3 修订取代：改为扫描本机 Node、找不到时引导安装，见 REQ-SDX-009）：SkillDock 自带的固定版本 Node > 系统中满足版本要求的 Node > 宿主自带的 Node（仅 Codex 有可用的）；长期可评估打包为单一可执行文件，去掉 Node 依赖。
 3. **Claude 侧写操作途径**：插件的安装、更新、启禁、卸载与 marketplace 操作通过 Claude 自带的命令行执行，不直接改写其记录文件；独立技能沿用现有文件事务与可恢复移除；独立技能的可见性写入 Claude 设置文件时只改对应条目。
 4. **单一后台任务**：现有 LaunchAgent 与写锁从“按 Codex 根”改为“按运行实例”，计划目标携带 Agent。
 
@@ -1149,7 +1193,7 @@ erDiagram
 | RISK-SDX-001 一次错误更新同时影响两侧 | 高 | 中 | 两侧更新逐侧执行与读回；计划按目标勾选，不默认把另一侧加入；差异预览；可恢复 |
 | RISK-SDX-002 Claude 内部文件格式变化 | 高 | 中 | 写操作走官方命令；读取遇到未知格式即降级为“无法确认”并禁用写；发布前复核附录 A |
 | RISK-SDX-003 两侧 SkillDock 版本错配 | 高 | 高 | 单实例、最新版本运行、数据格式版本检查、旧版只读 |
-| RISK-SDX-004 Claude-only 首次准备失败 | 中 | 中 | 事先说明联网需求；失败可重试；评估单一可执行文件 |
+| RISK-SDX-004 没有 Node.js 的用户需先安装 | 中 | 中 | 扫描覆盖常见安装方式与版本管理器；对话框直达下载页并可重新检测；设置中可手动指定路径 |
 | RISK-SDX-005 兼容性误判 | 中 | 中 | 展示依据；“无法判断”不进批量；用户确认可覆盖；已安装对象不自动移除 |
 | RISK-SDX-006 宿主补齐能力后价值收缩 | 低 | 中 | 每次发布复核宿主能力；与宿主重叠的功能降级为只读或移除 |
 | RISK-SDX-007 Windows Claude 用户不被覆盖 | 中 | 高 | 本期明确不支持；界面与 README 如实说明 |
@@ -1207,9 +1251,12 @@ erDiagram
 - [ ] 从 Claude 安装 SkillDock 后，插件错误列表与 `claude plugin list` 中没有 SkillDock 的错误。
 
 ### AC-009: 运行环境（REQ-SDX-009）
-- [ ] 无 Node.js/npm、只装 Claude 的干净 macOS 账户首次打开成功并显示清单。
-- [ ] 两侧都装时，第二个入口不再下载运行环境。
-- [ ] 首次准备前说明联网需求；断网失败不影响已运行的服务与数据。
+- [ ] 本机已有满足要求的 Node.js 时，首次打开自动选用并保存路径，设置中可见；之后直接复用。
+- [ ] 保存的 Node.js 失效后，下次打开自动重新扫描并更新。
+- [ ] 本机没有可用 Node.js 时弹出 macOS 对话框（下载页 / 重新检测 / 取消），不下载运行环境；安装后重新检测可继续。
+- [ ] 两侧都装时共用同一选择与运行目录，第二个入口不重复准备。
+- [ ] 0.10.x 用户已在用的 Codex 自带 Node 或已下载的私有 Node 仍被识别，升级后无需另装。
+- [ ] 首次构建需要联网时事先说明；断网失败不影响已运行的服务与数据。
 
 ### AC-010: 同源跟踪（REQ-SDX-010）
 - [ ] 同源对象成组显示两侧版本与最新版本。
@@ -1296,4 +1343,4 @@ erDiagram
 | 本机版本漂移：Codex testany-eng 2.7.1、skilldock 0.10.2；Claude testany-eng 2.5.0（2026-09-27 安装），`testany-agent-skills` marketplace 自动更新未设置、上次刷新 2026-09-27 | 本机插件目录与记录文件只读核对 |
 | Claude 桌面应用在插件安装记录变化后会通知已打开的本地会话重载插件 | 本机应用日志观察（2026-09-27），非官方文档承诺；不作为产品承诺 |
 
-未验证：从 Claude 安装当前 `skilldock`（只有 Codex manifest）时的实际行为；Intel Mac；受限网络下的首次准备。
+未验证：从 Claude 安装当前 `skilldock`（只有 Codex manifest）时的实际行为；Intel Mac；受限网络下的首次构建。
