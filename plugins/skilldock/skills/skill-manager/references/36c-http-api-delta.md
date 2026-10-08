@@ -1,0 +1,325 @@
+# SkillDock HTTP 接口增量（0.11.0）
+
+> 所属契约：[API-SDX-001 跨 Agent 管理接口契约](36-cross-agent-api-contract.md)（索引）
+> 本文是索引中的“HTTP”分册。wire 类型的事实源仍是 `assets/app/shared/contracts.ts`：实现时按本文更新该文件，两者不一致时以本文为准并同步修正。
+
+## 1. 基本信息
+
+| 项目 | 内容 |
+|------|------|
+| 契约 | API-SDX-001-C HTTP 接口增量 |
+| 版本 | 0.4 |
+| 状态 | 草稿（第 3 轮契约复审 CHANGES_REQUESTED 后的修订，待复审）。按 HLD 11A 条件 1b，本分册在实现 0.11.0 的 HTTP 接口之前定稿并通过评审；不阻塞 0.10.3 |
+| Owner | SkillDock 维护者（产品 Owner：用户） |
+| 服务方 | SkillDock 0.11.x 本机服务（仅监听 `127.0.0.1`） |
+| 消费方 | 0.11.x 浏览器界面与原生界面；0.10.2、0.10.3 的原生界面（经各自原生入口代理）；0.10.2 启动器与原生入口、0.10.3 转交链（只读健康检查） |
+| 上游 | PRD-SKILLDOCK-002 v0.9（5.2.2、5.6、AC-002、003、015、016）；HLD-SDX-001 v1.4 第 3.2、3.5、4、5 节 |
+
+## 2. 范围与边界
+
+覆盖：健康检查字段（含 0.10.x 依赖的冻结字段）、接口版本规则、“多 Agent 客户端”的声明方式、新增与变化的数据模型、操作与错误码、原生入口路由白名单。
+
+不覆盖：未变化的接口（`/api/session`、`/api/license`、`/api/source` 以及各操作的 Codex 语义），以 `contracts.ts` 与现有实现为准。同源归组、“两边都更新”、完整兼容性推断（P1，M4）在交付时另行增补本文。
+
+数据所有权：Agent 环境的配置与插件状态归宿主所有，服务每次按宿主证据读回；SkillDock 只持久化环境管理状态、来源记录与计划。
+
+## 3. 接口清单（变化部分）
+
+| 操作 | 方法 | 路径 | 变化 | PRD 条目 |
+|------|------|------|------|----------|
+| 健康检查 | GET | `/api/health` | 增加字段（第 4 节） | REQ-SDX-007 |
+| 快照 | GET | `/api/state` | 新增 `multiAgent=1` 参数；声明后返回 Agent 环境与各对象的 Agent 字段 | REQ-SDX-001、002、003 |
+| 技能详情 | GET | `/api/skill` | 新增可选 `agent` 参数 | REQ-SDX-003、005 |
+| 更新进度 | GET | `/api/updates/progress` | 新增可选 `agent` 参数 | REQ-SDX-006 |
+| 插件图标 | GET | `/api/plugin-icon` | 新增可选 `agent` 参数 | REQ-SDX-003 |
+| 操作 | POST | `/api/actions` | 请求可带 `agent` 等字段；新增操作（第 7 节） | REQ-SDX-001、004、005、006、009、012、015、016、017 |
+
+`agent` 参数取值 `codex` 或 `claude`，缺省为 `codex`。
+
+## 4. 健康检查（部分字段冻结）
+
+`GET /api/health` → `200`
+
+```json
+{
+  "app": "skilldock",
+  "pid": 41235,
+  "instanceId": "8c1f…",
+  "state": "/Users/u/.local/share/skilldock",
+  "sourceDigest": "3f2a…",
+  "project": "/Users/u/work/repo",
+  "launchProject": "/Users/u/work/repo",
+  "projectContext": { "requested": "…", "effective": "…", "source": "saved", "workingDirectory": "…", "warnings": [] },
+  "restart": null,
+  "appVersion": "0.11.0",
+  "apiVersion": 2,
+  "dataGeneration": 2,
+  "minimumCompatibleGeneration": 2,
+  "installations": [
+    { "agent": "codex", "marketplace": "testany-agent-skills", "version": "0.11.0", "running": false },
+    { "agent": "claude", "marketplace": "testany-agent-skills", "version": "0.11.0", "running": true }
+  ]
+}
+```
+
+| 字段 | 冻结 | 读取方与用途 |
+|------|------|-------------|
+| `app`、`pid`、`instanceId`、`state`、`sourceDigest` | 是 | 0.10.2 原生入口与启动器核实实例；0.10.3 第 2 步核实（36b 第 4.5 节）。值须与启动记录一致 |
+| `project`、`launchProject` | 是 | 0.10.2 启动器用 `(launchProject‖project)` 与记录旧 `project` 比较；**两者都不得等于**固定子目录（36a 第 7 节），以保证 0.10.2 启动器无法核实实例（K3）。0.10.3 第 2 步用 `project` 判断是否需要切换 |
+| `appVersion` | 是 | 0.10.3 第 2 步要求 `x.y.z` 且 ≥ 0.11.0 |
+| `dataGeneration` | 是 | 0.10.3 第 2 步要求整数 ≥ 2 |
+| `apiVersion` | 是 | 接口版本，规则见第 5 节 |
+| `minimumCompatibleGeneration` | 否 | 诊断 |
+| `restart` | 对 1 版客户端冻结 | 0.10.x 原生界面每 1.5 秒读取 `restart` 与 `instanceId` 判断后台是否在重启；形态沿用 0.10.2：缺省、`null` 或 `{id, status, message?, restored?}`；0.11.x 完成 0.10.x 重启任务后的写法见 36b 7.4 |
+| `projectContext` | 否 | 沿用 0.10.2 |
+| `installations` | 否 | 安装登记摘要，供界面与诊断；不含路径与凭证 |
+
+健康检查不需要令牌，只受现有的 Host、Origin、跨站标记校验约束。
+
+`GET /api/session` 的返回形态 `{token, defaultMode}` 对 1 版客户端冻结（0.10.x 原生入口读取它取得写令牌）。
+
+## 5. 接口版本规则
+
+- `apiVersion` 为整数。0.10.x 没有该字段，视为 1；0.11.0 为 2。
+- **只增不破**：在不改变已有客户端所见行为的前提下新增字段、参数、操作或错误码，不递增版本。
+- 改变已有路由对旧客户端可见的行为时，必须递增版本，并让新行为由新的显式参数或请求字段开启；没有显式开启的请求保持旧行为。`multiAgent=1` 就是 2 版的开启方式。
+- 服务端在声明与 0.10.x 共存期间，必须同时服务 1 版客户端（0.10.2、0.10.3 的原生界面）：
+  - 不带 `multiAgent` 的 `/api/state` 只返回 Codex 对象，`paths`、`cli` 保持 Codex 含义；
+  - 不带 `agent` 的请求与操作按 Codex 处理；
+  - 新错误码原则上只出现在新增路径上。例外：Codex 环境被设为只读或处于“无法确认”、或数据代号高于服务支持时，1 版客户端的 Codex 写请求会收到 `AGENT_READ_ONLY`、`AGENT_UNCONFIRMED` 或 `DATA_GENERATION_NEWER`。0.10.x 界面对不认识的错误码显示服务端 `message`（中文界面原样显示，英日界面显示原文），所以这三个错误码的 `message` 必须是完整、可独立理解的句子，并说明下一步（例如“请在 SkillDock 的 Agent 环境页启用 Codex 管理”）。
+- 客户端在发送 `multiAgent=1` 或任何 2 版字段之前，先确认健康检查的 `apiVersion ≥ 2`；不满足时按 1 版工作，并提示“SkillDock 服务版本较旧，请更新”。
+
+## 6. 数据模型（增量，写入 `contracts.ts`）
+
+```ts
+export type Agent = "codex" | "claude";
+export type AgentManagement = "enabled" | "read-only" | "unconfirmed";
+
+export interface AgentEnvironment {
+  agent: Agent;
+  /** 每次发现时计算，不持久化。 */
+  installed: boolean;
+  /** 持久化的管理状态；“未安装”不在此表示。 */
+  management: AgentManagement;
+  /** 只读或无法确认的原因（人可读）。 */
+  reason?: string;
+  roots: { config: string; pluginCache: string; skills: string; origin?: "explicit" | "session" | "default" };
+  cli: { available: boolean; version?: string; path?: string; error?: string };
+  /** 该 Agent 中安装的 SkillDock；没有安装时省略。 */
+  skilldock?: { version: string; running: boolean; canUpdate: boolean; reason?: string };
+  /** 宿主层面的已知行为说明（例如 Claude 桌面应用会话整体禁用自动更新，PRD 附录 A）。 */
+  notes?: string[];
+}
+
+export type ClaudeSettingsLayer = "user" | "project" | "local" | "managed";
+export type ClaudePluginScope = ClaudeSettingsLayer;
+
+/** Claude 插件的安装身份（DEC-SDX-023）。对象 ID、计划目标与绑定都由它派生。 */
+export interface ClaudeInstallation {
+  scope: ClaudePluginScope;
+  /** project、local 作用域的项目路径。 */
+  projectPath?: string;
+  /** 技能目录插件（名称@skills-dir）所在的技能目录。 */
+  skillsDir?: string;
+  /** 项目路径不存在等原因导致只读。 */
+  readOnlyReason?: string;
+}
+
+/** 启用状态（插件）或可见性（技能）由哪一层设置决定（PRD 5.2.2，AC-002、AC-015）。 */
+export interface EnablementSource {
+  /** 决定当前实际状态的层级；没有任何设置条目时为 "default"。 */
+  decidedBy: ClaudeSettingsLayer | "default";
+  /** 用户可写的层级被更高优先级层级覆盖时，覆盖它的层级。 */
+  overriddenBy?: Exclude<ClaudeSettingsLayer, "user">;
+  /** 托管强制启用或组织要求的同步插件：不可停用。 */
+  locked?: boolean;
+}
+
+export type SkillVisibility = "enabled" | "disabled" | "name-only" | "user-invocable-only";
+
+/** 共用技能对象在某一侧的发现位置与状态（两侧状态互相独立）。 */
+export interface SkillSide {
+  /** 该侧发现它的路径（可能是指向共用目录的链接）。 */
+  path: string;
+  scope: Scope;
+  enabled: boolean | null;
+  /** 仅 Claude 侧。 */
+  visibility?: SkillVisibility;
+  enablement?: EnablementSource;
+  canToggle: boolean;
+  canRemove: boolean;
+  /** 该侧发现路径是否就是真实目录且有来源记录；只有这一侧能发起更新。 */
+  canUpdate: boolean;
+  /** 该侧移除的对象：链接只移除链接；目录则移走真实目录（另一侧随之失效）。 */
+  removeKind: "link" | "directory";
+  reason?: string;
+  protection?: Protection;
+  /** 该侧状态摘要。 */
+  revision?: string;
+}
+export type Protection = "managed" | "synced" | "system";
+
+/** 预览或确认结果中携带的原生规则说明（HLD 3.5）。 */
+export interface NativeRule {
+  kind: "scope" | "dependencies" | "affected-plugins" | "data-removal" | "visibility" | "reload";
+  message: string;
+  /** 依赖插件、受影响插件等对象名称。 */
+  items?: string[];
+}
+```
+
+对现有类型的增量：
+
+| 类型 | 新增字段 | 说明 |
+|------|----------|------|
+| `Snapshot` | `agents?: AgentEnvironment[]` | 仅在 `multiAgent=1` 时返回；只列出已安装或曾启用的环境 |
+| `Skill`、`Plugin`、`Marketplace` | `agents?: Agent[]` | 对象所属的 Agent，非空、按 `codex`、`claude` 排序；缺省表示 `["codex"]`。`multiAgent=1` 时服务端对每个对象都显式给出 |
+| `UpdateItem`、`UpdateTarget`、`Activity`、`ActionResult` | `agent?: Agent` | 这些都针对某一侧的一次检查或操作，取单值；缺省为 Codex |
+| `Skill` | `visibility?: SkillVisibility`；`enablement?: EnablementSource`；`perAgent?: Partial<Record<Agent, SkillSide>>` | 前两者仅用于只属于 Claude 的技能，此时 `enabled` 与 `visibility` 对应（后两档为 `null`）。`perAgent` 只用于两侧共用的技能，见下文“共用对象” |
+| `Skill`、`Plugin`、`Marketplace` | `revision?: string` | Claude 对象与共用对象的状态摘要，写请求须带回（7.1）。共用技能的顶层 `revision` 覆盖两侧状态；Claude marketplace 的 `revision` 覆盖其自动更新设置与从它安装的插件集合 |
+| `Skill`、`Plugin` | `protection?: Protection` | 与现有 `managed`、`reason` 一起显示保护状态与原因 |
+| `Plugin` | `installation?: ClaudeInstallation`；`enablement?: EnablementSource`；`manifests?: Agent[]` | 前两者仅 Claude 插件；`manifests` 为该插件带有专用 manifest 的 Agent（兼容性证据，0.11.0 只展示） |
+| `Marketplace` | `autoUpdate?: { enabled: boolean; isDefault: boolean; note?: string }` | 仅 Claude marketplace：自动更新实际值、是否为默认值；桌面应用会话整体禁用自动更新时，`note` 给出说明（AC-002）。`refreshedAt` 沿用现有字段 |
+| `PluginInstallPreview` | `agent?: Agent`；`scopes?: ClaudePluginScope[]`；`defaultScope?: ClaudePluginScope`；`dependencies?: { id: string; name: string; installed: boolean }[]`；`manifests?: Agent[]`；`nativeRules?: NativeRule[]` | Claude 安装预览：可选作用域、会一并安装的依赖插件、manifest 归属与原生规则说明（PRD 5.6） |
+| `ActionResult` | `nativeRules?: NativeRule[]` | 确认类结果（卸载、移除 marketplace、改可见性等）携带的原生规则说明 |
+
+共用对象与去重（PRD 5.2.2、AC-003、AC-005）：
+- 只合并**独立技能**：两侧都在技能根中发现、真实路径相同的技能目录视为同一个对象，只出现一次，`agents` 同时包含两侧，对象 ID 取 Codex 侧的现有 ID。某一侧是插件附带的技能时不合并，两侧各是一个对象。
+- 共用对象的顶层 `path`、`scope`、`enabled`、`canToggle`、`canRemove`、`canUpdate`、`removeKind`、`reason`、`managed`、`protection` 一律取 **Codex 侧**的值（1 版客户端与 MR-SDX-001 的语义）；顶层不出现 `visibility`、`enablement`。
+- `perAgent` 只在 `multiAgent=1` 时给出；对共用对象必须给出，并包含两侧各自的 `SkillSide`，两侧状态互相独立（例如 Codex 启用、Claude 关闭是正常状态）。
+- **启禁**按侧执行：2 版客户端必须带 `agent`，服务端按该侧的 `SkillSide` 判断能否操作、是否需要确认；结果的 `ActionResult.agent` 为该侧。不带 `agent` 的请求（1 版客户端）按 Codex 处理。
+- **移除与恢复**按请求的一侧作用于**该侧的发现路径**，沿用 0.10.2 与 AC-005：该侧是链接（`removeKind: "link"`）就只移除链接，只影响该侧；该侧发现路径就是真实目录（`removeKind: "directory"`）时移走目录，另一侧随之失效。后一种情况下，2 版客户端未带 `confirm: true` 时返回 `CONFIRMATION_REQUIRED`，`nativeRules` 中一条 `kind: "scope"` 说明会同时影响 Codex 与 Claude；1 版客户端保持 0.10.2 行为。恢复按操作记录还原到原发现路径。`ActionResult.agent` 为请求的一侧，不带 `agent` 按 Codex。
+- **更新**作用于真实目录，只能经 `canUpdate` 为真的一侧发起（发现路径就是真实目录、且有该侧分区的来源记录），`UpdateTarget.agent` 取该侧；预览带一条 `kind: "scope"` 的 `NativeRule`，说明两侧看到的内容都会改变。
+- **并行改动核对**：2 版客户端对共用对象的任何写请求都带顶层 `revision`（覆盖两侧状态）作为 `expectedRevision`；1 版客户端免带。
+- 插件与 marketplace 由各宿主分别安装与登记，两侧各是一个对象，`agents` 只含一侧，不使用 `perAgent`；同源归组（REQ-SDX-010）在 M4 另行增补。
+
+对象 ID：
+- Codex 对象沿用现有 ID，不加前缀（MR-SDX-001）。
+- Claude 对象 ID 以 `claude:` 开头，由对象类型与安装身份派生，例如 `claude:plugin:<名称>@<marketplace>:<作用域>[:<项目路径摘要>]`、`claude:skill:<作用域>:<技能目录摘要>`。摘要为规范路径的 sha256 前 12 位。客户端不得解析 ID 的内部结构。
+- 共用状态变化（例如只属于 Claude 的技能后来也被 Codex 发现）会改变对象 ID。服务端按真实路径把旧 ID 解析到当前对象；计划目标、来源记录与操作记录据此继续关联，不因 ID 改变而失联。
+
+## 7. 操作（`POST /api/actions`）
+
+### 7.1 请求字段增量
+
+| 字段 | 类型 | 说明 |
+|------|------|------|
+| `agent` | `Agent` | 对象所属 Agent，缺省 Codex |
+| `scope` | `"user" \| "project" \| "local"` | Claude 写入作用域；缺省 `user`。`project` 会改动协作者共享的设置，须同时带 `confirm: true` |
+| `confirm` | `boolean` | 用户已在确认框中同意本次需要确认的改动：共享作用域、可见性从“仅名称/仅用户可调用”改为开或关、卸载 Claude 插件（默认删除插件数据）、移除 Claude marketplace（会卸载从它安装的插件）、移走两侧共用的技能目录、清理 SkillDock 管理的本地 marketplace |
+| `gitExclude` | `boolean` | 新建的 `.claude/settings.local.json` 位于未忽略的 Git 仓库时，用户是否同意写入 `.git/info/exclude` |
+| `keepData` | `boolean` | 卸载 Claude 插件时保留插件数据 |
+| `expectedRevision` | `string` | 界面所依据的对象 `revision`。2 版客户端对已存在、带 `revision` 的对象（Claude 对象、共用技能）的写请求必须带；缺失或不一致都返回 `SNAPSHOT_STALE`，界面刷新后重试。1 版客户端的 Codex 请求免带 |
+| `management` | `AgentManagement` | 用于 `agent.setManagement`（只接受 `enabled`、`read-only`） |
+| `claudeRoot` | `{ configDir: string; pluginCacheDir: string }` | 用于 `settings.setClaudeRoot` |
+| `nodePath` | `string` | 用于 `settings.setNodePath` |
+
+### 7.2 新增操作
+
+| 操作 | 说明 | 成功结果 | 主要错误 |
+|------|------|----------|----------|
+| `agent.setManagement` | 启用或停用某 Agent 环境的管理；启用前验证主证据可读、命令行可用并读回 | `message`；快照中环境状态更新 | `AGENT_NOT_INSTALLED`、`AGENT_UNCONFIRMED`、`CLI_UNAVAILABLE` |
+| `agent.updateSkilldock` | 一键更新另一侧的 SkillDock（经该 Agent 的插件更新命令并读回） | `message`、`needsReload` | `CLI_UNAVAILABLE`、`SKILLDOCK_UPDATE_FAILED`、`READBACK_FAILED` |
+| `settings.setClaudeRoot` | 切换 Claude 根目录；切换前重新核验新目录 | `message` | `INVALID_PATH`、`AGENT_UNCONFIRMED` |
+| `settings.setNodePath` | 手动指定 Node 路径；按 HLD 3.10 核验后保存 | `message` | `NODE_UNAVAILABLE` |
+| `settings.redetectNode` | 重新扫描 Node 并保存结果 | `message` | `NODE_UNAVAILABLE` |
+
+### 7.3 现有操作在 Claude 侧的语义
+
+| 操作 | Claude 侧语义 |
+|------|---------------|
+| `plugin.install`、`plugin.installSource`、`plugin.previewInstall` | 经 Claude 命令行安装，显式带作用域；无 manifest 的直接来源只允许 `user`、`local` 作用域（HLD 3.3） |
+| `plugin.toggle` | 写对应作用域设置中的启用条目；不支持“只启用部分技能”（`UNSUPPORTED_FOR_AGENT`） |
+| `plugin.remove` | 卸载，`keepData` 决定是否保留数据 |
+| `marketplace.add`、`marketplace.refresh`、`marketplace.remove` | 经 Claude 命令行；移除前在确认框列出从该 marketplace 安装的插件 |
+| `skill.toggle` | 写技能可见性条目；当前值为后两档时须 `confirm: true` |
+| `skill.install`、`skill.update`、`skill.remove`、`activity.restore` | 复用现有文件事务，目标为 Claude 个人根或项目的 `.claude/skills` |
+| `update.check`、`update.apply`、`updates.run`、`schedule.configure` | 目标带 `agent`；Claude 插件按 HLD 3.3A 的候选内容与读回规则 |
+
+移除 Claude marketplace 时，服务端在执行前重新计算受影响的插件，与确认时的 `revision` 不一致即再次返回 `CONFIRMATION_REQUIRED`（带新的 `nativeRules`）。
+
+需要确认的操作在未带 `confirm: true` 时返回 `CONFIRMATION_REQUIRED`，错误体额外带 `nativeRules`（`{ "error": { "code", "message", "nativeRules": NativeRule[] } }`），界面据此显示确认框（AC-016）；这是错误体唯一的扩展字段，只出现在这个错误码上。
+
+所有 Claude 写操作：写前重新读取对象状态并与 `expectedRevision` 比较；成功后读回，结果带 `needsReload: true` 与 `agent: "claude"`。
+
+### 7.4 示例
+
+启用 Claude 项目作用域的插件（需要确认共享设置）：
+
+```json
+{ "mode": "local", "action": "plugin.toggle", "agent": "claude", "id": "claude:plugin:demo@market:project:1a2b3c4d5e6f",
+  "enabled": true, "scope": "project", "confirm": true, "expectedRevision": "9f8e…" }
+```
+
+```json
+{ "message": "已在项目设置中启用 demo。新会话生效，已打开的会话需重载插件。", "needsReload": true, "agent": "claude",
+  "nativeRules": [{ "kind": "scope", "message": "这会改动协作者共享的 .claude/settings.json。" }] }
+```
+
+未带 `confirm` 时：
+
+```json
+{ "error": { "code": "CONFIRMATION_REQUIRED", "message": "启用到项目设置会改动协作者共享的 .claude/settings.json，请确认后重试。",
+  "nativeRules": [{ "kind": "scope", "message": "这会改动协作者共享的 .claude/settings.json。" }] } }
+```
+
+启用 Claude 环境管理：
+
+```json
+{ "mode": "local", "action": "agent.setManagement", "agent": "claude", "management": "enabled" }
+```
+
+```json
+{ "message": "已启用 Claude 管理。" }
+```
+
+## 8. 错误契约（新增）
+
+响应体沿用 `{ "error": { "code": string, "message": string } }`。
+
+| 错误码 | HTTP | 含义 | 可重试 | PRD 条目 |
+|--------|------|------|--------|----------|
+| `AGENT_NOT_INSTALLED` | 404 | 该 Agent 未安装 | 否 | REQ-SDX-001 |
+| `AGENT_READ_ONLY` | 409 | 该环境处于只读，写操作被拒 | 启用后可 | REQ-SDX-001 |
+| `AGENT_UNCONFIRMED` | 409 | 无法确认该环境的主证据，写操作全部禁用 | 刷新后可 | REQ-SDX-002 |
+| `DATA_GENERATION_NEWER` | 409 | 数据代号高于本服务支持，只读 | 更新后可 | REQ-SDX-007 |
+| `UNSUPPORTED_FOR_AGENT` | 422 | 该操作不适用于该 Agent（如 Claude 插件只启用部分技能） | 否 | REQ-SDX-016 |
+| `SNAPSHOT_STALE` | 409 | 宿主中已有改动（`expectedRevision` 不一致），请刷新 | 刷新后可 | REQ-SDX-016、RISK-SDX-008 |
+| `CONFIRMATION_REQUIRED` | 409 | 需要用户确认后带 `confirm: true` 重试；错误体带 `nativeRules` | 确认后可 | REQ-SDX-012、016 |
+| `HOST_MANAGED` | 403 | 由宿主或组织管理（managed、`@synced`、command 来源等），只显示手动途径 | 否 | REQ-SDX-004、012 |
+| `PROJECT_PATH_MISSING` | 422 | project、local 作用域的项目路径不存在，该安装只读 | 恢复路径后可 | REQ-SDX-004 |
+| `READBACK_CONTENT_CHANGED` | 502 | 装入内容与预览不同，未自动重试 | 重新预览后可 | REQ-SDX-004 |
+| `SKILLDOCK_UPDATE_FAILED` | 502 | 一键更新另一侧 SkillDock 失败，附手动步骤 | 是 | REQ-SDX-007 |
+| `NODE_UNAVAILABLE` | 422 | 指定或扫描到的 Node 不满足要求 | 修正后可 | REQ-SDX-009 |
+
+沿用的错误码（`CLI_UNAVAILABLE`、`READBACK_FAILED`、`INVALID_PATH`、`TOKEN_REJECTED` 等）在 Claude 侧含义不变，消息按 Agent 措辞。新错误码原则上只在带 `agent: "claude"` 的请求或新增操作上出现；1 版客户端可能收到的三个例外见第 5 节。
+
+## 9. 原生入口的路由白名单
+
+0.11.x 原生入口代理的读路由与参数白名单：
+
+| 路由 | 允许的参数 |
+|------|-----------|
+| `/api/health`、`/api/session` | 无 |
+| `/api/state` | `mode`、`refresh`、`multiAgent`（取值只允许 `1`） |
+| `/api/skill` | `mode`、`id`、`agent` |
+| `/api/updates/progress` | `mode`、`agent` |
+| `/api/plugin-icon` | `mode`、`id`、`theme`、`agent` |
+
+`agent` 只允许 `codex`、`claude`；其余校验沿用 0.10.2。0.10.x 原生入口的白名单无法更改，它们只会发出 1 版请求，由第 5 节保证兼容。
+
+## 10. 安全与非功能
+
+- 沿用现有边界：仅绑定 `127.0.0.1`；同源静态页与接口；校验 Host、Origin、跨站标记；写请求要求会话令牌与 JSON；请求体 ≤ 32 KiB。
+- 快照与详情不返回 Claude 设置中与功能无关的键（环境变量、凭证辅助程序等），不返回任何凭证。
+- 首屏快照不调用联网的命令（如带 `--available` 的列表）；“可安装插件”在用户打开时单独请求。
+
+## 11. 兼容性与版本策略
+
+- 第 4 节标注“冻结”的健康检查字段在 0.10.3 发布后不得删除或改变含义。
+- 其余增量按第 5 节“只增不破”演进。
+- `contracts.ts` 与本文同步更新；契约评审同时核对两者。
+
+## 12. 待确认问题
+
+见索引第 9 节。
