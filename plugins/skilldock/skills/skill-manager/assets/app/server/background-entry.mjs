@@ -6,6 +6,16 @@ import { pathToFileURL } from 'node:url';
 
 const file = process.argv[2];
 let context;
+// 0.10.3 (API-SDX-001 36b §8): newer data ends this run without touching any file.
+async function newerData(stateDir) {
+  if (!stateDir || !path.isAbsolute(stateDir)) return false;
+  const read = async name => { try { return JSON.parse(await fs.readFile(path.join(stateDir, name), 'utf8')); } catch (error) { return error.code === 'ENOENT' ? undefined : null; } };
+  const marker = await read('generation.json');
+  if (marker !== undefined && !(Number.isInteger(marker?.generation) && marker.generation < 2)) return true;
+  const plan = await read('local/updates.json');
+  return plan !== undefined && plan?.version !== 1;
+}
+if (await newerData(process.env.SKILLDOCK_STATE_DIR)) process.exit(0);
 try {
   context = JSON.parse(await fs.readFile(file, 'utf8'));
   if (context.version !== 1 || !path.isAbsolute(context.runtime) || !path.isAbsolute(context.stateDir)) throw new Error('Invalid background context');

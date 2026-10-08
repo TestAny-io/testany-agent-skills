@@ -4,3 +4,6 @@ export class AppError extends Error {
   constructor(status, code, message) { super(message); this.status = status; this.code = code; }
 }
 export const fail = (status, code, message) => { throw new AppError(status, code, message); };
+export function redact(message) {
+  return String(message).replace(/((?:https?|ssh):\/\/)[^\s/]+@/gi, '$1[redacted]@').replace(/((?:token|password|api[_-]?key|authorization)\s*[:=]\s*)[^\s,;]+/gi, '$1[redacted]').slice(0, 3000);
+}
