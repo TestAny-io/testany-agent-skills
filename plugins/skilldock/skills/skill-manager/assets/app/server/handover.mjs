@@ -272,8 +272,12 @@ function invoke(target, action, project, { env, state, ownAgent, spawnImpl, out,
     try { child = spawnImpl('/bin/sh', args, { cwd: state, env: childEnv, stdio: ['ignore', 'pipe', 'inherit'], shell: false }); }
     catch (error) { err.write(`SkillDock：无法启动 ${redactUrl(error.message)}\n`); return resolve(1); }
     // 36b §4.7: buffer the callee's stdout so a fallback still prints exactly one JSON.
-    const chunks = []; let size = 0;
-    child.stdout?.on('data', chunk => { size += chunk.length; if (size <= STDOUT_LIMIT) chunks.push(chunk); });
+    // Keep reading past the limit so the callee never blocks; keep the last 4 KiB for diagnostics.
+    const chunks = []; let size = 0; let tail = Buffer.alloc(0);
+    child.stdout?.on('data', chunk => {
+      size += chunk.length; if (size <= STDOUT_LIMIT) chunks.push(chunk);
+      tail = Buffer.concat([tail, chunk]).subarray(-4096);
+    });
     const forward = signal => { try { child.kill(signal); } catch { /* already exited */ } };
     process.on('SIGINT', forward); process.on('SIGTERM', forward);
     let finished = false;
@@ -284,7 +288,7 @@ function invoke(target, action, project, { env, state, ownAgent, spawnImpl, out,
       // Over-long output means the callee broke its contract (36b §6.3); treat it as a failure.
       if (code === 0 && size > STDOUT_LIMIT) { err.write('SkillDock：被调用方输出超过 64 KiB，按失败处理。\n'); code = 1; }
       if (code === 0) out.write(output);
-      else if (output.length) err.write(`SkillDock：被调用方输出（末尾）：${redactUrl(output.subarray(-4096).toString('utf8'))}\n`);
+      else if (tail.length) err.write(`SkillDock：被调用方输出（末尾）：${redactUrl(tail.toString('utf8'))}\n`);
       resolve(code);
     };
     child.once('error', error => { err.write(`SkillDock：无法启动 ${redactUrl(error.message)}\n`); done(1); });
