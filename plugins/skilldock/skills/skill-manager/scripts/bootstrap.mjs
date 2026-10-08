@@ -8,6 +8,8 @@ import { resolveToolchain } from '../assets/app/server/toolchain.mjs';
 import { resolveCodexCli } from '../assets/app/server/codex-runtime.mjs';
 import { parseLaunchArguments, resolveProject } from '../assets/app/server/project-context.mjs';
 import { planLaunch, delegate, failureText } from '../assets/app/server/launch-plan.mjs';
+import { readSavedNode } from '../assets/app/server/node-candidates.mjs';
+import { showNodeGuidance } from '../assets/app/server/node-guide.mjs';
 
 try {
   const { action, options, cliArgs } = parseLaunchArguments(process.argv.slice(2));
@@ -35,13 +37,20 @@ try {
   } else {
     let toolchain;
     if (action === 'start' || action === 'restart' || action === 'doctor') {
-      toolchain = await resolveToolchain({ stateDir, allowInstall: action !== 'doctor' });
+      // HLD 3.10: doctor only reads; start and restart save the selection.
+      toolchain = await resolveToolchain({ stateDir, save: action !== 'doctor' });
       if (action === 'doctor') {
         const cli = await resolveCodexCli();
         const project = await resolveProject({ projectDir: options.projectDir, stateDir });
-        process.stdout.write(`${JSON.stringify({ ...toolchain, state: stateDir, cli, project }, null, 2)}\n`);
+        process.stdout.write(`${JSON.stringify({ ...toolchain, bootstrap: process.execPath, saved: await readSavedNode(stateDir), state: stateDir, cli, project }, null, 2)}\n`);
         if (toolchain.available === false || !cli.available) process.exitCode = 1;
-      } else process.stderr.write(`SkillDock：使用 ${toolchain.source} 的 Node ${toolchain.nodeVersion} / npm ${toolchain.npmVersion}。\n`);
+      } else if (toolchain.available === false) {
+        const skillRoot = fileURLToPath(new URL('../', import.meta.url));
+        const shown = showNodeGuidance({ skillRoot, args: process.argv.slice(2), state: stateDir });
+        throw new Error(`未找到能构建 SkillDock 的 Node.js 22.12 或更新版本（已检查 ${toolchain.rejected.length} 个位置）。${shown
+          ? '已显示安装引导：安装后点“重新检测”，或重新打开 SkillDock。'
+          : '请安装 Node.js 22.12 或更新版本后重新打开；也可用 SKILLDOCK_NODE_BIN 指定 Node 的绝对路径。'}`);
+      } else process.stderr.write(`SkillDock：使用 ${toolchain.source === 'saved' ? `保存的（${toolchain.savedSource}）` : toolchain.source} Node ${toolchain.nodeVersion} / npm ${toolchain.npmVersion}。\n`);
     }
     if (action !== 'doctor') {
       const node = toolchain?.node || process.execPath;

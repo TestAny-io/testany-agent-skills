@@ -9,6 +9,7 @@ import crypto from 'node:crypto';
 import { fileURLToPath } from 'node:url';
 import { installationIdentity } from './installation.mjs';
 import { readJsonFile } from './installs.mjs';
+import { shellBlock } from './node-candidates.mjs';
 
 const runtime = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');
 const quote = value => `'${String(value).replace(/'/g, "'\\''")}'`;
@@ -27,10 +28,11 @@ export const backgroundPaths = (stateDir, home = os.homedir()) => {
     plist: path.join(home, 'Library/LaunchAgents', `${label}.plist`) };
 };
 
-// The fixed shell entry survives removal of a versioned plugin cache or a desktop
-// app's Node binary. No interactive shell or stored credentials.
-export function runScript(paths, stateDir, node = process.execPath) {
-  return `#!/bin/sh\nset -eu\nexport SKILLDOCK_STATE_DIR=${quote(stateDir)}\nfor candidate in ${quote(node)} "$HOME/.cache/codex-runtimes/codex-primary-runtime/dependencies/node/bin/node" ${quote(stateDir)}/node/node-v*-darwin-*/bin/node /Applications/ChatGPT.app/Contents/Resources/cua_node/bin/node /Applications/Codex.app/Contents/Resources/cua_node/bin/node /Applications/ChatGPT.app/Contents/Resources/node /Applications/Codex.app/Contents/Resources/node /opt/homebrew/bin/node /usr/local/bin/node; do\n  if [ -x "$candidate" ] && "$candidate" -e 'const [a,b]=process.versions.node.split(".").map(Number);process.exit(a>22||a===22&&b>=12?0:1)' >/dev/null 2>&1; then\n    exec "$candidate" ${quote(paths.entry)} ${quote(paths.context)}\n  fi\ndone\nprintf '%s\\n' 'SkillDock: Node runtime unavailable. Reopen SkillDock to repair background updates.' >&2\nexit 1\n`;
+// The fixed shell entry survives removal of a versioned plugin cache or a desktop app's
+// Node binary. It finds Node with the shared candidate list (HLD 3.10), the saved
+// selection first; no interactive shell, no stored credentials, never a dialog.
+export function runScript(paths, stateDir) {
+  return `#!/bin/sh\nset -eu\nexport SKILLDOCK_STATE_DIR=${quote(stateDir)}\n${shellBlock()}if [ -n "$node_bin" ]; then exec "$node_bin" ${quote(paths.entry)} ${quote(paths.context)}; fi\nprintf '%s\\n' 'SkillDock: Node runtime unavailable. Reopen SkillDock to repair background updates.' >&2\nexit 1\n`;
 }
 
 /** Whether 0.10.x (or 0.11) left a background registration in this data directory. */

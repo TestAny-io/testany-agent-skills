@@ -8,6 +8,7 @@ import { execFile } from 'node:child_process';
 import { promisify } from 'node:util';
 import { Transform, Readable } from 'node:stream';
 import { pipeline } from 'node:stream/promises';
+import { nodeCandidates, readSavedNode, writeSavedNode } from './node-candidates.mjs';
 
 const execute = promisify(execFile);
 export const NODE_RELEASE = Object.freeze({
@@ -148,31 +149,48 @@ export async function installPrivateRuntime({ stateDir, arch = process.arch, pla
   }
 }
 
+/**
+ * HLD 3.10 (DEC-SDX-012): the first candidate (node-candidates.mjs order) that passes the
+ * version, signing and npm checks; the saved selection only gets a light check (file,
+ * version, npm present) and is replaced when it fails. Nothing is downloaded: without a
+ * usable Node the result is `available: false` and the entry shows guidance.
+ * `save: false` (doctor) never writes; `system: false` leaves out fixed system paths (tests).
+ */
 export async function resolveToolchain({ stateDir, env = process.env, home = os.homedir(), apps = appRoots(env, home),
-  platform = process.platform, arch = process.arch, allowInstall = true, inspect = inspectNode, install = installPrivateRuntime } = {}) {
-  const workspace = env.SKILLDOCK_WORKSPACE_RUNTIME || path.join(home, '.cache/codex-runtimes/codex-primary-runtime');
-  const privateSpec = privateLocation(stateDir, arch);
-  const candidates = env.SKILLDOCK_NODE_BIN ? [{ file: env.SKILLDOCK_NODE_BIN, source: 'explicit' }] : [
-    { file: path.join(workspace, 'dependencies/node/bin/node'), source: 'codex-workspace' },
-    ...(await privateReady(privateSpec.root, privateSpec.sha256) ? [{ file: path.join(privateSpec.root, 'bin/node'), source: 'skilldock-private' }] : []),
-    ...onPath('node', env).map(file => ({ file, source: 'path' })),
-    ...apps.map(app => ({ file: path.join(app, 'Contents/Resources/cua_node/bin/node'), source: 'codex-app' })),
-  ];
+  platform = process.platform, inspect = inspectNode, save = true, system = true,
+  log = message => process.stderr.write(`SkillDock：${message}\n`) } = {}) {
+  const saved = env.SKILLDOCK_NODE_BIN ? null : await readSavedNode(stateDir);
+  const candidates = env.SKILLDOCK_NODE_BIN ? [{ file: env.SKILLDOCK_NODE_BIN, source: 'explicit' }]
+    : await nodeCandidates({ env, home, stateDir, saved: saved?.node, system });
   const rejected = []; const seen = new Set();
   for (const { file, source } of candidates) {
     if (seen.has(file)) continue; seen.add(file);
+    if (source === 'saved') {
+      const reused = await savedStillUsable(saved);
+      if (reused) return { node: saved.node, nodeVersion: saved.nodeVersion, npmCli: saved.npmCli, npmVersion: saved.npmVersion, source: 'saved', savedSource: saved.source };
+      rejected.push({ source, path: file, reason: '保存的 Node 已不可用。' });
+      log(`保存的 Node（${file}）已不可用，重新检测。`);
+      continue;
+    }
     const node = await inspect(file, { platform });
     if (!node.node) { rejected.push({ source, path: file, reason: node.reason }); continue; }
-    if (source === 'skilldock-private' && node.nodeVersion !== `v${NODE_RELEASE.version}`) {
-      rejected.push({ source, path: file, reason: '专用运行时版本与安装记录不一致。' }); continue;
-    }
     const npm = await findNpm(node.node, { env, apps });
-    if (npm) return { ...node, ...npm, source };
-    rejected.push({ source, path: file, reason: '未找到能由此 Node 执行的 npm CLI。' });
+    if (!npm) { rejected.push({ source, path: file, reason: '未找到能由此 Node 执行的 npm CLI。' }); continue; }
+    const selection = { ...node, ...npm, source };
+    if (save && source !== 'explicit') await writeSavedNode(stateDir, selection).catch(error => log(`未能保存所选 Node：${error.message}`));
+    return selection;
   }
   if (env.SKILLDOCK_NODE_BIN || env.SKILLDOCK_NPM_CLI) throw new Error(`显式运行环境配置不可用：${rejected.map(item => item.reason).join('；')}`);
-  if (!allowInstall) return { available: false, rejected, fallback: platform === 'darwin' && Boolean(privateSpec.sha256) ? `Node.js ${NODE_RELEASE.version}` : null };
-  return install({ stateDir, platform, arch });
+  return { available: false, rejected };
+}
+
+// Light reuse check (HLD 3.10): the files are still there and the version still matches.
+async function savedStillUsable(saved) {
+  try {
+    await fs.access(saved.node, fs.constants.X_OK); await fs.access(saved.npmCli, fs.constants.R_OK);
+    const { stdout } = await run(saved.node, ['--version']);
+    return stdout.trim() === saved.nodeVersion && compatibleVersion(saved.nodeVersion);
+  } catch { return false; }
 }
 
 export async function buildEnvironment(runtime, node, npmCli, env = process.env) {

@@ -40,6 +40,8 @@ export async function prepareRuntime(stateDir, snapshot, { environment = process
     const npm = await findNpm(process.execPath, { env: environment });
     if (!npm) throw new Error('未找到 npm，请使用 /bin/sh scripts/launch.sh 自动选择运行环境。');
     const env = await buildEnvironment(runtime, process.execPath, npm.npmCli, { ...environment, npm_config_update_notifier: 'false' });
+    // One previous log is kept; a log over 1 MiB starts over (second-to-last build kept as .1).
+    if (log && (await fs.stat(log).catch(() => null))?.size > 1024 * 1024) await fs.rename(log, `${log}.1`);
     const handle = log ? await fs.open(log, 'a', 0o600) : null;
     try {
       if (log) process.stderr.write(`SkillDock：依赖安装与构建的输出写入 ${log}\n`);

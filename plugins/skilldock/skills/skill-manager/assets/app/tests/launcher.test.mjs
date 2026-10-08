@@ -347,3 +347,15 @@ test('every run on migrated data restores the fixed legacy directory and keeps t
     assert.equal((await readRecordFile(next.state)).codexHome, await fs.realpath(custom), '没有 CODEX_HOME 时沿用记录中的值');
   } finally { await launch('stop', options); }
 });
+
+test('dependency and build output goes to build.log, which starts over past 1 MiB (36b 6.3)', async t => {
+  const f = await fixture(t); const options = { ...f, port: await freePort() };
+  await fs.mkdir(f.stateDir, { recursive: true });
+  const log = path.join(f.stateDir, 'build.log'); await fs.writeFile(log, 'x'.repeat(1024 * 1024 + 1));
+  const first = await launch('start', options);
+  try {
+    assert.equal((await fs.stat(`${log}.1`)).size, 1024 * 1024 + 1, '上一份日志保留为 .1');
+    assert.match(await fs.readFile(log, 'utf8'), /source-bundle/, '本次构建输出写入 build.log');
+  } finally { await launch('stop', options); }
+  assert.ok(first.pid);
+});
