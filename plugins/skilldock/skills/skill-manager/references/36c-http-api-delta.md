@@ -8,8 +8,8 @@
 | 项目 | 内容 |
 |------|------|
 | 契约 | API-SDX-001-C HTTP 接口增量 |
-| 版本 | 0.8 |
-| 状态 | 第 7 轮契约复核 APPROVED（v0.7）。本版处理第 7 轮的 P2，待增量复核。第 4、5 节随 0.10.3 冻结（HLD 11A 条件 1a，0.10.3 已发布）；其余各节属条件 1b |
+| 版本 | 0.9 |
+| 状态 | 第 8 轮契约复核 APPROVED（v0.8）。本版处理第 8 轮的 P2，待增量复核。第 4、5 节随 0.10.3 冻结（HLD 11A 条件 1a，0.10.3 已发布）；其余各节属条件 1b |
 | Owner | SkillDock 维护者（产品 Owner：用户） |
 | 服务方 | SkillDock 0.11.x 本机服务（仅监听 `127.0.0.1`） |
 | 消费方 | 0.11.x 浏览器界面与原生界面；0.10.2、0.10.3 的原生界面（经各自原生入口代理）；0.10.2 启动器与原生入口、0.10.3 转交链（只读健康检查） |
@@ -187,7 +187,7 @@ export interface NativeRule {
 - 只合并**独立技能**：两侧都在技能根中发现、真实路径相同的技能目录视为同一个对象，只出现一次，`agents` 同时包含两侧，对象 ID 取 Codex 侧的现有 ID。某一侧是插件附带的技能时不合并，两侧各是一个对象。
 - 共用对象的顶层 `path`、`scope`、`enabled`、`canToggle`、`canRemove`、`canUpdate`、`removeKind`、`reason`、`managed`、`protection` 一律取 **Codex 侧**的值（1 版客户端与 MR-SDX-001 的语义）；顶层不出现 `visibility`、`enablement`。
 - `perAgent` 只在 `multiAgent=1` 时给出；对共用对象必须给出，并包含两侧各自的 `SkillSide`，两侧状态互相独立（例如 Codex 启用、Claude 关闭是正常状态）。
-- **2 版请求的判定**：写请求带 `agent` 即按 2 版规则处理（确认、修订号核对等）；2 版客户端的所有写请求都必须带 `agent`（HLD 4.2）。凡不针对单一已存在对象的操作——全局操作（`settings.*`、`project.select`、`project.chooseDirectory` 等）与多目标操作（`schedule.configure`、`updates.run`、`skill.previewRemoval`、`skill.removeSelected`）——顶层 `agent` 只作 2 版标志，固定取 `codex`，不影响语义，也不据此做环境检查（不因它返回 `AGENT_NOT_INSTALLED`、`AGENT_READ_ONLY`、`AGENT_UNCONFIRMED`）；各目标的侧别取自 `targets[].agent` 或对象 ID。以预览为准的操作（`preview.diff`、`skill.install`、`plugin.installSource`、`skill.connectSource`、`update.apply`）的侧别取自预览，请求的 `agent` 与预览所属一侧不一致时返回 `STALE_PREVIEW`（0.10.2 已有的错误码）。不带 `agent` 的请求按 1 版处理：对象按 Codex 侧解释，保持 0.10.2 行为。
+- **2 版请求的判定**：写请求带 `agent` 即按 2 版规则处理（确认、修订号核对等）；2 版客户端的所有写请求都必须带 `agent`（HLD 4.2）。全局操作（`settings.*`、`project.select`、`project.chooseDirectory`）与多目标操作（`schedule.configure`、`updates.run`、`skill.previewRemoval`、`skill.removeSelected`）的顶层 `agent` 只作 2 版标志，固定取 `codex`，不影响语义，也不据此做环境检查（不因它返回 `AGENT_NOT_INSTALLED`、`AGENT_READ_ONLY`、`AGENT_UNCONFIRMED`）；各目标的侧别取自 `targets[].agent` 或对象 ID。`agent.*` 操作与创建类操作（`marketplace.add`、`plugin.previewInstall`、`skill.previewInstall`）的 `agent` 指定作用的一侧，按该侧做环境检查。以上为封闭列举；今后新增的操作在 7.2 中逐个写明 `agent` 的含义。以预览为准的操作（`preview.diff`、`skill.install`、`plugin.installSource`、`skill.connectSource`、`update.apply`）的侧别取自预览，请求的 `agent` 与预览所属一侧不一致时返回 `STALE_PREVIEW`（0.10.2 已有的错误码）。不带 `agent` 的请求按 1 版处理：对象按 Codex 侧解释，保持 0.10.2 行为。
 - **启禁**按侧执行：服务端按请求一侧的 `SkillSide` 判断能否操作、是否需要确认；结果的 `ActionResult.agent` 为该侧。
 - **移除**按请求的一侧作用于**该侧的发现路径**，沿用 0.10.2 与 AC-005：该侧是链接（`removeKind: "link"`）就只移除链接，只影响该侧；该侧发现路径就是真实目录（`removeKind: "directory"`）时移走目录，另一侧随之失效。后一种情况下，2 版请求未带 `confirm: true` 时返回 `CONFIRMATION_REQUIRED`，`nativeRules` 中一条 `kind: "scope"` 说明会同时影响 Codex 与 Claude。`ActionResult.agent` 为请求的一侧。
 - **恢复**（`activity.restore`）按操作记录还原到原发现路径，作用的一侧取自操作记录（`Activity.agent`），与请求中的 `agent` 无关；`ActionResult.agent` 为记录中的一侧。
@@ -196,10 +196,11 @@ export interface NativeRule {
   - 一侧可更新，须该侧发现路径就是真实目录（技能根本身可以是链接），且该侧分区有来源记录；
   - 两侧都满足时（例如两侧的技能根都链接到同一目录），以 **Codex 侧**为准，Claude 侧 `canUpdate` 为假，`reason` 说明“由 Codex 侧的来源记录管理”；两侧来源记录指向不同来源时，两侧都不可更新，`reason` 说明冲突；
   - 关联来源（`skill.previewSource`、`skill.connectSource`）写入请求一侧的分区；2 版请求遇到另一侧已有指向不同来源的记录时拒绝，返回 `SOURCE_CONFLICT`，`message` 说明怎样解除（例如在另一侧重新关联到相同来源）；1 版请求不做冲突检查，照 0.10.2 写入，冲突状态按上一条处理（两侧都不可更新）。经一侧更新后，另一侧的同源记录同步刷新内容指纹；恢复一次更新（`activity.restore`）时，另一侧的同源记录同样还原为更新前的指纹。两者都是为了避免日后误报本地修改。
-- **跨侧影响提示**：Codex 侧独立技能的真实路径位于某个 Claude 插件的目录内（含 Claude 技能目录插件 `名称@skills-dir`）时，虽然不合并，2 版请求对它的移除与更新在会移走或改写插件目录内的内容时同样要求确认（只移除指向插件目录的链接不需要），`nativeRules` 中一条 `kind: "affected-plugins"` 列出受影响的 Claude 插件；反之亦然（AC-003）。只在另一侧环境已被发现时提示；确认后，操作的效果与不提示时相同。后台计划中的这类技能：
-  - 另一侧已启用管理时，2 版 `schedule.configure` 加入或修改这类目标须带 `confirm: true`，否则返回 `CONFIRMATION_REQUIRED`；确认记在计划内容中（36a 第 2 节由 0.11.x 自定），重新提交计划时保留已有确认；
-  - 经 0.11.x 界面保存、但在另一侧已启用管理时尚未确认的这类目标（例如保存之后才启用另一侧管理），后台与 2 版 `updates.run` 跳过，`message` 说明须在 0.11.x 界面的计划设置中确认（0.10.x 界面无法确认）；
-  - 1 版请求、另一侧未启用管理时，以及从 0.10.x 继承且尚未在 0.11.x 界面中修改的目标，保持 0.10.2 行为，照常更新（MR-SDX-001）。
+- **跨侧影响提示**：Codex 侧独立技能的真实路径位于某个 Claude 插件的目录内（含 Claude 技能目录插件 `名称@skills-dir`）时，虽然不合并，2 版请求对它的移除与更新在会移走或改写插件目录内的内容时同样要求确认（只移除指向插件目录的链接不需要），`nativeRules` 中一条 `kind: "affected-plugins"` 列出受影响的 Claude 插件；反之亦然（AC-003）。只在另一侧环境已被发现时提示；确认后，操作的效果与不提示时相同。后台计划的确认门槛与此不同，是“另一侧已启用管理”：单次操作的提示只是界面中多一次确认，计划的确认会改变后台结果，须守住 MR-SDX-001，两者有意不统一。后台计划中的这类技能：
+  - 另一侧已启用管理时，2 版 `schedule.configure` 新增这类目标、或改变其安装身份，须带 `confirm: true`，否则返回 `CONFIRMATION_REQUIRED`；确认记在计划内容中（36a 第 2 节由 0.11.x 自定），重新提交计划时保留已有确认；原样重新提交的目标保持原状态，不算修改；
+  - 经 2 版请求保存、但在另一侧已启用管理时尚未确认的这类目标（例如保存之后才启用另一侧管理），后台照常检查、不自动应用，结果的 `message` 说明须先在 0.11.x 界面的计划设置中确认（0.10.x 界面无法确认）；
+  - 经 1 版请求保存的目标、从 0.10.x 继承且尚未在 0.11.x 界面中新增或改变的目标，以及另一侧未启用管理时的全部目标，保持 0.10.2 行为，照常检查与应用（MR-SDX-001）；
+  - 手动 `updates.run`（用户在场）不看计划中的确认：2 版请求中这类目标按请求的 `confirm` 处理，未带的只检查、不应用，单独说明原因，不影响其他目标（与 7.1 的逐目标失败一致）；1 版请求保持 0.10.2 行为。
 - **并行改动核对**：2 版请求对共用对象的单对象写请求都带顶层 `revision`（覆盖两侧状态）作为 `expectedRevision`；1 版请求免带。多目标操作的处理见 7.1 的 `expectedRevision`。
 - 插件与 marketplace 由各宿主分别安装与登记，两侧各是一个对象，`agents` 只含一侧，不使用 `perAgent`；同源归组（REQ-SDX-010）在 M4 另行增补。
 
