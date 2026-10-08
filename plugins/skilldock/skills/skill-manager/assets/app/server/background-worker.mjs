@@ -45,7 +45,8 @@ export async function refreshBackgroundRuntime(context, adapter, { prepare = pre
 
 export async function runBackground(context, options = {}) {
   // 0.10.3 (API-SDX-001 36b §8): never read or write plans written by a newer version.
-  const { readGeneration } = await import('./handover.mjs');
+  // Generation 2 rules for the worker arrive with the background migration (phase 1c).
+  const { readGeneration } = await import('./generation.mjs');
   const plan = await readJson(path.join(context.stateDir, 'local/updates.json'), null).catch(() => ({ version: 0 }));
   if (await readGeneration(context.stateDir) >= 2 || (plan && plan.version !== 1)) return { outcome: 'newer-data' };
   const clock = options.now || Date.now; const stamp = () => new Date(clock()).toISOString();

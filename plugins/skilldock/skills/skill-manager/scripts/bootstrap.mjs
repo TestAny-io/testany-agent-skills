@@ -7,15 +7,21 @@ import { spawn } from 'node:child_process';
 import { resolveToolchain } from '../assets/app/server/toolchain.mjs';
 import { resolveCodexCli } from '../assets/app/server/codex-runtime.mjs';
 import { parseLaunchArguments, resolveProject } from '../assets/app/server/project-context.mjs';
-import { runHandover } from '../assets/app/server/handover.mjs';
+import { planLaunch, delegate } from '../assets/app/server/launch-plan.mjs';
 
 try {
   const { action, options, cliArgs } = parseLaunchArguments(process.argv.slice(2));
   const stateDir = path.resolve(process.env.SKILLDOCK_STATE_DIR || path.join(os.homedir(), '.local/share/skilldock'));
-  // Decide before selecting or downloading a toolchain (API-SDX-001 36b §4.2).
-  const handover = await runHandover({ action, projectDir: options.projectDir, appDir: fileURLToPath(new URL('../assets/app/', import.meta.url)) });
-  if (handover !== null) process.exitCode = handover;
-  else if (action === 'cli') {
+  // Decide before selecting or downloading a toolchain: newer data stops here (exit 3) and
+  // a newer installation of the same family runs instead (DEC-SDX-008).
+  const plan = await planLaunch({ action, appDir: fileURLToPath(new URL('../assets/app/', import.meta.url)) });
+  if (plan.kind === 'error') {
+    if (plan.error.output) process.stdout.write(`${JSON.stringify(plan.error.output, null, 2)}\n`);
+    process.stderr.write(`SkillDock：${plan.error.message}\n`); process.exitCode = plan.error.exitCode ?? 1;
+  } else if (plan.kind === 'delegate') {
+    process.stderr.write(`SkillDock：转交给 ${plan.target.agent === 'claude' ? 'Claude' : 'Codex'} 中的 SkillDock ${plan.target.version}。\n`);
+    process.exitCode = await delegate(plan.target, process.argv.slice(2));
+  } else if (action === 'cli') {
     const cli = await resolveCodexCli();
     if (!cli.available) throw new Error(cli.error + '\n' + cli.attempts.map(item => `${item.path}：${item.error}`).join('\n'));
     process.stderr.write(`SkillDock：Codex CLI ${cli.path}（${cli.version}）\n`);

@@ -29,11 +29,15 @@ function startWorker(job, { service, codexHome }) {
   });
 }
 
+function alive(pid) {
+  try { process.kill(pid, 0); return true; } catch (error) { return error.code === 'EPERM'; }
+}
+
 export const RETRY_BASE_MS = 60000;
 export const RETRY_MAX_MS = 30 * 60000;
 
 export function createSelfUpdater({ service, codexHome, pollMs = 1000, startTimer = true,
-  worker = startWorker, runtime = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..'), now = Date.now }) {
+  worker = startWorker, runtime = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..'), now = Date.now, appSource = process.env.SKILLDOCK_APP_SOURCE }) {
   let pending = false; let closed = false; let task; let workerRunning = false; let timer;
   // 0.10.3 (API-SDX-001 36b §7.3): back off after a failed restart so a refused migration
   // is not retried, with a full inventory refresh, on every poll.
@@ -97,10 +101,18 @@ export function createSelfUpdater({ service, codexHome, pollMs = 1000, startTime
     if (task) return task;
     task = check().finally(() => { task = undefined; }); return task;
   }
+  // 36b §7.4: an accepting launcher runs while its pid is alive and still holds launcher.lock.
+  async function executorRunning(executor) {
+    if (!Number.isInteger(executor.pid) || !alive(executor.pid)) return false;
+    try { return JSON.parse(await fs.readFile(path.join(service.stateDir, 'launcher.lock'), 'utf8'))?.pid === executor.pid; } catch { return false; }
+  }
+  // Derived from restart.json only. A job accepted by a 0.11 launcher that no longer runs
+  // is reported closed: ready when this instance runs the job's source.
   async function status() {
     const record = await readRestart(service.stateDir).catch(() => null);
     if (!record || !['preparing', 'restarting', 'ready', 'failed'].includes(record.status)) return undefined;
-    if (record.sourceDigest && record.sourceDigest === process.env.SKILLDOCK_SOURCE_DIGEST) return { id: record.id, status: 'ready' };
+    if (['preparing', 'restarting'].includes(record.status) && record.executor && !(await executorRunning(record.executor)))
+      return record.source === appSource ? { id: record.id, status: 'ready' } : { id: record.id, status: 'failed', message: '重启任务未完成。' };
     return { id: record.id, status: record.status, ...(record.message ? { message: redact(record.message) } : {}), ...(record.restored ? { restored: true } : {}) };
   }
   if (startTimer) { timer = setInterval(() => { tick().catch(() => {}); }, pollMs); timer.unref(); }

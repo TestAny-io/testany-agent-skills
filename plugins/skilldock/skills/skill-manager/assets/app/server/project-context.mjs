@@ -1,6 +1,7 @@
 // SPDX-License-Identifier: AGPL-3.0-only
 import fs from 'node:fs/promises';
 import path from 'node:path';
+import os from 'node:os';
 
 export function validateProjectPath(value) {
   if (typeof value !== 'string' || !path.isAbsolute(value) || value.length > 4096 || /[\x00-\x1f]/.test(value))
@@ -31,6 +32,43 @@ export async function resolveProject({ projectDir, env = process.env, cwd = proc
     if (saved) return projectContext(saved.path, 'saved', cwd);
   }
   return projectContext(cwd, 'working-directory', cwd);
+}
+
+const inside = (root, target) => { const relative = path.relative(root, target); return relative === '' || (!relative.startsWith('..') && !path.isAbsolute(relative)); };
+
+/** API-SDX-001 36b §4.4: an existing directory outside the data directory. */
+export async function validProject(value, stateDir) {
+  try { validateProjectPath(value); } catch { return null; }
+  let real;
+  try { real = await fs.realpath(value); if (!(await fs.stat(real)).isDirectory()) return null; } catch { return null; }
+  const state = await fs.realpath(stateDir).catch(() => path.resolve(stateDir));
+  return inside(state, real) ? null : real;
+}
+
+/**
+ * Project for a launch (API-SDX-001 36b §6.3). A 0.10.3 handover, or a --project that is
+ * not a valid project (the fixed legacy directory always is not), uses the fallback
+ * chain and never the working directory: ① --project ② SKILLDOCK_PROJECT_DIR
+ * ③ project.json ④ the record's actual project ⑤ home. Levels ①② are explicit and
+ * may switch a running instance; ③～⑤ never do. Otherwise 0.10.2's order applies.
+ */
+export async function resolveLaunchProject({ projectDir, env = process.env, cwd = process.cwd(), stateDir, actualProject, home = os.homedir() } = {}) {
+  const fallback = env.SKILLDOCK_HANDOVER === '1' || (projectDir !== undefined && !(await validProject(projectDir, stateDir)));
+  if (!fallback) {
+    const info = await resolveProject({ projectDir, env, cwd, stateDir });
+    return { ...info, explicit: info.source === 'argument' || info.source === 'environment' };
+  }
+  let saved;
+  try { saved = JSON.parse(await fs.readFile(path.join(stateDir, 'project.json'), 'utf8'))?.path; } catch { /* absent or unreadable */ }
+  const levels = [[projectDir, 'argument', true], [env.SKILLDOCK_PROJECT_DIR, 'environment', true], [saved, 'saved', false], [actualProject, 'record', false], [home, 'home', false]];
+  const skipped = [];
+  for (const [value, source, explicit] of levels) {
+    if (value === undefined || value === null || value === '') continue;
+    const real = await validProject(value, stateDir);
+    if (real) return { requested: value, effective: real, source, workingDirectory: cwd, explicit, warnings: skipped };
+    if (explicit) skipped.push(`已跳过无效的项目目录 ${value}（${source === 'argument' ? '--project' : 'SKILLDOCK_PROJECT_DIR'}）。`);
+  }
+  throw Object.assign(new Error('找不到可用的项目目录；未使用工作目录作为项目。'), { code: 'PROJECT_UNAVAILABLE', status: 422 });
 }
 
 export function parseLaunchArguments(args) {

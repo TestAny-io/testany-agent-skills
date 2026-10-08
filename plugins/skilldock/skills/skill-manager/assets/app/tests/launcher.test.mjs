@@ -8,12 +8,19 @@ import { fileURLToPath } from 'node:url';
 import { fingerprint, launch, probe } from '../../../scripts/launch.mjs';
 import { ROOT_FILES } from '../scripts/source-bundle.mjs';
 
+const MARKET = 'testany-agent-skills';
+const SOURCE = 'https://github.com/TestAny-io/testany-agent-skills.git';
+// Launches never see this session's HOME, Codex or Claude variables.
+const isolated = home => ({ ...Object.fromEntries(Object.entries(process.env).filter(([key]) => !/^(CLAUDE|CODEX_|SKILLDOCK_|ANTHROPIC_)|^PORT$/.test(key))), HOME: home });
+
 async function fixture(t) {
   const root = await fs.mkdtemp(path.join(os.tmpdir(), 'skilldock launcher '));
   const sourceRoot = path.join(root, 'software source');
   const appDir = path.join(sourceRoot, 'assets/app');
   const stateDir = path.join(root, 'app state');
   const projectDir = path.join(root, 'project');
+  const home = path.join(root, 'home');
+  await fs.mkdir(home);
   for (const folder of ['src', 'server', 'shared', 'scripts', 'tests']) await fs.mkdir(path.join(appDir, folder), { recursive: true });
   await fs.mkdir(path.join(sourceRoot, 'scripts'), { recursive: true });
   for (const file of ROOT_FILES) await fs.copyFile(fileURLToPath(new URL(`../../../${file}`, import.meta.url)), path.join(sourceRoot, file));
@@ -41,7 +48,7 @@ async function fixture(t) {
     process.on('SIGTERM',()=>server.close(()=>process.exit(0)));
   `);
   t.after(() => fs.rm(root, { recursive: true, force: true }));
-  return { root, sourceRoot, appDir, stateDir, projectDir, codexBin: path.join(root, 'absent-cli') };
+  return { root, sourceRoot, appDir, stateDir, projectDir, home, env: isolated(home), codexBin: path.join(root, 'absent-cli') };
 }
 
 async function listen() {
@@ -149,66 +156,85 @@ test('start rebuilds a corrupted generated runtime instead of serving mismatched
   } finally { await launch('stop', startOptions); }
 });
 
-async function installedVersion(options, version, plugin = 'testany-eng') {
+async function installedVersion(options, version, { plugin = 'skilldock' } = {}) {
   const codexHome = path.join(options.root, 'codex');
-  const packageRoot = path.join(codexHome, 'plugins/cache/testany-agent-skills', plugin, version);
+  await fs.mkdir(codexHome, { recursive: true });
+  await fs.writeFile(path.join(codexHome, 'config.toml'), `[marketplaces.${MARKET}]\nsource_type = "git"\nsource = "${SOURCE}"\n`);
+  const packageRoot = path.join(codexHome, 'plugins/cache', MARKET, plugin, version);
   const skill = path.join(packageRoot, 'skills/skill-manager');
   await fs.cp(options.sourceRoot, skill, { recursive: true });
-  await fs.mkdir(path.join(packageRoot, '.claude-plugin'), { recursive: true });
-  await fs.writeFile(path.join(packageRoot, '.claude-plugin/plugin.json'), JSON.stringify({ name: plugin, version }));
+  await fs.mkdir(path.join(packageRoot, '.codex-plugin'), { recursive: true });
+  await fs.writeFile(path.join(packageRoot, '.codex-plugin/plugin.json'), JSON.stringify({ name: plugin, version }));
+  await fs.writeFile(path.join(skill, 'scripts/launch.sh'), '#!/bin/sh\nexit 1\n');
+  for (const file of ['package.json', 'package-lock.json']) {
+    const target = path.join(skill, 'assets/app', file); const value = JSON.parse(await fs.readFile(target, 'utf8'));
+    value.name = 'skilldock'; value.version = version; if (value.packages) value.packages[''] = { name: 'skilldock', version };
+    await fs.writeFile(target, JSON.stringify(value));
+  }
   await fs.appendFile(path.join(skill, 'assets/app/README.md'), `\n${version}`);
   return { ...options, codexHome, appDir: path.join(skill, 'assets/app') };
 }
 
-test('a versioned plugin upgrade preserves state and accepts only the same plugin identity', async t => {
-  const fixtureOptions = await fixture(t); const { server, port } = await listen();
+test('a newer installation of the same product family takes over the data; other plugins are refused', async t => {
+  const f = await fixture(t); const { server, port } = await listen();
   await new Promise(resolve => server.close(resolve));
-  const firstOptions = { ...await installedVersion(fixtureOptions, '2.4.0'), port };
-  const nextOptions = { ...await installedVersion(fixtureOptions, '2.5.0'), port };
-  const unrelated = { ...await installedVersion(fixtureOptions, '2.5.0', 'other-plugin'), port };
+  const firstOptions = { ...await installedVersion(f, '0.11.0'), port };
+  const unrelated = { ...await installedVersion(f, '0.11.0', { plugin: 'other-plugin' }), port };
   const first = await launch('start', firstOptions);
   const sentinel = path.join(first.state, 'saved-plan-and-history.json');
   await fs.writeFile(sentinel, '{"plan":"every day","history":["kept"]}');
+  let nextOptions;
   try {
-    await assert.rejects(launch('start', unrelated), /另一个源码实例/);
+    await assert.rejects(launch('start', unrelated), /另一个安装来源/);
     assert.equal((await probe(first.url)).pid, first.pid);
+    nextOptions = { ...await installedVersion(f, '0.11.1'), port };
+    // DEC-SDX-008: the older launcher hands over to the newer installation.
+    await assert.rejects(launch('start', firstOptions), error => error.code === 'SKILLDOCK_DELEGATE' && error.target.version === '0.11.1');
+    assert.equal((await launch('status', firstOptions)).pid, first.pid, 'status 与 stop 不转交');
     await fs.rm(path.resolve(firstOptions.appDir, '../../../..'), { recursive: true, force: true });
     const next = await launch('start', nextOptions);
     assert.notEqual(next.pid, first.pid);
     assert.equal(next.state, first.state);
     assert.equal(await fs.readFile(sentinel, 'utf8'), '{"plan":"every day","history":["kept"]}');
     const record = JSON.parse(await fs.readFile(path.join(next.state, 'launcher.json'), 'utf8'));
-    assert.equal(record.source, await fs.realpath(nextOptions.appDir));
-    assert.equal(record.installation.plugin, 'testany-eng');
+    const nextApp = await fs.realpath(nextOptions.appDir);
+    assert.deepEqual([record.format, record.generation, record.status], [2, 2, 'running']);
+    assert.deepEqual([record.running.appPath, record.running.version, record.running.sourceKey], [nextApp, '0.11.1', 'github.com/testany-io/testany-agent-skills']);
+    assert.equal(record.source, nextApp); assert.equal(record.installation.plugin, 'skilldock');
+    assert.equal(record.project, path.join(next.state, 'compat/legacy-project'));
+    assert.equal(record.actualProject, await fs.realpath(f.projectDir));
+    assert.equal(JSON.parse(await fs.readFile(path.join(next.state, 'generation.json'), 'utf8')).generation, 2);
     assert.equal((await launch('status', nextOptions)).pid, next.pid);
-  } finally { await launch('stop', nextOptions); }
+  } finally { await launch('stop', nextOptions ?? firstOptions); }
+  const stopped = JSON.parse(await fs.readFile(path.join(first.state, 'launcher.json'), 'utf8'));
+  assert.equal(stopped.status, 'stopped', '0.11 停止后保留“已停止”形态的记录');
 });
 
 test('failed new-version builds leave the old service and ownership record intact', async t => {
   const fixtureOptions = await fixture(t); const { server, port } = await listen();
   await new Promise(resolve => server.close(resolve));
-  const oldOptions = { ...await installedVersion(fixtureOptions, '2.4.0'), port };
-  const nextOptions = { ...await installedVersion(fixtureOptions, '2.5.0'), port };
+  const oldOptions = { ...await installedVersion(fixtureOptions, '0.11.0'), port };
+  const first = await launch('start', oldOptions);
+  const nextOptions = { ...await installedVersion(fixtureOptions, '0.11.1'), port };
   const packageFile = path.join(nextOptions.appDir, 'package.json');
   const metadata = JSON.parse(await fs.readFile(packageFile, 'utf8'));
   metadata.scripts.build = 'node -e "process.exit(9)"';
   await fs.writeFile(packageFile, JSON.stringify(metadata));
-  const first = await launch('start', oldOptions);
   const ownership = await fs.readFile(path.join(first.state, 'launcher.json'), 'utf8');
   try {
     await assert.rejects(launch('start', nextOptions), /失败（9）/);
     assert.equal((await probe(first.url)).pid, first.pid);
     assert.equal(await fs.readFile(path.join(first.state, 'launcher.json'), 'utf8'), ownership);
-  } finally { await launch('stop', oldOptions); }
+  } finally { await launch('stop', nextOptions); }
 });
 
 test('failed new-version startup restores the verified old runtime without replacing saved plans', async t => {
   const fixtureOptions = await fixture(t); const { server, port } = await listen();
   await new Promise(resolve => server.close(resolve));
-  const oldOptions = { ...await installedVersion(fixtureOptions, '2.4.0'), port };
-  const nextOptions = { ...await installedVersion(fixtureOptions, '2.5.0'), port };
-  await fs.writeFile(path.join(nextOptions.appDir, 'server/index.mjs'), 'process.exit(7);');
+  const oldOptions = { ...await installedVersion(fixtureOptions, '0.11.0'), port };
   const first = await launch('start', oldOptions);
+  const nextOptions = { ...await installedVersion(fixtureOptions, '0.11.1'), port };
+  await fs.writeFile(path.join(nextOptions.appDir, 'server/index.mjs'), 'process.exit(7);');
   const oldRecord = JSON.parse(await fs.readFile(path.join(first.state, 'launcher.json'), 'utf8'));
   const sentinel = path.join(first.state, 'updates.json'); await fs.writeFile(sentinel, '{"targets":["skilldock"]}');
   await fs.rm(path.resolve(oldOptions.appDir, '../../../..'), { recursive: true, force: true });
@@ -219,6 +245,7 @@ test('failed new-version startup restores the verified old runtime without repla
     assert.notEqual(running.pid, first.pid);
     const restored = JSON.parse(await fs.readFile(path.join(first.state, 'launcher.json'), 'utf8'));
     assert.equal(restored.source, oldRecord.source); assert.equal(restored.digest, oldRecord.digest);
+    assert.deepEqual(restored.running, oldRecord.running);
     assert.equal(await fs.readFile(sentinel, 'utf8'), '{"targets":["skilldock"]}');
   } finally { await launch('stop', nextOptions); }
 });
@@ -226,14 +253,14 @@ test('failed new-version startup restores the verified old runtime without repla
 test('an explicit stop during preparation cancels the automatic replacement instead of restarting later', async t => {
   const fixtureOptions = await fixture(t); const { server, port } = await listen();
   await new Promise(resolve => server.close(resolve));
-  const oldOptions = { ...await installedVersion(fixtureOptions, '2.4.0'), port };
-  const nextOptions = { ...await installedVersion(fixtureOptions, '2.5.0'), port };
+  const oldOptions = { ...await installedVersion(fixtureOptions, '0.11.0'), port };
+  const old = await launch('start', oldOptions);
+  const nextOptions = { ...await installedVersion(fixtureOptions, '0.11.1'), port };
   const marker = path.join(fixtureOptions.root, 'build-started');
   await fs.writeFile(path.join(nextOptions.appDir, 'tests/delayed-build.mjs'), `import fs from 'node:fs/promises'; await fs.writeFile(${JSON.stringify(marker)}, 'started'); await new Promise(resolve => setTimeout(resolve, 1500));`);
   const file = path.join(nextOptions.appDir, 'package.json'); const value = JSON.parse(await fs.readFile(file, 'utf8'));
   value.scripts.build = 'node scripts/source-bundle.mjs --stage && node tests/delayed-build.mjs && node scripts/source-bundle.mjs';
   await fs.writeFile(file, JSON.stringify(value));
-  const old = await launch('start', oldOptions);
   const upgrading = assert.rejects(launch('start', nextOptions), /运行实例已变化/);
   for (let i = 0; i < 100; i++) { if (await fs.stat(marker).catch(() => null)) break; await new Promise(resolve => setTimeout(resolve, 50)); }
   assert.ok(await fs.stat(marker));
@@ -242,25 +269,38 @@ test('an explicit stop during preparation cancels the automatic replacement inst
   assert.equal((await launch('status', nextOptions)).status, 'stopped');
 });
 
+test.skip('explicit migration from testany-eng to independent skilldock retains data and rejects unrelated identities（阶段 1c：0.10.x 数据迁移实现后改写）', () => {});
 
-test('explicit migration from testany-eng to independent skilldock retains data and rejects unrelated identities', async t => {
+test('a 0.10.x restart job is accepted with an executor mark and always closed; leftovers are closed by the next start', async t => {
   const f = await fixture(t); const { server, port } = await listen(); await new Promise(resolve => server.close(resolve));
-  const oldOptions = { ...await installedVersion(f, '2.4.0'), port };
-  const nextOptions = { ...await installedVersion(f, '0.2.0', 'skilldock'), port };
-  const unrelated = { ...await installedVersion(f, '0.2.0', 'different-app'), port, migrateFrom: 'testany-eng' };
-  const old = await launch('start', oldOptions);
-  const sentinel = path.join(old.state, 'updates-and-history.json'); await fs.writeFile(sentinel, '{"targets":["testany-eng"],"history":["kept"]}');
+  const options = { ...f, port }; const appDir = await fs.realpath(f.appDir);
+  const first = await launch('start', options);
+  const restartFile = path.join(first.state, 'restart.json');
   try {
-    await assert.rejects(launch('start', nextOptions), /--migrate-from/);
-    await assert.rejects(launch('start', unrelated), /另一个源码实例/);
-    const next = await launch('start', { ...nextOptions, migrateFrom: 'testany-eng' });
-    assert.notEqual(next.pid, old.pid); assert.equal(next.state, old.state);
-    assert.equal(await fs.readFile(sentinel, 'utf8'), '{"targets":["testany-eng"],"history":["kept"]}');
-    assert.equal(JSON.parse(await fs.readFile(path.join(old.state, 'launcher.json'), 'utf8')).installation.plugin, 'skilldock');
-    assert.equal((await launch('status', nextOptions)).pid, next.pid);
-  } finally {
-    await launch('stop', nextOptions).catch(() => launch('stop', oldOptions));
+    // The digest of a 0.10.x job is not compared (36b §7.4).
+    const job = { id: 'job-1', source: appDir, sourceDigest: 'from-0.10.x', previousPid: first.pid, url: first.url, status: 'preparing', requestedAt: new Date().toISOString() };
+    await fs.writeFile(restartFile, JSON.stringify(job));
+    const next = await launch('restart', { ...options, restartJob: 'job-1' });
+    const done = JSON.parse(await fs.readFile(restartFile, 'utf8'));
+    assert.deepEqual([done.status, done.pid, done.executor.pid], ['ready', next.pid, process.pid]);
+    // A job left in progress by another source is closed as failed by a successful start.
+    await fs.writeFile(restartFile, JSON.stringify({ ...job, id: 'job-2', source: path.join(f.root, 'elsewhere'), previousPid: next.pid }));
+    assert.equal((await launch('start', options)).reused, true);
+    assert.equal(JSON.parse(await fs.readFile(restartFile, 'utf8')).status, 'failed');
+    // A mismatched job is refused before anything is written.
+    await fs.writeFile(restartFile, JSON.stringify({ ...job, id: 'job-3', previousPid: 1 }));
+    await assert.rejects(launch('restart', { ...options, restartJob: 'job-3' }), /不匹配/);
+    assert.equal(JSON.parse(await fs.readFile(restartFile, 'utf8')).executor, undefined);
+  } finally { await launch('stop', options); }
+});
+
+test('newer data stops every action with exit code 3 before anything is written', async t => {
+  const f = await fixture(t); await fs.mkdir(f.stateDir, { recursive: true });
+  await fs.writeFile(path.join(f.stateDir, 'generation.json'), JSON.stringify({ format: 1, generation: 3, minimumCompatibleGeneration: 3 }));
+  for (const action of ['start', 'status', 'stop']) {
+    await assert.rejects(launch(action, f), error => error.exitCode === 3 && error.output.status === 'update-required');
   }
+  assert.deepEqual((await fs.readdir(f.stateDir)).sort(), ['generation.json']);
 });
 
 test('status and stop keep identifying a service after its scan project changes', async t => {

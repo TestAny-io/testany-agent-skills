@@ -6,6 +6,8 @@ import { fileURLToPath } from 'node:url';
 import { createService } from './service.mjs';
 import { AppError, fail, inside, redact } from './files.mjs';
 import { createSelfUpdater } from './self-update.mjs';
+import { readGeneration, CURRENT_GENERATION } from './generation.mjs';
+import { installationSummary } from './launch-plan.mjs';
 
 const currentDirectory = path.dirname(fileURLToPath(import.meta.url));
 const MIME = { '.html': 'text/html; charset=utf-8', '.js': 'text/javascript; charset=utf-8', '.css': 'text/css; charset=utf-8', '.svg': 'image/svg+xml', '.png': 'image/png', '.ico': 'image/x-icon', '.woff2': 'font/woff2' };
@@ -13,8 +15,24 @@ export async function createApp(options = {}) {
   let updater;
   const service = await createService({ ...options, onInstallationChange: () => { updater?.request(); options.onInstallationChange?.(); } });
   const token = crypto.randomBytes(32).toString('hex'); const instanceId = crypto.randomUUID();
-  updater = createSelfUpdater({ service, codexHome: service.environments.local.codexHome, startTimer: options.selfUpdate !== false });
+  updater = createSelfUpdater({ service, codexHome: service.environments.local.codexHome, startTimer: options.selfUpdate !== false, ...(options.appSource ? { appSource: options.appSource } : {}) });
   const dist = path.resolve(options.distDir || path.join(currentDirectory, '../dist'));
+  const appVersion = JSON.parse(await fs.readFile(path.join(currentDirectory, '../package.json'), 'utf8')).version;
+  // The 0.10.x native interface polls health every 1.5 seconds; installations are cached.
+  let installations = { at: 0, value: [] };
+  async function summary() {
+    if (Date.now() - installations.at > 15000) {
+      const value = await installationSummary({ state: service.stateDir, env: options.env ?? process.env, ...(options.home ? { home: options.home } : {}),
+        appDir: options.appSource ?? process.env.SKILLDOCK_APP_SOURCE ?? path.resolve(currentDirectory, '..') }).catch(() => installations.value);
+      installations = { at: Date.now(), value };
+    }
+    return installations.value;
+  }
+  // 36c §4: app, pid, instanceId, state, sourceDigest, project, launchProject, appVersion,
+  // dataGeneration and apiVersion are frozen; restart is frozen for version-1 clients.
+  const health = async () => ({ app: 'skilldock', pid: process.pid, project: service.project, launchProject: service.launchProject, projectContext: service.projectContext,
+    state: service.stateDir, instanceId, sourceDigest: process.env.SKILLDOCK_SOURCE_DIGEST, restart: await updater.status(),
+    appVersion, apiVersion: 2, dataGeneration: await readGeneration(service.stateDir), minimumCompatibleGeneration: CURRENT_GENERATION, installations: await summary() });
   function send(response, status, data) {
     response.writeHead(status, { 'Content-Type': 'application/json; charset=utf-8' }); response.end(JSON.stringify(data));
   }
@@ -28,7 +46,7 @@ export async function createApp(options = {}) {
       if (request.headers.origin && request.headers.origin !== `http://${host}`) fail(403, 'ORIGIN_REJECTED', '拒绝跨来源访问。');
       if (request.headers['sec-fetch-site'] === 'cross-site') fail(403, 'CROSS_SITE', '拒绝跨站请求。');
       const url = new URL(request.url, `http://${host}`);
-      if (request.method === 'GET' && url.pathname === '/api/health') return send(response, 200, { app: 'skilldock', pid: process.pid, project: service.project, launchProject: service.launchProject, projectContext: service.projectContext, state: service.stateDir, instanceId, sourceDigest: process.env.SKILLDOCK_SOURCE_DIGEST, restart: await updater.status() });
+      if (request.method === 'GET' && url.pathname === '/api/health') return send(response, 200, await health());
       if (['GET', 'HEAD'].includes(request.method) && ['/api/license', '/api/source'].includes(url.pathname)) {
         const filename = url.pathname === '/api/license' ? 'LICENSE.txt' : 'skilldock-source.tar.gz';
         const file = path.join(dist, filename); let real;

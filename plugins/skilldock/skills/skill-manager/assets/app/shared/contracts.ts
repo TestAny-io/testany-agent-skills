@@ -303,7 +303,8 @@ export interface Activity {
 export interface ProjectContext {
   requested: string;
   effective: string;
-  source: "argument" | "environment" | "saved" | "working-directory";
+  /** "record" and "home" appear only in the 0.10.x handover fallback (API-SDX-001 36b §6.3). */
+  source: "argument" | "environment" | "saved" | "record" | "home" | "working-directory";
   workingDirectory: string;
   warnings: string[];
 }
