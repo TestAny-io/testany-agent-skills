@@ -1,6 +1,6 @@
 # SkillDock 0.11.0 实现顺序
 
-> 上游：[PRD-SKILLDOCK-002 v0.9](34-cross-agent-prd.md)、[HLD-SDX-001 v1.11](35-cross-agent-hld.md)、[API-SDX-001 v0.11](36-cross-agent-api-contract.md)
+> 上游：[PRD-SKILLDOCK-002 v0.9](34-cross-agent-prd.md)、[HLD-SDX-001 v1.12](35-cross-agent-hld.md)、[API-SDX-001 v0.12](36-cross-agent-api-contract.md)
 > 前置版本：0.10.3 已于 2026-10-08 发布（PR #54，main `337547a`）
 > 日期：2026-10-08
 
@@ -71,6 +71,7 @@
   - 找不到时弹出对话框，不再下载；
   - shell 层与 Node 层共用一份候选清单。
 - **Claude 命令行发现与进程环境白名单**（3.3，DEC-SDX-024）。
+- **运行目录构建日志**：`<state>/build.log` 按大小轮换（第 19 轮范围外观察）。
 - **分发**（DEC-SDX-013、014）：
   - Codex MCP 配置改名为 `codex.mcp.json`，并在 manifest 中显式引用；
   - `skill-manager` 技能说明与斜杠命令改为宿主中立；
@@ -143,7 +144,8 @@
 - **SkillDock 自身**：
   - 两侧都可加入计划；
   - 一键更新另一侧（`agent.updateSkilldock`，该侧无法确认时返回 `AGENT_UNCONFIRMED` 并给出手动步骤）；迁移门槛失败时由入口经启动器执行同一套更新与读回（HLD 3.7、6.6，G-01），是否写入契约按 36b 第 2、12 节判断；
-  - 0.11 自身的自更新协调器按“最新者运行”在新数据格式下发起切换（阶段 1～4 中它在代号 2 下不发起，属已知取舍）。
+  - 0.11 自身的自更新协调器按“最新者运行”在新数据格式下发起切换（阶段 1～4 中它在代号 2 下不发起，属已知取舍）；
+  - 新实例启动时需要实例锁或 Codex 锁的写操作（例如计划已启用时补登记后台）在启动器持锁期间会跳过，确认由之后的周期补做，并在 HLD 3.8 写明。
 
 预计 2 次会话。
 
