@@ -1,5 +1,62 @@
 export type Mode = "local" | "sandbox";
 export type Scope = "user" | "project" | "system" | "plugin" | "cache";
+/** Cross-agent types follow API-SDX-001 36c. Absent agent fields mean Codex (API version 1). */
+export type Agent = "codex" | "claude";
+export type AgentManagement = "enabled" | "read-only" | "unconfirmed";
+export type ClaudeSettingsLayer = "user" | "project" | "local" | "managed";
+export type ClaudePluginScope = ClaudeSettingsLayer;
+export type SkillVisibility = "enabled" | "disabled" | "name-only" | "user-invocable-only";
+export type Protection = "managed" | "synced" | "system";
+export interface AgentEnvironment {
+  agent: Agent;
+  /** Computed on every discovery; never persisted. */
+  installed: boolean;
+  management: AgentManagement;
+  reason?: string;
+  roots: { config: string; pluginCache: string; skills: string; origin?: "explicit" | "session" | "default" };
+  cli: { available: boolean; version?: string; path?: string; error?: string };
+  skilldock?: { version: string; running: boolean; canUpdate: boolean; reason?: string };
+  /** Known host behaviour, e.g. desktop sessions disabling plugin auto-update. */
+  notes?: string[];
+}
+/** Claude plugin installation identity (DEC-SDX-023); object IDs, targets and bindings derive from it. */
+export interface ClaudeInstallation {
+  scope: ClaudePluginScope;
+  projectPath?: string;
+  /** Directory of a skills-directory plugin (name@skills-dir). */
+  skillsDir?: string;
+  readOnlyReason?: string;
+}
+/** Which settings layer decides a plugin's enablement or a skill's visibility. */
+export interface EnablementSource {
+  decidedBy: ClaudeSettingsLayer | "default";
+  overriddenBy?: Exclude<ClaudeSettingsLayer, "user">;
+  /** Forced by managed settings or required by the organisation; cannot be disabled. */
+  locked?: boolean;
+}
+/** Native host rule carried by previews, confirmations and CONFIRMATION_REQUIRED errors. */
+export interface NativeRule {
+  kind: "scope" | "dependencies" | "affected-plugins" | "data-removal" | "visibility" | "reload";
+  message: string;
+  items?: string[];
+}
+/** One side of a skill directory discovered by both agents; the sides are independent. */
+export interface SkillSide {
+  path: string;
+  scope: Scope;
+  enabled: boolean | null;
+  visibility?: SkillVisibility;
+  enablement?: EnablementSource;
+  canToggle: boolean;
+  canRemove: boolean;
+  canUpdate: boolean;
+  /** Present only when canRemove is true. */
+  removeKind?: "link" | "directory";
+  reason?: string;
+  protection?: Protection;
+  /** Lets the UI tell which side changed; writes send the object's top-level revision. */
+  revision?: string;
+}
 export interface SourceInfo {
   kind: "tracked" | "git-checkout" | "plugin" | "system" | "unknown";
   confidence: "verified" | "inferred" | "user-confirmed" | "unknown";
@@ -19,6 +76,7 @@ export interface SourceInfo {
 export interface UpdateTarget {
   kind: "skill" | "plugin" | "host";
   id: string;
+  agent?: Agent;
 }
 export interface FileChange {
   path: string;
@@ -33,6 +91,7 @@ export interface FileDiff extends FileChange {
     lines: { kind: "added" | "removed" | "context" | "note"; content: string; oldLine?: number; newLine?: number }[] }[];
 }
 export interface UpdateItem {
+  agent?: Agent;
   warnings?: string[];
   target: UpdateTarget;
   name: string;
@@ -139,6 +198,15 @@ export interface ProviderIcon {
 export type IconAssets = Record<string, string>;
 
 export interface Skill {
+  /** Non-empty and sorted; absent means ["codex"]. */
+  agents?: Agent[];
+  /** Claude-only skills. */
+  visibility?: SkillVisibility;
+  enablement?: EnablementSource;
+  /** Shared skills only, and only for multi-agent clients; top-level fields describe the Codex side. */
+  perAgent?: Partial<Record<Agent, SkillSide>>;
+  revision?: string;
+  protection?: Protection;
   icon?: ProviderIcon;
   id: string;
   name: string;
@@ -169,6 +237,13 @@ export interface Skill {
   sourceInfo?: SourceInfo;
 }
 export interface Plugin {
+  agents?: Agent[];
+  installation?: ClaudeInstallation;
+  enablement?: EnablementSource;
+  /** Agents for which the plugin ships its own manifest (compatibility evidence). */
+  manifests?: Agent[];
+  revision?: string;
+  protection?: Protection;
   warnings?: string[];
   icon?: ProviderIcon;
   directSource?: { source: string; sourceType: "local" | "git"; subpath?: string; ref?: string; commit?: string };
@@ -194,6 +269,10 @@ export interface Plugin {
   sourceInfo?: SourceInfo;
 }
 export interface Marketplace {
+  agents?: Agent[];
+  /** Claude marketplaces: actual auto-update value, whether it is the default, and host notes. */
+  autoUpdate?: { enabled: boolean; isDefault: boolean; note?: string };
+  revision?: string;
   warnings?: string[];
   /** Only a direct single-plugin source inherits that plugin’s branding. */
   icon?: ProviderIcon;
@@ -210,6 +289,7 @@ export interface Marketplace {
   refreshedAt?: string;
 }
 export interface Activity {
+  agent?: Agent;
   id: string;
   action: string;
   target: string;
@@ -233,6 +313,8 @@ export interface ProjectCatalog {
   warning?: string;
 }
 export interface Snapshot {
+  /** Returned only when the client requests multiAgent=1. */
+  agents?: AgentEnvironment[];
   directoryError?: string;
   iconAssets?: IconAssets;
   mode: Mode;
@@ -274,6 +356,12 @@ export interface InstallPreview {
   bytes: number;
 }
 export interface PluginInstallPreview {
+  agent?: Agent;
+  scopes?: ClaudePluginScope[];
+  defaultScope?: ClaudePluginScope;
+  dependencies?: { id: string; name: string; installed: boolean }[];
+  manifests?: Agent[];
+  nativeRules?: NativeRule[];
   warnings?: string[];
   iconAssets?: IconAssets;
   icon?: ProviderIcon;
@@ -340,10 +428,25 @@ export type Action =
   | "update.check"
   | "update.apply"
   | "updates.run"
-  | "schedule.configure";
+  | "schedule.configure"
+  | "agent.setManagement"
+  | "agent.updateSkilldock"
+  | "settings.setClaudeRoot"
+  | "settings.setNodePath"
+  | "settings.redetectNode";
 export interface ActionRequest {
   mode: Mode;
   action: Action;
+  /** Present on every multi-agent (API version 2) write; absent means an API version 1 Codex request. */
+  agent?: Agent;
+  scope?: "user" | "project" | "local";
+  confirm?: boolean;
+  gitExclude?: boolean;
+  keepData?: boolean;
+  expectedRevision?: string;
+  management?: Exclude<AgentManagement, "unconfirmed">;
+  claudeRoot?: { configDir: string; pluginCacheDir: string };
+  nodePath?: string;
   id?: string;
   ids?: string[];
   groupName?: string;
@@ -364,6 +467,8 @@ export interface ActionRequest {
   schedule?: ScheduleInput;
 }
 export interface ActionResult {
+  agent?: Agent;
+  nativeRules?: NativeRule[];
   warnings?: string[];
   remoteInstall?: { id: string; name: string; installed: boolean; connected: boolean; installUrl?: string };
   removalPreview?: RemovalPreview;
@@ -381,5 +486,26 @@ export interface ActionResult {
   schedule?: UpdateSchedule;
 }
 export interface ApiError {
-  error: { code: string; message: string };
+  /** nativeRules appears only with CONFIRMATION_REQUIRED. */
+  error: { code: string; message: string; nativeRules?: NativeRule[] };
+}
+/** GET /api/health (API-SDX-001 36c §4). Fields marked frozen are read by 0.10.2 and 0.10.3. */
+export interface HealthResponse {
+  /** Frozen. */
+  app: "skilldock";
+  pid: number;
+  instanceId: string;
+  state: string;
+  sourceDigest?: string;
+  project: string;
+  launchProject: string;
+  appVersion: string;
+  apiVersion: number;
+  dataGeneration: number;
+  /** Frozen for API version 1 clients: absent, null or the 0.10.x restart status. */
+  restart?: { id: string; status: "preparing" | "restarting" | "ready" | "failed"; message?: string; restored?: boolean } | null;
+  /** Not frozen. */
+  projectContext?: ProjectContext | null;
+  minimumCompatibleGeneration?: number;
+  installations?: { agent: Agent; marketplace: string; version: string; running: boolean }[];
 }
