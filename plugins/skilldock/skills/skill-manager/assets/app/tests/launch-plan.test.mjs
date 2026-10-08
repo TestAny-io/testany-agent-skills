@@ -77,8 +77,18 @@ test('0.10.x record ownership: same family, explicit testany-eng, pre-0.10.3 Cla
   const engRecord = { source: eng, installation: { ...pluginRecord.installation, plugin: 'testany-eng' } };
   assert.equal(await legacyOwnership(engRecord, context), null);
   assert.equal(await legacyOwnership(engRecord, context, { migrateFrom: 'testany-eng' }), 'testany-eng');
-  const claudeOld = path.join(w.claudeConfig, 'plugins/cache', MARKET, 'skilldock/sha-0.10.2/skills/skill-manager/assets/app');
-  assert.equal(await legacyOwnership({ source: claudeOld, installation: { kind: 'directory', source: claudeOld } }, context), 'claude-legacy');
+  // A directory-form record in the Claude cache blocks only while that installation is
+  // still in use and older than 0.10.3; afterwards it is a stale record of the family.
+  const dirRecord = source => ({ source, installation: { kind: 'directory', source } });
+  const claudeOld = await w.install('claude', '0.10.2');
+  assert.equal(await legacyOwnership(dirRecord(claudeOld), context), 'claude-legacy');
+  await fs.writeFile(path.join(claudeOld, '../../../../.orphaned_at'), '1');
+  assert.equal(await legacyOwnership(dirRecord(claudeOld), context), 'family', '更新后旧目录带废弃标记');
+  await fs.rm(path.resolve(claudeOld, '../../../..'), { recursive: true });
+  assert.equal(await legacyOwnership(dirRecord(claudeOld), context), 'family', '旧目录已删除');
+  assert.equal(await legacyOwnership(dirRecord(await w.install('claude', '0.10.3')), context), 'family', '0.10.3 写下的目录形态记录');
+  const otherMarket = path.join(w.claudeConfig, 'plugins/cache/elsewhere/skilldock/sha-x/skills/skill-manager/assets/app');
+  assert.equal(await legacyOwnership(dirRecord(otherMarket), context), null, '其他 marketplace 的记录仍拒绝');
   assert.equal(await legacyOwnership({ source: w.project, installation: { kind: 'directory', source: w.project } }, context), null);
   // A Claude installation registered from a fork does not own Codex data of the original source.
   const fork = await world(t, { claudeSource: 'https://github.com/someone/testany-agent-skills.git' });

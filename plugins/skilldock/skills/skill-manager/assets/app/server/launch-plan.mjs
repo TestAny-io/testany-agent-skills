@@ -5,7 +5,7 @@
 import path from 'node:path';
 import os from 'node:os';
 import { spawn } from 'node:child_process';
-import { agentRoots, discoverInstalls, locate, inspect, selectRunSource, reference, compareVersions, parseVersion, readJsonFile, readText, canonical, sourceKeyFor, within, absolute, APP_TAIL } from './installs.mjs';
+import { agentRoots, discoverInstalls, locate, inspect, selectRunSource, reference, compareVersions, parseVersion, atLeast, safeSegment, readJsonFile, readText, canonical, sourceKeyFor, within, absolute, APP_TAIL } from './installs.mjs';
 import { installationIdentity, sameInstallation } from './installation.mjs';
 import { readGeneration, CURRENT_GENERATION } from './generation.mjs';
 import { isCurrentRecord, refreshRecord, writeRecord } from './launcher-record.mjs';
@@ -141,11 +141,13 @@ export async function planLaunch({ action, env = process.env, home = os.homedir(
 }
 
 /**
- * Ownership of a 0.10.x record (HLD 3.7; 36a §5). Returns `family` for a Codex plugin
- * record of the same marketplace name, plugin and source identity (DEC-SDX-007),
- * `testany-eng` for the old testany-eng plugin of the same Codex marketplace when
- * explicitly requested, `claude-legacy` for a directory-form record inside a Claude
- * plugin cache (a SkillDock older than 0.10.3 on the Claude side), otherwise null.
+ * Ownership of a 0.10.x record (HLD 3.7; 36a §5). Returns `family` for a record of the
+ * same marketplace name, plugin and source identity (DEC-SDX-007) — a Codex plugin
+ * record, or a directory-form record inside a Claude plugin cache whose installation is
+ * gone, orphaned or at least 0.10.3 (a stale record, taken over like any 0.10.x one);
+ * `claude-legacy` while that Claude installation is still in use and older than 0.10.3
+ * (the gate fails then too); `testany-eng` for the old testany-eng plugin of the same
+ * Codex marketplace when explicitly requested; otherwise null.
  */
 export async function legacyOwnership(record, context, { migrateFrom } = {}) {
   const installation = record.installation;
@@ -159,10 +161,21 @@ export async function legacyOwnership(record, context, { migrateFrom } = {}) {
       && own.agent === 'codex' && !own.development && own.marketplace === current.marketplace && own.home === current.codexHome) return 'testany-eng';
     return null;
   }
-  const source = typeof record.source === 'string' ? await canonical(record.source) : null;
+  const source = absolute(record.source) ? await canonical(record.source) : null;
   if (!source) return null;
   for (const cache of context.roots.caches) {
-    if (cache.agent === 'claude' && within(await canonical(cache.cacheDir), source)) return 'claude-legacy';
+    if (cache.agent !== 'claude') continue;
+    const cacheDir = await canonical(cache.cacheDir);
+    if (!within(cacheDir, source)) continue;
+    const segments = path.relative(cacheDir, source).split(path.sep);
+    const [marketplace, plugin, versionName] = segments;
+    if (segments.length !== 7 || plugin !== 'skilldock' || ![marketplace, versionName].every(safeSegment) || segments.slice(3).join('/') !== APP_TAIL.join('/')) return null;
+    const versionDir = path.join(cacheDir, marketplace, 'skilldock', versionName);
+    const orphaned = await readText(path.join(versionDir, '.orphaned_at')) !== undefined;
+    const version = (await readJsonFile(path.join(source, 'package.json')))?.version;
+    if (!orphaned && parseVersion(version) && !atLeast(version, '0.10.3')) return 'claude-legacy';
+    const key = await sourceKeyFor({ agent: 'claude', configDir: cache.configDir, marketplace });
+    return context.owner && marketplace === context.owner.marketplace && key && key === context.owner.key ? 'family' : null;
   }
   return null;
 }

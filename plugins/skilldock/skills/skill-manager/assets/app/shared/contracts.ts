@@ -77,6 +77,8 @@ export interface UpdateTarget {
   kind: "skill" | "plugin" | "host";
   id: string;
   agent?: Agent;
+  /** multiAgent=1, plan targets only: a cross-side skill waiting for or holding confirmation (36c §6). */
+  confirmation?: "pending" | "confirmed";
 }
 export interface FileChange {
   path: string;

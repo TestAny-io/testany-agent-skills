@@ -253,3 +253,26 @@ test('busy locks stop a migration before the old 0.10.x instance stops; nothing 
   const retried = await launch('start', { ...f, port });
   try { assert.equal(retried.migrated, true); } finally { await launch('stop', { ...f, port }); }
 });
+
+test('a stale 0.10.x record left by Claude-side SkillDock no longer blocks once that side is updated', async t => {
+  const f = await fixture(t); const port = await freePort();
+  const next = { ...await installedVersion(f, '0.11.0'), port };
+  const claudeConfig = path.join(f.home, '.claude');
+  await fs.mkdir(path.join(claudeConfig, 'plugins'), { recursive: true });
+  await fs.writeFile(path.join(claudeConfig, 'plugins/known_marketplaces.json'), JSON.stringify({ [MARKET]: { source: { source: 'git', url: 'https://github.com/TestAny-io/testany-agent-skills.git' } } }));
+  const oldDir = path.join(claudeConfig, 'plugins/cache', MARKET, 'skilldock/sha-old');
+  const oldApp = path.join(oldDir, 'skills/skill-manager/assets/app');
+  await fs.mkdir(oldApp, { recursive: true }); await fs.writeFile(path.join(oldApp, 'package.json'), JSON.stringify({ name: 'skilldock', version: '0.10.2' }));
+  await fs.mkdir(f.stateDir, { recursive: true }); const state = await fs.realpath(f.stateDir); const real = await fs.realpath(oldApp);
+  await fs.writeFile(path.join(state, 'launcher.json'), JSON.stringify({ url: `http://127.0.0.1:${port}`, pid: 2 ** 22 + 4321, state, project: await fs.realpath(f.projectDir), projectContext: null,
+    source: real, installation: { kind: 'directory', source: real }, digest: 'old', runtime: path.join(state, 'runtimes/old'), codexHome: path.join(f.home, '.codex'), cli: null, execution: null }));
+  // Still in use and older than 0.10.3: the gate stops here with guidance.
+  await assert.rejects(launch('start', next), error => error.exitCode === 4);
+  // The user updated Claude-side SkillDock: Claude marked the old directory orphaned.
+  await fs.writeFile(path.join(oldDir, '.orphaned_at'), '1');
+  const started = await launch('start', next);
+  try {
+    assert.equal(started.migrated, true);
+    assert.equal((await read(path.join(state, 'launcher.json'))).format, 2);
+  } finally { await launch('stop', next); }
+});
