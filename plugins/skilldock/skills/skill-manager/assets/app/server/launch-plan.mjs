@@ -146,7 +146,8 @@ export async function planLaunch({ action, env = process.env, home = os.homedir(
  * record, or a directory-form record inside a Claude plugin cache whose installation is
  * gone, orphaned or at least 0.10.3 (a stale record, taken over like any 0.10.x one);
  * `claude-legacy` while that Claude installation is still in use and older than 0.10.3
- * (the gate fails then too); `testany-eng` for the old testany-eng plugin of the same
+ * (the gate fails then too); `claude-unverified` when its source identity cannot be
+ * read (the marketplace was removed or the Claude configuration is not visible); `testany-eng` for the old testany-eng plugin of the same
  * Codex marketplace when explicitly requested; otherwise null.
  */
 export async function legacyOwnership(record, context, { migrateFrom } = {}) {
@@ -172,10 +173,16 @@ export async function legacyOwnership(record, context, { migrateFrom } = {}) {
     if (segments.length !== 7 || plugin !== 'skilldock' || ![marketplace, versionName].every(safeSegment) || segments.slice(3).join('/') !== APP_TAIL.join('/')) return null;
     const versionDir = path.join(cacheDir, marketplace, 'skilldock', versionName);
     const orphaned = await readText(path.join(versionDir, '.orphaned_at')) !== undefined;
-    const version = (await readJsonFile(path.join(source, 'package.json')))?.version;
-    if (!orphaned && parseVersion(version) && !atLeast(version, '0.10.3')) return 'claude-legacy';
+    // A package that exists but cannot be read is treated as still in use and old.
+    const text = await readText(path.join(source, 'package.json'));
+    let version;
+    if (typeof text === 'string') { try { version = JSON.parse(text)?.version; } catch { version = null; } }
+    if (!orphaned && (text === null || version === null || (parseVersion(version) && !atLeast(version, '0.10.3')))) return 'claude-legacy';
+    if (!context.owner || marketplace !== context.owner.marketplace) return null;
     const key = await sourceKeyFor({ agent: 'claude', configDir: cache.configDir, marketplace });
-    return context.owner && marketplace === context.owner.marketplace && key && key === context.owner.key ? 'family' : null;
+    // The marketplace is gone from Claude, or its configuration cannot be seen from here.
+    if (!key) return 'claude-unverified';
+    return key === context.owner.key ? 'family' : null;
   }
   return null;
 }

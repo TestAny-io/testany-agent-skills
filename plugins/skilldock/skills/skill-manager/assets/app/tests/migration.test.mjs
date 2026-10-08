@@ -276,3 +276,38 @@ test('a stale 0.10.x record left by Claude-side SkillDock no longer blocks once 
     assert.equal((await read(path.join(state, 'launcher.json'))).format, 2);
   } finally { await launch('stop', next); }
 });
+
+// A Claude-side 0.10.x instance whose installation was since updated (its directory orphaned).
+async function staleClaudeInstance(t, f, port) {
+  const claudeConfig = path.join(f.home, '.claude');
+  await fs.mkdir(path.join(claudeConfig, 'plugins'), { recursive: true });
+  await fs.writeFile(path.join(claudeConfig, 'plugins/known_marketplaces.json'), JSON.stringify({ [MARKET]: { source: { source: 'git', url: 'https://github.com/TestAny-io/testany-agent-skills.git' } } }));
+  const versionDir = path.join(claudeConfig, 'plugins/cache', MARKET, 'skilldock/sha-old');
+  await fs.cp(f.sourceRoot, path.join(versionDir, 'skills/skill-manager'), { recursive: true });
+  const old = await oldInstance(t, f, { port, appDir: path.join(versionDir, 'skills/skill-manager/assets/app') });
+  await fs.writeFile(path.join(versionDir, '.orphaned_at'), '1');
+  return old;
+}
+
+test('a live stale Claude-side 0.10.x instance is stopped under the locks and migrated; busy locks leave it running', async t => {
+  const f = await fixture(t); const port = await freePort();
+  const next = { ...await installedVersion(f, '0.11.0'), port };
+  const old = await staleClaudeInstance(t, f, port);
+  const release = acquireFileLock(path.join(old.state, 'instance.lock'));
+  try { await assert.rejects(launch('start', { ...next, lockWait: 300 }), /未停止现有服务/); } finally { release(); }
+  assert.equal((await probe(old.url)).pid, old.pid, '锁忙时不停止旧实例');
+  const started = await launch('start', next);
+  try {
+    assert.equal(started.migrated, true); assert.notEqual(started.pid, old.pid);
+    assert.equal(alive(old.pid), false, '旧实例先被停止');
+  } finally { await launch('stop', next); }
+});
+
+test('stop on a stale Claude-side 0.10.x record stops that instance and removes the record', async t => {
+  const f = await fixture(t); const port = await freePort();
+  const next = { ...await installedVersion(f, '0.11.0'), port };
+  const old = await staleClaudeInstance(t, f, port);
+  assert.equal((await launch('stop', next)).status, 'stopped');
+  assert.equal(await probe(old.url), null);
+  assert.equal(await exists(path.join(old.state, 'launcher.json')), false, '0.10.x 记录按 0.10.2 的做法删除');
+});

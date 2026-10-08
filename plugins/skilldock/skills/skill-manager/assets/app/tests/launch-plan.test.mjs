@@ -89,6 +89,19 @@ test('0.10.x record ownership: same family, explicit testany-eng, pre-0.10.3 Cla
   assert.equal(await legacyOwnership(dirRecord(await w.install('claude', '0.10.3')), context), 'family', '0.10.3 写下的目录形态记录');
   const otherMarket = path.join(w.claudeConfig, 'plugins/cache/elsewhere/skilldock/sha-x/skills/skill-manager/assets/app');
   assert.equal(await legacyOwnership(dirRecord(otherMarket), context), null, '其他 marketplace 的记录仍拒绝');
+  // A package that cannot be read counts as an old installation still in use.
+  if (process.getuid?.() !== 0) {
+    const unreadable = await w.install('claude', '0.10.1'); await fs.chmod(path.join(unreadable, 'package.json'), 0o000);
+    const result = await legacyOwnership(dirRecord(unreadable), context).finally(() => fs.chmod(path.join(unreadable, 'package.json'), 0o600));
+    assert.equal(result, 'claude-legacy');
+  }
+  // The same marketplace name from a fork is refused; a marketplace gone from Claude cannot be verified.
+  const stale = path.join(w.claudeConfig, 'plugins/cache', MARKET, 'skilldock/sha-gone/skills/skill-manager/assets/app');
+  const known = path.join(w.claudeConfig, 'plugins/known_marketplaces.json');
+  await fs.writeFile(known, JSON.stringify({ [MARKET]: { source: { source: 'git', url: 'https://github.com/someone/testany-agent-skills.git' } } }));
+  assert.equal(await legacyOwnership(dirRecord(stale), context), null);
+  await fs.writeFile(known, JSON.stringify({}));
+  assert.equal(await legacyOwnership(dirRecord(stale), context), 'claude-unverified');
   assert.equal(await legacyOwnership({ source: w.project, installation: { kind: 'directory', source: w.project } }, context), null);
   // A Claude installation registered from a fork does not own Codex data of the original source.
   const fork = await world(t, { claudeSource: 'https://github.com/someone/testany-agent-skills.git' });

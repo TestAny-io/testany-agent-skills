@@ -198,6 +198,13 @@ export async function launch(action = 'start', options = {}) {
     if (record.source === appDir) return;
     const legacy = await legacyOwnership(record, plan, { migrateFrom: options.migrateFrom });
     if (legacy === 'family' || legacy === 'testany-eng') return;
+    if (legacy === 'claude-unverified') {
+      const message = '这个数据目录的启动记录来自 Claude 中的 SkillDock，但无法核实它的来源（该 marketplace 已不在 Claude 中，或这里看不到 Claude 的配置目录），未接管数据。';
+      const steps = [`若 Claude 中已不再使用那份 SkillDock：删除 ${path.join(state, 'launcher.json')} 后重新打开。`,
+        '或在 Claude 中重新添加原来的 marketplace 后重新打开；Claude 使用自定义配置目录时，从 Claude 一侧打开 SkillDock。',
+        '或用 SKILLDOCK_STATE_DIR 为这个 SkillDock 指定独立的数据目录。'];
+      throw Object.assign(new Error(message), { code: 'OWNER_UNVERIFIED', exitCode: 1, output: { status: 'owner-unverified', message, steps } });
+    }
     if (legacy === 'claude-legacy') {
       const message = 'Claude 中装有低于 0.10.3 的 SkillDock，正在使用这个数据目录；0.11 暂不接管数据，旧版本照常工作。';
       const steps = ['在 Claude 中把 SkillDock 更新到最新版本（或从 Claude 卸载 SkillDock），并重载插件。', '处理后重新打开 SkillDock，会重新检查。'];
