@@ -7,11 +7,12 @@ import { spawn } from 'node:child_process';
 import { captureSource } from '../assets/app/scripts/source-bundle.mjs';
 import { canonicalPath, readRestart, writeRestart } from '../assets/app/server/installation.mjs';
 import { prepareRuntime, verifyRuntime } from '../assets/app/server/runtime.mjs';
-import { resolveLaunchProject, parseLaunchArguments } from '../assets/app/server/project-context.mjs';
+import { resolveLaunchProject, parseLaunchArguments, validProject } from '../assets/app/server/project-context.mjs';
 import { resolveCodexCli } from '../assets/app/server/codex-runtime.mjs';
 import { acquireFileLock } from '../assets/app/server/process-lock.mjs';
 import { withStateLocks } from '../assets/app/server/state-locks.mjs';
 import { readGeneration, writeGeneration, CURRENT_GENERATION } from '../assets/app/server/generation.mjs';
+import { absolute, readText } from '../assets/app/server/installs.mjs';
 import { readRecord, writeRecord, mirrorRecord, buildRecord, stoppedRecord, refreshRecord, restoreRecord, verifyInstance, legacyFields, ensureLegacyProject, isCurrentRecord } from '../assets/app/server/launcher-record.mjs';
 import { installationContext, delegationTarget, delegate, newerDataError, legacyOwnership, migrationCheck, preferredWhenRunning, failureText, EXIT_MIGRATION_BLOCKED } from '../assets/app/server/launch-plan.mjs';
 import { convertPlan, snapshotFiles, writeMigrationFailure, clearMigrationFailure } from '../assets/app/server/migration.mjs';
@@ -47,23 +48,30 @@ function matches(health, record) {
 // A stopped 0.11 instance keeps its record (36a §5.3), written under the instance and
 // Codex locks and only while the record still names that instance; 0.10.x records are
 // removed as before.
-async function settle(record, recordFile, codexHome) {
+// `locked`: the caller already holds the instance and Codex locks. Otherwise they are
+// taken briefly; when they stay busy the process is gone anyway and the record is left
+// for the next run (status reads the instance, not the record).
+async function settle(record, recordFile, codexHome, { locked = false } = {}) {
   if (!isCurrentRecord(record)) return fs.rm(recordFile, { force: true });
   const state = path.dirname(recordFile);
-  await withStateLocks(state, codexHome, async () => {
+  const write = async () => {
     const latest = await readRecord(state).catch(() => null);
     if (latest?.pid === record.pid && latest.url === record.url && latest.digest === record.digest) await writeRecord(state, stoppedRecord(latest));
-  });
+  };
+  if (locked) return write();
+  try { await withStateLocks(state, codexHome, write, { wait: 10000 }); }
+  catch (error) { if (error.code !== 'BUSY') throw error; }
 }
 
-async function stop(record, recordFile, codexHome) {
-  if (isCurrentRecord(record) && record.status === 'stopped') return { status: 'stopped', message: '此实例已停止。' };
+async function stop(record, recordFile, codexHome, { locked = false } = {}) {
   const health = await probe(record.url);
   if (!matches(health, record)) {
+    // A stopped 0.11 record names an instance that is gone; its pid may have been reused.
+    if (isCurrentRecord(record) && record.status === 'stopped') return { status: 'stopped', message: '此实例已停止。' };
     let alive = false;
     try { process.kill(record.pid, 0); alive = true; } catch {}
     if (alive) throw new Error('无法核实记录中的进程属于此 SkillDock 实例；未停止任何进程。');
-    await settle(record, recordFile, codexHome);
+    await settle(record, recordFile, codexHome, { locked });
     return { status: 'stopped', message: '此实例已停止。' };
   }
   process.kill(record.pid, 'SIGTERM');
@@ -72,7 +80,7 @@ async function stop(record, recordFile, codexHome) {
     let running = true;
     try { process.kill(record.pid, 0); } catch (error) { if (error.code === 'ESRCH') running = false; else throw error; }
     if (!running) {
-      await settle(record, recordFile, codexHome);
+      await settle(record, recordFile, codexHome, { locked });
       return { status: 'stopped', message: 'SkillDock 网页服务已停止。已启用的独立自动更新不受影响，可在更新页关闭计划。' };
     }
   }
@@ -149,7 +157,8 @@ async function migrate({ state, codexHome, home, plan, record, runtime, digest, 
     await writeRecord(state, record);
     await writeGeneration(state, plan.own.version);
   } catch (error) {
-    await undo().catch(() => {});
+    const failed = await undo().then(() => null, problem => problem);
+    if (failed) error.message += `；撤销未完成，${failed.message}`;
     throw error;
   }
 }
@@ -161,7 +170,6 @@ export async function launch(action = 'start', options = {}) {
   const env = options.env ?? process.env; const home = options.home ?? os.homedir();
   const appDir = await canonicalPath(path.resolve(options.appDir ?? defaultApp));
   const state = await canonicalPath(path.resolve(options.stateDir ?? env.SKILLDOCK_STATE_DIR ?? path.join(home, '.local/share/skilldock')));
-  const codexHome = await canonicalPath(path.resolve(options.codexHome ?? env.CODEX_HOME ?? path.join(home, '.codex')));
   const port = Number(options.port ?? env.PORT ?? 4771);
   if (!Number.isInteger(port) || port < 1024 || port > 65535) throw new Error('PORT 必须为 1024–65535。');
   const url = `http://127.0.0.1:${port}`;
@@ -169,6 +177,8 @@ export async function launch(action = 'start', options = {}) {
   const generation = await readGeneration(state);
   if (generation > CURRENT_GENERATION) throw newerDataError(generation);
   const initial = await readRecord(state);
+  // 36b 6.3: without CODEX_HOME the Codex home saved in the record is used.
+  const codexHome = await canonicalPath(path.resolve(options.codexHome ?? env.CODEX_HOME ?? (absolute(initial?.codexHome) ? initial.codexHome : path.join(home, '.codex'))));
   const plan = await installationContext({ env, home, state, appDir, record: initial, codexHome });
   const jobId = options.restartJob ?? env.SKILLDOCK_RESTART_JOB;
   const target = delegationTarget(plan, { action, env, restartJob: jobId });
@@ -191,11 +201,15 @@ export async function launch(action = 'start', options = {}) {
     if (legacy === 'claude-legacy') {
       const message = 'Claude 中装有低于 0.10.3 的 SkillDock，正在使用这个数据目录；0.11 暂不接管数据，旧版本照常工作。';
       const steps = ['在 Claude 中把 SkillDock 更新到最新版本（或从 Claude 卸载 SkillDock），并重载插件。', '处理后重新打开 SkillDock，会重新检查。'];
-      throw Object.assign(new Error(message), { code: 'MIGRATION_BLOCKED', exitCode: EXIT_MIGRATION_BLOCKED, output: { status: 'migration-blocked', message, blockers: [], unreadable: [], steps } });
+      // Exit 4 belongs to the migration gate of start and restart (36b 6.3).
+      const gate = ['start', 'restart'].includes(action);
+      throw Object.assign(new Error(message), { code: 'MIGRATION_BLOCKED', exitCode: gate ? EXIT_MIGRATION_BLOCKED : 1, output: { status: 'migration-blocked', message, blockers: [], unreadable: [], steps } });
     }
     throw new Error('此数据目录属于另一个源码实例；旧 testany-eng 用户可使用 --migrate-from testany-eng 接续数据，其他来源请使用独立 SKILLDOCK_STATE_DIR。');
   }
   await checkOwner(initial);
+  // 36a §7: the fixed legacy directory is confirmed on every run once migrated.
+  if (generation >= CURRENT_GENERATION) await ensureLegacyProject(state);
   if (action === 'status') {
     const health = initial && await probe(initial.url);
     return initial && matches(health, initial)
@@ -237,7 +251,7 @@ export async function launch(action = 'start', options = {}) {
     // DEC-SDX-024 level 2: a Claude session's own directories are saved (a file 0.10.2 never reads).
     if (plan.claudeRoot.origin === 'session' && !plan.claudeRoot.saved) await writeClaudeRoot(state, plan.claudeRoot);
     // Generation 2 without a record (a 0.10.x launcher removed it): write it back first.
-    if (!migrating) await withStateLocks(state, codexHome, () => restoreRecord(state, { verify: verifyInstance }), { wait: 10000 }).catch(() => {});
+    if (!migrating && await readText(recordFile) === undefined) await withStateLocks(state, codexHome, () => restoreRecord(state, { verify: verifyInstance }), { wait: 10000 }).catch(() => {});
     const current = await readRecord(state); await checkOwner(current);
     if (jobId) {
       const requested = await readRestart(state);
@@ -258,14 +272,26 @@ export async function launch(action = 'start', options = {}) {
     if (!migrating && live && action !== 'restart' && current.url === url && projectKept && (sameSource || sameVersion)) {
       try {
         await verifyRuntime(current.runtime, current.digest);
-        const refreshed = await refreshRecord(current, { codexHome, installs: plan.installs, preferred: preferredWhenRunning(plan, running.appPath) });
-        if (refreshed !== current) await withStateLocks(state, codexHome, () => writeRecord(state, refreshed), { wait: 0 }).catch(() => {});
+        // The record follows the live instance: preferred target, legacy fields and the
+        // running form (36b 6.3), written only if nobody changed it meanwhile.
+        let refreshed = await refreshRecord(current, { codexHome, installs: plan.installs, preferred: preferredWhenRunning(plan, running.appPath) });
+        if (refreshed.status !== 'running') refreshed = { ...refreshed, status: 'running', updatedAt: new Date().toISOString() };
+        if (refreshed !== current) await withStateLocks(state, codexHome, async () => {
+          if (JSON.stringify(await readRecord(state)) === JSON.stringify(current)) await writeRecord(state, refreshed);
+        }, { wait: 10000 }).catch(() => {});
         if (job) await report('ready', { pid: current.pid, completedAt: new Date().toISOString() });
         else await closeLeftoverJob(current.pid, running.appPath);
         await clearMigrationFailure(state);
         return { status: 'running', url, pid: current.pid, project: health.project, requestedProject: projectInfo.requested, projectContext: health.projectContext || projectContext, state, reused: true, cli: current.cli, backgroundService: true };
       } catch { /* A damaged generated runtime is rebuilt. */ }
     }
+    // 36b 6.3: a project from levels ③–⑤ never changes a running instance's project, also
+    // when the instance is replaced by another version.
+    const keptProject = live && !explicit && health?.project ? await validProject(health.project, state) : null;
+    const runProject = keptProject || project;
+    const runContext = keptProject ? (health.projectContext?.effective === keptProject ? health.projectContext
+      : { requested: keptProject, effective: keptProject, source: 'record', workingDirectory: process.cwd(), warnings: [] }) : projectContext;
+    if (keptProject && keptProject !== project) process.stderr.write(`SkillDock：沿用运行实例的项目 ${keptProject}。\n`);
     // Compilation and dependency failures leave a healthy old process running.
     if (!live) {
       if (current) await stop(current, recordFile, codexHome);
@@ -289,36 +315,46 @@ export async function launch(action = 'start', options = {}) {
     process.stderr.write(cli.available ? `SkillDock：Codex CLI ${cli.path}（${cli.version}）\n` : `SkillDock：${cli.error}\n`);
     const expected = JSON.stringify(live ? current : await readRecord(state));
     await report('preparing');
-    const runtime = await prepareRuntime(state, snapshot);
-    if (JSON.stringify(await readRecord(state)) !== expected) throw new Error('运行实例已变化，已取消本次重启。');
-    if (live) { await report('restarting'); await stop(current, recordFile, codexHome); stopped = true; }
+    const runtime = await prepareRuntime(state, snapshot, { log: path.join(state, 'build.log') });
     const legacyProject = await ensureLegacyProject(state);
     const legacy = await legacyFields({ codexHome, installs: plan.installs, running: plan.ownReference });
     const record = buildRecord({ state, url, pid: 0, digest, runtime, codexHome, cli, legacyProject, legacy,
-      running: plan.ownReference, preferred: preferredWhenRunning(plan, appDir), actualProject: project });
-    if (migrating) {
-      // The stopped form keeps the last known pid: the old instance's, or this launcher's.
-      await withStateLocks(state, codexHome, () => migrate({ state, codexHome, home, plan, record: stoppedRecord({ ...record, pid: current?.pid ?? process.pid }), runtime, digest, project, cli, env }));
-      migrated = true; rollback = undefined;
-      process.stderr.write('SkillDock：已迁移数据目录到 0.11 格式。\n');
-    }
-    const next = await withStateLocks(state, codexHome, () => startRuntime(record, recordFile, { env, projectContext }));
+      running: plan.ownReference, preferred: preferredWhenRunning(plan, appDir), actualProject: runProject });
+    // Inside the locks: a failed switch restores the previous instance (never a 0.10.x
+    // runtime once generation 2 is written) and the error says what happened.
+    const recover = async error => {
+      if (!stopped || !rollback) return error;
+      try {
+        await startRuntime(rollback, recordFile, { env, projectContext: null });
+        // 36b §7.4: a migration that failed after the gate is not retried by restart jobs.
+        if (!isCurrentRecord(rollback)) await writeMigrationFailure(state, { appDir, version: plan.own.version, message: error.message }).catch(() => {});
+        return Object.assign(error, { restored: true, note: '；已恢复上一运行版本。' });
+      } catch (failure) { return Object.assign(error, { note: `；恢复上一运行版本失败：${failure.message}` }); }
+    };
+    // HLD 3.7: the instance and Codex locks are taken before the old instance stops and held
+    // until the new one is recorded or the old one is back; busy locks fail before stopping.
+    const next = await withStateLocks(state, codexHome, async () => {
+      if (JSON.stringify(await readRecord(state)) !== expected) throw new Error('运行实例已变化，已取消本次重启。');
+      if (live) { await report('restarting'); await stop(current, recordFile, codexHome, { locked: true }); stopped = true; }
+      try {
+        if (migrating) {
+          // The stopped form keeps the last known pid: the old instance's, or this launcher's.
+          await migrate({ state, codexHome, home, plan, record: stoppedRecord({ ...record, pid: current?.pid ?? process.pid }), runtime, digest, project: runProject, cli, env });
+          migrated = true; rollback = undefined;
+          process.stderr.write('SkillDock：已迁移数据目录到 0.11 格式。\n');
+        }
+        return await startRuntime(record, recordFile, { env, projectContext: runContext });
+      } catch (error) { throw await recover(error); }
+    }, { wait: options.lockWait ?? 60000 });
     if (job) await report('ready', { pid: next.pid, completedAt: new Date().toISOString() }).catch(() => {});
     else await closeLeftoverJob(next.pid, next.running.appPath).catch(() => {});
     await clearMigrationFailure(state);
-    return { status: 'running', url, pid: next.pid, project, requestedProject: projectInfo.requested, projectContext, cli, state, reused: false, backgroundService: true, ...(migrated ? { migrated: true } : {}) };
+    return { status: 'running', url, pid: next.pid, project: runProject, requestedProject: projectInfo.requested, projectContext: runContext, cli, state, reused: false, backgroundService: true, ...(migrated ? { migrated: true } : {}) };
   } catch (error) {
-    let restored = false; let message = error.message;
-    if (stopped && rollback) {
-      try {
-        await withStateLocks(state, codexHome, () => startRuntime(rollback, recordFile, { env, projectContext: null }));
-        restored = true; message += '；已恢复上一运行版本。';
-        // 36b §7.4: a migration that failed after the gate is not retried by restart jobs.
-        // A busy lock is transient and does not count.
-        if (!isCurrentRecord(rollback) && error.code !== 'BUSY') await writeMigrationFailure(state, { appDir, version: plan.own.version, message: error.message }).catch(() => {});
-      } catch (failure) { message += `；恢复上一运行版本失败：${failure.message}`; }
-    } else if (migrated) message = `数据已迁移到 0.11 格式，但新版未能启动：${error.message}`;
-    await report('failed', { message, ...(restored ? { restored: true } : {}), completedAt: new Date().toISOString() }).catch(() => {});
+    const busy = error.code === 'BUSY' && !stopped;
+    const message = busy ? '另一项 SkillDock 操作（例如后台更新）正在进行，未停止现有服务；请稍后重试。'
+      : error.note ? error.message + error.note : migrated ? `数据已迁移到 0.11 格式，但新版未能启动：${error.message}` : error.message;
+    await report('failed', { message, ...(error.restored ? { restored: true } : {}), completedAt: new Date().toISOString() }).catch(() => {});
     if (message === error.message) throw error;
     throw Object.assign(new Error(message, { cause: error }), { code: error.code, ...(error.exitCode ? { exitCode: error.exitCode } : {}) });
   } finally { releaseLock(); }

@@ -5,6 +5,10 @@ import path from 'node:path';
 import net from 'node:net';
 import { fingerprint, launch, probe } from '../../../scripts/launch.mjs';
 import { fixture, listen, installedVersion } from './helpers/launcher-fixture.mjs';
+import { acquireFileLock } from '../server/process-lock.mjs';
+
+const readRecordFile = async state => JSON.parse(await fs.readFile(path.join(state, 'launcher.json'), 'utf8'));
+async function freePort() { const { server, port } = await listen(); await new Promise(resolve => server.close(resolve)); return port; }
 
 test('fingerprint includes distributed sources and license but excludes verification records and installed dependencies', async t => {
   const options = await fixture(t);
@@ -247,4 +251,87 @@ test('status and stop keep identifying a service after its scan project changes'
     assert.equal((await launch('status', options)).project, other);
     assert.equal((await launch('start', { ...options, projectDir: other })).pid, first.pid);
   } finally { assert.equal((await launch('stop', options)).status, 'stopped'); }
+});
+
+test('busy instance and Codex locks fail a restart before the old instance stops (HLD 3.7)', async t => {
+  const f = await fixture(t); const options = { ...f, port: await freePort() };
+  const first = await launch('start', options);
+  const release = acquireFileLock(path.join(first.state, 'instance.lock'));
+  try {
+    await assert.rejects(launch('restart', { ...options, lockWait: 300 }), /未停止现有服务/);
+    assert.equal((await probe(first.url)).pid, first.pid, '旧实例仍在运行');
+    assert.deepEqual([(await readRecordFile(first.state)).pid, (await readRecordFile(first.state)).status], [first.pid, 'running']);
+  } finally { release(); await launch('stop', options); }
+});
+
+test('a restart job that fails before the old instance stops is closed as failed without restored (G-12)', async t => {
+  const f = await fixture(t); const options = { ...f, port: await freePort() };
+  const first = await launch('start', options); const appDir = await fs.realpath(f.appDir);
+  try {
+    await fs.writeFile(path.join(first.state, 'restart.json'), JSON.stringify({ id: 'job', source: appDir, sourceDigest: 'x', previousPid: first.pid, url: first.url, status: 'preparing' }));
+    const file = path.join(f.appDir, 'package.json'); const value = JSON.parse(await fs.readFile(file, 'utf8'));
+    value.scripts.build = 'node -e "process.exit(9)"'; await fs.writeFile(file, JSON.stringify(value));
+    await assert.rejects(launch('restart', { ...options, restartJob: 'job' }), /失败（9）/);
+    const job = JSON.parse(await fs.readFile(path.join(first.state, 'restart.json'), 'utf8'));
+    assert.deepEqual([job.status, job.restored, typeof job.executor.pid], ['failed', undefined, 'number']);
+    assert.equal((await probe(first.url)).pid, first.pid);
+  } finally { await launch('stop', options); }
+});
+
+test('leftover jobs are closed as ready when the instance runs their source; a closed job is still accepted (G-17)', async t => {
+  const f = await fixture(t); const options = { ...f, port: await freePort() };
+  const first = await launch('start', options); const appDir = await fs.realpath(f.appDir);
+  const restartFile = path.join(first.state, 'restart.json');
+  let last = first;
+  try {
+    await fs.writeFile(restartFile, JSON.stringify({ id: 'j1', source: appDir, sourceDigest: 'x', previousPid: first.pid, url: first.url, status: 'preparing' }));
+    assert.equal((await launch('start', options)).reused, true);
+    const closed = JSON.parse(await fs.readFile(restartFile, 'utf8'));
+    assert.deepEqual([closed.status, closed.pid], ['ready', first.pid]);
+    // Its own launcher arrives after the window and runs it (36b 7.4).
+    last = await launch('restart', { ...options, restartJob: 'j1' });
+    const ran = JSON.parse(await fs.readFile(restartFile, 'utf8'));
+    assert.deepEqual([ran.status, ran.pid, typeof ran.executor.pid], ['ready', last.pid, 'number']);
+  } finally { await launch('stop', options); }
+});
+
+test('a stopped record of a live instance is corrected by start and still stopped by stop (36b 6.3)', async t => {
+  const f = await fixture(t); const options = { ...f, port: await freePort() };
+  const first = await launch('start', options);
+  const write = async status => fs.writeFile(path.join(first.state, 'launcher.json'), JSON.stringify({ ...await readRecordFile(first.state), status }));
+  await write('stopped');
+  const again = await launch('start', options);
+  assert.deepEqual([again.reused, (await readRecordFile(first.state)).status], [true, 'running']);
+  await write('stopped');
+  await launch('stop', options);
+  assert.equal(await probe(first.url), null, '进程确实已停止');
+  assert.equal((await readRecordFile(first.state)).status, 'stopped');
+});
+
+test('a version switch keeps the running project unless one is given explicitly (36b 6.3)', async t => {
+  const f = await fixture(t); const port = await freePort();
+  const other = path.join(f.root, 'other'); await fs.mkdir(other);
+  const oldOptions = { ...await installedVersion(f, '0.11.0'), port, projectDir: other };
+  const first = await launch('start', oldOptions);
+  const { projectDir, ...nextOptions } = { ...await installedVersion(f, '0.11.1'), port };
+  try {
+    const next = await launch('start', nextOptions);
+    assert.notEqual(next.pid, first.pid);
+    assert.equal(next.project, await fs.realpath(other));
+    assert.equal((await readRecordFile(next.state)).actualProject, await fs.realpath(other));
+  } finally { await launch('stop', nextOptions); }
+  assert.ok(projectDir);
+});
+
+test('every run on migrated data restores the fixed legacy directory and keeps the saved Codex home', async t => {
+  const f = await fixture(t); const options = { ...f, port: await freePort() };
+  const custom = path.join(f.root, 'custom codex'); await fs.mkdir(custom);
+  const first = await launch('start', { ...options, codexHome: custom });
+  try {
+    await fs.rm(path.join(first.state, 'compat/legacy-project'), { recursive: true });
+    assert.equal((await launch('status', options)).status, 'running');
+    assert.ok((await fs.stat(path.join(first.state, 'compat/legacy-project'))).isDirectory(), '36a 第 7 节：缺失即重建');
+    const next = await launch('restart', options);
+    assert.equal((await readRecordFile(next.state)).codexHome, await fs.realpath(custom), '没有 CODEX_HOME 时沿用记录中的值');
+  } finally { await launch('stop', options); }
 });

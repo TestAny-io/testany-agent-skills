@@ -6,9 +6,10 @@ import { materializeRuntime, verifySourceArtifacts } from '../scripts/source-bun
 import { acquireFileLock } from './process-lock.mjs';
 import { findNpm, buildEnvironment } from './toolchain.mjs';
 
-async function run(command, args, cwd, env) {
+// `log`: an open file descriptor that receives the output; otherwise it goes to stderr.
+async function run(command, args, cwd, env, log = 2) {
   await new Promise((resolve, reject) => {
-    const child = spawn(command, args, { cwd, shell: false, env, timeout: 300000, stdio: ['ignore', 2, 2] });
+    const child = spawn(command, args, { cwd, shell: false, env, timeout: 300000, stdio: ['ignore', log, log] });
     child.once('error', reject);
     child.once('exit', code => code === 0 ? resolve() : reject(new Error(`${command} ${args[0]} 失败（${code}）`)));
   });
@@ -22,7 +23,9 @@ export async function verifyRuntime(runtime, digest) {
   }
 }
 
-export async function prepareRuntime(stateDir, snapshot, { environment = process.env } = {}) {
+// `log`: a file that receives dependency installation and build output; stderr then only
+// gets a summary (API-SDX-001 36b §6.3).
+export async function prepareRuntime(stateDir, snapshot, { environment = process.env, log } = {}) {
   const digest = snapshot.sourceDigest;
   const runtime = path.join(stateDir, 'runtimes', digest.slice(0, 20));
   const marker = path.join(runtime, '.build-complete');
@@ -37,8 +40,14 @@ export async function prepareRuntime(stateDir, snapshot, { environment = process
     const npm = await findNpm(process.execPath, { env: environment });
     if (!npm) throw new Error('未找到 npm，请使用 /bin/sh scripts/launch.sh 自动选择运行环境。');
     const env = await buildEnvironment(runtime, process.execPath, npm.npmCli, { ...environment, npm_config_update_notifier: 'false' });
-    await run(process.execPath, [npm.npmCli, 'ci', '--ignore-scripts', '--no-audit', '--no-fund'], runtime, env);
-    await run(process.execPath, [npm.npmCli, 'run', 'build'], runtime, env);
+    const handle = log ? await fs.open(log, 'a', 0o600) : null;
+    try {
+      if (log) process.stderr.write(`SkillDock：依赖安装与构建的输出写入 ${log}\n`);
+      await run(process.execPath, [npm.npmCli, 'ci', '--ignore-scripts', '--no-audit', '--no-fund'], runtime, env, handle?.fd);
+      await run(process.execPath, [npm.npmCli, 'run', 'build'], runtime, env, handle?.fd);
+    } catch (error) {
+      throw log ? Object.assign(new Error(`${error.message}，详见 ${log}`), { cause: error }) : error;
+    } finally { await handle?.close(); }
     await verifyRuntime(runtime, digest);
     await fs.writeFile(marker, digest, { mode: 0o600 });
     return runtime;

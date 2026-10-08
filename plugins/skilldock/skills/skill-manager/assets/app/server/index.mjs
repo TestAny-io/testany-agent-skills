@@ -19,16 +19,19 @@ export async function createApp(options = {}) {
   updater = createSelfUpdater({ service, codexHome: service.environments.local.codexHome, startTimer: options.selfUpdate !== false, ...(options.appSource ? { appSource: options.appSource } : {}) });
   const dist = path.resolve(options.distDir || path.join(currentDirectory, '../dist'));
   const appVersion = JSON.parse(await fs.readFile(path.join(currentDirectory, '../package.json'), 'utf8')).version;
-  // The 0.10.x native interface polls health every 1.5 seconds; installations are cached.
-  let installations = { at: 0, value: [] };
-  async function summary() {
-    if (Date.now() - installations.at > 15000) {
-      const value = await installationSummary({ state: service.stateDir, env: options.env ?? process.env, ...(options.home ? { home: options.home } : {}),
-        appDir: options.appSource ?? process.env.SKILLDOCK_APP_SOURCE ?? path.resolve(currentDirectory, '..') }).catch(() => installations.value);
-      installations = { at: Date.now(), value };
-    }
-    return installations.value;
-  }
+  const appSource = options.appSource ?? process.env.SKILLDOCK_APP_SOURCE ?? path.resolve(currentDirectory, '..');
+  const environment = { env: options.env ?? process.env, ...(options.home ? { home: options.home } : {}) };
+  // 0.10.x clients verify health within 1.5–2 seconds: installations are discovered by a
+  // timer, never in the request path.
+  let installations = [];
+  let summarizing;
+  const summarize = () => {
+    summarizing ??= installationSummary({ state: service.stateDir, ...environment, appDir: appSource })
+      .then(value => { installations = value; }).catch(() => {}).finally(() => { summarizing = undefined; });
+    return summarizing;
+  };
+  await summarize();
+  const summaryTimer = setInterval(summarize, 15000); summaryTimer.unref();
   // 36a §5.4 (G-07): a launcher record removed by a 0.10.x launcher is written back.
   // HLD 3.7: installation changes refresh the record's preferred target (every 10 seconds).
   let keeping; let keptAt = 0;
@@ -36,8 +39,7 @@ export async function createApp(options = {}) {
     if (keeping || (!refresh && Date.now() - keptAt < 2000)) return;
     keptAt = Date.now(); const codexHome = service.environments.local.codexHome;
     keeping = restoreMissingRecord(service.stateDir, codexHome)
-      .then(() => refresh && refreshInstallations({ state: service.stateDir, codexHome, env: options.env ?? process.env, ...(options.home ? { home: options.home } : {}),
-        appDir: options.appSource ?? process.env.SKILLDOCK_APP_SOURCE ?? path.resolve(currentDirectory, '..') }))
+      .then(() => refresh && refreshInstallations({ state: service.stateDir, codexHome, ...environment, appDir: appSource, instance: { pid: process.pid, project: service.project } }))
       .catch(() => {}).finally(() => { keeping = undefined; });
   };
   const keeper = setInterval(() => keepRecord(true), 10000); keeper.unref();
@@ -45,7 +47,7 @@ export async function createApp(options = {}) {
   // dataGeneration and apiVersion are frozen; restart is frozen for version-1 clients.
   const health = async () => ({ app: 'skilldock', pid: process.pid, project: service.project, launchProject: service.launchProject, projectContext: service.projectContext,
     state: service.stateDir, instanceId, sourceDigest: process.env.SKILLDOCK_SOURCE_DIGEST, restart: await updater.status(),
-    appVersion, apiVersion: 2, dataGeneration: await readGeneration(service.stateDir), minimumCompatibleGeneration: CURRENT_GENERATION, installations: await summary() });
+    appVersion, apiVersion: 2, dataGeneration: await readGeneration(service.stateDir), minimumCompatibleGeneration: CURRENT_GENERATION, installations });
   function send(response, status, data) {
     response.writeHead(status, { 'Content-Type': 'application/json; charset=utf-8' }); response.end(JSON.stringify(data));
   }
@@ -101,7 +103,7 @@ export async function createApp(options = {}) {
     }
   });
   server.requestTimeout = 60000; server.headersTimeout = 10000;
-  return { server, token, service, updater, close: async () => { clearInterval(keeper); await keeping; await updater.close(); await service.close(); await new Promise((resolve, reject) => { if (!server.listening) return resolve(); server.close(error => error ? reject(error) : resolve()); server.closeIdleConnections(); }); } };
+  return { server, token, service, updater, close: async () => { clearInterval(keeper); clearInterval(summaryTimer); await keeping; await summarizing; await updater.close(); await service.close(); await new Promise((resolve, reject) => { if (!server.listening) return resolve(); server.close(error => error ? reject(error) : resolve()); server.closeIdleConnections(); }); } };
 }
 
 if (process.argv[1] && path.resolve(process.argv[1]) === fileURLToPath(import.meta.url)) {

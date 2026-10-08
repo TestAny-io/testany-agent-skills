@@ -4,7 +4,7 @@
 // inside launch.mjs while <state>/launcher.lock is held.
 import fs from 'node:fs/promises';
 import path from 'node:path';
-import { APP_TAIL, atLeast, compareVersions, parseVersion, readJsonFile, readText, realOrNull, safeSegment } from './installs.mjs';
+import { APP_TAIL, atLeast, compareVersions, parseVersion, readJsonFile, readText, safeSegment } from './installs.mjs';
 import { writeAtomic } from './generation.mjs';
 
 export const GATE_MINIMUM = '0.10.3';
@@ -25,14 +25,22 @@ async function listDirectory(directory, unreadable) {
 export async function migrationGate(roots) {
   const blockers = []; const unreadable = [];
   for (const cache of roots.caches) {
-    const cacheReal = await realOrNull(cache.cacheDir);
-    if (!cacheReal) continue;
+    // Only a missing path counts as absent; any other error is unreadable evidence.
+    let cacheReal;
+    try { cacheReal = await fs.realpath(cache.cacheDir); }
+    catch (error) { if (error.code !== 'ENOENT' && error.code !== 'ENOTDIR') unreadable.push({ path: cache.cacheDir, error: error.code || 'ERROR' }); continue; }
     for (const market of (await listDirectory(cacheReal, unreadable)).filter(safeSegment)) {
       const pluginDir = path.join(cacheReal, market, 'skilldock');
       const found = [];
       for (const name of (await listDirectory(pluginDir, unreadable)).filter(safeSegment)) {
         const versionDir = path.join(pluginDir, name);
-        if (await readText(path.join(versionDir, '.orphaned_at')) !== undefined) continue;
+        const marker = await readText(path.join(versionDir, '.orphaned_at'));
+        if (marker === null) {
+          // The marker exists but cannot be read, or the version directory itself cannot be.
+          if (!await fs.access(versionDir, fs.constants.R_OK | fs.constants.X_OK).then(() => true, () => false)) { unreadable.push({ path: versionDir, error: 'EACCES' }); continue; }
+          continue;
+        }
+        if (marker !== undefined) continue;
         const file = path.join(versionDir, ...APP_TAIL, 'package.json');
         const text = await readText(file);
         if (text === undefined) continue;
@@ -109,10 +117,15 @@ export async function snapshotFiles(files) {
     if (text === null) throw new Error(`无法读取 ${file}，未迁移。`);
     saved.push({ file, text, mode: typeof text === 'string' ? (await fs.stat(file)).mode & 0o777 : undefined });
   }
+  // Every file is attempted; failures are reported together.
   return async () => {
+    const failures = [];
     for (const { file, text, mode } of saved) {
-      if (text === undefined) { await fs.rm(file, { force: true }); continue; }
-      await writeAtomic(file, text); await fs.chmod(file, mode);
+      try {
+        if (text === undefined) await fs.rm(file, { force: true });
+        else { await writeAtomic(file, text); await fs.chmod(file, mode); }
+      } catch (error) { failures.push(`${path.basename(file)}（${error.code || error.message}）`); }
     }
+    if (failures.length) throw new Error(`以下文件未能恢复：${failures.join('、')}`);
   };
 }

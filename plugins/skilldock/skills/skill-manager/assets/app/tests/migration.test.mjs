@@ -17,6 +17,7 @@ import { agentRoots } from '../server/installs.mjs';
 import { runBackground } from '../server/background-worker.mjs';
 import { restoreMissingRecord } from '../server/launcher-record.mjs';
 import { writeGeneration } from '../server/generation.mjs';
+import { createApp } from '../server/index.mjs';
 
 const exists = file => fs.lstat(file).then(() => true, () => false);
 const read = async file => JSON.parse(await fs.readFile(file, 'utf8'));
@@ -29,7 +30,12 @@ async function oldInstance(t, f, { port, appDir = f.appDir, codexHome = path.joi
   const state = await fs.realpath(f.stateDir); const app = await fs.realpath(appDir); const project = await fs.realpath(f.projectDir);
   const snapshot = await captureSource(app); const runtime = await prepareRuntime(state, snapshot);
   const child = spawn(process.execPath, [path.join(runtime, 'server/index.mjs')], { env: { ...f.env, PORT: String(port), SKILLDOCK_STATE_DIR: state, SKILLDOCK_PROJECT_DIR: project }, detached: true, stdio: 'ignore' });
-  child.unref(); t.after(() => { try { process.kill(child.pid, 'SIGTERM'); } catch { /* exited */ } });
+  child.unref();
+  // The launcher may restore the old instance under a new pid: stop whatever the record names too.
+  t.after(async () => {
+    const last = await read(path.join(state, 'launcher.json')).catch(() => ({}));
+    for (const pid of [child.pid, last.pid]) if (Number.isInteger(pid)) { try { process.kill(pid, 'SIGTERM'); } catch { /* exited */ } }
+  });
   const url = `http://127.0.0.1:${port}`;
   for (let i = 0; i < 80 && !(await probe(url)); i++) await new Promise(resolve => setTimeout(resolve, 100));
   const record = { url, pid: child.pid, state, project, projectContext: null, source: app, installation: installation ?? { kind: 'directory', source: app },
@@ -88,8 +94,18 @@ test('gate evidence: non-orphaned Claude directories count, orphaned ones do not
   assert.deepEqual((await migrationGate(roots)).blockers.map(item => [item.agent, item.version]), [['claude', '0.10.1']]);
   await fs.rm(path.join(cache, 'ccc'), { recursive: true });
   if (process.getuid?.() !== 0) {
+    // A version directory that cannot be read is not an orphaned one.
+    await add('ddd', '0.10.2', false); await fs.chmod(path.join(cache, 'ddd'), 0o000);
+    let gate = await migrationGate(roots).finally(() => fs.chmod(path.join(cache, 'ddd'), 0o700));
+    assert.equal(gate.passed, false); assert.ok(gate.unreadable[0].path.endsWith('ddd'));
+    await fs.rm(path.join(cache, 'ddd'), { recursive: true });
+    // An unreadable parent of the cache root is not a missing cache.
+    const plugins = path.join(f.home, '.claude/plugins');
+    await fs.chmod(plugins, 0o000);
+    gate = await migrationGate(roots).finally(() => fs.chmod(plugins, 0o700));
+    assert.equal(gate.passed, false);
     await fs.chmod(cache, 0o000);
-    const gate = await migrationGate(roots).finally(() => fs.chmod(cache, 0o700));
+    gate = await migrationGate(roots).finally(() => fs.chmod(cache, 0o700));
     assert.deepEqual([gate.passed, gate.unreadable[0].path], [false, await fs.realpath(path.join(f.home, '.claude/plugins/cache')).then(root => path.join(root, MARKET, 'skilldock'))]);
   }
 });
@@ -204,4 +220,15 @@ test('explicit migration from testany-eng takes over its data; other identities 
     assert.equal(record.installation.plugin, 'skilldock');
     assert.equal((await read(path.join(old.state, 'local/updates.json'))).activity[0].kind, 'kept');
   } finally { await launch('stop', next); }
+});
+
+test('a service stops writing once the data moves past the generation it started with (DEC-SDX-009)', async t => {
+  const f = await fixture(t); await fs.mkdir(f.stateDir, { recursive: true });
+  const state = await fs.realpath(f.stateDir); await writeGeneration(state, '0.11.0');
+  const app = await createApp({ enableTestSandbox: true, selfUpdate: false, home: f.home, env: f.env, codexHome: path.join(f.home, '.codex'), stateDir: state, projectDir: f.projectDir,
+    adapter: { list: async () => ({ plugins: [], marketplaces: [], diagnostics: [], cli: { available: false } }) } });
+  t.after(() => app.close());
+  await app.service.tickScheduler();
+  await fs.writeFile(path.join(state, 'generation.json'), JSON.stringify({ format: 1, generation: 3 }));
+  await assert.rejects(app.service.tickScheduler(), error => error.code === 'DATA_GENERATION_NEWER' && /更新到最新版本/.test(error.message));
 });

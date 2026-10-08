@@ -27,4 +27,3 @@ export async function withStateLocks(stateDir, codexHome, operation, { wait = 60
     try { return await operation(); } finally { codex?.(); instance?.(); }
   }
 }
-export const isOperationActive = codexHome => !!occupied(inspect(operationLock(codexHome)));

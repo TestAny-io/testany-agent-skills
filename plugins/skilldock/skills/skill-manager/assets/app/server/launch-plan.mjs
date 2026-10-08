@@ -5,10 +5,11 @@
 import path from 'node:path';
 import os from 'node:os';
 import { spawn } from 'node:child_process';
-import { agentRoots, discoverInstalls, locate, inspect, selectRunSource, reference, compareVersions, parseVersion, readJsonFile, readText, canonical, sourceKeyFor, within, APP_TAIL } from './installs.mjs';
+import { agentRoots, discoverInstalls, locate, inspect, selectRunSource, reference, compareVersions, parseVersion, readJsonFile, readText, canonical, sourceKeyFor, within, absolute, APP_TAIL } from './installs.mjs';
 import { installationIdentity, sameInstallation } from './installation.mjs';
 import { readGeneration, CURRENT_GENERATION } from './generation.mjs';
 import { isCurrentRecord, refreshRecord, writeRecord } from './launcher-record.mjs';
+import { acquireFileLock } from './process-lock.mjs';
 import { withStateLocks } from './state-locks.mjs';
 import { resolveClaudeRoot } from './claude-root.mjs';
 import { migrationGate, gateGuidance, repeatedFailure } from './migration.mjs';
@@ -65,16 +66,24 @@ export const preferredWhenRunning = (context, runningAppPath) => reference(selec
  * refresh the record's preferred target and (Codex side) legacy fields under the locks.
  * The running installation is left alone. Busy locks skip this round.
  */
-export async function refreshInstallations({ state, codexHome, env = process.env, home = os.homedir(), appDir }) {
+export async function refreshInstallations({ state, codexHome, env = process.env, home = os.homedir(), appDir, instance }) {
   const record = await readRecordQuietly(state);
   if (!isCurrentRecord(record)) return null;
   const context = await installationContext({ env, home, state, appDir, record, codexHome });
-  const next = await refreshRecord(record, { codexHome, installs: context.installs, preferred: context.preferred });
+  let next = await refreshRecord(record, { codexHome, installs: context.installs, preferred: context.preferred });
+  // 36a §5.3: a project switched inside the running instance is its actual project.
+  if (instance && record.pid === instance.pid && record.status === 'running' && instance.project && record.actualProject !== instance.project)
+    next = { ...next, actualProject: instance.project, updatedAt: new Date().toISOString() };
   if (next === record) return null;
-  return withStateLocks(state, codexHome, async () => {
-    if (JSON.stringify(await readRecordQuietly(state)) !== JSON.stringify(record)) return null;
-    return writeRecord(state, next);
-  }, { wait: 0 }).catch(() => null);
+  // A launch in progress (launcher.lock) compares the record before switching; leave it alone.
+  let launching;
+  try {
+    launching = acquireFileLock(path.join(state, 'launcher.lock'));
+    return await withStateLocks(state, codexHome, async () => {
+      if (JSON.stringify(await readRecordQuietly(state)) !== JSON.stringify(record)) return null;
+      return writeRecord(state, next);
+    }, { wait: 0 });
+  } catch { return null; } finally { launching?.(); }
 }
 
 /** Health check summary of installations (36c §4): no paths or credentials. */
@@ -121,7 +130,10 @@ export async function planLaunch({ action, env = process.env, home = os.homedir(
   const state = await canonical(path.resolve(env.SKILLDOCK_STATE_DIR || path.join(home, '.local/share/skilldock')));
   const generation = await readGeneration(state);
   if (generation > CURRENT_GENERATION) return { kind: 'error', error: newerDataError(generation) };
-  const context = await installationContext({ env, home, state, appDir, record: await readRecordQuietly(state) });
+  const record = await readRecordQuietly(state);
+  // 36b 6.3: without CODEX_HOME the Codex home saved in the record is used.
+  const codexHome = env.CODEX_HOME || (absolute(record?.codexHome) ? record.codexHome : undefined);
+  const context = await installationContext({ env, home, state, appDir, record, codexHome });
   const target = delegationTarget(context, { action, env });
   if (target) return { kind: 'delegate', target, state };
   const blocked = ['start', 'restart'].includes(action) && await migrationCheck({ state, context, restartJob: env.SKILLDOCK_RESTART_JOB });

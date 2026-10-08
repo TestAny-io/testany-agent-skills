@@ -11,6 +11,7 @@ import { installationContext, delegationTarget, legacyOwnership, planLaunch, ref
 import { buildRecord, legacyFields, ensureLegacyProject, writeRecord, readRecord } from '../server/launcher-record.mjs';
 import { writeRestart } from '../server/installation.mjs';
 import { writeMigrationFailure } from '../server/migration.mjs';
+import { acquireFileLock } from '../server/process-lock.mjs';
 import { createApp } from '../server/index.mjs';
 
 const MARKET = 'testany-agent-skills';
@@ -108,7 +109,7 @@ test('delegation: only start and restart, never a restart job, never twice, only
 test('health version 2: frozen fields, installation summary without paths, restart derived from restart.json only', async t => {
   const w = await world(t);
   const codex = await w.install('codex', '0.11.0'); await w.install('claude', '0.11.1');
-  const app = await createApp({ enableTestSandbox: true, selfUpdate: false, home: w.home, env: w.env, appSource: codex, stateDir: w.state, projectDir: w.project,
+  const app = await createApp({ enableTestSandbox: true, selfUpdate: false, home: w.home, env: w.env, codexHome: w.codexHome, appSource: codex, stateDir: w.state, projectDir: w.project,
     adapter: { list: async () => ({ plugins: [], marketplaces: [], diagnostics: [], cli: { available: false } }) } });
   t.after(() => app.close());
   await new Promise(resolve => app.server.listen(0, '127.0.0.1', resolve));
@@ -169,4 +170,15 @@ test('installation changes refresh the preferred target and legacy fields, never
   assert.equal(refreshed.preferred.appPath, newer); assert.equal(refreshed.source, newer, 'Codex 侧变化时刷新旧来源');
   assert.deepEqual(refreshed.running, record.running);
   assert.ok(claude);
+  // A launch in progress compares the record; the refresh waits for the next round.
+  const newest = await w.install('codex', '0.11.3');
+  const launching = acquireFileLock(path.join(w.state, 'launcher.lock'));
+  try { assert.equal(await refreshInstallations({ state: w.state, codexHome: w.codexHome, env: w.env, home: w.home, appDir: codex }), null); }
+  finally { launching(); }
+  assert.equal((await readRecord(w.state)).preferred.appPath, newer);
+  // The running instance's project switch reaches the record (36a §5.3).
+  const other = path.join(w.root, 'other'); await fs.mkdir(other);
+  await refreshInstallations({ state: w.state, codexHome: w.codexHome, env: w.env, home: w.home, appDir: codex, instance: { pid: 1, project: other } });
+  const synced = await readRecord(w.state);
+  assert.deepEqual([synced.preferred.appPath, synced.actualProject], [newest, other]);
 });
