@@ -3,7 +3,8 @@ import path from 'node:path';
 import crypto from 'node:crypto';
 import { parse as parseYaml } from 'yaml';
 
-import { AppError, fail } from './errors.mjs';
+import { AppError, fail, redact } from './errors.mjs';
+export { redact };
 export { AppError, fail };
 export const hash = value => crypto.createHash('sha256').update(value).digest('hex');
 export const identity = value => hash(path.resolve(value)).slice(0, 24);
@@ -107,9 +108,6 @@ export async function objectFingerprint(directory) {
 }
 export function diffFiles(before, after) {
   return [...new Set([...Object.keys(before), ...Object.keys(after)])].sort().flatMap(file => before[file] === after[file] ? [] : [{ path: file, type: !(file in before) ? 'added' : !(file in after) ? 'removed' : 'modified' }]);
-}
-export function redact(message) {
-  return String(message).replace(/((?:https?|ssh):\/\/)[^\s/]+@/gi, '$1[redacted]@').replace(/((?:token|password|api[_-]?key|authorization)\s*[:=]\s*)[^\s,;]+/gi, '$1[redacted]').slice(0, 3000);
 }
 export function publicSource(source) {
   if (typeof source !== 'string') return '';

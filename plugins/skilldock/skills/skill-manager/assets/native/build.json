@@ -1,10 +1,10 @@
 {
   "inputs": {
-    "package-lock.json": "a7db48f4615557e96c2ebb13911ea8877f2b1fdd52c833e4b05da59f7b843648",
-    "package.json": "d83666f465e68236f7e5294152d2affa9da374d40d3cc395637e40375491d321",
+    "package-lock.json": "6687fa0f1496d5536cdcea067298bbbbead9b30ec94d84ccf5b75500fe15b1ed",
+    "package.json": "b1848d4c900658dd47c4e3ed7217093dd84572e3511f8e378603897017a80a48",
     "scripts/native-bundle.mjs": "122d7fe7b48c71f0b27892bdc97f152cbff9acf23886d1387619134c45a9e80c",
     "server/cache-paths.mjs": "8b1afee122352a7e8a0cb977f5f56cd712da1c87700ed945d695fb87535c90ff",
-    "server/errors.mjs": "68b5f74fbd293d79dbc5e8481026f2376d9df89ff18be5eefe13d8e9dc737722",
+    "server/errors.mjs": "4baa8948e680cb65dbe13132e2cbad90db126d8cadc792c91c674140a521fefd",
     "server/installation.mjs": "f0dd4b096b617ee2548e1d1a3630eae0109bc408e6128846c4a13b062cab76e1",
     "server/native-backend.mjs": "d1f24a1be4af70f7b013d7317cde887e5cc63d126bbe58e54fe6b3bd46fd37a7",
     "server/native-server.mjs": "73306e0d9a5a7b89642e98a71525ac0ee69a2dd8a0a10e20b076902c80ee77b4",
@@ -49,8 +49,8 @@
     "src/workspace-state.ts": "094f0c15c5c5ad070aa4acaf25befe22ae4d4259207208688d55037eefd125a8"
   },
   "artifacts": {
-    "server.mjs": "dc4048fccbe5340ae2d3dc94d7c548c93b60f936f3c1e3b07ed7ad701b6c46ef",
-    "ui.html": "d159f649066f26d0780dde7ede73d44c6edf63d360761f66684c63288f427aa2",
+    "server.mjs": "82777f8cfa9654f44dbd8522d8ba79c78f82abc0544abc06217368d97d0ba0ad",
+    "ui.html": "3f0e1648a3ccb1ded02d2d1f90b0075e024e944addbe59703b517e7a618bbf3c",
     "icon.svg": "9b7d7c19189c56b43fe691c0cb01e19b1f88abc61d1d130c974c5f5411b7288c",
     "THIRD_PARTY_NOTICES.txt": "0580c525bbaf94d006050bf773e482a470c9f983971e23b26e8048505e11bd4f"
   }

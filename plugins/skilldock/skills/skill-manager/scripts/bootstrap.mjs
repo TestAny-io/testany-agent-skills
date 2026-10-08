@@ -7,11 +7,15 @@ import { spawn } from 'node:child_process';
 import { resolveToolchain } from '../assets/app/server/toolchain.mjs';
 import { resolveCodexCli } from '../assets/app/server/codex-runtime.mjs';
 import { parseLaunchArguments, resolveProject } from '../assets/app/server/project-context.mjs';
+import { runHandover } from '../assets/app/server/handover.mjs';
 
 try {
   const { action, options, cliArgs } = parseLaunchArguments(process.argv.slice(2));
   const stateDir = path.resolve(process.env.SKILLDOCK_STATE_DIR || path.join(os.homedir(), '.local/share/skilldock'));
-  if (action === 'cli') {
+  // Decide before selecting or downloading a toolchain (API-SDX-001 36b §4.2).
+  const handover = await runHandover({ action, projectDir: options.projectDir, appDir: fileURLToPath(new URL('../assets/app/', import.meta.url)) });
+  if (handover !== null) process.exitCode = handover;
+  else if (action === 'cli') {
     const cli = await resolveCodexCli();
     if (!cli.available) throw new Error(cli.error + '\n' + cli.attempts.map(item => `${item.path}：${item.error}`).join('\n'));
     process.stderr.write(`SkillDock：Codex CLI ${cli.path}（${cli.version}）\n`);

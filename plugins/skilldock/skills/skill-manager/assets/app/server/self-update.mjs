@@ -29,18 +29,30 @@ function startWorker(job, { service, codexHome }) {
   });
 }
 
+export const RETRY_BASE_MS = 60000;
+export const RETRY_MAX_MS = 30 * 60000;
+
 export function createSelfUpdater({ service, codexHome, pollMs = 1000, startTimer = true,
-  worker = startWorker, runtime = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..') }) {
+  worker = startWorker, runtime = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..'), now = Date.now }) {
   let pending = false; let closed = false; let task; let workerRunning = false; let timer;
-  const request = () => { pending = true; };
+  // 0.10.3 (API-SDX-001 36b §7.3): back off after a failed restart so a refused migration
+  // is not retried, with a full inventory refresh, on every poll.
+  // The trigger key is only the observed background digest; a notification only resets.
+  let trigger = ''; let failures = 0; let retryAt = 0;
+  const reset = () => { failures = 0; retryAt = 0; };
+  const failed = () => { failures += 1; retryAt = now() + Math.min(RETRY_BASE_MS * 2 ** (failures - 1), RETRY_MAX_MS); };
+  const request = () => { reset(); pending = true; };
   async function check() {
-    if (!closed && !pending && process.env.SKILLDOCK_SOURCE_DIGEST) {
+    if (!closed && process.env.SKILLDOCK_SOURCE_DIGEST) {
+      let observed = '';
       try {
         const background = JSON.parse(await fs.readFile(path.join(service.stateDir, 'background/context.json'), 'utf8'));
-        if (background.digest && background.digest !== process.env.SKILLDOCK_SOURCE_DIGEST) pending = true;
+        if (typeof background.digest === 'string') observed = background.digest;
       } catch { /* Background updates may not be configured. */ }
+      if (observed !== trigger) { reset(); trigger = observed; }
+      if (observed && observed !== process.env.SKILLDOCK_SOURCE_DIGEST) pending = true;
     }
-    if (closed || workerRunning || !pending || service.isBusy()) return;
+    if (closed || workerRunning || !pending || service.isBusy() || now() < retryAt) return;
     pending = false;
     let job;
     try {
@@ -66,6 +78,7 @@ export function createSelfUpdater({ service, codexHome, pollMs = 1000, startTime
       workerRunning = true;
       // The child must outlive this server; close() must never wait for it to stop us.
       Promise.resolve().then(() => worker(job, { service, codexHome })).catch(async error => {
+        failed();
         if (closed) return;
         const result = await readRestart(service.stateDir).catch(() => null);
         if (result?.id === job.id && result.status !== 'failed')
@@ -75,6 +88,7 @@ export function createSelfUpdater({ service, codexHome, pollMs = 1000, startTime
         if (!closed) service.resumeAfterRestart();
       }).catch(() => {});
     } catch (error) {
+      failed();
       service.resumeAfterRestart();
       await writeRestart(service.stateDir, { ...(job || { id: crypto.randomUUID() }), status: 'failed', message: redact(error.message), completedAt: new Date().toISOString() });
     }

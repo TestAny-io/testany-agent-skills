@@ -10,6 +10,9 @@ import { prepareRuntime, verifyRuntime } from '../assets/app/server/runtime.mjs'
 import { resolveProject, parseLaunchArguments } from '../assets/app/server/project-context.mjs';
 import { resolveCodexCli } from '../assets/app/server/codex-runtime.mjs';
 import { acquireFileLock } from '../assets/app/server/process-lock.mjs';
+import { handoverState, runHandover } from '../assets/app/server/handover.mjs';
+
+const handoverRequired = () => Object.assign(new Error('数据目录已由较新版本管理。'), { code: 'SKILLDOCK_HANDOVER' });
 
 const defaultApp = fileURLToPath(new URL('../assets/app/', import.meta.url));
 
@@ -122,6 +125,7 @@ export async function launch(action = 'start', options = {}) {
     if (identity.kind !== 'plugin' || !sameInstallation(identity, previous))
       throw new Error('此数据目录属于另一个源码实例；旧 testany-eng 用户可使用 --migrate-from testany-eng 接续数据，其他来源请使用独立 SKILLDOCK_STATE_DIR。');
   }
+  if ((await handoverState(state)).triggered) throw handoverRequired();
   const record = await readRecord(recordFile); await checkOwner(record);
   if (action === 'status') {
     const health = record && await probe(record.url);
@@ -139,6 +143,9 @@ export async function launch(action = 'start', options = {}) {
   let releaseLock;
   try { releaseLock = acquireFileLock(path.join(state, 'launcher.lock')); }
   catch (error) { if (error.code === 'BUSY') throw new Error('另一个启动操作正在运行，请稍后重试。'); throw error; }
+  // A migration may finish between the first decision and this lock (36b §4.2).
+  try { await options.onLocked?.(); if ((await handoverState(state)).triggered) throw handoverRequired(); }
+  catch (error) { releaseLock(); throw error; }
   let job; let rollback; let stopped = false;
   const report = async (status, extra = {}) => { if (job) await writeRestart(state, { ...job, status, ...extra, updatedAt: new Date().toISOString() }); };
   try {
@@ -197,7 +204,12 @@ export async function launch(action = 'start', options = {}) {
 }
 
 if (process.argv[1] && path.resolve(process.argv[1]) === fileURLToPath(import.meta.url)) {
-  Promise.resolve().then(() => { const { action, options } = parseLaunchArguments(process.argv.slice(2)); return launch(action, options); }).then(result => process.stdout.write(`${JSON.stringify(result, null, 2)}\n`)).catch(error => {
+  const parsed = (() => { try { return parseLaunchArguments(process.argv.slice(2)); } catch (error) { return { error }; } })();
+  Promise.resolve().then(() => { if (parsed.error) throw parsed.error; return launch(parsed.action, parsed.options); }).then(result => process.stdout.write(`${JSON.stringify(result, null, 2)}\n`)).catch(async error => {
+    if (error.code === 'SKILLDOCK_HANDOVER') {
+      const code = await runHandover({ action: parsed.action, projectDir: parsed.options.projectDir, appDir: defaultApp });
+      if (code !== null) { process.exitCode = code; return; }
+    }
     process.stderr.write(`SkillDock：${error.message}\n`);
     process.exitCode = 1;
   });
