@@ -359,3 +359,18 @@ test('dependency and build output goes to build.log, which starts over past 1 Mi
   } finally { await launch('stop', options); }
   assert.ok(first.pid);
 });
+
+test('the service inherits only allowed variables; the command line of a Claude session is recorded, its variables are not passed on (DEC-SDX-024)', async t => {
+  const f = await fixture(t); const options = { ...f, port: await freePort() };
+  const entry = path.join(f.appDir, 'server/index.mjs');
+  await fs.writeFile(entry, (await fs.readFile(entry, 'utf8')).replace("server.listen(", "(await import('node:fs')).writeFileSync(process.env.SKILLDOCK_STATE_DIR + '/service-env.json', JSON.stringify(Object.keys(process.env))); server.listen("));
+  const session = path.join(f.root, 'claude-cli');
+  const env = { ...f.env, CLAUDECODE: '1', CLAUDE_CODE_EXECPATH: session, CLAUDE_CODE_ENTRYPOINT: 'claude-desktop', ANTHROPIC_API_KEY: 'not-a-real-key', CODEX_THREAD_ID: 'thread' };
+  const first = await launch('start', { ...options, env });
+  try {
+    const keys = JSON.parse(await fs.readFile(path.join(first.state, 'service-env.json'), 'utf8'));
+    for (const key of ['CLAUDECODE', 'CLAUDE_CODE_EXECPATH', 'CLAUDE_CODE_ENTRYPOINT', 'ANTHROPIC_API_KEY', 'CODEX_THREAD_ID']) assert.equal(keys.includes(key), false, key);
+    for (const key of ['HOME', 'PATH', 'PORT', 'SKILLDOCK_STATE_DIR', 'SKILLDOCK_PROJECT_DIR']) assert.ok(keys.includes(key), key);
+    assert.equal(JSON.parse(await fs.readFile(path.join(first.state, 'settings/claude-cli.json'), 'utf8')).sessionPath, session);
+  } finally { await launch('stop', { ...options, env }); }
+});

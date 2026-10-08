@@ -67,9 +67,10 @@ export function gateGuidance(gate) {
   const lines = []; const steps = [];
   for (const item of gate.blockers) {
     const agent = AGENT_NAME[item.agent] ?? item.agent;
-    lines.push(`${agent} 中装有 SkillDock ${item.version}（marketplace ${item.marketplace}），低于 ${GATE_MINIMUM}。`);
+    lines.push(`${agent} 中装有 SkillDock ${item.version}（marketplace ${item.marketplace}${item.evidence ? `，依据：${item.evidence}` : ''}），低于 ${GATE_MINIMUM}。`);
     steps.push(`在 ${agent} 中把 SkillDock 更新到最新版本，或从 ${agent} 卸载 SkillDock。`);
-    steps.push(`如果 ${agent} 已卸载、只剩残留：构成“已安装”判定的是缓存目录 ${item.directory}${item.config ? `（以及 ${item.config} 中 skilldock@${item.marketplace} 的条目）` : ''}，清理后即可继续。`);
+    const where = [item.directory && `缓存目录 ${item.directory}`, item.config && `${item.config} 中 skilldock@${item.marketplace} 的条目`].filter(Boolean).join('，以及 ');
+    if (where) steps.push(`如果 ${agent} 已卸载、只剩残留：构成“已安装”判定的是${where}，清理后即可继续。`);
   }
   for (const item of gate.unreadable) {
     lines.push(`无法读取 ${item.path}（${item.error}），无法确认其中的 SkillDock 版本。`);

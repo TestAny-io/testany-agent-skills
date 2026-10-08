@@ -17,7 +17,9 @@ import { readRecord, writeRecord, mirrorRecord, buildRecord, stoppedRecord, refr
 import { installationContext, delegationTarget, delegate, newerDataError, legacyOwnership, migrationCheck, preferredWhenRunning, failureText, EXIT_MIGRATION_BLOCKED } from '../assets/app/server/launch-plan.mjs';
 import { convertPlan, snapshotFiles, writeMigrationFailure, clearMigrationFailure } from '../assets/app/server/migration.mjs';
 import { backgroundPaths, registrationExists, takeOverRegistration } from '../assets/app/server/background-registration.mjs';
-import { writeClaudeRoot } from '../assets/app/server/claude-root.mjs';
+import { writeClaudeRoot, startedFromClaude } from '../assets/app/server/claude-root.mjs';
+import { recordSessionCli } from '../assets/app/server/claude-cli.mjs';
+import { childEnvironment } from '../assets/app/server/process-env.mjs';
 import { defaultUpdateState } from '../assets/app/server/update-state.mjs';
 
 const defaultApp = fileURLToPath(new URL('../assets/app/', import.meta.url));
@@ -93,12 +95,13 @@ async function startRuntime(record, recordFile, { env, projectContext }) {
   const current = isCurrentRecord(record);
   const project = current ? record.actualProject : record.project;
   const fd = openSync(path.join(record.state, 'server.log'), 'a', 0o600);
-  const childEnv = { ...env, PORT: String(new URL(record.url).port), CODEX_HOME: record.codexHome,
+  // DEC-SDX-024: the service inherits only allowed variables (never Claude or Codex session
+  // variables) plus its own settings; it uses the saved Claude root and command lines.
+  const childEnv = childEnvironment(env, { PORT: String(new URL(record.url).port), CODEX_HOME: record.codexHome,
     SKILLDOCK_STATE_DIR: record.state, SKILLDOCK_PROJECT_DIR: project,
     SKILLDOCK_SOURCE_DIGEST: record.digest, SKILLDOCK_APP_SOURCE: current ? record.running.appPath : record.source,
     SKILLDOCK_PROJECT_CONTEXT: JSON.stringify((current ? projectContext : record.projectContext) || null),
-    ...(record.cli?.available ? { SKILLDOCK_CODEX_BIN: record.cli.path } : {}) };
-  for (const name of ['SKILLDOCK_RESTART_JOB', 'SKILLDOCK_HANDOVER', 'SKILLDOCK_HANDOVER_AGENT', 'SKILLDOCK_HANDOVER_FROM', 'SKILLDOCK_DELEGATED']) delete childEnv[name];
+    ...(record.cli?.available ? { SKILLDOCK_CODEX_BIN: record.cli.path } : {}) });
   const child = spawn(process.execPath, [path.join(record.runtime, 'server/index.mjs')], {
     cwd: project, detached: true, shell: false, env: childEnv, stdio: ['ignore', fd, fd],
   });
@@ -254,9 +257,14 @@ export async function launch(action = 'start', options = {}) {
     if (generation > CURRENT_GENERATION) throw newerDataError(generation);
     const migrating = generation < CURRENT_GENERATION;
     // Generation 1: the gate and the fast reject, before anything 0.10.x reads is written.
-    if (migrating) { const blocked = await migrationCheck({ state, context: plan, restartJob: jobId }); if (blocked) throw blocked; }
-    // DEC-SDX-024 level 2: a Claude session's own directories are saved (a file 0.10.2 never reads).
+    if (migrating) {
+      const blocked = await migrationCheck({ state, context: plan, restartJob: jobId, env, home, codexHome, commandLines: env.SKILLDOCK_GATE_CHECKED !== '1' });
+      if (blocked) throw blocked;
+    }
+    // DEC-SDX-024 level 2: a Claude session's own directories and command line are saved
+    // (files 0.10.2 never reads); the service and background tasks use the saved values.
     if (plan.claudeRoot.origin === 'session' && !plan.claudeRoot.saved) await writeClaudeRoot(state, plan.claudeRoot);
+    if (startedFromClaude(env)) await recordSessionCli(state, env.CLAUDE_CODE_EXECPATH).catch(() => {});
     // Generation 2 without a record (a 0.10.x launcher removed it): write it back first.
     if (!migrating && await readText(recordFile) === undefined) await withStateLocks(state, codexHome, () => restoreRecord(state, { verify: verifyInstance }), { wait: 10000 }).catch(() => {});
     const current = await readRecord(state); await checkOwner(current);

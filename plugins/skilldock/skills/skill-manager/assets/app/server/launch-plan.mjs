@@ -13,6 +13,7 @@ import { acquireFileLock } from './process-lock.mjs';
 import { withStateLocks } from './state-locks.mjs';
 import { resolveClaudeRoot } from './claude-root.mjs';
 import { migrationGate, gateGuidance, repeatedFailure } from './migration.mjs';
+import { commandLineGateEvidence } from './gate-cli.mjs';
 
 export const EXIT_UPDATE_REQUIRED = 3;
 export const EXIT_MIGRATION_BLOCKED = 4;
@@ -109,9 +110,16 @@ export function delegationTarget(context, { action, env = process.env, restartJo
  * of a target whose migration failed before. Returns the error to stop with, or null.
  * A restart job gets no guidance object: it is not interactive.
  */
-export async function migrationCheck({ state, context, restartJob }) {
+export async function migrationCheck({ state, context, restartJob, env = process.env, home = os.homedir(), codexHome, commandLines = true }) {
   if (await readGeneration(state) >= CURRENT_GENERATION) return null;
   const gate = await migrationGate(context.roots);
+  // File evidence first; the command lines confirm only what it lets through (36b §7.4).
+  if (gate.passed && commandLines) {
+    const confirmed = await commandLineGateEvidence({ codexHome: codexHome ?? context.roots.caches.find(cache => cache.agent === 'codex')?.home,
+      claudeRoot: context.claudeRoot, state, env, home });
+    gate.blockers.push(...confirmed.blockers);
+    gate.passed = !gate.blockers.length;
+  }
   if (!gate.passed) {
     const guidance = gateGuidance(gate);
     return Object.assign(new Error(guidance.message), { code: 'MIGRATION_BLOCKED', exitCode: EXIT_MIGRATION_BLOCKED, ...(restartJob ? {} : { output: guidance }) });
@@ -136,8 +144,9 @@ export async function planLaunch({ action, env = process.env, home = os.homedir(
   const context = await installationContext({ env, home, state, appDir, record, codexHome });
   const target = delegationTarget(context, { action, env });
   if (target) return { kind: 'delegate', target, state };
-  const blocked = ['start', 'restart'].includes(action) && await migrationCheck({ state, context, restartJob: env.SKILLDOCK_RESTART_JOB });
-  return blocked ? { kind: 'error', error: blocked } : { kind: 'continue', state, context };
+  const gated = ['start', 'restart'].includes(action) && generation < CURRENT_GENERATION;
+  const blocked = gated && await migrationCheck({ state, context, restartJob: env.SKILLDOCK_RESTART_JOB, env, home, codexHome });
+  return blocked ? { kind: 'error', error: blocked } : { kind: 'continue', state, context, gateChecked: gated };
 }
 
 /**
