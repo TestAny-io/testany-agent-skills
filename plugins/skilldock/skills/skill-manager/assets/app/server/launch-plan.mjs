@@ -16,7 +16,16 @@ import { migrationGate, gateGuidance, repeatedFailure } from './migration.mjs';
 export const EXIT_UPDATE_REQUIRED = 3;
 export const EXIT_MIGRATION_BLOCKED = 4;
 
-/** Exit 3 with the 0.10.3-compatible update-required shape (API-SDX-001 36b §10.3). */
+/**
+ * Readable lines for stderr (36b §6.3: a non-zero exit writes nothing to stdout). The
+ * structured `output` stays on the error for in-process callers.
+ */
+export function failureText(error) {
+  const steps = error.output?.steps ?? [];
+  return [`SkillDock：${error.message}`, ...(steps.length ? ['SkillDock：处理步骤：', ...steps.map((step, index) => `  ${index + 1}. ${step}`)] : [])].join('\n') + '\n';
+}
+
+/** Exit 3: the data belongs to a newer release (36a §4). */
 export function newerDataError(generation) {
   const message = `SkillDock 的数据已由更高版本（数据代号 ${Number.isFinite(generation) ? generation : '未知'}）管理。请把本侧 SkillDock 更新到最新版本后重新打开。`;
   return Object.assign(new Error(message), { code: 'DATA_GENERATION_NEWER', exitCode: EXIT_UPDATE_REQUIRED, output: { status: 'update-required', message } });
@@ -47,6 +56,9 @@ export async function installationContext({ env = process.env, home = os.homedir
   const best = selectRunSource(family, { runningAppPath: isCurrentRecord(record) ? record.running?.appPath : undefined });
   return { claudeRoot, roots, installs, own, owner, family, best, ownReference: reference(own), preferred: reference(best ?? own) };
 }
+
+/** DEC-SDX-008 preferred target once `runningAppPath` runs: ties keep the running source. */
+export const preferredWhenRunning = (context, runningAppPath) => reference(selectRunSource(context.family, { runningAppPath }) ?? context.own);
 
 /**
  * HLD 3.7: when SkillDock installations change, the service and the background check

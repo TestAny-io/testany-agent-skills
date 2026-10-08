@@ -766,7 +766,7 @@ export default function App() {
           {data?.projectContext?.warnings.map(warning => <div key={warning} className="project-notice" role="status"><CircleAlert size={15} /><span>{t(warning)}</span></div>)}
           {showPaths && data && (
             <div className="paths-panel">
-              {data.projectContext && <div><span>{t("目录来源")}</span><code>{t({ argument: "启动参数", environment: "环境变量", saved: "界面保存的选择", "working-directory": "启动工作目录" }[data.projectContext.source])}</code></div>}
+              {data.projectContext && <div><span>{t("目录来源")}</span><code>{t({ argument: "启动参数", environment: "环境变量", saved: "界面保存的选择", "working-directory": "启动工作目录", record: "上次运行的项目", home: "主目录" }[data.projectContext.source])}</code></div>}
               {data.projectContext && <div><span>{t("请求目录")}</span><code>{data.projectContext.requested}</code></div>}
               {data.cli.path && <div><span>Codex CLI</span><code>{data.cli.path}</code></div>}
               {Object.entries(data.paths).filter((entry): entry is [string, string] => typeof entry[1] === "string").map(([key, value]) => (

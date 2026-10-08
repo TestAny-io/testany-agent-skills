@@ -7,7 +7,7 @@ import { spawn } from 'node:child_process';
 import { resolveToolchain } from '../assets/app/server/toolchain.mjs';
 import { resolveCodexCli } from '../assets/app/server/codex-runtime.mjs';
 import { parseLaunchArguments, resolveProject } from '../assets/app/server/project-context.mjs';
-import { planLaunch, delegate } from '../assets/app/server/launch-plan.mjs';
+import { planLaunch, delegate, failureText } from '../assets/app/server/launch-plan.mjs';
 
 try {
   const { action, options, cliArgs } = parseLaunchArguments(process.argv.slice(2));
@@ -16,8 +16,7 @@ try {
   // a newer installation of the same family runs instead (DEC-SDX-008).
   const plan = await planLaunch({ action, appDir: fileURLToPath(new URL('../assets/app/', import.meta.url)) });
   if (plan.kind === 'error') {
-    if (plan.error.output) process.stdout.write(`${JSON.stringify(plan.error.output, null, 2)}\n`);
-    process.stderr.write(`SkillDock：${plan.error.message}\n`); process.exitCode = plan.error.exitCode ?? 1;
+    process.stderr.write(failureText(plan.error)); process.exitCode = plan.error.exitCode ?? 1;
   } else if (plan.kind === 'delegate') {
     process.stderr.write(`SkillDock：转交给 ${plan.target.agent === 'claude' ? 'Claude' : 'Codex'} 中的 SkillDock ${plan.target.version}。\n`);
     process.exitCode = await delegate(plan.target, process.argv.slice(2));

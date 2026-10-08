@@ -13,7 +13,7 @@ import { acquireFileLock } from '../assets/app/server/process-lock.mjs';
 import { withStateLocks } from '../assets/app/server/state-locks.mjs';
 import { readGeneration, writeGeneration, CURRENT_GENERATION } from '../assets/app/server/generation.mjs';
 import { readRecord, writeRecord, mirrorRecord, buildRecord, stoppedRecord, refreshRecord, restoreRecord, verifyInstance, legacyFields, ensureLegacyProject, isCurrentRecord } from '../assets/app/server/launcher-record.mjs';
-import { installationContext, delegationTarget, delegate, newerDataError, legacyOwnership, migrationCheck, EXIT_MIGRATION_BLOCKED } from '../assets/app/server/launch-plan.mjs';
+import { installationContext, delegationTarget, delegate, newerDataError, legacyOwnership, migrationCheck, preferredWhenRunning, failureText, EXIT_MIGRATION_BLOCKED } from '../assets/app/server/launch-plan.mjs';
 import { convertPlan, snapshotFiles, writeMigrationFailure, clearMigrationFailure } from '../assets/app/server/migration.mjs';
 import { backgroundPaths, registrationExists, takeOverRegistration } from '../assets/app/server/background-registration.mjs';
 import { writeClaudeRoot } from '../assets/app/server/claude-root.mjs';
@@ -258,7 +258,7 @@ export async function launch(action = 'start', options = {}) {
     if (!migrating && live && action !== 'restart' && current.url === url && projectKept && (sameSource || sameVersion)) {
       try {
         await verifyRuntime(current.runtime, current.digest);
-        const refreshed = await refreshRecord(current, { codexHome, installs: plan.installs, preferred: plan.preferred });
+        const refreshed = await refreshRecord(current, { codexHome, installs: plan.installs, preferred: preferredWhenRunning(plan, running.appPath) });
         if (refreshed !== current) await withStateLocks(state, codexHome, () => writeRecord(state, refreshed), { wait: 0 }).catch(() => {});
         if (job) await report('ready', { pid: current.pid, completedAt: new Date().toISOString() });
         else await closeLeftoverJob(current.pid, running.appPath);
@@ -295,7 +295,7 @@ export async function launch(action = 'start', options = {}) {
     const legacyProject = await ensureLegacyProject(state);
     const legacy = await legacyFields({ codexHome, installs: plan.installs, running: plan.ownReference });
     const record = buildRecord({ state, url, pid: 0, digest, runtime, codexHome, cli, legacyProject, legacy,
-      running: plan.ownReference, preferred: plan.preferred, actualProject: project });
+      running: plan.ownReference, preferred: preferredWhenRunning(plan, appDir), actualProject: project });
     if (migrating) {
       // The stopped form keeps the last known pid: the old instance's, or this launcher's.
       await withStateLocks(state, codexHome, () => migrate({ state, codexHome, home, plan, record: stoppedRecord({ ...record, pid: current?.pid ?? process.pid }), runtime, digest, project, cli, env }));
@@ -334,8 +334,7 @@ if (process.argv[1] && path.resolve(process.argv[1]) === fileURLToPath(import.me
         process.exitCode = await delegate(error.target, args);
         return;
       }
-      if (error.output) process.stdout.write(`${JSON.stringify(error.output, null, 2)}\n`);
-      process.stderr.write(`SkillDock：${error.message}\n`);
+      process.stderr.write(failureText(error));
       process.exitCode = error.exitCode ?? 1;
     });
 }

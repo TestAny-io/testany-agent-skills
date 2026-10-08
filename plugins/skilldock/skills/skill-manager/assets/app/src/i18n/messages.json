@@ -1179,6 +1179,14 @@
     "en": "Launch working directory",
     "ja": "起動時の作業ディレクトリ"
   },
+  "上次运行的项目": {
+    "en": "Project of the last run",
+    "ja": "前回実行時のプロジェクト"
+  },
+  "主目录": {
+    "en": "Home directory",
+    "ja": "ホームディレクトリ"
+  },
   "请求目录": {
     "en": "Requested directory",
     "ja": "指定されたディレクトリ"
