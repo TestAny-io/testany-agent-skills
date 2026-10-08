@@ -1,6 +1,6 @@
 # SkillDock 0.11.0 实现顺序
 
-> 上游：[PRD-SKILLDOCK-002 v0.9](34-cross-agent-prd.md)、[HLD-SDX-001 v1.12](35-cross-agent-hld.md)、[API-SDX-001 v0.12](36-cross-agent-api-contract.md)
+> 上游：[PRD-SKILLDOCK-002 v0.9](34-cross-agent-prd.md)、[HLD-SDX-001 v1.13](35-cross-agent-hld.md)、[API-SDX-001 v0.13](36-cross-agent-api-contract.md)
 > 前置版本：0.10.3 已于 2026-10-08 发布（PR #54，main `337547a`）
 > 日期：2026-10-08
 
@@ -59,7 +59,7 @@
   - 被 0.10.3 和 0.10.2 原生入口调用的冻结形式；
   - 源码布局在 0.10.2 允许列表内；
   - 保留 `runBackground(contextV1)`。
-- **验证**：兼容矩阵中 0.11.0 关口的 G-01～G-12、G-16、G-17，以及用真实 0.11.0 写下的记录重跑全部 N、S、B、R 用例（条件 3 的前半）。
+- **验证**：兼容矩阵中 0.11.0 关口的 G-01～G-12、G-16～G-18，以及用真实 0.11.0 写下的记录重跑全部 N、S、B、R 用例（条件 3 的前半）。
 
 预计 2～3 次会话。
 

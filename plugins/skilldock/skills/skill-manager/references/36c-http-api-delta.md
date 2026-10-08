@@ -8,12 +8,12 @@
 | 项目 | 内容 |
 |------|------|
 | 契约 | API-SDX-001-C HTTP 接口增量 |
-| 版本 | 0.12 |
-| 状态 | 第 11 轮契约复核 APPROVED（v0.11）。本版处理第 11 轮的 P2，待增量复核。第 4、5 节随 0.10.3 冻结（HLD 11A 条件 1a，0.10.3 已发布）；其余各节属条件 1b |
+| 版本 | 0.13 |
+| 状态 | 第 12 轮契约复核 APPROVED（v0.12）。本版处理第 12 轮的 P2，待增量复核。第 4、5 节随 0.10.3 冻结（HLD 11A 条件 1a，0.10.3 已发布）；其余各节属条件 1b |
 | Owner | SkillDock 维护者（产品 Owner：用户） |
 | 服务方 | SkillDock 0.11.x 本机服务（仅监听 `127.0.0.1`） |
 | 消费方 | 0.11.x 浏览器界面与原生界面；0.10.2、0.10.3 的原生界面（经各自原生入口代理）；0.10.2 启动器与原生入口、0.10.3 转交链（只读健康检查） |
-| 上游 | PRD-SKILLDOCK-002 v0.9（5.2.2、5.6、AC-002、003、015、016）；HLD-SDX-001 v1.12 第 3.2、3.5、4、5 节 |
+| 上游 | PRD-SKILLDOCK-002 v0.9（5.2.2、5.6、AC-002、003、015、016）；HLD-SDX-001 v1.13 第 3.2、3.5、4、5 节 |
 
 ## 2. 范围与边界
 
@@ -174,7 +174,7 @@ export interface NativeRule {
 |------|----------|------|
 | `Snapshot` | `agents?: AgentEnvironment[]` | 仅在 `multiAgent=1` 时返回；只列出已安装或曾启用的环境 |
 | `Skill`、`Plugin`、`Marketplace` | `agents?: Agent[]` | 对象所属的 Agent，非空、按 `codex`、`claude` 排序；缺省表示 `["codex"]`。`multiAgent=1` 时服务端对每个对象都显式给出 |
-| `UpdateTarget`（计划中的目标） | `confirmation?: "pending" \| "confirmed"` | 只在 `multiAgent=1` 时、只对第 6 节“跨侧影响提示”所说的这类技能给出：待确认或已确认（第 6 节）。0.11.x 界面据此列出待确认的目标 |
+| `UpdateTarget`（计划中的目标） | `confirmation?: "pending" \| "confirmed"` | 只出现在 `multiAgent=1` 快照的计划目标中，只对“另一侧已启用管理时须确认”的这类技能给出：待确认或已确认（第 6 节）；照常应用的目标、运行记录与进度中的目标都省略。服务端忽略请求中的该字段（确认只经带 `confirm: true` 的请求发生）；“原样提交”的比较只看目标身份（`kind`、`id`、`agent` 与安装身份）。0.11.x 界面据此列出待确认的目标 |
 | `UpdateItem`、`UpdateTarget`、`Activity`、`ActionResult` | `agent?: Agent` | 这些都针对某一侧的一次检查或操作，取单值；缺省为 Codex |
 | `Skill` | `visibility?: SkillVisibility`；`enablement?: EnablementSource`；`perAgent?: Partial<Record<Agent, SkillSide>>` | 前两者仅用于只属于 Claude 的技能，此时 `enabled` 与 `visibility` 对应（后两档为 `null`）。`perAgent` 只用于两侧共用的技能，见下文“共用对象” |
 | `Skill`、`Plugin`、`Marketplace` | `revision?: string` | Claude 对象与共用对象的状态摘要，写请求须带回（7.1）。共用技能的顶层 `revision` 覆盖两侧状态；Claude marketplace 的 `revision` 覆盖其自动更新设置与从它安装的插件集合 |
