@@ -177,3 +177,18 @@ test('the shell entry without any usable Node exits 1 with guidance text and no 
   const result = await execute('/bin/sh', [launcher, 'start'], { env }).then(() => null, error => error);
   assert.equal(result.code, 1); assert.match(result.stderr, /未找到可运行的 Node\.js 22\.12/); assert.doesNotMatch(result.stderr, /已显示安装引导/);
 });
+
+test('a Homebrew-style Node is paired with the npm under its prefix, or in libexec, without npm on PATH', async t => {
+  const f = await fixture(t);
+  const prefix = path.join(f.root, 'brew'); const real = path.join(prefix, 'Cellar/node/30.0.0/bin/node');
+  await fs.mkdir(path.dirname(real), { recursive: true }); await wrapper(real);
+  await fs.mkdir(path.join(prefix, 'bin')); await fs.symlink('../Cellar/node/30.0.0/bin/node', path.join(prefix, 'bin/node'));
+  const npm = async directory => { const file = path.join(directory, 'lib/node_modules/npm/bin/npm-cli.js'); await fs.mkdir(path.dirname(file), { recursive: true }); await fs.writeFile(file, 'console.log("11.0.0")'); return fs.realpath(file); };
+  const options = { ...f.options, apps: [], env: { PATH: '/usr/bin:/bin', SKILLDOCK_NODE_BIN: path.join(prefix, 'bin/node') } };
+  await assert.rejects(resolveToolchain(options), /npm/);
+  const libexec = await npm(path.join(prefix, 'Cellar/node/30.0.0/libexec'));
+  assert.deepEqual([(await resolveToolchain(options)).npmCli, (await resolveToolchain(options)).node], [libexec, await fs.realpath(real)]);
+  // The prefix copy is what `npm` on PATH would run; it comes first.
+  const linked = await npm(prefix);
+  assert.equal((await resolveToolchain(options)).npmCli, linked);
+});

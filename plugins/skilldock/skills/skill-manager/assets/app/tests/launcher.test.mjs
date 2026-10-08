@@ -4,7 +4,7 @@ import { promises as fs } from 'node:fs';
 import path from 'node:path';
 import net from 'node:net';
 import { fingerprint, launch, probe } from '../../../scripts/launch.mjs';
-import { fixture, listen, installedVersion } from './helpers/launcher-fixture.mjs';
+import { fixture, listen, installedVersion, installedClaudeVersion } from './helpers/launcher-fixture.mjs';
 import { acquireFileLock, operationLock } from '../server/process-lock.mjs';
 
 const readRecordFile = async state => JSON.parse(await fs.readFile(path.join(state, 'launcher.json'), 'utf8'));
@@ -373,4 +373,41 @@ test('the service inherits only allowed variables; the command line of a Claude 
     for (const key of ['HOME', 'PATH', 'PORT', 'SKILLDOCK_STATE_DIR', 'SKILLDOCK_PROJECT_DIR']) assert.ok(keys.includes(key), key);
     assert.equal(JSON.parse(await fs.readFile(path.join(first.state, 'settings/claude-cli.json'), 'utf8')).sessionPath, session);
   } finally { await launch('stop', { ...options, env }); }
+});
+
+test('either side uses the instance the other side started, and a newer installation on either side takes over (REQ-SDX-017)', async t => {
+  const f = await fixture(t); const port = await freePort();
+  const codex = { ...await installedVersion(f, '0.11.0'), port };
+  const claude = { ...await installedClaudeVersion(f, '0.11.0'), port };
+  const running = async state => JSON.parse(await fs.readFile(path.join(state, 'launcher.json'), 'utf8')).running;
+  // Started from Claude; Codex reads, opens and stops the same instance.
+  const fromClaude = await launch('start', claude);
+  let open = true;
+  try {
+    assert.deepEqual([(await running(fromClaude.state)).agent, (await running(fromClaude.state)).appPath], ['claude', await fs.realpath(claude.appDir)]);
+    assert.equal((await launch('status', codex)).pid, fromClaude.pid);
+    assert.equal((await launch('start', codex)).pid, fromClaude.pid, '版本相同时保留运行中的来源，不重启');
+    assert.equal((await launch('stop', codex)).status, 'stopped'); open = false;
+    assert.equal(await probe(fromClaude.url), null);
+  } finally { if (open) await launch('stop', claude); }
+  // Started from Codex; Claude does the same.
+  const fromCodex = await launch('start', codex);
+  open = true;
+  try {
+    assert.equal((await running(fromCodex.state)).agent, 'codex');
+    assert.equal((await launch('status', claude)).pid, fromCodex.pid);
+    assert.equal((await launch('start', claude)).pid, fromCodex.pid);
+    assert.equal((await launch('stop', claude)).status, 'stopped'); open = false;
+  } finally { if (open) await launch('stop', codex); }
+  // A newer installation on the other side is where start goes, from either side.
+  const claudeNewer = { ...await installedClaudeVersion(f, '0.11.1'), port };
+  await assert.rejects(launch('start', codex), error => error.code === 'SKILLDOCK_DELEGATE' && error.target.agent === 'claude' && error.target.version === '0.11.1');
+  const codexNewer = { ...await installedVersion(f, '0.11.2'), port };
+  await assert.rejects(launch('start', claudeNewer), error => error.code === 'SKILLDOCK_DELEGATE' && error.target.agent === 'codex' && error.target.version === '0.11.2');
+  const newest = await launch('start', codexNewer);
+  try {
+    assert.equal((await running(newest.state)).version, '0.11.2');
+    assert.equal((await launch('status', claude)).pid, newest.pid, '较旧的一侧仍能查看较新一侧的实例');
+  } finally { await launch('stop', claude); }
+  assert.equal(await probe(newest.url), null);
 });

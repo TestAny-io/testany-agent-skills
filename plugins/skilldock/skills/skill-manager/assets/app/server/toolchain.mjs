@@ -63,10 +63,17 @@ function onPath(name, env) {
     .map(directory => path.join(directory, name));
 }
 
-export async function findNpm(node, { env = process.env, apps = appRoots(env) } = {}) {
+/**
+ * The npm CLI paired with `node` (its real path). `via` is the path the Node was found at,
+ * when that is a link: Homebrew links npm under the prefix it links Node from, and keeps
+ * its own copy in libexec beside the real Node, neither next to the real Node itself.
+ */
+export async function findNpm(node, { env = process.env, apps = appRoots(env), via } = {}) {
   const candidates = env.SKILLDOCK_NPM_CLI ? [env.SKILLDOCK_NPM_CLI] : unique([
     env.SKILLDOCK_SELECTED_NPM_CLI,
     path.resolve(path.dirname(node), '..', npmRelative),
+    ...via ? [path.resolve(path.dirname(via), '..', npmRelative)] : [],
+    path.resolve(path.dirname(node), '..', 'libexec', npmRelative),
     ...apps.map(app => path.join(app, 'Contents/Resources/cua_node', npmRelative)),
     ...onPath('npm', env),
   ]);
@@ -174,7 +181,7 @@ export async function resolveToolchain({ stateDir, env = process.env, home = os.
     }
     const node = await inspect(file, { platform });
     if (!node.node) { rejected.push({ source, path: file, reason: node.reason }); continue; }
-    const npm = await findNpm(node.node, { env, apps });
+    const npm = await findNpm(node.node, { env, apps, via: file });
     if (!npm) { rejected.push({ source, path: file, reason: '未找到能由此 Node 执行的 npm CLI。' }); continue; }
     const selection = { ...node, ...npm, source };
     if (save && source !== 'explicit') await writeSavedNode(stateDir, selection).catch(error => log(`未能保存所选 Node：${error.message}`));

@@ -66,6 +66,23 @@ export async function installedVersion(options, version, { plugin = 'skilldock' 
   await fs.cp(options.sourceRoot, skill, { recursive: true });
   await fs.mkdir(path.join(packageRoot, '.codex-plugin'), { recursive: true });
   await fs.writeFile(path.join(packageRoot, '.codex-plugin/plugin.json'), JSON.stringify({ name: plugin, version }));
+  await versionSkill(skill, version);
+  return { ...options, codexHome, appDir: path.join(skill, 'assets/app') };
+}
+
+// A Claude-side installation: the plugin directory copied into the Claude plugin cache,
+// without a Claude manifest and under a commit-digest directory (HLD 9.3 V6). The Codex
+// home of `installedVersion` stands in for the default one.
+export async function installedClaudeVersion(options, version, { configDir = path.join(options.home, '.claude') } = {}) {
+  await fs.mkdir(path.join(configDir, 'plugins'), { recursive: true });
+  await fs.writeFile(path.join(configDir, 'plugins/known_marketplaces.json'), JSON.stringify({ [MARKET]: { source: { source: 'git', url: SOURCE } } }));
+  const skill = path.join(configDir, 'plugins/cache', MARKET, 'skilldock', `sha-${version.replaceAll('.', '-')}`, 'skills/skill-manager');
+  await fs.cp(options.sourceRoot, skill, { recursive: true });
+  await versionSkill(skill, version);
+  return { ...options, codexHome: path.join(options.root, 'codex'), appDir: path.join(skill, 'assets/app') };
+}
+
+async function versionSkill(skill, version) {
   await fs.writeFile(path.join(skill, 'scripts/launch.sh'), '#!/bin/sh\nexit 1\n');
   for (const file of ['package.json', 'package-lock.json']) {
     const target = path.join(skill, 'assets/app', file); const value = JSON.parse(await fs.readFile(target, 'utf8'));
@@ -73,5 +90,4 @@ export async function installedVersion(options, version, { plugin = 'skilldock' 
     await fs.writeFile(target, JSON.stringify(value));
   }
   await fs.appendFile(path.join(skill, 'assets/app/README.md'), `\n${version}`);
-  return { ...options, codexHome, appDir: path.join(skill, 'assets/app') };
 }
