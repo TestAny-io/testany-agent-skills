@@ -89,10 +89,20 @@ test('gate evidence: non-orphaned Claude directories count, orphaned ones do not
     if (orphaned) await fs.writeFile(path.join(cache, name, '.orphaned_at'), '1');
   };
   await add('aaa', '0.10.2', true); await add('bbb', '0.11.0', false);
-  // Plain files beside marketplaces or version directories are not installations.
+  // Plain files beside marketplaces or version directories are not installations, nor are
+  // links to files or links that lead nowhere (all with names a version directory could have).
   await fs.writeFile(path.join(cache, '.DS_Store'), 'x'); await fs.writeFile(path.join(cache, '..', '..', 'notes.txt'), 'x');
+  await fs.writeFile(path.join(cache, 'readme'), 'x');
+  await fs.symlink(path.join(cache, 'readme'), path.join(cache, 'file-link'));
+  await fs.symlink(path.join(cache, 'absent'), path.join(cache, 'dangling'));
   const roots = await agentRoots({ env: {}, home: f.home });
-  assert.equal((await migrationGate(roots)).passed, true);
+  assert.deepEqual(await migrationGate(roots), { passed: true, blockers: [], unreadable: [] });
+  // A link to a version directory counts as that directory.
+  const outside = path.join(f.home, 'elsewhere/sha-linked'); await fs.mkdir(path.join(outside, 'skills/skill-manager/assets/app'), { recursive: true });
+  await fs.writeFile(path.join(outside, 'skills/skill-manager/assets/app/package.json'), JSON.stringify({ name: 'skilldock', version: '0.10.0' }));
+  await fs.symlink(outside, path.join(cache, 'dir-link'));
+  assert.deepEqual((await migrationGate(roots)).blockers.map(item => [item.version, path.basename(item.directory)]), [['0.10.0', 'dir-link']]);
+  await fs.rm(path.join(cache, 'dir-link'));
   await add('ccc', '0.10.1', false);
   assert.deepEqual((await migrationGate(roots)).blockers.map(item => [item.agent, item.version]), [['claude', '0.10.1']]);
   await fs.rm(path.join(cache, 'ccc'), { recursive: true });
@@ -310,4 +320,35 @@ test('stop on a stale Claude-side 0.10.x record stops that instance and removes 
   assert.equal((await launch('stop', next)).status, 'stopped');
   assert.equal(await probe(old.url), null);
   assert.equal(await exists(path.join(old.state, 'launcher.json')), false, '0.10.x 记录按 0.10.2 的做法删除');
+});
+
+test('a record from an unseen Claude configuration is refused with its reason; a live old service is named first; nothing changes', async t => {
+  const f = await fixture(t); const port = await freePort();
+  const next = { ...await installedVersion(f, '0.11.0'), port };
+  // Claude with a custom configuration directory, seen from the Codex side.
+  const custom = path.join(f.home, 'custom-claude');
+  const versionDir = path.join(custom, 'plugins/cache', MARKET, 'skilldock/sha-old');
+  await fs.cp(f.sourceRoot, path.join(versionDir, 'skills/skill-manager'), { recursive: true });
+  const old = await oldInstance(t, f, { port: await freePort(), appDir: path.join(versionDir, 'skills/skill-manager/assets/app') });
+  const listing = async () => (await fs.readdir(old.state, { recursive: true })).sort();
+  const before = await listing(); const bytes = await fs.readFile(path.join(old.state, 'launcher.json'));
+  const realCustom = await fs.realpath(custom);
+  let refused = await launch('start', next).then(() => null, error => error);
+  assert.deepEqual([refused?.exitCode, refused.output.status], [1, 'owner-unverified']);
+  assert.ok(refused.message.includes(realCustom));
+  assert.ok(refused.output.steps[0].includes(`pid ${old.pid}`) && refused.output.steps[0].includes('launch.sh" stop'), '旧服务仍在运行时先给出停止步骤');
+  assert.ok(refused.output.steps.some(step => step.includes(`CLAUDE_CONFIG_DIR="${realCustom}"`)));
+  assert.equal((await probe(old.url))?.pid, old.pid, '不停止旧服务');
+  assert.deepEqual([await listing(), await fs.readFile(path.join(old.state, 'launcher.json'))], [before, bytes]);
+  // Once that service is gone the first step is the record itself.
+  process.kill(old.pid, 'SIGTERM');
+  for (let i = 0; i < 50 && await probe(old.url); i++) await new Promise(resolve => setTimeout(resolve, 100));
+  refused = await launch('status', next).then(() => null, error => error);
+  assert.ok(refused.output.steps[0].startsWith('若那份 SkillDock 已不再使用，且它的服务已停止'));
+  // With CLAUDE_CONFIG_DIR the installation is visible: an old one still in use, named by version.
+  await fs.writeFile(path.join(custom, 'plugins/known_marketplaces.json'), JSON.stringify({ [MARKET]: { source: { source: 'git', url: 'https://github.com/TestAny-io/testany-agent-skills.git' } } }));
+  refused = await launch('start', { ...next, env: { ...next.env, CLAUDE_CONFIG_DIR: custom } }).then(() => null, error => error);
+  assert.deepEqual([refused?.exitCode, refused.output.status], [4, 'migration-blocked']);
+  assert.match(refused.message, /SkillDock 0\.0\.0（低于 0\.10\.3）/);
+  assert.deepEqual([await listing(), await fs.readFile(path.join(old.state, 'launcher.json'))], [before, bytes]);
 });

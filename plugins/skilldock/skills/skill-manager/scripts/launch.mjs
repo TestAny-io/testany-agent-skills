@@ -14,7 +14,7 @@ import { withStateLocks } from '../assets/app/server/state-locks.mjs';
 import { readGeneration, writeGeneration, CURRENT_GENERATION } from '../assets/app/server/generation.mjs';
 import { absolute, readText } from '../assets/app/server/installs.mjs';
 import { readRecord, writeRecord, mirrorRecord, buildRecord, stoppedRecord, refreshRecord, restoreRecord, verifyInstance, legacyFields, ensureLegacyProject, isCurrentRecord } from '../assets/app/server/launcher-record.mjs';
-import { installationContext, delegationTarget, delegate, newerDataError, legacyOwnership, migrationCheck, preferredWhenRunning, failureText, EXIT_MIGRATION_BLOCKED } from '../assets/app/server/launch-plan.mjs';
+import { installationContext, delegationTarget, delegate, newerDataError, legacyOwnershipDetail, migrationCheck, preferredWhenRunning, failureText, EXIT_MIGRATION_BLOCKED } from '../assets/app/server/launch-plan.mjs';
 import { convertPlan, snapshotFiles, writeMigrationFailure, clearMigrationFailure } from '../assets/app/server/migration.mjs';
 import { backgroundPaths, registrationExists, takeOverRegistration } from '../assets/app/server/background-registration.mjs';
 import { writeClaudeRoot, startedFromClaude } from '../assets/app/server/claude-root.mjs';
@@ -199,21 +199,39 @@ export async function launch(action = 'start', options = {}) {
       throw new Error('此数据目录属于另一个安装来源；请使用独立 SKILLDOCK_STATE_DIR。');
     }
     if (record.source === appDir) return;
-    const legacy = await legacyOwnership(record, plan, { migrateFrom: options.migrateFrom });
+    const detail = await legacyOwnershipDetail(record, plan, { migrateFrom: options.migrateFrom });
+    const legacy = detail.owner;
     if (legacy === 'family' || legacy === 'testany-eng') return;
     if (legacy === 'claude-unverified') {
-      const message = '这个数据目录的启动记录来自 Claude 中的 SkillDock，但无法核实它的来源（该 marketplace 已不在 Claude 中，或这里看不到 Claude 的配置目录），未接管数据。';
-      const steps = [`若 Claude 中已不再使用那份 SkillDock：删除 ${path.join(state, 'launcher.json')} 后重新打开。`,
-        '或在 Claude 中重新添加原来的 marketplace 后重新打开；Claude 使用自定义配置目录时，从 Claude 一侧打开 SkillDock。',
-        '或用 SKILLDOCK_STATE_DIR 为这个 SkillDock 指定独立的数据目录。'];
+      const message = detail.reason === 'configuration'
+        ? `这个数据目录的启动记录来自 ${detail.configDir} 下插件缓存中的 SkillDock，这里看不到它所属的配置目录（常见于 Claude 使用自定义配置目录），无法核实来源，未接管数据。`
+        : '这个数据目录的启动记录来自 Claude 中的 SkillDock，但无法核实它的来源（该 marketplace 已不在 Claude 中，或这里看不到 Claude 的配置目录），未接管数据。';
+      const steps = [];
+      // Deleting the record while that service still runs would skip the first step of
+      // the takeover (stop the old instance), so a running one is named first.
+      if (typeof record.url === 'string' && matches(await probe(record.url), record)) {
+        const oldLauncher = path.resolve(record.source, '../../scripts/launch.sh');
+        steps.push(await fs.access(oldLauncher).then(() => true, () => false)
+          ? `先停止仍在运行的旧服务（pid ${record.pid}，${record.url}）：运行 SKILLDOCK_STATE_DIR="${state}" /bin/sh "${oldLauncher}" stop。`
+          : `先停止仍在运行的旧服务（pid ${record.pid}，${record.url}）：结束进程 ${record.pid}。`);
+      }
+      steps.push(`若那份 SkillDock 已不再使用，且它的服务已停止：删除 ${path.join(state, 'launcher.json')} 后重新打开。`);
+      steps.push(detail.reason === 'configuration'
+        ? `若 ${detail.configDir} 是 Claude 的配置目录：从 Claude 一侧打开 SkillDock，或设置 CLAUDE_CONFIG_DIR="${detail.configDir}" 后重新打开。`
+        : '或在 Claude 中重新添加原来的 marketplace 后重新打开；Claude 使用自定义配置目录时，从 Claude 一侧打开 SkillDock。');
+      steps.push('或用 SKILLDOCK_STATE_DIR 为这个 SkillDock 指定独立的数据目录。');
       throw Object.assign(new Error(message), { code: 'OWNER_UNVERIFIED', exitCode: 1, output: { status: 'owner-unverified', message, steps } });
     }
     if (legacy === 'claude-legacy') {
-      const message = 'Claude 中装有低于 0.10.3 的 SkillDock，正在使用这个数据目录；0.11 暂不接管数据，旧版本照常工作。';
-      const steps = ['在 Claude 中把 SkillDock 更新到最新版本（或从 Claude 卸载 SkillDock），并重载插件。', '处理后重新打开 SkillDock，会重新检查。'];
+      const message = detail.unreadable
+        ? `无法读取 ${detail.unreadable}，无法确认 Claude 中那份 SkillDock 的版本；它正在使用这个数据目录，0.11 暂不接管数据，旧版本照常工作。`
+        : `Claude 中装有 SkillDock ${detail.version}（低于 0.10.3），正在使用这个数据目录；0.11 暂不接管数据，旧版本照常工作。`;
+      const steps = [...detail.unreadable ? [`为当前用户开放 ${detail.unreadable} 的读取权限后重试。`] : [],
+        '在 Claude 中把 SkillDock 更新到最新版本（或从 Claude 卸载 SkillDock），并重载插件。', '处理后重新打开 SkillDock，会重新检查。'];
       // Exit 4 belongs to the migration gate of start and restart (36b 6.3).
       const gate = ['start', 'restart'].includes(action);
-      throw Object.assign(new Error(message), { code: 'MIGRATION_BLOCKED', exitCode: gate ? EXIT_MIGRATION_BLOCKED : 1, output: { status: 'migration-blocked', message, blockers: [], unreadable: [], steps } });
+      throw Object.assign(new Error(message), { code: 'MIGRATION_BLOCKED', exitCode: gate ? EXIT_MIGRATION_BLOCKED : 1,
+        output: { status: 'migration-blocked', message, blockers: [], unreadable: detail.unreadable ? [{ path: detail.unreadable, error: 'UNREADABLE' }] : [], steps } });
     }
     throw new Error('此数据目录属于另一个源码实例；旧 testany-eng 用户可使用 --migrate-from testany-eng 接续数据，其他来源请使用独立 SKILLDOCK_STATE_DIR。');
   }

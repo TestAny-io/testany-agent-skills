@@ -154,46 +154,68 @@ export async function planLaunch({ action, env = process.env, home = os.homedir(
  * same marketplace name, plugin and source identity (DEC-SDX-007) — a Codex plugin
  * record, or a directory-form record inside a Claude plugin cache whose installation is
  * gone, orphaned or at least 0.10.3 (a stale record, taken over like any 0.10.x one);
- * `claude-legacy` while that Claude installation is still in use and older than 0.10.3
- * (the gate fails then too); `claude-unverified` when its source identity cannot be
- * read (the marketplace was removed or the Claude configuration is not visible); `testany-eng` for the old testany-eng plugin of the same
- * Codex marketplace when explicitly requested; otherwise null.
+ * `claude-legacy` while that Claude installation is still in use and older than 0.10.3,
+ * or its package exists but cannot be read; `claude-unverified` when its source identity
+ * cannot be read (the marketplace was removed from Claude, or the record lies in a Claude
+ * cache whose configuration directory is not visible from here); `testany-eng` for the
+ * old testany-eng plugin of the same Codex marketplace when explicitly requested;
+ * otherwise null.
  */
-export async function legacyOwnership(record, context, { migrateFrom } = {}) {
+export async function legacyOwnership(record, context, options) {
+  return (await legacyOwnershipDetail(record, context, options)).owner;
+}
+
+/**
+ * `legacyOwnership` with what a refusal needs to explain itself: the version found, the
+ * package that could not be read, or the configuration directory that is not visible.
+ */
+export async function legacyOwnershipDetail(record, context, { migrateFrom } = {}) {
   const installation = record.installation;
   if (installation?.kind === 'plugin') {
     const current = await installationIdentity(record.source, installation.codexHome, { expected: installation });
-    if (!sameInstallation(current, installation) || current.appPath !== APP_TAIL.join('/')) return null;
+    if (!sameInstallation(current, installation) || current.appPath !== APP_TAIL.join('/')) return { owner: null };
     if (current.plugin === 'skilldock' && context.owner && current.marketplace === context.owner.marketplace
-      && await sourceKeyFor({ agent: 'codex', home: current.codexHome, marketplace: current.marketplace }) === context.owner.key) return 'family';
+      && await sourceKeyFor({ agent: 'codex', home: current.codexHome, marketplace: current.marketplace }) === context.owner.key) return { owner: 'family' };
     const own = context.own;
     if (migrateFrom === 'testany-eng' && current.plugin === 'testany-eng' && current.marketplace === 'testany-agent-skills'
-      && own.agent === 'codex' && !own.development && own.marketplace === current.marketplace && own.home === current.codexHome) return 'testany-eng';
-    return null;
+      && own.agent === 'codex' && !own.development && own.marketplace === current.marketplace && own.home === current.codexHome) return { owner: 'testany-eng' };
+    return { owner: null };
   }
   const source = absolute(record.source) ? await canonical(record.source) : null;
-  if (!source) return null;
+  if (!source) return { owner: null };
   for (const cache of context.roots.caches) {
-    if (cache.agent !== 'claude') continue;
     const cacheDir = await canonical(cache.cacheDir);
     if (!within(cacheDir, source)) continue;
+    // A directory-form record in a Codex cache is not a Claude installation.
+    if (cache.agent !== 'claude') return { owner: null };
     const segments = path.relative(cacheDir, source).split(path.sep);
     const [marketplace, plugin, versionName] = segments;
-    if (segments.length !== 7 || plugin !== 'skilldock' || ![marketplace, versionName].every(safeSegment) || segments.slice(3).join('/') !== APP_TAIL.join('/')) return null;
+    if (segments.length !== 7 || plugin !== 'skilldock' || ![marketplace, versionName].every(safeSegment) || segments.slice(3).join('/') !== APP_TAIL.join('/')) return { owner: null };
     const versionDir = path.join(cacheDir, marketplace, 'skilldock', versionName);
     const orphaned = await readText(path.join(versionDir, '.orphaned_at')) !== undefined;
-    // A package that exists but cannot be read is treated as still in use and old.
-    const text = await readText(path.join(source, 'package.json'));
+    // As in the gate: a package that exists but cannot be read may be an old installation
+    // still in use; one that is not JSON is not an installation.
+    const packageFile = path.join(source, 'package.json');
+    const text = await readText(packageFile);
     let version;
-    if (typeof text === 'string') { try { version = JSON.parse(text)?.version; } catch { version = null; } }
-    if (!orphaned && (text === null || version === null || (parseVersion(version) && !atLeast(version, '0.10.3')))) return 'claude-legacy';
-    if (!context.owner || marketplace !== context.owner.marketplace) return null;
+    if (typeof text === 'string') { try { version = JSON.parse(text)?.version; } catch { /* not an installation */ } }
+    if (!orphaned && text === null) return { owner: 'claude-legacy', unreadable: packageFile };
+    if (!orphaned && parseVersion(version) && !atLeast(version, '0.10.3')) return { owner: 'claude-legacy', version };
+    if (!context.owner || marketplace !== context.owner.marketplace) return { owner: null };
     const key = await sourceKeyFor({ agent: 'claude', configDir: cache.configDir, marketplace });
     // The marketplace is gone from Claude, or its configuration cannot be seen from here.
-    if (!key) return 'claude-unverified';
-    return key === context.owner.key ? 'family' : null;
+    if (!key) return { owner: 'claude-unverified', reason: 'marketplace' };
+    return { owner: key === context.owner.key ? 'family' : null };
   }
-  return null;
+  // The plugin-cache layout of this installation's marketplace under a root this process
+  // does not know: typically Claude with a custom configuration directory, seen from the
+  // Codex side. Refused like any unverifiable record, with the directory named.
+  const parts = source.split(path.sep);
+  const [plugins, cacheName, marketplace, plugin, versionName] = parts.slice(-APP_TAIL.length - 5, -APP_TAIL.length);
+  if (parts.slice(-APP_TAIL.length).join('/') === APP_TAIL.join('/') && plugins === 'plugins' && cacheName === 'cache' && plugin === 'skilldock'
+    && [marketplace, versionName].every(safeSegment) && context.owner && marketplace === context.owner.marketplace)
+    return { owner: 'claude-unverified', reason: 'configuration', configDir: parts.slice(0, -APP_TAIL.length - 5).join(path.sep) || path.sep };
+  return { owner: null };
 }
 
 /** Runs the newer installation's launcher with the same arguments (36b §6.3 obligations apply to it). */

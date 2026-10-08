@@ -34,8 +34,13 @@ export async function migrationGate(roots) {
       const found = [];
       for (const name of (await listDirectory(pluginDir, unreadable)).filter(safeSegment)) {
         const versionDir = path.join(pluginDir, name);
-        // Plain files next to version directories are not installations.
-        const kind = await fs.lstat(versionDir).then(stat => stat.isDirectory() || stat.isSymbolicLink() ? 'directory' : 'other', error => error.code === 'ENOENT' ? 'other' : 'error');
+        // Plain files next to version directories are not installations, nor are links to
+        // files or links that lead nowhere; a link to a directory counts as that directory.
+        const kind = await fs.lstat(versionDir).then(stat => {
+          if (!stat.isSymbolicLink()) return stat.isDirectory() ? 'directory' : 'other';
+          return fs.stat(versionDir).then(target => target.isDirectory() ? 'directory' : 'other',
+            error => ['ENOENT', 'ENOTDIR', 'ELOOP'].includes(error.code) ? 'other' : 'error');
+        }, error => error.code === 'ENOENT' ? 'other' : 'error');
         if (kind === 'other') continue;
         if (kind === 'error') { unreadable.push({ path: versionDir, error: 'UNREADABLE' }); continue; }
         const marker = await readText(path.join(versionDir, '.orphaned_at'));
