@@ -5,12 +5,27 @@ import path from 'node:path';
 import { createService } from './service.mjs';
 import { readJson, writeJson, redact, safeSegment } from './files.mjs';
 import { acquireFileLock, operationLock } from './process-lock.mjs';
+import { instanceLock } from './state-locks.mjs';
 import { createBackgroundManager, backgroundPaths, normalizeBackgroundStatus } from './background.mjs';
 import { CodexAdapter } from './cli.mjs';
 import { installationIdentity, sameInstallation } from './installation.mjs';
 import { captureSource } from '../scripts/source-bundle.mjs';
 import { prepareRuntime } from './runtime.mjs';
 import { resolveCodexCli } from './codex-runtime.mjs';
+import { readGeneration, CURRENT_GENERATION } from './generation.mjs';
+import { restoreMissingRecord } from './launcher-record.mjs';
+import { refreshInstallations } from './launch-plan.mjs';
+
+// DEC-SDX-010: instance lock → Codex lock for a version-2 context (the Codex root is never
+// created by locking); a version-1 context keeps 0.10.x locking. Throws BUSY.
+async function acquireWorkerLock(context) {
+  if (context.version !== 2) return acquireFileLock(operationLock(context.codexHome));
+  const instance = acquireFileLock(instanceLock(context.stateDir));
+  try {
+    const codex = await fs.stat(context.codexHome).then(() => true, () => false) ? acquireFileLock(operationLock(context.codexHome)) : () => {};
+    return () => { codex(); instance(); };
+  } catch (error) { instance(); throw error; }
+}
 
 export async function resolveBackgroundSource(context, adapter) {
   if (context.installation.kind !== 'plugin') {
@@ -44,11 +59,17 @@ export async function refreshBackgroundRuntime(context, adapter, { prepare = pre
 }
 
 export async function runBackground(context, options = {}) {
-  // 0.10.3 (API-SDX-001 36b §8): never read or write plans written by a newer version.
-  // Generation 2 rules for the worker arrive with the background migration (phase 1c).
-  const { readGeneration } = await import('./generation.mjs');
+  // API-SDX-001 36b §7.4: a version-1 context (a 0.10.x entry) works only on generation-1
+  // data and its version-1 plan; a version-2 context only once the migration is complete.
+  // Newer data, or a migration still in progress, is left untouched.
+  const generation = await readGeneration(context.stateDir);
   const plan = await readJson(path.join(context.stateDir, 'local/updates.json'), null).catch(() => ({ version: 0 }));
-  if (await readGeneration(context.stateDir) >= 2 || (plan && plan.version !== 1)) return { outcome: 'newer-data' };
+  if (generation > CURRENT_GENERATION || (context.version !== 2 && (generation >= CURRENT_GENERATION || (plan && plan.version !== 1)))) return { outcome: 'newer-data' };
+  if (context.version === 2 && (generation < CURRENT_GENERATION || (plan && ![1, 2].includes(plan.version)))) return { outcome: generation < CURRENT_GENERATION ? 'migration-pending' : 'newer-data' };
+  if (context.version === 2) {
+    await restoreMissingRecord(context.stateDir, context.codexHome).catch(() => {});
+    await refreshInstallations({ state: context.stateDir, codexHome: context.codexHome, home: context.home, appDir: context.source }).catch(() => {});
+  }
   const clock = options.now || Date.now; const stamp = () => new Date(clock()).toISOString();
   const paths = backgroundPaths(context.stateDir, context.home);
   const stateFile = path.join(context.stateDir, 'local/updates.json');
@@ -64,7 +85,7 @@ export async function runBackground(context, options = {}) {
     // A crashed registration must not leave a dormant job behind. During a
     // successful enable transaction the owning UI still holds this lock.
     let release;
-    try { release = acquireFileLock(operationLock(context.codexHome)); } catch (error) { if (error.code !== 'BUSY') throw error; }
+    try { release = await acquireWorkerLock(context); } catch (error) { if (error.code !== 'BUSY') throw error; }
     if (release) {
       let remove = false;
       try {
@@ -87,7 +108,7 @@ export async function runBackground(context, options = {}) {
     await report({ finishedAt: stamp(), outcome: retryPending ? 'retry-pending' : 'idle' }); return status;
   }
   let release;
-  try { release = acquireFileLock(operationLock(context.codexHome)); }
+  try { release = await acquireWorkerLock(context); }
   catch (error) { if (error.code !== 'BUSY') throw error; await report({ finishedAt: stamp(), outcome: 'busy' }); return status; }
   let service; let removeRegistration = false; let stopping = false;
   const stop = () => { stopping = true; service?.close().catch(() => {}); };

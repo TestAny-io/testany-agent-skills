@@ -2,6 +2,9 @@ import path from 'node:path';
 import crypto from 'node:crypto';
 import { fail, readJson, writeJson, verifyDirectoryRoot, redact } from './files.mjs';
 import { buildUpdateItems, targetKey } from './sources.mjs';
+import { defaultSchedule, defaultUpdateState } from './update-state.mjs';
+
+export { defaultSchedule, defaultUpdateState };
 
 export function validateTarget(target) {
   if (!target || typeof target !== 'object' || Array.isArray(target) || Object.keys(target).some(key => !['kind', 'id'].includes(key)) || !['skill', 'plugin', 'host'].includes(target.kind) || typeof target.id !== 'string' || !target.id || target.id.length > 300 || /[\x00-\x1f]/.test(target.id)) fail(400, 'INVALID_TARGET', '更新目标无效。');
@@ -24,10 +27,10 @@ function sameBindingIdentity(before, after) {
   return JSON.stringify(oldIdentity) === JSON.stringify(newIdentity);
 }
 
-export async function createScheduler({ environments, snapshot, perform, signature, verifySynchronized, hasPreview, coreBusy, clock = () => Date.now(), pollMs = 1000, startTimer = false, recover = true, beforeConfigure, disabledSchedule = async () => null }) {
+
+export async function createScheduler({ environments, snapshot, perform, signature, verifySynchronized, hasPreview, coreBusy, clock = () => Date.now(), pollMs = 1000, startTimer = false, recover = true, beforeConfigure, disabledSchedule = async () => null, planVersion = 1 }) {
   const states = {}; const writes = {}; const configuring = new Set(); let running = false; let activeMode; let closed = false; let runningPromise; let timer; let readGeneration = 0;
   const timestamp = () => new Date(clock()).toISOString();
-  const defaultSchedule = () => ({ enabled: false, intervalMinutes: 1440, timezone: Intl.DateTimeFormat().resolvedOptions().timeZone || 'UTC', autoApply: false, targets: [], running: false });
   async function persist(mode) {
     writes[mode] = (writes[mode] || Promise.resolve()).catch(() => {}).then(async () => { await verifyDirectoryRoot(environments[mode].stateBoundary); const disabled = await disabledSchedule(mode); if (disabled) { Object.assign(states[mode].schedule, disabled, { enabled: false }); delete states[mode].schedule.nextRunAt; } await writeJson(path.join(environments[mode].root, 'updates.json'), states[mode]); });
     return writes[mode];
@@ -36,8 +39,9 @@ export async function createScheduler({ environments, snapshot, perform, signatu
     if (running) return;
     const generation = ++readGeneration;
     for (const mode of Object.keys(environments)) {
-      const state = await readJson(path.join(environments[mode].root, 'updates.json'), { version: 1, schedule: defaultSchedule(), bindings: {}, observations: {}, runs: [], activity: [] });
-      if (!state || state.version !== 1 || !Array.isArray(state.runs) || typeof state.bindings !== 'object' || !state.schedule || !state.observations) fail(422, 'INVALID_UPDATE_STATE', '更新状态文件格式无效，未启用自动更新。');
+      const state = await readJson(path.join(environments[mode].root, 'updates.json'), defaultUpdateState(planVersion, defaultSchedule()));
+      if (state && Number.isInteger(state.version) && state.version >= 1 && state.version < planVersion) state.version = planVersion;
+      if (!state || state.version !== planVersion || !Array.isArray(state.runs) || typeof state.bindings !== 'object' || !state.schedule || !state.observations) fail(422, 'INVALID_UPDATE_STATE', '更新状态文件格式无效，未启用自动更新。');
       validateSchedule({ enabled: state.schedule.enabled, intervalMinutes: state.schedule.intervalMinutes, timezone: state.schedule.timezone, autoApply: state.schedule.autoApply, targets: state.schedule.targets });
       if (running || generation !== readGeneration) return;
       state.activity ||= []; states[mode] = state;

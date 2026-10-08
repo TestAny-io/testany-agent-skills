@@ -18,7 +18,9 @@ import { githubDirectory } from './git-source.mjs';
 import { previewFileDiff } from './preview-diff.mjs';
 import { normalizeTags, tagKey, enrichTags } from './tags.mjs';
 import { acquireFileLock, operationLock, isOperationActive } from './process-lock.mjs';
+import { instanceLock } from './state-locks.mjs';
 import { createBackgroundManager, backgroundPaths } from './background.mjs';
+import { readGeneration, CURRENT_GENERATION } from './generation.mjs';
 import { projectCatalog, createProjectIntegration } from './projects.mjs';
 import { inspectPlugin, directLocation, writeDirectMarketplace, decorateDirectCatalog } from './direct-plugins.mjs';
 import { pluginContents } from './plugin-contents.mjs';
@@ -91,6 +93,8 @@ export async function createService(options = {}) {
   const codexHome = path.resolve(options.codexHome || process.env.CODEX_HOME || path.join(home, '.codex'));
   await fs.mkdir(stateDir, { recursive: true, mode: 0o700 });
   stateDir = await fs.realpath(stateDir);
+  // Fixed for the life of the service: a migration replaces the service (HLD 3.7).
+  const generation = await readGeneration(stateDir);
   const applicationBoundary = await captureDirectoryRoot(stateDir);
   const localRoot = path.join(stateDir, 'local'); await fs.mkdir(localRoot, { recursive: true, mode: 0o700 });
   const local = { mode: 'local', root: localRoot, home, codexHome, project, config: path.join(codexHome, 'config.toml'), skills: path.join(codexHome, 'skills'), registryFile: path.join(localRoot, 'registry.json') };
@@ -118,7 +122,17 @@ export async function createService(options = {}) {
   let operationActive = false; let operationPromise; let migrationError;
   async function withOperation(operation) {
     if (operationActive) fail(409, 'BUSY', '另一个操作或更新批次正在执行，请稍后重试。');
-    const release = options.ownsOperationLock ? () => {} : acquireFileLock(operationLock(codexHome));
+    // DEC-SDX-010: instance lock → Codex lock on generation-2 data, where taking a lock
+    // never creates the Codex root. Generation-1 data keeps 0.10.x locking.
+    let release = () => {};
+    if (!options.ownsOperationLock) {
+      const current = generation >= CURRENT_GENERATION;
+      const instance = current ? acquireFileLock(instanceLock(stateDir)) : () => {};
+      try {
+        const codex = !current || await fs.stat(codexHome).then(() => true, () => false) ? acquireFileLock(operationLock(codexHome)) : () => {};
+        release = () => { codex(); instance(); };
+      } catch (error) { instance(); throw error; }
+    }
     operationActive = true;
     const promise = (async () => { await scheduler.reload({ recover: true }); return operation(); })();
     operationPromise = promise;
@@ -1046,6 +1060,7 @@ export async function createService(options = {}) {
   }
   const isBusy = () => busy || requestBusy || operationActive || restarting || closing || scheduler.isRunning();
   scheduler = await createScheduler({ environments, snapshot, perform: request => action(request, true), signature: targetSignature, hasPreview,
+    planVersion: generation >= CURRENT_GENERATION ? 2 : 1,
     verifySynchronized: async (mode, target, expectedSignature) => {
       if (target.kind !== 'plugin') return false;
       // A marketplace refresh can install packages itself. Verify existing

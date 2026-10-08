@@ -2,60 +2,9 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 import { promises as fs } from 'node:fs';
 import path from 'node:path';
-import os from 'node:os';
 import net from 'node:net';
-import { fileURLToPath } from 'node:url';
 import { fingerprint, launch, probe } from '../../../scripts/launch.mjs';
-import { ROOT_FILES } from '../scripts/source-bundle.mjs';
-
-const MARKET = 'testany-agent-skills';
-const SOURCE = 'https://github.com/TestAny-io/testany-agent-skills.git';
-// Launches never see this session's HOME, Codex or Claude variables.
-const isolated = home => ({ ...Object.fromEntries(Object.entries(process.env).filter(([key]) => !/^(CLAUDE|CODEX_|SKILLDOCK_|ANTHROPIC_)|^PORT$/.test(key))), HOME: home });
-
-async function fixture(t) {
-  const root = await fs.mkdtemp(path.join(os.tmpdir(), 'skilldock launcher '));
-  const sourceRoot = path.join(root, 'software source');
-  const appDir = path.join(sourceRoot, 'assets/app');
-  const stateDir = path.join(root, 'app state');
-  const projectDir = path.join(root, 'project');
-  const home = path.join(root, 'home');
-  await fs.mkdir(home);
-  for (const folder of ['src', 'server', 'shared', 'scripts', 'tests']) await fs.mkdir(path.join(appDir, folder), { recursive: true });
-  await fs.mkdir(path.join(sourceRoot, 'scripts'), { recursive: true });
-  for (const file of ROOT_FILES) await fs.copyFile(fileURLToPath(new URL(`../../../${file}`, import.meta.url)), path.join(sourceRoot, file));
-  await fs.copyFile(fileURLToPath(new URL('../scripts/source-bundle.mjs', import.meta.url)), path.join(appDir, 'scripts/source-bundle.mjs'));
-  await fs.copyFile(fileURLToPath(new URL('../server/installation.mjs', import.meta.url)), path.join(appDir, 'server/installation.mjs'));
-  await fs.copyFile(fileURLToPath(new URL('../server/toolchain.mjs', import.meta.url)), path.join(appDir, 'server/toolchain.mjs'));
-  for (const file of ['codex-runtime.mjs', 'project-context.mjs']) await fs.copyFile(fileURLToPath(new URL(`../server/${file}`, import.meta.url)), path.join(appDir, `server/${file}`));
-  await fs.mkdir(projectDir);
-  await fs.writeFile(path.join(appDir, 'package.json'), JSON.stringify({
-    name: 'skilldock-launcher-fixture', version: '0.0.0', type: 'module',
-    scripts: { build: 'node scripts/source-bundle.mjs --stage && node scripts/source-bundle.mjs' },
-  }));
-  await fs.writeFile(path.join(appDir, 'package-lock.json'), JSON.stringify({
-    name: 'skilldock-launcher-fixture', version: '0.0.0', lockfileVersion: 3,
-    packages: { '': { name: 'skilldock-launcher-fixture', version: '0.0.0' } },
-  }));
-  for (const file of ['tsconfig.json', 'vite.config.ts', 'index.html', 'README.md', 'playwright.config.ts']) await fs.writeFile(path.join(appDir, file), 'fixture');
-  await fs.writeFile(path.join(appDir, 'server/index.mjs'), `
-    import http from 'node:http';
-    const server = http.createServer((req,res) => {
-      res.setHeader('Content-Type','application/json');
-      res.end(JSON.stringify({app:'skilldock',pid:process.pid,project:process.env.SKILLDOCK_PROJECT_DIR,state:process.env.SKILLDOCK_STATE_DIR}));
-    });
-    server.listen(Number(process.env.PORT),'127.0.0.1');
-    process.on('SIGTERM',()=>server.close(()=>process.exit(0)));
-  `);
-  t.after(() => fs.rm(root, { recursive: true, force: true }));
-  return { root, sourceRoot, appDir, stateDir, projectDir, home, env: isolated(home), codexBin: path.join(root, 'absent-cli') };
-}
-
-async function listen() {
-  const server = net.createServer();
-  await new Promise(resolve => server.listen(0, '127.0.0.1', resolve));
-  return { server, port: server.address().port };
-}
+import { fixture, listen, installedVersion } from './helpers/launcher-fixture.mjs';
 
 test('fingerprint includes distributed sources and license but excludes verification records and installed dependencies', async t => {
   const options = await fixture(t);
@@ -125,7 +74,8 @@ test('a failed ownership-record write does not leave an unmanaged background ser
   await fs.mkdir(path.join(options.stateDir, 'launcher.json.tmp'), { recursive: true });
   await assert.rejects(launch('start', { ...options, port }), { code: 'EISDIR' });
   assert.equal(await probe(`http://127.0.0.1:${port}`), null);
-  await assert.rejects(fs.stat(path.join(options.stateDir, 'launcher.json')), { code: 'ENOENT' });
+  // The fresh data directory was migrated first; its record stays in the stopped form.
+  assert.equal(JSON.parse(await fs.readFile(path.join(options.stateDir, 'launcher.json'), 'utf8')).status, 'stopped');
   const tester = net.createServer();
   await new Promise((resolve, reject) => { tester.once('error', reject); tester.listen(port, '127.0.0.1', resolve); });
   await new Promise(resolve => tester.close(resolve));
@@ -155,25 +105,6 @@ test('start rebuilds a corrupted generated runtime instead of serving mismatched
     assert.deepEqual(await fs.readFile(path.join(record.runtime, 'dist/skilldock-source.tar.gz')), await fs.readFile(path.join(record.runtime, '.source-snapshot/skilldock-source.tar.gz')));
   } finally { await launch('stop', startOptions); }
 });
-
-async function installedVersion(options, version, { plugin = 'skilldock' } = {}) {
-  const codexHome = path.join(options.root, 'codex');
-  await fs.mkdir(codexHome, { recursive: true });
-  await fs.writeFile(path.join(codexHome, 'config.toml'), `[marketplaces.${MARKET}]\nsource_type = "git"\nsource = "${SOURCE}"\n`);
-  const packageRoot = path.join(codexHome, 'plugins/cache', MARKET, plugin, version);
-  const skill = path.join(packageRoot, 'skills/skill-manager');
-  await fs.cp(options.sourceRoot, skill, { recursive: true });
-  await fs.mkdir(path.join(packageRoot, '.codex-plugin'), { recursive: true });
-  await fs.writeFile(path.join(packageRoot, '.codex-plugin/plugin.json'), JSON.stringify({ name: plugin, version }));
-  await fs.writeFile(path.join(skill, 'scripts/launch.sh'), '#!/bin/sh\nexit 1\n');
-  for (const file of ['package.json', 'package-lock.json']) {
-    const target = path.join(skill, 'assets/app', file); const value = JSON.parse(await fs.readFile(target, 'utf8'));
-    value.name = 'skilldock'; value.version = version; if (value.packages) value.packages[''] = { name: 'skilldock', version };
-    await fs.writeFile(target, JSON.stringify(value));
-  }
-  await fs.appendFile(path.join(skill, 'assets/app/README.md'), `\n${version}`);
-  return { ...options, codexHome, appDir: path.join(skill, 'assets/app') };
-}
 
 test('a newer installation of the same product family takes over the data; other plugins are refused', async t => {
   const f = await fixture(t); const { server, port } = await listen();
@@ -268,8 +199,6 @@ test('an explicit stop during preparation cancels the automatic replacement inst
   assert.equal(await probe(old.url), null);
   assert.equal((await launch('status', nextOptions)).status, 'stopped');
 });
-
-test.skip('explicit migration from testany-eng to independent skilldock retains data and rejects unrelated identities（阶段 1c：0.10.x 数据迁移实现后改写）', () => {});
 
 test('a 0.10.x restart job is accepted with an executor mark and always closed; leftovers are closed by the next start', async t => {
   const f = await fixture(t); const { server, port } = await listen(); await new Promise(resolve => server.close(resolve));

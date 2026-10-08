@@ -8,8 +8,10 @@ import { spawn } from 'node:child_process';
 import { agentRoots, discoverInstalls, locate, inspect, selectRunSource, reference, compareVersions, parseVersion, readJsonFile, readText, canonical, sourceKeyFor, within, APP_TAIL } from './installs.mjs';
 import { installationIdentity, sameInstallation } from './installation.mjs';
 import { readGeneration, CURRENT_GENERATION } from './generation.mjs';
-import { isCurrentRecord } from './launcher-record.mjs';
+import { isCurrentRecord, refreshRecord, writeRecord } from './launcher-record.mjs';
+import { withStateLocks } from './state-locks.mjs';
 import { resolveClaudeRoot } from './claude-root.mjs';
+import { migrationGate, gateGuidance, repeatedFailure } from './migration.mjs';
 
 export const EXIT_UPDATE_REQUIRED = 3;
 export const EXIT_MIGRATION_BLOCKED = 4;
@@ -46,6 +48,23 @@ export async function installationContext({ env = process.env, home = os.homedir
   return { claudeRoot, roots, installs, own, owner, family, best, ownReference: reference(own), preferred: reference(best ?? own) };
 }
 
+/**
+ * HLD 3.7: when SkillDock installations change, the service and the background check
+ * refresh the record's preferred target and (Codex side) legacy fields under the locks.
+ * The running installation is left alone. Busy locks skip this round.
+ */
+export async function refreshInstallations({ state, codexHome, env = process.env, home = os.homedir(), appDir }) {
+  const record = await readRecordQuietly(state);
+  if (!isCurrentRecord(record)) return null;
+  const context = await installationContext({ env, home, state, appDir, record, codexHome });
+  const next = await refreshRecord(record, { codexHome, installs: context.installs, preferred: context.preferred });
+  if (next === record) return null;
+  return withStateLocks(state, codexHome, async () => {
+    if (JSON.stringify(await readRecordQuietly(state)) !== JSON.stringify(record)) return null;
+    return writeRecord(state, next);
+  }, { wait: 0 }).catch(() => null);
+}
+
 /** Health check summary of installations (36c §4): no paths or credentials. */
 export async function installationSummary({ env = process.env, home = os.homedir(), state, appDir }) {
   const context = await installationContext({ env, home, state, appDir, record: await readRecordQuietly(state) });
@@ -64,7 +83,27 @@ export function delegationTarget(context, { action, env = process.env, restartJo
   return best && own && compareVersions(best, own) > 0 ? context.best : null;
 }
 
-/** Bootstrap-time planning: generation guard and delegation, before any toolchain work. */
+/**
+ * Generation-1 data (HLD 3.7; 36b §7.4): the gate, and for a restart job the fast reject
+ * of a target whose migration failed before. Returns the error to stop with, or null.
+ * A restart job gets no guidance object: it is not interactive.
+ */
+export async function migrationCheck({ state, context, restartJob }) {
+  if (await readGeneration(state) >= CURRENT_GENERATION) return null;
+  const gate = await migrationGate(context.roots);
+  if (!gate.passed) {
+    const guidance = gateGuidance(gate);
+    return Object.assign(new Error(guidance.message), { code: 'MIGRATION_BLOCKED', exitCode: EXIT_MIGRATION_BLOCKED, ...(restartJob ? {} : { output: guidance }) });
+  }
+  const failure = restartJob && await repeatedFailure(state, { appDir: context.own.appPath, version: context.own.version });
+  if (failure) return Object.assign(new Error(`上次迁移到 SkillDock ${failure.version} 失败，已恢复旧版本；后台重启不再自动重试。请从 SkillDock 入口重新打开以重试。`), { code: 'MIGRATION_FAILED_BEFORE', exitCode: EXIT_MIGRATION_BLOCKED });
+  return null;
+}
+
+/**
+ * Bootstrap-time planning, before any toolchain work: newer data stops here, a newer
+ * installation of the family runs instead, and generation-1 data passes the gate first.
+ */
 export async function planLaunch({ action, env = process.env, home = os.homedir(), appDir }) {
   if (!['start', 'restart', 'status', 'stop'].includes(action)) return { kind: 'continue' };
   const state = await canonical(path.resolve(env.SKILLDOCK_STATE_DIR || path.join(home, '.local/share/skilldock')));
@@ -72,7 +111,9 @@ export async function planLaunch({ action, env = process.env, home = os.homedir(
   if (generation > CURRENT_GENERATION) return { kind: 'error', error: newerDataError(generation) };
   const context = await installationContext({ env, home, state, appDir, record: await readRecordQuietly(state) });
   const target = delegationTarget(context, { action, env });
-  return target ? { kind: 'delegate', target, state } : { kind: 'continue', state, context };
+  if (target) return { kind: 'delegate', target, state };
+  const blocked = ['start', 'restart'].includes(action) && await migrationCheck({ state, context, restartJob: env.SKILLDOCK_RESTART_JOB });
+  return blocked ? { kind: 'error', error: blocked } : { kind: 'continue', state, context };
 }
 
 /**

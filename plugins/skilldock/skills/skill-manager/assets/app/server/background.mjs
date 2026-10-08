@@ -2,7 +2,6 @@
 import fs from 'node:fs/promises';
 import path from 'node:path';
 import os from 'node:os';
-import crypto from 'node:crypto';
 import { fileURLToPath } from 'node:url';
 import { execFile, spawn } from 'node:child_process';
 import { promisify } from 'node:util';
@@ -11,11 +10,15 @@ import { installationIdentity, sameInstallation } from './installation.mjs';
 import { findNpm } from './toolchain.mjs';
 import { compareVersions } from './versions.mjs';
 import { verifyRuntime } from './runtime.mjs';
+import { readGeneration } from './generation.mjs';
+import { isCurrentRecord } from './launcher-record.mjs';
+import { backgroundPaths, runScript } from './background-registration.mjs';
+
+export { backgroundPaths, runScript, registrationExists, takeOverRegistration } from './background-registration.mjs';
 
 const execute = promisify(execFile);
 const runtime = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');
 const xml = value => String(value).replace(/[&<>"']/g, char => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&apos;' })[char]);
-const quote = value => `'${String(value).replace(/'/g, "'\\''")}'`;
 export function normalizeBackgroundStatus(status = {}) {
   // 0.4.0 mixed update-batch messages into worker health. Its real worker
   // exceptions always included retryAt; entry failures had no app version.
@@ -24,14 +27,6 @@ export function normalizeBackgroundStatus(status = {}) {
     return { ...status, error: undefined, errorAt: undefined };
   return status;
 }
-export const backgroundPaths = (stateDir, home = os.homedir()) => {
-  const label = `io.testany.skilldock.update.${crypto.createHash('sha256').update(stateDir).digest('hex').slice(0, 16)}`;
-  const root = path.join(stateDir, 'background');
-  return { root, label, context: path.join(root, 'context.json'), status: path.join(root, 'status.json'),
-    entry: path.join(root, 'entry.mjs'), script: path.join(root, 'run.sh'), disabled: path.join(root, 'disabled.json'),
-    plist: path.join(home, 'Library/LaunchAgents', `${label}.plist`) };
-};
-
 export function launchAgentPlist(paths, home) {
   const calendars = Array.from({ length: 12 }, (_, n) => `<dict><key>Minute</key><integer>${n * 5}</integer></dict>`).join('');
   return `<?xml version="1.0" encoding="UTF-8"?>\n<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">\n<plist version="1.0"><dict>
@@ -64,9 +59,13 @@ export function createBackgroundManager({ stateDir, home = os.homedir(), codexHo
     const record = await readJson(path.join(stateDir, 'launcher.json'), null);
     const previous = await readJson(paths.context, null);
     const matching = record?.runtime === appRuntime && record.state === stateDir;
-    const source = matching ? record.source : process.env.SKILLDOCK_APP_SOURCE || (previous?.runtime === appRuntime ? previous.source : appRuntime);
-    const installation = await installationIdentity(source, codexHome, { expected: matching ? record.installation : previous?.installation });
-    const context = { version: 1, stateDir, home, codexHome, projectDir: project(), runtime: appRuntime, source, installation,
+    // A 0.11 record's legacy source names a Codex installation for 0.10.x; the background
+    // follows the installation that actually runs (36a §5.2).
+    const current = matching && isCurrentRecord(record);
+    const source = matching ? (current ? record.running.appPath : record.source) : process.env.SKILLDOCK_APP_SOURCE || (previous?.runtime === appRuntime ? previous.source : appRuntime);
+    const installation = await installationIdentity(source, codexHome, { expected: matching && !current ? record.installation : previous?.source === source ? previous?.installation : undefined });
+    const generation = await readGeneration(stateDir);
+    const context = { ...(generation >= 2 && previous?.claudeRoot ? { claudeRoot: previous.claudeRoot } : {}), version: generation >= 2 ? 2 : 1, stateDir, home, codexHome, projectDir: project(), runtime: appRuntime, source, installation,
       node: process.execPath, ...((matching ? record.digest : process.env.SKILLDOCK_SOURCE_DIGEST) ? { digest: matching ? record.digest : process.env.SKILLDOCK_SOURCE_DIGEST } : {}), ...(matching && record.cli?.available ? { codexBin: record.cli.path } : {}),
       environment: Object.fromEntries(['SKILLDOCK_SELECTED_NPM_CLI', 'SKILLDOCK_CODEX_APP_DIR', 'SKILLDOCK_WORKSPACE_RUNTIME'].filter(key => process.env[key]).map(key => [key, process.env[key]])) };
     if (!context.codexBin && process.env.SKILLDOCK_CODEX_BIN) context.codexBin = process.env.SKILLDOCK_CODEX_BIN;
@@ -83,9 +82,7 @@ export function createBackgroundManager({ stateDir, home = os.homedir(), codexHo
     context.environment.SKILLDOCK_SELECTED_NPM_CLI = npm.npmCli;
     await writeJson(paths.context, context);
     await atomicWrite(paths.entry, await fs.readFile(path.join(appRuntime, 'server/background-entry.mjs')));
-    // The fixed shell entry survives removal of a versioned plugin cache or a
-    // desktop app's Node binary. No interactive shell or stored credentials.
-    await atomicWrite(paths.script, `#!/bin/sh\nset -eu\nexport SKILLDOCK_STATE_DIR=${quote(stateDir)}\nfor candidate in ${quote(process.execPath)} "$HOME/.cache/codex-runtimes/codex-primary-runtime/dependencies/node/bin/node" ${quote(stateDir)}/node/node-v*-darwin-*/bin/node /Applications/ChatGPT.app/Contents/Resources/cua_node/bin/node /Applications/Codex.app/Contents/Resources/cua_node/bin/node /Applications/ChatGPT.app/Contents/Resources/node /Applications/Codex.app/Contents/Resources/node /opt/homebrew/bin/node /usr/local/bin/node; do\n  if [ -x "$candidate" ] && "$candidate" -e 'const [a,b]=process.versions.node.split(".").map(Number);process.exit(a>22||a===22&&b>=12?0:1)' >/dev/null 2>&1; then\n    exec "$candidate" ${quote(paths.entry)} ${quote(paths.context)}\n  fi\ndone\nprintf '%s\\n' 'SkillDock: Node runtime unavailable. Reopen SkillDock to repair background updates.' >&2\nexit 1\n`, 0o700);
+    await atomicWrite(paths.script, runScript(paths, stateDir), 0o700);
     const wasLoaded = await loaded();
     await fs.mkdir(path.dirname(paths.plist), { recursive: true });
     await atomicWrite(paths.plist, launchAgentPlist(paths, home));

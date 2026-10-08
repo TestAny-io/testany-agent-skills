@@ -7,7 +7,8 @@ import { createService } from './service.mjs';
 import { AppError, fail, inside, redact } from './files.mjs';
 import { createSelfUpdater } from './self-update.mjs';
 import { readGeneration, CURRENT_GENERATION } from './generation.mjs';
-import { installationSummary } from './launch-plan.mjs';
+import { installationSummary, refreshInstallations } from './launch-plan.mjs';
+import { restoreMissingRecord } from './launcher-record.mjs';
 
 const currentDirectory = path.dirname(fileURLToPath(import.meta.url));
 const MIME = { '.html': 'text/html; charset=utf-8', '.js': 'text/javascript; charset=utf-8', '.css': 'text/css; charset=utf-8', '.svg': 'image/svg+xml', '.png': 'image/png', '.ico': 'image/x-icon', '.woff2': 'font/woff2' };
@@ -28,6 +29,18 @@ export async function createApp(options = {}) {
     }
     return installations.value;
   }
+  // 36a §5.4 (G-07): a launcher record removed by a 0.10.x launcher is written back.
+  // HLD 3.7: installation changes refresh the record's preferred target (every 10 seconds).
+  let keeping; let keptAt = 0;
+  const keepRecord = (refresh = false) => {
+    if (keeping || (!refresh && Date.now() - keptAt < 2000)) return;
+    keptAt = Date.now(); const codexHome = service.environments.local.codexHome;
+    keeping = restoreMissingRecord(service.stateDir, codexHome)
+      .then(() => refresh && refreshInstallations({ state: service.stateDir, codexHome, env: options.env ?? process.env, ...(options.home ? { home: options.home } : {}),
+        appDir: options.appSource ?? process.env.SKILLDOCK_APP_SOURCE ?? path.resolve(currentDirectory, '..') }))
+      .catch(() => {}).finally(() => { keeping = undefined; });
+  };
+  const keeper = setInterval(() => keepRecord(true), 10000); keeper.unref();
   // 36c §4: app, pid, instanceId, state, sourceDigest, project, launchProject, appVersion,
   // dataGeneration and apiVersion are frozen; restart is frozen for version-1 clients.
   const health = async () => ({ app: 'skilldock', pid: process.pid, project: service.project, launchProject: service.launchProject, projectContext: service.projectContext,
@@ -46,7 +59,7 @@ export async function createApp(options = {}) {
       if (request.headers.origin && request.headers.origin !== `http://${host}`) fail(403, 'ORIGIN_REJECTED', '拒绝跨来源访问。');
       if (request.headers['sec-fetch-site'] === 'cross-site') fail(403, 'CROSS_SITE', '拒绝跨站请求。');
       const url = new URL(request.url, `http://${host}`);
-      if (request.method === 'GET' && url.pathname === '/api/health') return send(response, 200, await health());
+      if (request.method === 'GET' && url.pathname === '/api/health') { keepRecord(); return send(response, 200, await health()); }
       if (['GET', 'HEAD'].includes(request.method) && ['/api/license', '/api/source'].includes(url.pathname)) {
         const filename = url.pathname === '/api/license' ? 'LICENSE.txt' : 'skilldock-source.tar.gz';
         const file = path.join(dist, filename); let real;
@@ -88,7 +101,7 @@ export async function createApp(options = {}) {
     }
   });
   server.requestTimeout = 60000; server.headersTimeout = 10000;
-  return { server, token, service, updater, close: async () => { await updater.close(); await service.close(); await new Promise((resolve, reject) => { if (!server.listening) return resolve(); server.close(error => error ? reject(error) : resolve()); server.closeIdleConnections(); }); } };
+  return { server, token, service, updater, close: async () => { clearInterval(keeper); await keeping; await updater.close(); await service.close(); await new Promise((resolve, reject) => { if (!server.listening) return resolve(); server.close(error => error ? reject(error) : resolve()); server.closeIdleConnections(); }); } };
 }
 
 if (process.argv[1] && path.resolve(process.argv[1]) === fileURLToPath(import.meta.url)) {

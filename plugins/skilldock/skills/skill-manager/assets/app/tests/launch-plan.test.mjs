@@ -7,8 +7,10 @@ import fs from 'node:fs/promises';
 import os from 'node:os';
 import path from 'node:path';
 import { resolveLaunchProject } from '../server/project-context.mjs';
-import { installationContext, delegationTarget, legacyOwnership, planLaunch } from '../server/launch-plan.mjs';
+import { installationContext, delegationTarget, legacyOwnership, planLaunch, refreshInstallations } from '../server/launch-plan.mjs';
+import { buildRecord, legacyFields, ensureLegacyProject, writeRecord, readRecord } from '../server/launcher-record.mjs';
 import { writeRestart } from '../server/installation.mjs';
+import { writeMigrationFailure } from '../server/migration.mjs';
 import { createApp } from '../server/index.mjs';
 
 const MARKET = 'testany-agent-skills';
@@ -132,4 +134,39 @@ test('health version 2: frozen fields, installation summary without paths, resta
   assert.deepEqual((await read()).restart, { id: 'j', status: 'ready' });
   await writeRestart(w.state, { ...job, source: path.join(w.root, 'elsewhere'), executor: gone });
   assert.equal((await read()).restart.status, 'failed');
+});
+
+test('bootstrap planning stops generation-1 data at the gate and refuses a failed target for restart jobs, before any toolchain work', async t => {
+  const w = await world(t);
+  const codex = await w.install('codex', '0.11.0'); await w.install('claude', '0.10.2');
+  const env = { SKILLDOCK_STATE_DIR: w.state };
+  let plan = await planLaunch({ action: 'start', env, home: w.home, appDir: codex });
+  assert.deepEqual([plan.kind, plan.error.exitCode, plan.error.output.status], ['error', 4, 'migration-blocked']);
+  plan = await planLaunch({ action: 'restart', env: { ...env, SKILLDOCK_RESTART_JOB: 'j' }, home: w.home, appDir: codex });
+  assert.deepEqual([plan.kind, plan.error.exitCode, plan.error.output], ['error', 4, undefined], '非交互入口只给原因');
+  assert.equal((await planLaunch({ action: 'status', env, home: w.home, appDir: codex })).kind, 'continue', 'status 不受门槛限制');
+  await fs.rm(path.join(w.claudeConfig, 'plugins/cache', MARKET), { recursive: true });
+  assert.equal((await planLaunch({ action: 'start', env, home: w.home, appDir: codex })).kind, 'continue');
+  await writeMigrationFailure(w.state, { appDir: codex, version: '0.11.0', message: 'x' });
+  plan = await planLaunch({ action: 'restart', env: { ...env, SKILLDOCK_RESTART_JOB: 'j' }, home: w.home, appDir: codex });
+  assert.equal(plan.error.code, 'MIGRATION_FAILED_BEFORE');
+  assert.equal((await planLaunch({ action: 'start', env, home: w.home, appDir: codex })).kind, 'continue', '交互入口不受快速拒绝限制');
+  await writeMigrationFailure(w.state, { appDir: codex, version: '0.10.9', message: 'x' });
+  assert.equal((await planLaunch({ action: 'restart', env: { ...env, SKILLDOCK_RESTART_JOB: 'j' }, home: w.home, appDir: codex })).kind, 'continue', '目标版本变化后解除');
+});
+
+test('installation changes refresh the preferred target and legacy fields, never the running installation (HLD 3.7)', async t => {
+  const w = await world(t);
+  const codex = await w.install('codex', '0.11.0');
+  let context = await installationContext({ env: w.env, home: w.home, state: w.state, appDir: codex });
+  const record = buildRecord({ state: w.state, url: 'http://127.0.0.1:1', pid: 1, digest: 'd', runtime: '/r', codexHome: w.codexHome, legacyProject: await ensureLegacyProject(w.state),
+    legacy: await legacyFields({ codexHome: w.codexHome, installs: context.installs, running: context.ownReference }), running: context.ownReference, preferred: context.preferred, actualProject: w.project });
+  await writeRecord(w.state, record);
+  assert.equal(await refreshInstallations({ state: w.state, codexHome: w.codexHome, env: w.env, home: w.home, appDir: codex }), null, '没有变化时不写');
+  const claude = await w.install('claude', '0.11.1'); const newer = await w.install('codex', '0.11.2');
+  await refreshInstallations({ state: w.state, codexHome: w.codexHome, env: w.env, home: w.home, appDir: codex });
+  const refreshed = await readRecord(w.state);
+  assert.equal(refreshed.preferred.appPath, newer); assert.equal(refreshed.source, newer, 'Codex 侧变化时刷新旧来源');
+  assert.deepEqual(refreshed.running, record.running);
+  assert.ok(claude);
 });
