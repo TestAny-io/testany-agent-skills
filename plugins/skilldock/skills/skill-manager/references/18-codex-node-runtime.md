@@ -40,3 +40,15 @@ macOS 用户安装 SkillDock 后，通过 Codex 打开应用时无需事先手�
 初次全量测试曾把已选择的 Node 也从测试夹具 PATH 中移除，导致一个使用 `env node` 的模拟 CLI 不能启动；调整为真实启动器使用的 Node PATH 后，完整 78 项重跑通过。候选的首次演练因尚未执行开发依赖安装而在测试程序入口失败；安装 lockfile 依赖后重跑通过。原始失败日志与后续结果分开保留，不将准备失败记为通过。
 
 本次未验证 Intel Mac 实机、Windows/Linux、主机重启自启动。自动下载已配置官方 macOS arm64/x64 发行包的独立摘要；本次真实下载与执行仅覆盖 arm64。所有测试服务已停止；commit/push 尚未执行。
+
+## 0.11 起的规则（HLD 3.10，DEC-SDX-012）
+
+上面的“自动下载专用 Node”已停用：Codex 与 Claude 两侧统一为“扫描本机 Node → 保存并复用 → 失效时重扫 → 找不到时弹窗引导安装”。
+
+- 扫描顺序：`SKILLDOCK_NODE_BIN` → 保存值 → Codex 工作区 Node → 已下载的专用 Node（0.10.x 下载过的继续可用，不删除）→ Homebrew 与官方安装包位置 → nvm、fnm、Volta、asdf、mise、nodenv（各自取最高版本）→ PATH。应用包内的 Node 仍只用于运行引导程序。
+- 候选清单只有一份定义（`assets/app/server/node-candidates.mjs`），`launch.sh`、`native.sh` 与后台 `run.sh` 中的 shell 片段由它生成；`node assets/app/scripts/node-candidates.mjs` 检查三处是否一致，`--write` 重新生成。
+- 选中的组合保存在数据目录的 `settings/runtime.json` 与 `settings/node-path`，两侧入口与后台任务共用；每次启动只做轻量核验，失败即重扫。`doctor` 只读，不保存。
+- npm 与所选 Node 配对：先找 Node 真实路径旁的 npm；Homebrew 的 Node 另找它所在前缀下的 `lib/node_modules/npm` 与真实路径旁的 `libexec`（不依赖 PATH 中有 npm）；再找应用包 npm 与 PATH。
+- 找不到时：交互的 `start`、`restart` 以独立进程弹出对话框（取消 / 重新检测 / 打开 Node.js 下载页），启动链立即返回文字说明；重启任务、`SKILLDOCK_NO_DIALOG=1`、非 macOS 与 `native.sh` 不弹窗。
+- 依赖安装与构建输出写入数据目录的 `build.log`，超过 1 MiB 时重新开始。
+

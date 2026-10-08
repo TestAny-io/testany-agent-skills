@@ -1,6 +1,6 @@
 # SkillDock 0.11.0 实现顺序
 
-> 上游：[PRD-SKILLDOCK-002 v0.9](34-cross-agent-prd.md)、[HLD-SDX-001 v1.13](35-cross-agent-hld.md)、[API-SDX-001 v0.13](36-cross-agent-api-contract.md)
+> 上游：[PRD-SKILLDOCK-002 v0.9](34-cross-agent-prd.md)、[HLD-SDX-001 v1.14](35-cross-agent-hld.md)、[API-SDX-001 v0.14](36-cross-agent-api-contract.md)
 > 前置版本：0.10.3 已于 2026-10-08 发布（PR #54，main `337547a`）
 > 日期：2026-10-08
 
@@ -155,9 +155,10 @@
   - 中英日三语改为跨 Agent 表述；
   - 与宿主相关的提示按对象所属 Agent 选择。
 - **文档同步**（HLD 8.4）：
-  - 根 `README.md`、根 `AGENTS.md`（Node 准备规则）；
-  - 插件中英 README、`SKILL.md`；
+  - 根 `README.md`（含“在 Claude 中安装 SkillDock”一节；删去“无需预装 Node、自动准备运行环境”的旧说法）、根 `AGENTS.md`（Node 准备规则已在阶段 2 先行修正，安装段落补 Claude）；
+  - 插件中英 README、`SKILL.md`（阶段 2 已改为宿主中立，随最终行为复核）、`references/18-codex-node-runtime.md`（阶段 2 已登记新规则）；
   - 回退说明。
+- **TeamDesk 版本**：阶段 2 给共享 marketplace 中的 `teamdesk` 条目加了“仅支持 Codex”的说明（插件文件未改）。合并前按 `plugins/teamdesk/AGENTS.md` 的版本规则决定是否随本次合并升 TeamDesk 的版本号。
 - **发布关口**：
   - 条件 3：用真实 0.11.0 跑完兼容矩阵全部用例；完成 V18（门槛的环境组合）；在真实 Codex 中完成 V17（需要 Owner 配合，会用到真实 Codex 的插件更新），用结果校正 Q9；
   - 全部 P0 验收标准；
@@ -185,6 +186,14 @@
 | 阶段 3 结束 | 第一次 UAT（只读 Claude 支持） |
 | 阶段 6 | V17（真实 Codex 中更新插件）；最终 UAT；确认合并发布与发布间隔 |
 | 任意阶段 | 实测或评审推翻设计前提时，做 HLD 增量复审并请 Owner 决定 |
+
+## 进度
+
+| 阶段 | 状态 | 提交与验证 |
+|------|------|-----------|
+| 阶段 0 | 已完成 | 契约 v0.6 起的 1b 修订；V11～V14 实测见 HLD 9.3 |
+| 阶段 1 | 已完成 | 迁移、门槛、单实例与 0.10.x 兼容义务；代码复核到第 4 轮（[r4](38-cross-agent-phase1-code-review-r4.md)）通过，其 P2 与 HLD 第 21 轮、契约第 13 轮 P2 在 `7971fd8` 处理（HLD v1.14、契约 v0.14，待增量复审） |
+| 阶段 2 | 已完成，待代码评审 | 2a 运行环境 `38bd668`；2b Claude 命令行与环境白名单 `fe777f2`；2c 分发 `7d19e86`；2d Claude 侧安装 `e0ed4ab`（两侧互调用例；可选冒烟 `tests/claude-distribution-smoke.mjs` 在临时 HOME 中真实安装：只得到技能与命令、MCP 服务为 0、TeamDesk 标注可见、`doctor` 只读）。冒烟顺带发现 Homebrew Node 与 npm 配对失败，已在 `e0ed4ab` 修正 |
 
 ## 估算
 
