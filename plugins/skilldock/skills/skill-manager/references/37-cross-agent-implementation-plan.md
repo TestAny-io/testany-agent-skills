@@ -1,6 +1,6 @@
 # SkillDock 0.11.0 实现顺序
 
-> 上游：[PRD-SKILLDOCK-002 v0.9](34-cross-agent-prd.md)、[HLD-SDX-001 v1.9](35-cross-agent-hld.md)、[API-SDX-001 v0.9](36-cross-agent-api-contract.md)
+> 上游：[PRD-SKILLDOCK-002 v0.9](34-cross-agent-prd.md)、[HLD-SDX-001 v1.10](35-cross-agent-hld.md)、[API-SDX-001 v0.10](36-cross-agent-api-contract.md)
 > 前置版本：0.10.3 已于 2026-10-08 发布（PR #54，main `337547a`）
 > 日期：2026-10-08
 
@@ -43,7 +43,7 @@
   - 后台上下文 v2。
 - **迁移门槛与接管**（DEC-SDX-022）：
   - 门槛只判断各 Agent 是否装有低于 0.10.3 的 SkillDock；
-  - 交互入口当场引导一键更新，非交互入口在解析工具链之前快速拒绝；
+  - 交互入口当场引导（阶段 1 给出原因与手动步骤；一键更新随阶段 5 的 `agent.updateSkilldock` 实现，届时补 G-01 断言），非交互入口在解析工具链之前快速拒绝；
   - 固定顺序：先取启动锁、停旧实例，再接管后台注册，然后依次写计划文件、启动记录，最后写代号；
   - 迁移失败后快速拒绝（不按时间解除）；
   - 重启任务必须写终态；
@@ -142,7 +142,8 @@
   - 某个 Agent 不可用时，其目标记为暂停，不计入失败。
 - **SkillDock 自身**：
   - 两侧都可加入计划；
-  - 一键更新另一侧（`agent.updateSkilldock`）；
+  - 一键更新另一侧（`agent.updateSkilldock`），同时接入迁移门槛失败时的交互引导（HLD 3.7、G-01）；
+  - 0.11 自身的自更新协调器：按“最新者运行”在新数据格式下发起切换（阶段 1～4 中它在代号 2 下不发起，属已知取舍）；
   - 按“最新者运行”切换。
 
 预计 2 次会话。
