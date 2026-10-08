@@ -18,6 +18,7 @@ import { runBackground } from '../server/background-worker.mjs';
 import { restoreMissingRecord } from '../server/launcher-record.mjs';
 import { writeGeneration } from '../server/generation.mjs';
 import { createApp } from '../server/index.mjs';
+import { acquireFileLock } from '../server/process-lock.mjs';
 
 const exists = file => fs.lstat(file).then(() => true, () => false);
 const read = async file => JSON.parse(await fs.readFile(file, 'utf8'));
@@ -88,6 +89,8 @@ test('gate evidence: non-orphaned Claude directories count, orphaned ones do not
     if (orphaned) await fs.writeFile(path.join(cache, name, '.orphaned_at'), '1');
   };
   await add('aaa', '0.10.2', true); await add('bbb', '0.11.0', false);
+  // Plain files beside marketplaces or version directories are not installations.
+  await fs.writeFile(path.join(cache, '.DS_Store'), 'x'); await fs.writeFile(path.join(cache, '..', '..', 'notes.txt'), 'x');
   const roots = await agentRoots({ env: {}, home: f.home });
   assert.equal((await migrationGate(roots)).passed, true);
   await add('ccc', '0.10.1', false);
@@ -231,4 +234,22 @@ test('a service stops writing once the data moves past the generation it started
   await app.service.tickScheduler();
   await fs.writeFile(path.join(state, 'generation.json'), JSON.stringify({ format: 1, generation: 3 }));
   await assert.rejects(app.service.tickScheduler(), error => error.code === 'DATA_GENERATION_NEWER' && /更新到最新版本/.test(error.message));
+  // Turning the plan off has its own fast path; it stops writing too.
+  await assert.rejects(app.service.action({ mode: 'local', action: 'schedule.configure', schedule: { enabled: false, intervalMinutes: 1440, timezone: 'UTC', autoApply: false, targets: [] } }), { code: 'DATA_GENERATION_NEWER' });
+  assert.equal(await exists(path.join(state, 'background/disabled.json')), false);
+});
+
+test('busy locks stop a migration before the old 0.10.x instance stops; nothing changes and it is not a failure', async t => {
+  const f = await fixture(t); const port = await freePort();
+  const old = await oldInstance(t, f, { port });
+  await legacyData(f, old); await changeApp(f.appDir);
+  const plan = await fs.readFile(path.join(old.state, 'local/updates.json'), 'utf8');
+  const release = acquireFileLock(path.join(old.state, 'instance.lock'));
+  try { await assert.rejects(launch('start', { ...f, port, lockWait: 300 }), /未停止现有服务/); } finally { release(); }
+  assert.equal((await probe(old.url)).pid, old.pid, '旧实例仍在运行');
+  assert.equal(await exists(path.join(old.state, 'generation.json')), false);
+  assert.equal(await fs.readFile(path.join(old.state, 'local/updates.json'), 'utf8'), plan);
+  assert.equal(await exists(path.join(old.state, 'compat/migration-failure.json')), false, '锁忙不算迁移失败');
+  const retried = await launch('start', { ...f, port });
+  try { assert.equal(retried.migrated, true); } finally { await launch('stop', { ...f, port }); }
 });

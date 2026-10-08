@@ -120,12 +120,15 @@ export async function createService(options = {}) {
   const disabledFile = mode => mode === 'local' ? backgroundPaths(stateDir, home).disabled : path.join(environments[mode].root, 'disabled.json');
   const disabledSchedule = mode => readJson(disabledFile(mode), null);
   let operationActive = false; let operationPromise; let migrationError;
-  async function withOperation(operation) {
-    if (operationActive) fail(409, 'BUSY', '另一个操作或更新批次正在执行，请稍后重试。');
-    // DEC-SDX-009: the data moved past the generation this service started with (a newer
-    // release, or a migration under a generation-1 worker); it stops writing.
+  // DEC-SDX-009: the data moved past the generation this service started with (a newer
+  // release, or a migration under a generation-1 worker); it stops writing.
+  async function ensureGeneration() {
     if (await readGeneration(stateDir) > generation)
       fail(409, 'DATA_GENERATION_NEWER', 'SkillDock 的数据已由更高版本管理，这个 SkillDock 不再写入。请把 SkillDock 更新到最新版本后重新打开。');
+  }
+  async function withOperation(operation) {
+    if (operationActive) fail(409, 'BUSY', '另一个操作或更新批次正在执行，请稍后重试。');
+    await ensureGeneration();
     // DEC-SDX-010: instance lock → Codex lock on generation-2 data, where taking a lock
     // never creates the Codex root. Generation-1 data keeps 0.10.x locking.
     let release = () => {};
@@ -137,6 +140,8 @@ export async function createService(options = {}) {
         release = () => { codex(); instance(); };
       } catch (error) { instance(); throw error; }
     }
+    // Checked again under the locks: a migration holds them while it writes the marker.
+    try { await ensureGeneration(); } catch (error) { release(); throw error; }
     operationActive = true;
     const promise = (async () => { await scheduler.reload({ recover: true }); return operation(); })();
     operationPromise = promise;
@@ -1034,6 +1039,7 @@ export async function createService(options = {}) {
     if (request.action === 'schedule.configure' && !request.schedule.enabled) {
       // This separate cancellation record never rewrites a worker's history.
       // The current atomic item completes, then the worker observes the stop.
+      await ensureGeneration();
       await verifyDirectoryRoot(applicationBoundary);
       await writeJson(disabledFile(request.mode), request.schedule);
       if (request.mode === 'local') await background?.remove({ deferBootout: isOperationActive(codexHome) });

@@ -5,7 +5,7 @@ import path from 'node:path';
 import net from 'node:net';
 import { fingerprint, launch, probe } from '../../../scripts/launch.mjs';
 import { fixture, listen, installedVersion } from './helpers/launcher-fixture.mjs';
-import { acquireFileLock } from '../server/process-lock.mjs';
+import { acquireFileLock, operationLock } from '../server/process-lock.mjs';
 
 const readRecordFile = async state => JSON.parse(await fs.readFile(path.join(state, 'launcher.json'), 'utf8'));
 async function freePort() { const { server, port } = await listen(); await new Promise(resolve => server.close(resolve)); return port; }
@@ -253,15 +253,27 @@ test('status and stop keep identifying a service after its scan project changes'
   } finally { assert.equal((await launch('stop', options)).status, 'stopped'); }
 });
 
-test('busy instance and Codex locks fail a restart before the old instance stops (HLD 3.7)', async t => {
-  const f = await fixture(t); const options = { ...f, port: await freePort() };
+for (const held of ['instance', 'codex']) test(`a busy ${held} lock fails a restart before the old instance stops (HLD 3.7)`, async t => {
+  const f = await fixture(t); const codexHome = path.join(f.root, 'codex home'); await fs.mkdir(codexHome);
+  const options = { ...f, codexHome, port: await freePort() };
   const first = await launch('start', options);
-  const release = acquireFileLock(path.join(first.state, 'instance.lock'));
+  const release = acquireFileLock(held === 'instance' ? path.join(first.state, 'instance.lock') : operationLock(await fs.realpath(codexHome)));
   try {
     await assert.rejects(launch('restart', { ...options, lockWait: 300 }), /未停止现有服务/);
     assert.equal((await probe(first.url)).pid, first.pid, '旧实例仍在运行');
     assert.deepEqual([(await readRecordFile(first.state)).pid, (await readRecordFile(first.state)).status], [first.pid, 'running']);
   } finally { release(); await launch('stop', options); }
+});
+
+test('stop with busy locks still stops the process; the record follows on a later run', async t => {
+  const f = await fixture(t); const options = { ...f, port: await freePort() };
+  const first = await launch('start', options);
+  const release = acquireFileLock(path.join(first.state, 'instance.lock'));
+  try { assert.equal((await launch('stop', options)).status, 'stopped'); } finally { release(); }
+  assert.equal(await probe(first.url), null);
+  assert.equal((await launch('status', options)).status, 'stopped');
+  const again = await launch('start', options);
+  try { assert.notEqual(again.pid, first.pid); } finally { await launch('stop', options); }
 });
 
 test('a restart job that fails before the old instance stops is closed as failed without restored (G-12)', async t => {
