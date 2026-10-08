@@ -238,7 +238,7 @@ node tests/background-launchd-smoke.mjs
 
 ## 原生主页面（0.8.0）
 
-完整 React 界面同时支持浏览器 HTTP 与 MCP Apps 传输。插件的 `.mcp.json` 使用 `cwd: "."`，由 Codex 解析到实际安装根，调用相对路径 native.sh。发现工具不会启动网页后台；打开页面后按需运行已有 launch.sh，数据仍保存在 SKILLDOCK_STATE_DIR。设置 PORT / SKILLDOCK_STATE_DIR 时，原生 MCP 与浏览器启动器须使用同一组值。
+完整 React 界面同时支持浏览器 HTTP 与 MCP Apps 传输。插件的 `codex.mcp.json` 由 Codex manifest 的 `mcpServers` 显式引用（不用根目录默认的 `.mcp.json`，以免 Claude 加载 Codex 原生入口），使用 `cwd: "."`，由 Codex 解析到实际安装根，调用相对路径 native.sh。发现工具不会启动网页后台；打开页面后按需运行已有 launch.sh，数据仍保存在 SKILLDOCK_STATE_DIR。设置 PORT / SKILLDOCK_STATE_DIR 时，原生 MCP 与浏览器启动器须使用同一组值。
 
 开发打包：`npm ci && npm run build:native && npm run build`。原生生成文件随插件分发，用户无需在插件缓存中安装依赖；修改 UI 或 MCP 源码后必须重新执行 build:native。`assets/native` 中的 server.mjs、ui.html、icon.svg、THIRD_PARTY_NOTICES.txt 和 build.json 均由该构建生成；测试核对输入与产物摘要，防止发布过期 bundle。完整源代码位于本 app 和 scripts/native.sh。
 

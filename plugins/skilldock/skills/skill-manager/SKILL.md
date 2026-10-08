@@ -1,37 +1,42 @@
 ---
 name: skill-manager
-description: 打开 SkillDock 本地 GUI，浏览和管理 Codex skills、plugins 与 marketplace 来源；适用于技能库、安装更新、启禁、移除恢复的可视化管理。普通任务只需使用某个 skill 时不触发。
+description: 打开 SkillDock 本地 GUI，浏览和管理本机 Codex 与 Claude 的 skills、plugins 与 marketplace 来源；适用于技能库、安装更新、启禁、移除恢复的可视化管理。普通任务只需使用某个 skill 时不触发。
 ---
 
 # SkillDock
 
-本 skill 随独立的 `skilldock` 插件分发，仅打开本地技能管理应用。在支持原生入口的 Codex 版本中，可从 More / Explore 的 SkillDock 打开完整主页面并固定到侧栏；后台按需自动启动。也可将本地技能管理器打开在宿主浏览器面板中。GUI 按钮直接调用本地服务，打开即加载本机技能库。用户只要求打开界面时，不替其安装、禁用或移除实际技能。
+本 skill 随独立的 `skilldock` 插件分发，可在 Codex 或 Claude 中使用，仅打开本地技能管理应用。两边打开的是同一个本地实例和同一份数据。在支持原生入口的 Codex 版本中，可从 More / Explore 的 SkillDock 打开完整主页面并固定到侧栏；在 Claude 中把本地技能管理器打开在内置浏览器面板里。GUI 按钮直接调用本地服务，打开即加载本机技能库。用户只要求打开界面时，不替其安装、禁用或移除实际技能。
 
-## 原生入口
+## Codex 原生入口
 
-插件随包提供本地 MCP 服务及完整 UI。新会话/重载后，在 More / Explore 选择 **SkillDock**；可用 **Pin to sidebar** 固定。第一次打开会自动准备后台，后续复用已核实的实例。全局页面沿用已保存的项目，首次无选择时用用户主目录，用户可从项目选择器切换。后台中断时界面会重连，不自动重放写操作。原型 SkillDock Preview 是不同测试插件，正式入口需单独固定；不自动卸载用户的 Preview。
+仅 Codex 有此入口（Claude 不加载它）。插件随包提供本地 MCP 服务及完整 UI。新会话/重载后，在 More / Explore 选择 **SkillDock**；可用 **Pin to sidebar** 固定。第一次打开会自动准备后台，后续复用已核实的实例。全局页面沿用已保存的项目，首次无选择时用用户主目录，用户可从项目选择器切换。后台中断时界面会重连，不自动重放写操作。原型 SkillDock Preview 是不同测试插件，正式入口需单独固定；不自动卸载用户的 Preview。
 
 分发和生命周期说明见 [原生应用接入](references/30-native-app.md)。
 
 ## 启动与打开
 
-从本次实际加载的 `SKILL.md` 所在目录定位 `scripts/launch.sh`，不要假定仓库 checkout 或插件缓存路径。macOS 启动器自动复用 Codex 的 Node.js/npm；缺少可用组合时准备应用专用运行环境，不要求用户先安装全局 Node.js。
+从本次实际加载的 `SKILL.md` 所在目录定位 `scripts/launch.sh`，不要假定仓库 checkout 或插件缓存路径。启动器按固定顺序查找本机 Node.js 22.12+（Codex 工作区、已下载的专用版本、Homebrew、nvm/fnm/Volta/asdf/mise/nodenv、PATH），保存所选路径供两侧入口与后台任务复用，失效时重新查找；找不到时弹出安装引导（打开下载页或安装后“重新检测”），不再自动下载。
 
 ```bash
 /bin/sh "/实际安装位置/skill-manager/scripts/launch.sh" start --project "/用户项目的绝对路径"
 ```
 
-启动前确定用户项目目录，并用 `--project` 显式传入；不要先切换到下载目录或安装目录再把它作为用户项目。未指定时依次使用 `SKILLDOCK_PROJECT_DIR`、界面保存的项目、调用工作目录。界面“切换项目”可保存新的扫描选择。可用 `SKILLDOCK_STATE_DIR` 指定独立应用数据目录、`PORT` 指定端口；默认数据位于 `~/.local/share/skilldock`，默认端口 4771。启动器把源文件复制到应用数据目录，按 lockfile 安装依赖并构建，不向安装的插件缓存写入运行数据。首次启动需要 npm registry 可达；需专用运行环境时还访问 nodejs.org 并校验固定摘要，后续复用已准备的环境和相同构建。
+启动前确定用户项目目录，并用 `--project` 显式传入；不要先切换到下载目录或安装目录再把它作为用户项目。未指定时依次使用 `SKILLDOCK_PROJECT_DIR`、界面保存的项目、调用工作目录。界面“切换项目”可保存新的扫描选择。可用 `SKILLDOCK_STATE_DIR` 指定独立应用数据目录、`PORT` 指定端口；默认数据位于 `~/.local/share/skilldock`，默认端口 4771。启动器把源文件复制到应用数据目录，按 lockfile 安装依赖并构建（输出写入数据目录的 `build.log`），不向安装的插件缓存写入运行数据。首次启动需要 npm registry 可达，后续复用相同构建。
 
-CLI 逐个验证 PATH、桌面应用内置 CLI 与 Codex 管理的副本；损坏的旧 wrapper 会被跳过。指定 `SKILLDOCK_CODEX_BIN` 时必须是有效的绝对路径。CLI 诊断也包含在 `doctor` 中，实际来源说明见 [应用安装说明](assets/app/README.md)。
+Codex CLI 逐个验证 PATH、桌面应用内置 CLI 与 Codex 管理的副本；损坏的旧 wrapper 会被跳过。Claude 命令行依次取显式指定、已保存值、从 Claude 打开时会话提供的路径、Claude 桌面应用自带的版本、PATH 与用户目录下的安装，选中后保存并在使用前核验版本。指定 `SKILLDOCK_CODEX_BIN` 或 `SKILLDOCK_CLAUDE_BIN` 时必须是有效的绝对路径。SkillDock 的服务与它调用的命令行只继承白名单内的环境变量，不带入宿主会话变量。CLI 诊断也包含在 `doctor` 中，实际来源说明见 [应用安装说明](assets/app/README.md)。
 
-运行环境发现失败时先执行 `launch.sh doctor`。宿主若提供 `load_workspace_dependencies`，可读取其返回的真实 Node 路径，以 `SKILLDOCK_NODE_BIN` 指定；自定义 Codex 应用位置使用 `SKILLDOCK_CODEX_APP_DIR`。不要修改 Codex 的签名或用户 shell 配置来绕过加载限制。诊断及兼容边界见 [运行环境接入](references/18-codex-node-runtime.md)。
+运行环境发现失败时先执行 `launch.sh doctor`（只读，不写任何文件）。宿主若提供 `load_workspace_dependencies`，可读取其返回的真实 Node 路径，以 `SKILLDOCK_NODE_BIN` 指定；自定义 Codex 应用位置使用 `SKILLDOCK_CODEX_APP_DIR`。无人值守或没有图形界面的环境可设 `SKILLDOCK_NO_DIALOG=1` 关闭安装引导对话框。不要修改 Codex 的签名或用户 shell 配置来绕过加载限制。诊断及兼容边界见 [运行环境接入](references/18-codex-node-runtime.md)。
 
 核对启动前后打印的请求目录和最终扫描目录、目录来源与 Codex CLI 绝对路径。真实路径与请求路径不同会有符号链接说明；若最终目录不符合用户意图，修正 `--project` 后重新打开，不把 HTTP 200 当作扫描目录正确的证据。
 
-读取启动器返回的实际 URL。宿主提供 `open_in_codex` 时，以 browser target、`placement: right` 打开 URL；否则使用已提供的浏览器工具，或给出可点击链接。工具不存在时不伪造面板已打开。原生全局入口已在 26.924.22138 验证；宿主未显示该入口时使用此浏览器路径。不要自行改写宿主固定记录。
+读取启动器返回的实际 URL，按当前宿主打开：
 
-默认读取本机已知技能根和可用 CLI 证据，不声称扫描整台磁盘。界面显示每个对象的可用操作和原因。已运行 Codex 会话不保证即时重新加载配置；按应用反馈提示重启/新会话。
+- **Codex**：宿主提供 `open_in_codex` 时，以 browser target、`placement: right` 打开 URL；否则使用已提供的浏览器工具，或给出可点击链接。原生全局入口已在 26.924.22138 验证；宿主未显示该入口时使用此浏览器路径。
+- **Claude**：用宿主提供的浏览器工具在内置浏览器面板中打开 URL（例如桌面应用的浏览器面板）；没有此类工具时给出可点击链接。
+
+工具不存在时不伪造面板已打开。不要自行改写宿主固定记录。
+
+默认读取本机已知技能根和可用 CLI 证据，不声称扫描整台磁盘。界面显示每个对象的可用操作和原因。已运行的 Codex 或 Claude 会话不保证即时重新加载配置；按应用反馈提示重启、新开会话或重载插件。
 
 ## 状态与停止
 

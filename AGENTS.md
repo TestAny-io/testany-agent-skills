@@ -6,7 +6,7 @@
 
 当用户要求“安装 SkillDock”“安装技能管理面板”或安装并打开本应用时，先读 [README 的 Codex 安装说明](README.md#在-codex-中使用-skilldock)。用户在 clone 后的仓库中要求安装时，默认使用本地仓库来源；用户指定 GitHub 来源时按其选择执行。
 
-- 检查 Git 和当前 Codex 的插件安装能力；按 README 添加 marketplace 并仅安装 `skilldock`；不要安装整个 `testany-eng` 代替应用。PATH 的 codex 不可执行或缺少 plugin 能力时，按 README 检查桌面应用内 CLI，并记录最终绝对路径。打开应用时使用其 `launch.sh` 自动准备 Node.js/npm，不将手动安装全局 Node 作为前置步骤。
+- 检查 Git 和当前 Codex 的插件安装能力；按 README 添加 marketplace 并仅安装 `skilldock`；不要安装整个 `testany-eng` 代替应用。PATH 的 codex 不可执行或缺少 plugin 能力时，按 README 检查桌面应用内 CLI，并记录最终绝对路径。打开应用时使用其 `launch.sh`：它查找并保存本机可用的 Node.js 22.12+（Codex 用户通常可直接复用 Codex 工作区的 Node），找不到时弹出安装引导；不要预先要求用户安装全局 Node，也不要自行下载 Node 或修改 shell 配置。
 - 读回安装结果，确认包含 `skill-manager`；不要将 clone、仅添加 marketplace 或复制源码表述为安装完成。
 - 用户要求同时打开时，读取实际安装目录中的 `skills/skill-manager/SKILL.md` 并按其启动说明执行。后续可在新的 Codex 任务中用 `$skill-manager` 打开面板。
 - 缺少工具或当前宿主不支持所需能力时，明确说明缺少项和可执行的下一步。普通浏览、审查或编辑仓库不触发安装。

@@ -46,7 +46,7 @@ MCP 仅代理固定 GET 路由和 `/api/actions` POST；拒绝任意 URL、任�
 
 ## 原生验收与分发边界（2026-09-28 实现阶段）
 
-本机已有 Preview 通过正常本地 marketplace 重装流程临时接入正式源码，保留其 server 配置名和 open_skilldock 工具名，使用当前 standalone 数据目录；已通过实际 MCP 读回本机清单和正确项目目录。这个本机开发适配不随包分发；正式插件采用可移植 `.mcp.json`，其安装和冷启动已在隔离 HOME 实测。
+本机已有 Preview 通过正常本地 marketplace 重装流程临时接入正式源码，保留其 server 配置名和 open_skilldock 工具名，使用当前 standalone 数据目录；已通过实际 MCP 读回本机清单和正确项目目录。这个本机开发适配不随包分发；正式插件采用可移植 `.mcp.json`，其安装和冷启动已在隔离 HOME 实测。0.11 起该文件改名为 `codex.mcp.json`，由 Codex manifest 的 `mcpServers` 显式引用，避免 Claude 默认加载它（DEC-SDX-013，HLD 9.3 V1）。
 
 待用户验收：重载插件或完全重启 Codex 后，原固定入口显示完整界面；后台未运行时直接点击可启动；关闭/重新打开、重启后台后能恢复；实际宿主中的复制、外链、主题/语言保存与业务操作正常。原生固定持久化只有此前 PoC 的实机证据，不能据此声称本次完整产品 UAT 已通过。
 
