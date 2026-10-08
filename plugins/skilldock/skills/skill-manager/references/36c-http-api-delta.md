@@ -8,12 +8,12 @@
 | 项目 | 内容 |
 |------|------|
 | 契约 | API-SDX-001-C HTTP 接口增量 |
-| 版本 | 0.6 |
-| 状态 | 第 4 轮契约复审 APPROVED（v0.4）。本版处理第 4 轮的 P2，待增量复核。第 4、5 节随 0.10.3 冻结（HLD 11A 条件 1a，0.10.3 已发布）；其余各节属条件 1b，在实现 0.11.0 的 HTTP 接口之前定稿并通过评审 |
+| 版本 | 0.7 |
+| 状态 | 第 6 轮契约复核 APPROVED（v0.6）。本版处理第 6 轮的 P2，待增量复核。第 4、5 节随 0.10.3 冻结（HLD 11A 条件 1a，0.10.3 已发布）；其余各节属条件 1b |
 | Owner | SkillDock 维护者（产品 Owner：用户） |
 | 服务方 | SkillDock 0.11.x 本机服务（仅监听 `127.0.0.1`） |
 | 消费方 | 0.11.x 浏览器界面与原生界面；0.10.2、0.10.3 的原生界面（经各自原生入口代理）；0.10.2 启动器与原生入口、0.10.3 转交链（只读健康检查） |
-| 上游 | PRD-SKILLDOCK-002 v0.9（5.2.2、5.6、AC-002、003、015、016）；HLD-SDX-001 v1.6 第 3.2、3.5、4、5 节 |
+| 上游 | PRD-SKILLDOCK-002 v0.9（5.2.2、5.6、AC-002、003、015、016）；HLD-SDX-001 v1.7 第 3.2、3.5、4、5 节 |
 
 ## 2. 范围与边界
 
@@ -187,16 +187,16 @@ export interface NativeRule {
 - 只合并**独立技能**：两侧都在技能根中发现、真实路径相同的技能目录视为同一个对象，只出现一次，`agents` 同时包含两侧，对象 ID 取 Codex 侧的现有 ID。某一侧是插件附带的技能时不合并，两侧各是一个对象。
 - 共用对象的顶层 `path`、`scope`、`enabled`、`canToggle`、`canRemove`、`canUpdate`、`removeKind`、`reason`、`managed`、`protection` 一律取 **Codex 侧**的值（1 版客户端与 MR-SDX-001 的语义）；顶层不出现 `visibility`、`enablement`。
 - `perAgent` 只在 `multiAgent=1` 时给出；对共用对象必须给出，并包含两侧各自的 `SkillSide`，两侧状态互相独立（例如 Codex 启用、Claude 关闭是正常状态）。
-- **2 版请求的判定**：写请求带 `agent` 即按 2 版规则处理（确认、修订号核对等）；2 版客户端的所有写请求都必须带 `agent`（HLD 4.2）。不带 `agent` 的请求按 1 版处理：对象按 Codex 侧解释，保持 0.10.2 行为。
+- **2 版请求的判定**：写请求带 `agent` 即按 2 版规则处理（确认、修订号核对等）；2 版客户端的所有写请求都必须带 `agent`（HLD 4.2）。没有单一所属对象的操作（`settings.*`、`schedule.configure`、`updates.run`、`skill.previewRemoval`、`skill.removeSelected`）顶层 `agent` 只作 2 版标志，固定取 `codex`，不影响语义；各目标的侧别取自 `targets[].agent` 或对象 ID。不带 `agent` 的请求按 1 版处理：对象按 Codex 侧解释，保持 0.10.2 行为。
 - **启禁**按侧执行：服务端按请求一侧的 `SkillSide` 判断能否操作、是否需要确认；结果的 `ActionResult.agent` 为该侧。
 - **移除**按请求的一侧作用于**该侧的发现路径**，沿用 0.10.2 与 AC-005：该侧是链接（`removeKind: "link"`）就只移除链接，只影响该侧；该侧发现路径就是真实目录（`removeKind: "directory"`）时移走目录，另一侧随之失效。后一种情况下，2 版请求未带 `confirm: true` 时返回 `CONFIRMATION_REQUIRED`，`nativeRules` 中一条 `kind: "scope"` 说明会同时影响 Codex 与 Claude。`ActionResult.agent` 为请求的一侧。
 - **恢复**（`activity.restore`）按操作记录还原到原发现路径，作用的一侧取自操作记录（`Activity.agent`），与请求中的 `agent` 无关；`ActionResult.agent` 为记录中的一侧。
-- **批量移除**（同名副本：`skill.previewRemoval`、`skill.removeSelected`）：2 版请求的 `ids` 可以包含 Claude 对象 ID；预览中任何一项的移除会移走两侧共用的真实目录，或改动另一侧插件的内容时，预览结果带相应的 `nativeRules`，执行时须带 `confirm: true`，否则返回 `CONFIRMATION_REQUIRED`。1 版请求保持 0.10.2 行为。
+- **批量移除**（同名副本：`skill.previewRemoval`、`skill.removeSelected`）：2 版请求的 `ids` 可以包含 Claude 对象 ID；预览中任何一项的移除会移走两侧共用的真实目录，或改动另一侧插件的内容时，预览结果带相应的 `nativeRules`，执行时须带 `confirm: true`，否则返回 `CONFIRMATION_REQUIRED`。批量中的共用对象一律作用于 Codex 侧的发现路径（与 1 版一致）。整批仍保持 0.10.2 的原子语义：整组签名与任一项的核对（含 Claude 对象与共用技能的状态）失败都整批拒绝（`REMOVAL_CHANGED`），一份都不移。1 版请求保持 0.10.2 行为。
 - **更新**作用于真实目录，只能经 `canUpdate` 为真的一侧发起，`UpdateTarget.agent` 取该侧；预览带一条 `kind: "scope"` 的 `NativeRule`，说明两侧看到的内容都会改变。`canUpdate` 的规则：
   - 一侧可更新，须该侧发现路径就是真实目录（技能根本身可以是链接），且该侧分区有来源记录；
   - 两侧都满足时（例如两侧的技能根都链接到同一目录），以 **Codex 侧**为准，Claude 侧 `canUpdate` 为假，`reason` 说明“由 Codex 侧的来源记录管理”；两侧来源记录指向不同来源时，两侧都不可更新，`reason` 说明冲突；
-  - 关联来源（`skill.previewSource`、`skill.connectSource`）写入请求一侧的分区；另一侧已有指向不同来源的记录时拒绝，返回 `SOURCE_CONFLICT`。
-- **跨侧影响提示**：Codex 侧独立技能的真实路径位于某个 Claude 插件的目录内（含 Claude 技能目录插件 `名称@skills-dir`）时，虽然不合并，2 版请求对它的移除与更新同样要求确认，`nativeRules` 中一条 `kind: "affected-plugins"` 列出受影响的 Claude 插件；反之亦然（AC-003）。
+  - 关联来源（`skill.previewSource`、`skill.connectSource`）写入请求一侧的分区；2 版请求遇到另一侧已有指向不同来源的记录时拒绝，返回 `SOURCE_CONFLICT`，`message` 说明怎样解除（例如在另一侧重新关联到相同来源）；1 版请求不做冲突检查，照 0.10.2 写入，冲突状态按上一条处理（两侧都不可更新）。经一侧更新后，另一侧的同源记录同步刷新内容指纹，避免日后误报本地修改。
+- **跨侧影响提示**：Codex 侧独立技能的真实路径位于某个 Claude 插件的目录内（含 Claude 技能目录插件 `名称@skills-dir`）时，虽然不合并，2 版请求对它的移除与更新在会移走或改写插件目录内的内容时同样要求确认（只移除指向插件目录的链接不需要），`nativeRules` 中一条 `kind: "affected-plugins"` 列出受影响的 Claude 插件；反之亦然（AC-003）。只在另一侧环境已被发现时提示，提示不改变操作结果。这类技能加入后台计划时须在 `schedule.configure` 中带 `confirm: true` 确认一次；未确认的，后台与 `updates.run` 跳过并说明原因。
 - **并行改动核对**：2 版请求对共用对象的单对象写请求都带顶层 `revision`（覆盖两侧状态）作为 `expectedRevision`；1 版请求免带。多目标操作的处理见 7.1 的 `expectedRevision`。
 - 插件与 marketplace 由各宿主分别安装与登记，两侧各是一个对象，`agents` 只含一侧，不使用 `perAgent`；同源归组（REQ-SDX-010）在 M4 另行增补。
 
@@ -213,10 +213,10 @@ export interface NativeRule {
 |------|------|------|
 | `agent` | `Agent` | 对象所属的一侧。带 `agent` 的写请求按 2 版规则处理；2 版客户端的所有写请求都必须带（见第 6 节“2 版请求的判定”）。缺省为 Codex（1 版） |
 | `scope` | `"user" \| "project" \| "local"` | Claude 写入作用域；缺省 `user`。`project` 会改动协作者共享的设置，须同时带 `confirm: true` |
-| `confirm` | `boolean` | 用户已在确认框中同意本次需要确认的改动：共享作用域、可见性从“仅名称/仅用户可调用”改为开或关、卸载 Claude 插件（默认删除插件数据）、移除 Claude marketplace（会卸载从它安装的插件）、移走两侧共用的技能目录、清理 SkillDock 管理的本地 marketplace |
+| `confirm` | `boolean` | 用户已在确认框中同意本次需要确认的改动：共享作用域、可见性从“仅名称/仅用户可调用”改为开或关、卸载 Claude 插件（默认删除插件数据）、移除 Claude marketplace（会卸载从它安装的插件）、移走两侧共用的技能目录、移除或更新会改写另一侧插件目录内容的技能、批量移除中涉及上述两类的项、把这类技能加入后台计划、清理 SkillDock 管理的本地 marketplace |
 | `gitExclude` | `boolean` | 新建的 `.claude/settings.local.json` 位于未忽略的 Git 仓库时，用户是否同意写入 `.git/info/exclude` |
 | `keepData` | `boolean` | 卸载 Claude 插件时保留插件数据 |
-| `expectedRevision` | `string` | 界面所依据的对象 `revision`。2 版请求对**单个**已存在、带 `revision` 的对象（Claude 对象、共用技能、Claude marketplace）的写操作必须带；缺失或不一致都返回 `SNAPSHOT_STALE`，界面刷新后重试。多目标操作（`updates.run`、`schedule.configure`、`skill.removeSelected`）不带，改为执行前按目标重新读取并核对预览基线，不一致的目标单独记为失败并说明原因，不影响其他目标。1 版请求免带 |
+| `expectedRevision` | `string` | 界面所依据的对象 `revision`。2 版请求对**单个**已存在、带 `revision` 的对象（Claude 对象、共用技能、Claude marketplace）的写操作必须带；缺失或不一致都返回 `SNAPSHOT_STALE`，界面刷新后重试。多目标操作不带：`updates.run` 执行前按目标重新读取并核对预览基线，不一致的目标单独记为失败并说明原因，不影响其他目标；`skill.removeSelected` 保持 0.10.2 的整批原子语义（见第 6 节“批量移除”）；`schedule.configure` 只保存计划，只核对目标仍可解析。1 版请求免带 |
 | `management` | `AgentManagement` | 用于 `agent.setManagement`（只接受 `enabled`、`read-only`） |
 | `claudeRoot` | `{ configDir: string; pluginCacheDir: string }` | 用于 `settings.setClaudeRoot` |
 | `nodePath` | `string` | 用于 `settings.setNodePath` |
@@ -249,7 +249,7 @@ export interface NativeRule {
 
 需要确认的操作在未带 `confirm: true` 时返回 `CONFIRMATION_REQUIRED`，错误体额外带 `nativeRules`（`{ "error": { "code", "message", "nativeRules": NativeRule[] } }`），界面据此显示确认框（AC-016）；这是错误体唯一的扩展字段，只出现在这个错误码上。
 
-所有 Claude 写操作：写前重新读取对象状态并与 `expectedRevision` 比较；成功后读回，结果带 `needsReload: true` 与 `agent: "claude"`。
+所有 Claude 写操作：写前重新读取对象状态并与 `expectedRevision` 比较（多目标操作见 7.1）；成功后读回，结果带 `needsReload: true` 与 `agent: "claude"`。
 
 ### 7.4 示例
 
@@ -302,7 +302,7 @@ export interface NativeRule {
 | `NODE_UNAVAILABLE` | 422 | 指定或扫描到的 Node 不满足要求 | 修正后可 | REQ-SDX-009 |
 | `SOURCE_CONFLICT` | 409 | 共用技能的另一侧已关联到不同的来源 | 解除冲突后可 | REQ-SDX-005 |
 
-沿用的错误码（`CLI_UNAVAILABLE`、`READBACK_FAILED`、`INVALID_PATH`、`TOKEN_REJECTED` 等）在 Claude 侧含义不变，消息按 Agent 措辞。新错误码原则上只在带 `agent: "claude"` 的请求或新增操作上出现；1 版客户端可能收到的三个例外见第 5 节。
+沿用的错误码（`CLI_UNAVAILABLE`、`READBACK_FAILED`、`INVALID_PATH`、`TOKEN_REJECTED` 等）在 Claude 侧含义不变，消息按 Agent 措辞。新错误码只在 2 版请求（带 `agent`）或新增操作上出现；1 版客户端可能收到的三个例外见第 5 节。
 
 ## 9. 原生入口的路由白名单
 
