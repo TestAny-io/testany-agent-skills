@@ -46,6 +46,17 @@ async function world(t, { repo = false, cliAvailable = true, before } = {}) {
     if (args[0] === 'rev-parse' && args[1] === '--git-path') return '.git/info/exclude';
     throw new Error('not ignored');
   };
+  // Copies a plugin from its directory marketplace into Claude's cache, under the version Claude computes.
+  const cached = async id => {
+    const [name, marketName] = id.split('@'); const market = claude.marketplaces.find(item => item.name === marketName);
+    const root = market.path.replace(/\/$/, ''); const entry = JSON.parse(await fs.readFile(path.join(root, '.claude-plugin/marketplace.json'), 'utf8')).plugins.find(item => item.name === name);
+    const directory = path.resolve(root, entry.source);
+    const manifest = JSON.parse(await fs.readFile(path.join(directory, '.claude-plugin/plugin.json'), 'utf8').catch(() => '{}'));
+    const version = manifest.version ?? entry.version ?? 'unknown';
+    const installPath = path.join(configDir, 'plugins/cache', marketName, name, version);
+    await fs.rm(installPath, { recursive: true, force: true }); await fs.cp(directory, installPath, { recursive: true });
+    return { version, installPath };
+  };
   const writer = () => async (args, { cwd }) => {
     claude.calls.push(args.join(' ')); claudeWriteArgs(args); claude.locks.push(await lockHeld());
     const [, verb, a, b] = args; const scope = args[args.indexOf('--scope') + 1];
@@ -53,7 +64,13 @@ async function world(t, { repo = false, cliAvailable = true, before } = {}) {
     if (verb === 'marketplace' && a === 'add' && !claude.noopAdd) { const name = JSON.parse(await fs.readFile(path.join(b, '.claude-plugin/marketplace.json'), 'utf8')).name; const shown = claude.slash ? `${b}/` : b; claude.marketplaces.push({ name, source: 'directory', path: shown, installLocation: shown }); }
     // Claude uninstalls what came from a marketplace it removes.
     if (verb === 'marketplace' && a === 'remove' && !claude.stuck) { claude.marketplaces = claude.marketplaces.filter(item => item.name !== b); claude.plugins = claude.plugins.filter(item => !item.id.endsWith(`@${b}`)); if (claude.breakAfterRemove) claude.listFails = true; }
-    if (verb === 'install' && !claude.noopInstall) claude.plugins.push({ id: a, scope, enabled: true, version: '2.0.0', ...(scope === 'user' ? {} : { projectPath: cwd }) });
+    if (verb === 'install' && !claude.noopInstall) claude.plugins.push({ id: a, scope, enabled: true, ...await cached(a), ...(scope === 'user' ? {} : { projectPath: cwd }) });
+    // As Claude does: a new version gets its own directory; an unchanged one is up to date (phase 5c).
+    if (verb === 'update') {
+      const install = claude.plugins.find(item => item.id === a && item.scope === scope); const next = await cached(a);
+      if (next.version !== 'unknown' && next.version === install.version) return { updateOutcome: 'up_to_date' };
+      Object.assign(install, next); return { updateOutcome: 'updated' };
+    }
     if (verb === 'install' && scope === 'local') await write(path.join(cwd, '.claude/settings.local.json'), { enabledPlugins: { [a]: true } });
     if (verb === 'uninstall') claude.plugins = claude.plugins.filter(item => !(item.id === a && item.scope === scope));
     return { ok: true };
@@ -415,6 +432,39 @@ test('a skills-directory plugin whose removal cannot be recorded is moved back',
   assert.ok(failed.code, '记录写不进时操作失败');
   assert.ok(await exists(path.join(w.configDir, 'skills/tidy/.claude-plugin/plugin.json')), '插件目录移回原处');
   assert.deepEqual(await fs.readdir(path.join(local, 'quarantine')), [], '可恢复区没有残留');
+});
+
+test('a plugin from a marketplace SkillDock generated updates from its original source (phase 5c)', async t => {
+  const w = await world(t);
+  await installHelper(w); const market = await marketOf(w); const copy = path.join(dirOf(w, market), 'plugins/helper');
+  const target = (await w.snapshot()).updates.find(item => item.name === 'helper').target;
+  const check = async () => (await w.act({ action: 'update.check', agent: 'claude', target })).updateItem;
+  assert.equal((await check()).status, 'current');
+  // Changed content under the same version: Claude would not update it.
+  await skillFile(path.join(w.root, 'codex-only/skills'), 'help-more');
+  const same = await check();
+  assert.deepEqual([same.status, same.reasonCode], ['blocked', 'VERSION_UNCHANGED']);
+  assert.equal(await exists(path.join(copy, 'skills/help-more')), false, '检查不改动 SkillDock 的副本');
+  // A new version: checked, applied, and SkillDock's copy and record follow.
+  await write(path.join(w.root, 'codex-only/.codex-plugin/plugin.json'), { name: 'helper', version: '2.1.0', description: 'Helper plugin.' });
+  const available = await check();
+  assert.deepEqual([available.status, available.availableVersion], ['available', '2.1.0']);
+  const before = (await w.registry()).claudeDirectPlugins[market].fingerprint;
+  const applied = await w.act({ action: 'update.apply', agent: 'claude', target, previewId: available.previewId });
+  assert.match(applied.message, /已更新 Claude 插件 helper（2\.0\.0 → 2\.1\.0）/);
+  assert.deepEqual(w.claude.calls.slice(-2), [`plugin marketplace update ${market} --json`, `plugin update helper@${market} --scope user --json`]);
+  assert.ok(await exists(path.join(copy, 'skills/help-more/SKILL.md')));
+  assert.notEqual((await w.registry()).claudeDirectPlugins[market].fingerprint, before, '登记随之更新');
+  assert.equal((await check()).status, 'current');
+  // A source changed after the preview stops it; SkillDock's copy stays as it was.
+  await write(path.join(w.root, 'codex-only/.codex-plugin/plugin.json'), { name: 'helper', version: '2.2.0', description: 'Helper plugin.' });
+  const next = await check();
+  await skillFile(path.join(w.root, 'codex-only/skills'), 'late');
+  assert.equal((await w.act({ action: 'update.apply', agent: 'claude', target, previewId: next.previewId })).code, 'SOURCE_CHANGED');
+  assert.equal(await exists(path.join(copy, 'skills/late')), false);
+  // A source that renamed its plugin cannot update this one.
+  await write(path.join(w.root, 'codex-only/.codex-plugin/plugin.json'), { name: 'renamed', version: '3.0.0' });
+  assert.equal((await w.act({ action: 'update.check', agent: 'claude', target })).code, 'SOURCE_CHANGED');
 });
 
 // New messages the cases above do not reach (4d review P3-09).

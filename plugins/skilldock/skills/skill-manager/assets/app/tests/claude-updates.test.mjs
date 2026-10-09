@@ -83,12 +83,12 @@ test('a skills-directory plugin with a recorded source updates by the same file 
   assert.match(await fs.readFile(path.join(w.configDir, 'skills/tidy/skills/tidy-up/SKILL.md'), 'utf8'), /v2/);
   const record = (await w.snapshot()).activity.find(item => item.agent === 'claude' && item.action === 'skill.update');
   assert.match((await w.act({ action: 'activity.restore', id: record.id })).message, /已恢复 Claude 插件 tidy/);
-  // A plugin from a marketplace is checked through Claude's command line (phase 5b); one synced
-  // from claude.ai, or from a marketplace SkillDock generated (phase 5c), says why not.
+  // A plugin from a marketplace, SkillDock-generated ones included (phases 5b, 5c), is checked through
+  // Claude's command line; one synced from claude.ai says why not.
   w.lists.plugins = [{ id: 'later@market', scope: 'user', enabled: true, version: '1.0.0' }, { id: 'cloud@synced', scope: 'user', enabled: true, version: '1.0.0' }, { id: 'own@skilldock-0123456789abcdef0123', scope: 'user', enabled: true, version: '1.0.0' }];
   const updates = (await w.snapshot()).updates;
   const of = name => updates.find(item => item.target.id.includes(name));
-  assert.deepEqual([of('later@market').route, of('later@market').canCheck, of('cloud@synced').canCheck, of('cloud@synced').reasonCode, of('own@skilldock-').reasonCode], ['claude-plugin', true, false, 'HOST_MANAGED', 'NOT_YET_AVAILABLE']);
+  assert.deepEqual([of('later@market').route, of('later@market').canCheck, of('cloud@synced').canCheck, of('cloud@synced').reasonCode, of('own@skilldock-').canCheck], ['claude-plugin', true, false, 'HOST_MANAGED', true]);
 });
 
 test('plans and batches take Claude targets; while Claude is not managed they pause and its items are not checked', async t => {

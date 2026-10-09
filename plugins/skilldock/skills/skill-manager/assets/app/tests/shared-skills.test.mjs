@@ -318,6 +318,20 @@ test('batch removal: content inside the other side\'s plugin is confirmed; versi
   assert.match((await v.act({ action: 'skill.removeSelected', previewId: plain.removalPreview.id })).message, /已移除选中的 1 份同名技能/);
 });
 
+test('a shared skill whose two sides name different sources is not checked in a batch either (phase 5c)', async t => {
+  const w = await world(t, { bothRoots: true });
+  await skillFile(path.join(w.root, 'upstream'), 'shared');
+  await w.link('codex', path.join(w.root, 'upstream/shared'));
+  const registry = await w.registry(); const real = await fs.realpath(path.join(w.root, 'common/skills/shared'));
+  const skill = await w.shared();
+  registry.claudeSources = { [real]: { ...registry.sources[skill.id], source: path.join(w.root, 'elsewhere/shared') } };
+  await fs.writeFile(w.service.environments.local.registryFile, JSON.stringify(registry));
+  const item = (await w.snapshot()).updates.find(entry => entry.target.id === skill.id);
+  assert.deepEqual([item.canCheck, item.canAutoApply, item.reasonCode], [false, false, 'SOURCE_CONFLICT']);
+  const batch = await w.act({ action: 'updates.run', agent: 'codex', targets: [{ kind: 'skill', id: skill.id }], autoApply: true });
+  assert.deepEqual(batch.run.items.map(entry => [entry.status, entry.reasonCode]), [['skipped', 'SOURCE_CONFLICT']]);
+});
+
 test('every message seen above has a whole English and Japanese translation', async () => {
   const messages = [...seen].filter(text => /[一-鿿]/.test(text));
   assert.ok(messages.length > 5, `${messages.length}`);

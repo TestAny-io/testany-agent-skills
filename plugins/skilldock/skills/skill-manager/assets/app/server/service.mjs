@@ -277,7 +277,10 @@ export async function createService(options = {}) {
       mergeClaude(result, claude ?? { skills: [], plugins: [], marketplaces: [], diagnostics: [] });
       if (claude) {
         const roots = { user: path.join(found.claudeRoot.configDir, 'skills'), project: path.join(env.project, '.claude/skills') };
-        await decorateClaudeSkills(result, registry, roots);
+        const conflicts = await decorateClaudeSkills(result, registry, roots);
+        // 36c §6: different sources leave neither side able to update; a batch or a plan skips it too (phase 5c).
+        for (const item of result.updates) if (item.target.kind === 'skill' && !item.target.agent && conflicts.has(item.target.id))
+          Object.assign(item, { status: 'blocked', canCheck: false, canApply: false, canAutoApply: false, reasonCode: 'SOURCE_CONFLICT', message: result.skills.find(skill => skill.id === item.target.id).reason });
         // Phase 5a: Claude objects join the update list, before any side is marked read-only (which
         // then leaves its items checkable or not, but never applicable); a shared skill Claude leads
         // is listed once, under Claude.
@@ -356,7 +359,7 @@ export async function createService(options = {}) {
    * sources leave neither side able, and say why.
    */
   async function decorateSharedSkill(skill, registry, roots) {
-    const claude = skill.perAgent.claude; const codex = skill.perAgent.codex;
+    const claude = skill.perAgent.claude; const codex = skill.perAgent.codex; let conflict = false;
     const directory = path.dirname(claude.path); const real = await realDirectory(directory);
     const isLink = await fs.lstat(directory).then(stat => stat.isSymbolicLink(), () => false);
     const inRoot = path.dirname(directory) === (claude.scope === 'user' ? roots.user : roots.project) && !directory.split(path.sep).includes('.system') && !inside(real, fileURLToPath(import.meta.url));
@@ -368,16 +371,20 @@ export async function createService(options = {}) {
     if (claudeSource && codexSource && !await sameSourceAt(claudeSource, codexSource)) {
       const reason = `Codex 与 Claude 两侧为这个技能关联了不同的来源（${codexSource.source}、${claudeSource.source}），两侧都不能更新；请在一侧重新关联到相同的来源。`;
       Object.assign(skill, { canUpdate: false, reason }); Object.assign(codex, { canUpdate: false, reason }); claude.reason = reason;
+      conflict = true;
     } else if (codex.canUpdate) {
       if (claudeSource) claude.reason = '由 Codex 侧的来源记录管理更新。';
     } else if (claudeSource && !isLink && open && !repository) claude.canUpdate = true;
     if (!claude.canToggle && !claude.reason) claude.reason = claude.protection ? '可见性由组织托管设置决定，不能在这里修改。' : '这个技能在 Claude 一侧不能在这里修改。';
     if (claude.canToggle && claude.canRemove && claude.reason === undefined) delete claude.reason;
+    return conflict;
   }
   /** Removal and updates of Claude-only skills, from SkillDock's own records (snapshots only). */
+  /** Returns the shared skills whose two sides name different sources. */
   async function decorateClaudeSkills(result, registry, roots) {
+    const conflicts = new Set();
     for (const skill of result.skills) {
-      if (skill.agents?.length === 2 && skill.perAgent?.claude) { await decorateSharedSkill(skill, registry, roots); continue; }
+      if (skill.agents?.length === 2 && skill.perAgent?.claude) { if (await decorateSharedSkill(skill, registry, roots)) conflicts.add(skill.id); continue; }
       if (skill.agents?.length !== 1 || skill.agents[0] !== 'claude' || !['user', 'project'].includes(skill.scope) || skill.protection) continue;
       const directory = path.dirname(skill.path);
       // Only the personal skills directory and the current project's .claude/skills: a parent
@@ -392,6 +399,7 @@ export async function createService(options = {}) {
       Object.assign(skill, { canRemove: true, removeKind: skill.isLink ? 'link' : 'directory', canUpdate: !!source && !skill.isLink && !repository });
       if (skill.canToggle) delete skill.reason;
     }
+    return conflicts;
   }
   const trackedInfo = source => ({ kind: 'tracked', confidence: source.confidence || 'verified', owner: 'SkillDock', label: source.confidence === 'user-confirmed' ? '用户关联来源' : '已追踪来源',
     evidence: '已记录来源及当前安装内容指纹；更新前重新校验。', source: publicSource(source.source), sourceType: source.sourceType, subpath: source.subpath, ref: source.ref, commit: source.commit });
@@ -730,11 +738,14 @@ export async function createService(options = {}) {
       if (!install?.installPath) fail(404, 'NOT_FOUND', '未找到这个插件的安装目录，请刷新后重试。');
       const market = lists.marketplaces.find(item => item.name === plugin.marketplace);
       if (!market) fail(404, 'NOT_FOUND', '这个插件的 marketplace 已不在 Claude 中，请刷新后重试。');
+      // Phase 5c: a marketplace SkillDock generated follows the source it was made from (HLD 3.3).
+      const tracked = (await registryFor(env)).claudeDirectPlugins?.[plugin.marketplace];
+      const direct = !!tracked && ownClaudeDirect({ name: market.name, source: market.path ?? market.installLocation }, tracked, env);
       // A remote marketplace is refreshed first: its entry may have moved on (HLD 3.3A).
       if (!['directory', 'file'].includes(market.source)) await run(['plugin', 'marketplace', 'update', plugin.marketplace, '--json'], { cwd: await userCwdFor(found) });
       const location = market.installLocation ?? market.path;
       const { entry, pluginRoot } = await marketplaceEntry(location, plugin.name);
-      const source = pluginSource(entry, market);
+      const source = direct ? { kind: 'direct' } : pluginSource(entry, market);
       const installed = await inspectTree(install.installPath, { skip: INSTALL_SKIP });
       const registry = await registryFor(env); const baselines = (registry.claudePluginBaselines ??= {}); const baseline = baselines[target.id];
       // MR-SDX-003: content changed since SkillDock last saw this version is not overwritten.
@@ -742,16 +753,25 @@ export async function createService(options = {}) {
       if (!applying) {
         const item = (status, extra) => ({ target, agent: 'claude', name, owner: 'Claude', route: 'claude-plugin', status, canCheck: true, canApply: status === 'available', canAutoApply: status === 'available' && !registry.claudePluginReview?.[target.id], checkedAt: now(), installedVersion: install.version, ...extra });
         if (['command', 'helper', 'unknown'].includes(source.kind)) return { message: OWNER_REASON[source.kind], updateItem: item('blocked', { message: OWNER_REASON[source.kind], reasonCode: 'OWNER_MANAGED' }) };
-        staging = path.join(env.root, 'staging', crypto.randomUUID()); await verifyDescendantDirectory(env.stateBoundary, staging); await fs.mkdir(staging, { recursive: true, mode: 0o700 });
-        const staged = await stageCandidate(source, { installLocation: location, pluginRoot, staging, fetchers: claudeFetchers });
-        const predicted = await predictVersion(staged.candidate, entry, source, staged);
+        let staged;
+        if (direct) {
+          // Staged afresh from the original source; SkillDock's copy changes only when the update is applied.
+          staged = await stageSource(env, { sourceType: tracked.sourceType, source: tracked.source, subpath: tracked.subpath, ref: tracked.ref }, 'claude-plugin'); staging = staged.staging;
+          if (staged.detail.name !== plugin.name) fail(409, 'SOURCE_CHANGED', `来源中的插件名称已改为 ${staged.detail.name}；请卸载后从来源重新安装。`);
+        } else {
+          staging = path.join(env.root, 'staging', crypto.randomUUID()); await verifyDescendantDirectory(env.stateBoundary, staging); await fs.mkdir(staging, { recursive: true, mode: 0o700 });
+          staged = await stageCandidate(source, { installLocation: location, pluginRoot, staging, fetchers: claudeFetchers });
+        }
+        // SkillDock writes the generated entry's version from the source (HLD 3.3).
+        const predicted = await predictVersion(staged.candidate, direct ? staged.detail.version ? { version: staged.detail.version } : {} : entry, direct ? { kind: 'local' } : source, staged);
         const outcome = checkOutcome({ installedVersion: install.version, installedFingerprint: installed.fingerprint, candidateFingerprint: staged.tree.fingerprint, predicted });
         // Without a record, the check's own view is the baseline (MR-SDX-003), checked again before applying.
         if (!baseline || baseline.version !== install.version) { baselines[target.id] = { version: install.version, fingerprint: installed.fingerprint }; await writeJson(env.registryFile, registry); }
         const id = crypto.randomUUID();
         if (outcome.status === 'available') {
           previews.set(id, { id, kind: 'claude-plugin-update', agent: 'claude', mode: env.mode, created: previewNow(), staging, candidate: staged.candidate, tree: staged.tree, pluginId: target.id, installPath: install.installPath,
-            installedVersion: install.version, baseline: installed.fingerprint, entry: JSON.stringify(entry), facts: { commit: staged.commit, sha256: staged.sha256, integrity: staged.integrity, packageVersion: staged.packageVersion } });
+            installedVersion: install.version, baseline: installed.fingerprint, entry: JSON.stringify(entry), facts: { commit: staged.commit, sha256: staged.sha256, integrity: staged.integrity, packageVersion: staged.packageVersion },
+            ...(direct ? { direct: { detail: staged.detail, originalDirectory: staged.originalDirectory } } : {}) });
           keep = true;
         }
         const review = outcome.status === 'available' && registry.claudePluginReview?.[target.id];
@@ -765,7 +785,10 @@ export async function createService(options = {}) {
       if (installed.fingerprint !== preview.baseline) fail(409, 'LOCAL_CHANGES', '插件在预览后发生变化，请重新检查。');
       // The source once more, by its kind (HLD 3.3A 应用前核对).
       if (JSON.stringify(entry) !== preview.entry) fail(409, 'SOURCE_CHANGED', 'marketplace 中这个插件的条目在预览后发生变化，请重新检查。');
-      if (['local', 'git-market'].includes(source.kind)) { if ((await inspectTree(localDirectory(source, location, pluginRoot))).fingerprint !== preview.tree.fingerprint) fail(409, 'SOURCE_CHANGED', '来源在预览后发生变化，请重新检查。'); }
+      if (source.kind === 'direct') {
+        if (tracked.sourceType === 'git' ? await claudeFetchers.resolve(tracked.source, tracked.ref) !== preview.facts.commit : (await inspectTree(preview.direct.originalDirectory)).fingerprint !== preview.tree.fingerprint)
+          fail(409, 'SOURCE_CHANGED', '来源在预览后发生变化，请重新检查。');
+      } else if (['local', 'git-market'].includes(source.kind)) { if ((await inspectTree(localDirectory(source, location, pluginRoot))).fingerprint !== preview.tree.fingerprint) fail(409, 'SOURCE_CHANGED', '来源在预览后发生变化，请重新检查。'); }
       else if (source.kind === 'git') { if (await claudeFetchers.resolve(source.url, source.ref) !== preview.facts.commit) fail(409, 'SOURCE_CHANGED', '来源仓库在预览后有新的提交，请重新检查。'); }
       else if (source.kind === 'npm') { const view = await claudeFetchers.npmView(source.spec, source.registry); if (view.version !== preview.facts.packageVersion || view.integrity && preview.facts.integrity && view.integrity !== preview.facts.integrity) fail(409, 'SOURCE_CHANGED', 'npm 包在预览后发生变化，请重新检查。'); }
       else if (source.kind === 'archive' && !source.sha256) { const file = path.join(staging, 'recheck.zip'); await claudeFetchers.download(source.url, file); if (await sha256File(file) !== preview.facts.sha256) fail(409, 'SOURCE_CHANGED', '压缩包在预览后发生变化，请重新检查。'); }
@@ -778,7 +801,20 @@ export async function createService(options = {}) {
         await fs.rm(path.join(copies, 'latest'), { recursive: true, force: true }); await fs.rename(next, path.join(copies, 'latest'));
         copyNote = `\n更新前的内容已复制到 ${path.join(copies, 'latest')}；Claude 原地覆盖这类插件，无法经 Claude 回到旧版本。`;
       }
-      await run(['plugin', 'update', cliId, '--scope', scope, '--json'], { cwd });
+      // A generated marketplace takes the new content and entry first; Claude reads it from there.
+      let undoDirect;
+      if (source.kind === 'direct') {
+        const destination = path.join(tracked.root, 'plugins', plugin.name); await verifyDescendantDirectory(env.stateBoundary, destination);
+        const catalogFile = path.join(tracked.root, '.claude-plugin/marketplace.json'); const catalog = await fs.readFile(catalogFile);
+        const previous = path.join(staging, 'previous'); await move(destination, previous);
+        undoDirect = async () => { await fs.rm(destination, { recursive: true, force: true }); await move(previous, destination); await fs.writeFile(catalogFile, catalog); };
+        try { await copySkill(preview.candidate, destination); await writeClaudeDirectMarketplace(env, { detail: preview.direct.detail }, { market: plugin.marketplace, root: tracked.root }); }
+        catch (error) { await undoDirect(); throw error; }
+      }
+      try {
+        if (source.kind === 'direct') await run(['plugin', 'marketplace', 'update', plugin.marketplace, '--json'], { cwd: await userCwdFor(found) });
+        await run(['plugin', 'update', cliId, '--scope', scope, '--json'], { cwd });
+      } catch (error) { if (undoDirect && error.code !== 'CLI_TIMEOUT') await undoDirect().catch(() => {}); throw error; }
       const { install: after } = await claudeInstall(found, cliId, scope, cwd);
       const loaded = after?.installPath && (await inspectTree(after.installPath, { skip: INSTALL_SKIP })).fingerprint === preview.tree.fingerprint;
       const fresh = await registryFor(env);
@@ -791,6 +827,7 @@ export async function createService(options = {}) {
           : `Claude 命令行已返回，但装入的内容与预览不同；请重新检查。旧版本目录 ${install.installPath} 由 Claude 保留 14 天。`);
       }
       (fresh.claudePluginBaselines ??= {})[target.id] = { version: after.version, fingerprint: preview.tree.fingerprint };
+      if (source.kind === 'direct' && fresh.claudeDirectPlugins?.[plugin.marketplace]) Object.assign(fresh.claudeDirectPlugins[plugin.marketplace], { fingerprint: preview.tree.fingerprint, ...(preview.facts.commit ? { commit: preview.facts.commit } : {}) });
       if (!internal && fresh.claudePluginReview) delete fresh.claudePluginReview[target.id];
       await writeJson(env.registryFile, fresh);
       if (install.version === 'unknown') await fs.rm(path.join(copies, 'baseline'), { recursive: true, force: true });

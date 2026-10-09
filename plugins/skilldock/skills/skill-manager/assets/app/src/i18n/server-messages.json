@@ -1794,5 +1794,9 @@
   "Claude 命令行列表的输出形状未知。": {
     "en": "The Claude command line printed a list in an unknown shape.",
     "ja": "Claude コマンドラインの一覧の出力形式が不明です。"
+  },
+  "来源中的插件名称已改为 {v0}；请卸载后从来源重新安装。": {
+    "en": "The plugin in the source is now named {v0}; uninstall it and install again from the source.",
+    "ja": "ソース内のプラグイン名が {v0} に変わりました。アンインストールしてからソースから再インストールしてください。"
   }
 }
