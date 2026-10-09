@@ -23,7 +23,7 @@ description: 打开 SkillDock 本地 GUI，浏览和管理本机 Codex 与 Claud
 
 启动前确定用户项目目录，并用 `--project` 显式传入；不要先切换到下载目录或安装目录再把它作为用户项目。未指定时依次使用 `SKILLDOCK_PROJECT_DIR`、界面保存的项目、调用工作目录。界面“切换项目”可保存新的扫描选择。可用 `SKILLDOCK_STATE_DIR` 指定独立应用数据目录、`PORT` 指定端口；默认数据位于 `~/.local/share/skilldock`，默认端口 4771。启动器把源文件复制到应用数据目录，按 lockfile 安装依赖并构建（输出写入数据目录的 `build.log`），不向安装的插件缓存写入运行数据。首次启动需要 npm registry 可达，后续复用相同构建。
 
-Codex CLI 逐个验证 PATH、桌面应用内置 CLI 与 Codex 管理的副本；损坏的旧 wrapper 会被跳过。Claude 命令行依次取显式指定、已保存值、从 Claude 打开时会话提供的路径、Claude 桌面应用自带的版本、PATH 与用户目录下的安装，选中后保存并在使用前核验版本。指定 `SKILLDOCK_CODEX_BIN` 或 `SKILLDOCK_CLAUDE_BIN` 时必须是有效的绝对路径。SkillDock 的服务与它调用的命令行只继承白名单内的环境变量，不带入宿主会话变量。CLI 诊断也包含在 `doctor` 中，实际来源说明见 [应用安装说明](assets/app/README.md)。
+Codex CLI 逐个验证 PATH、桌面应用内置 CLI 与 Codex 管理的副本；损坏的旧 wrapper 会被跳过。Claude 命令行依次取显式指定、用户手动指定的保存值、从 Claude 打开时会话提供的路径、Claude 桌面应用自带的最高版本、此前自动选中的保存值、PATH 与用户目录下的安装，选中后保存并在使用前核验版本，因此会跟上 Claude 的升级。指定 `SKILLDOCK_CODEX_BIN` 或 `SKILLDOCK_CLAUDE_BIN` 时必须是有效的绝对路径。SkillDock 的服务与它调用的命令行只继承白名单内的环境变量，不带入宿主会话变量。CLI 诊断也包含在 `doctor` 中，实际来源说明见 [应用安装说明](assets/app/README.md)。
 
 运行环境发现失败时先执行 `launch.sh doctor`（只读，不写任何文件）。宿主若提供 `load_workspace_dependencies`，可读取其返回的真实 Node 路径，以 `SKILLDOCK_NODE_BIN` 指定；自定义 Codex 应用位置使用 `SKILLDOCK_CODEX_APP_DIR`。无人值守或没有图形界面的环境可设 `SKILLDOCK_NO_DIALOG=1` 关闭安装引导对话框。不要修改 Codex 的签名或用户 shell 配置来绕过加载限制。诊断及兼容边界见 [运行环境接入](references/18-codex-node-runtime.md)。
 

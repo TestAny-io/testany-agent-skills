@@ -46,9 +46,9 @@ macOS 用户安装 SkillDock 后，通过 Codex 打开应用时无需事先手�
 上面的“自动下载专用 Node”已停用：Codex 与 Claude 两侧统一为“扫描本机 Node → 保存并复用 → 失效时重扫 → 找不到时弹窗引导安装”。
 
 - 扫描顺序：`SKILLDOCK_NODE_BIN` → 保存值 → Codex 工作区 Node → 已下载的专用 Node（0.10.x 下载过的继续可用，不删除）→ Homebrew 与官方安装包位置 → nvm、fnm、Volta、asdf、mise、nodenv（各自取最高版本）→ PATH。应用包内的 Node 仍只用于运行引导程序。
-- 候选清单只有一份定义（`assets/app/server/node-candidates.mjs`），`launch.sh`、`native.sh` 与后台 `run.sh` 中的 shell 片段由它生成；`node assets/app/scripts/node-candidates.mjs` 检查三处是否一致，`--write` 重新生成。
-- 选中的组合保存在数据目录的 `settings/runtime.json` 与 `settings/node-path`，两侧入口与后台任务共用；每次启动只做轻量核验，失败即重扫。`doctor` 只读，不保存。
+- 候选清单只有一份定义（`assets/app/server/node-candidates.mjs`），`launch.sh`、`native.sh` 与后台 `run.sh` 中的 shell 片段由它生成，两层都在同一位置内取能运行的最高版本；`node assets/app/scripts/node-candidates.mjs` 检查三处是否一致，`--write` 重新生成。
+- 选中的组合保存在数据目录的 `settings/runtime.json` 与 `settings/node-path`，两侧入口与后台任务共用；每次启动只做轻量核验，失败即重扫。引导程序只做选择，由启动器在归属检查通过后保存；`SKILLDOCK_NODE_BIN` 指定的 Node 也会保存，`SKILLDOCK_NPM_CLI` 不会被保存值替代。`doctor` 只读，不保存。
 - npm 与所选 Node 配对：先找 Node 真实路径旁的 npm；Homebrew 的 Node 另找它所在前缀下的 `lib/node_modules/npm` 与真实路径旁的 `libexec`（不依赖 PATH 中有 npm）；再找应用包 npm 与 PATH。
-- 找不到时：交互的 `start`、`restart` 以独立进程弹出对话框（取消 / 重新检测 / 打开 Node.js 下载页），启动链立即返回文字说明；重启任务、`SKILLDOCK_NO_DIALOG=1`、非 macOS 与 `native.sh` 不弹窗。
+- 找不到时：交互的 `start`、`restart` 以独立进程弹出对话框（取消 / 重新检测 / 打开 Node.js 下载页；shell 层在默认的 bash 下放入独立进程组），启动链立即返回文字说明；重启任务、`SKILLDOCK_NO_DIALOG=1`、非 macOS 与 `native.sh` 不弹窗。
 - 依赖安装与构建输出写入数据目录的 `build.log`，超过 1 MiB 时重新开始。
 
