@@ -26,6 +26,10 @@ import { inspectPlugin, directLocation, writeDirectMarketplace, decorateDirectCa
 import { pluginContents } from './plugin-contents.mjs';
 import { officialAppUrl } from './app-directory.mjs';
 import { createDirectoryIcons } from './directory-icons.mjs';
+import { createAgentLayer, readManagement, writeManagement, AGENT_NAME } from './agents.mjs';
+import { writeClaudeRoot } from './claude-root.mjs';
+import { inspectNode, findNpm, resolveToolchain } from './toolchain.mjs';
+import { writeSavedNode } from './node-candidates.mjs';
 
 const ACTION_FIELDS = {
   'tags.set': ['target', 'tags'],
@@ -43,13 +47,25 @@ const ACTION_FIELDS = {
   'marketplace.refresh': ['id'], 'marketplace.remove': ['id'],
   'skill.previewSource': ['id', 'sourceType', 'source', 'subpath', 'ref'], 'skill.connectSource': ['id', 'previewId'],
   'update.check': ['target'], 'update.apply': ['target', 'previewId'], 'updates.run': ['targets', 'autoApply'], 'schedule.configure': ['schedule'],
+  'agent.setManagement': ['management'], 'agent.updateSkilldock': [], 'settings.setClaudeRoot': ['claudeRoot'], 'settings.setNodePath': ['nodePath'], 'settings.redetectNode': [],
 };
+// Actions that change an Agent's skills, plugins or marketplaces (36c §5: refused while that
+// environment is read-only); previews, tags, sources and settings change SkillDock data only.
+const HOST_WRITES = new Set(['skill.toggle', 'skill.install', 'skill.update', 'skill.remove', 'skill.removeSelected', 'activity.restore',
+  'plugin.install', 'plugin.installSource', 'plugin.remove', 'plugin.toggle', 'marketplace.add', 'marketplace.refresh', 'marketplace.remove', 'update.apply']);
+const validPath = value => typeof value === 'string' && path.isAbsolute(value) && value.length <= 2000 && !/[\x00-\x1f]/.test(value);
 export function validateAction(input) {
   if (!input || typeof input !== 'object' || Array.isArray(input)) fail(400, 'INVALID_ACTION', '请求需要 JSON 对象。');
   if (!['local', 'sandbox'].includes(input.mode)) fail(400, 'INVALID_MODE', '请求的环境无效。');
   const fields = ACTION_FIELDS[input.action];
   if (!fields) fail(400, 'INVALID_ACTION', '不支持该操作。');
-  for (const key of Object.keys(input)) if (!['mode', 'action', ...fields].includes(key)) fail(400, 'INVALID_ACTION', `该操作不支持参数 ${key}。`);
+  for (const key of Object.keys(input)) if (!['mode', 'action', 'agent', ...fields].includes(key)) fail(400, 'INVALID_ACTION', `该操作不支持参数 ${key}。`);
+  if (input.agent !== undefined && !['codex', 'claude'].includes(input.agent)) fail(400, 'INVALID_ACTION', 'agent 只能是 codex 或 claude。');
+  if (input.action.startsWith('agent.') && !input.agent) fail(400, 'INVALID_ACTION', '需要 agent。');
+  if (fields.includes('management') && !['enabled', 'read-only'].includes(input.management)) fail(400, 'INVALID_ACTION', 'management 只能是 enabled 或 read-only。');
+  if (fields.includes('claudeRoot') && (!input.claudeRoot || typeof input.claudeRoot !== 'object' || Object.keys(input.claudeRoot).some(key => !['configDir', 'pluginCacheDir'].includes(key))
+    || !validPath(input.claudeRoot.configDir) || !validPath(input.claudeRoot.pluginCacheDir))) fail(400, 'INVALID_PATH', 'Claude 根目录需要配置目录与插件缓存目录的绝对路径。');
+  if (fields.includes('nodePath') && !validPath(input.nodePath)) fail(400, 'INVALID_PATH', '需要 Node 的绝对路径。');
   for (const field of ['id', 'previewId']) {
     if (field === 'previewId' && input.action === 'plugin.install' && input.previewId === undefined && input.enabledSkills === undefined) continue;
     if (fields.includes(field) && (typeof input[field] !== 'string' || !input[field] || input[field].length > 300 || /[\x00-\x1f]/.test(input[field]))) fail(400, 'INVALID_ACTION', `缺少有效的 ${field}。`);
@@ -110,6 +126,14 @@ export async function createService(options = {}) {
     env.skillLinks = new Map();
   }
   const adapter = options.adapter || new CodexAdapter({ codexHome, codexBin: options.codexBin || process.env.SKILLDOCK_CODEX_BIN, timeout: options.cliTimeout });
+  const appDir = options.appSource ?? process.env.SKILLDOCK_APP_SOURCE ?? fileURLToPath(new URL('..', import.meta.url));
+  const agentEnv = options.env ?? process.env;
+  const agentLayer = createAgentLayer({ stateDir, home, codexHome, appDir, env: agentEnv, claudeCli: options.claudeCli,
+    codexCli: async () => {
+      let info;
+      try { info = typeof adapter.probe === 'function' ? await adapter.probe() : (await adapter.list()).cli; } catch (error) { info = { available: false, error: error.message }; }
+      return info?.available ? { available: true, version: info.version, path: info.path } : { available: false, error: info?.error || '未找到可用的 Codex CLI。' };
+    } });
   const directoryIcons = options.directoryIcons || createDirectoryIcons();
   const projectIntegration = options.projectIntegration || createProjectIntegration();
   const projects = () => projectCatalog({ codexHome, stateDir, current: project, integration: projectIntegration });
@@ -204,7 +228,7 @@ export async function createService(options = {}) {
     unused.sort((a, b) => b.mtime - a.mtime);
     for (const entry of unused.slice(2)) { await verifyDescendantDirectory(env.stateBoundary, entry.directory); await fs.rm(entry.directory, { recursive: true, force: true }); }
   }
-  async function snapshot(mode, force = false) {
+  async function snapshot(mode, force = false, { multiAgent = false } = {}) {
     await refreshSchedule();
     const started = performance.now(); const env = { ...environment(mode) }; const currentProjectInfo = projectInfo; await verifyDirectoryRoot(env.stateBoundary); const registry = await registryFor(env);
     if (!operationActive) {
@@ -221,6 +245,12 @@ export async function createService(options = {}) {
     }
     result.projectContext = mode === 'local' ? { ...currentProjectInfo, effective: env.project } : undefined;
     if (mode === 'local') result.projects = await projects();
+    // 36c §5–6: only a client that declared multiAgent=1 sees Agent environments, and then
+    // every object names its Agent explicitly.
+    if (multiAgent) {
+      for (const list of [result.skills, result.plugins, result.marketplaces]) for (const item of list) item.agents ??= ['codex'];
+      result.agents = mode === 'local' ? await agentLayer.environments({ force }) : [];
+    }
     result.durationMs = Math.round(performance.now() - started); return result;
   }
   async function skill(mode, id) {
@@ -967,9 +997,71 @@ export async function createService(options = {}) {
     previews.clear(); removalPreviews.clear(); pluginCatalogPreviews.clear();
     return next;
   }
+  // 36c §5, §8: a read-only Codex refuses changes, with a message that also stands alone in
+  // 0.10.x interfaces. Claude objects are read-only in this version.
+  async function assertAgentWritable(request) {
+    if (request.mode !== 'local' || !HOST_WRITES.has(request.action)) return;
+    if (request.agent === 'claude') fail(422, 'UNSUPPORTED_FOR_AGENT', '这一版 SkillDock 只读取 Claude 中的技能和插件，暂不能在这里修改它们。');
+    if ((await readManagement(stateDir)).codex?.management === 'read-only')
+      fail(409, 'AGENT_READ_ONLY', 'Codex 环境当前为只读，SkillDock 不会修改 Codex 中的技能和插件。请在 SkillDock 的“Agent 环境”页启用 Codex 管理后重试。');
+  }
+  // HLD 3.8: targets of an Agent that is not managed (read-only, unconfirmed or gone) pause.
+  async function pausedTarget(mode, target) {
+    if (mode !== 'local') return null;
+    const agent = target.agent ?? 'codex';
+    const management = (await readManagement(stateDir))[agent]?.management;
+    if (agent === 'codex' && management !== 'read-only') return null;
+    if (management === 'enabled') return 'Claude 中的对象暂不能由更新计划处理，这一项暂停。';
+    return `${AGENT_NAME[agent]} 管理未启用，计划中的这一项暂停；在 SkillDock 的“Agent 环境”页启用后恢复。`;
+  }
+  async function agentAction(request) {
+    if (request.mode !== 'local') fail(403, 'MODE_DISABLED', '测试环境不能修改 Agent 环境。');
+    if (request.action === 'agent.setManagement') return setManagement(request.agent, request.management);
+    if (request.action === 'settings.setClaudeRoot') {
+      const { configDir, pluginCacheDir } = request.claudeRoot;
+      for (const [label, directory, required] of [['配置目录', configDir, true], ['插件缓存目录', pluginCacheDir, false]]) {
+        const stat = await fs.stat(directory).catch(error => error.code === 'ENOENT' ? null : error);
+        if (stat instanceof Error) fail(422, 'INVALID_PATH', `无法读取 Claude ${label} ${directory}：${stat.code}。`);
+        if (stat ? !stat.isDirectory() : required) fail(422, 'INVALID_PATH', `Claude ${label} ${directory} ${stat ? '不是目录' : '不存在'}。`);
+      }
+      const saved = await writeClaudeRoot(stateDir, { configDir, pluginCacheDir, origin: 'explicit' });
+      return { message: `已切换 Claude 根目录为 ${saved.configDir}。` };
+    }
+    if (request.action === 'settings.setNodePath') {
+      const node = await inspectNode(request.nodePath);
+      const npm = node.node && await findNpm(node.node, { via: request.nodePath });
+      if (!node.node || !npm) fail(422, 'NODE_UNAVAILABLE', `${request.nodePath} 不能用于 SkillDock：${node.reason || '未找到能由它执行的 npm。'}`);
+      await writeSavedNode(stateDir, { ...node, ...npm, source: 'manual' });
+      return { message: `已改用 Node ${node.nodeVersion}（${node.node}）；下次启动 SkillDock 时生效。` };
+    }
+    if (request.action === 'settings.redetectNode') {
+      const found = await resolveToolchain({ stateDir, home, save: false, fresh: true, log: () => {} });
+      if (found.available === false) fail(422, 'NODE_UNAVAILABLE', `未找到能构建 SkillDock 的 Node.js 22.12 或更新版本（已检查 ${found.rejected.length} 个位置）。`);
+      if (found.source !== 'saved') await writeSavedNode(stateDir, found);
+      return { message: `检测到 Node ${found.nodeVersion}（${found.node}）；下次启动 SkillDock 时使用。` };
+    }
+    fail(422, 'UNSUPPORTED_FOR_AGENT', '一键更新另一侧的 SkillDock 将在后续版本提供；请按“Agent 环境”页给出的步骤手动更新。');
+  }
+  // HLD 3.6, 6.4: enabling checks the main evidence first and reads the state back.
+  async function setManagement(agent, management) {
+    const found = await agentLayer.discover({ force: true });
+    if (!found.installed[agent]) fail(404, 'AGENT_NOT_INSTALLED', `本机未找到 ${AGENT_NAME[agent]}。`);
+    if (management === 'enabled') {
+      if (!found.cli[agent].available) fail(422, 'CLI_UNAVAILABLE', `未找到可用的 ${AGENT_NAME[agent]} 命令行，不能启用管理：${found.cli[agent].error || '无法运行'}。`);
+      const state = agentLayer.effective(agent, found);
+      if (state.management === 'unconfirmed') fail(409, 'AGENT_UNCONFIRMED', state.reason);
+    }
+    const stored = await readManagement(stateDir);
+    stored[agent] = { management, origin: 'user', changedAt: now() };
+    await writeManagement(stateDir, stored);
+    if ((await readManagement(stateDir))[agent]?.management !== management) fail(502, 'READBACK_FAILED', '管理状态写入后读回不一致，请重试。');
+    return { message: management === 'enabled' ? `已启用 ${AGENT_NAME[agent]} 管理。`
+      : `已把 ${AGENT_NAME[agent]} 设为只读；SkillDock 不再修改其中的技能和插件，计划中的相关项暂停。` };
+  }
   async function executeRequest(input, internal = false) {
     const request = validateAction(input); const mode = request.mode; environment(mode);
     if (restarting || closing) fail(409, 'APP_RESTARTING', 'SkillDock 正在准备重启，请等待界面自动重连。');
+    await assertAgentWritable(request);
     const disabling = request.action === 'schedule.configure' && !request.schedule.enabled;
     if (!internal && !disabling && (requestBusy || scheduler.isRunning())) fail(409, 'BUSY', '另一个操作或更新批次正在执行，请稍后重试。');
     if (request.action === 'schedule.configure') {
@@ -1062,6 +1154,7 @@ export async function createService(options = {}) {
   }
   async function action(input, internal = false) {
     const request = validateAction(input); environment(request.mode);
+    if (request.action.startsWith('agent.') || request.action.startsWith('settings.')) return withOperation(() => agentAction(request));
     if (internal || request.action !== 'schedule.configure') return dispatchRequest(request, internal);
     // Configuration has its own short lock so disabling remains possible while
     // an update owns the operation lock, but a concurrent enable cannot erase it.
@@ -1079,7 +1172,7 @@ export async function createService(options = {}) {
         { pluginCheckOptions: { refreshMarketplace: false, requireCurrent: true, expectedSignature } });
       return result.updateItem.status === 'current';
     },
-    coreBusy: () => busy || requestBusy || restarting || closing, clock: options.now, startTimer: false, recover: false, disabledSchedule,
+    coreBusy: () => busy || requestBusy || restarting || closing, clock: options.now, startTimer: false, recover: false, disabledSchedule, paused: pausedTarget,
     beforeConfigure: async (mode, input) => {
       if (input.enabled) { if (mode === 'local') { await background?.ensure(); migrationError = undefined; } }
     } });

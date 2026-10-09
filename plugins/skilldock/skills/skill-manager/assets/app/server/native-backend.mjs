@@ -10,9 +10,9 @@ import { canonicalPath, installationIdentity, sameInstallation } from './install
 const exec = promisify(execFile);
 const delay = ms => new Promise(resolve => setTimeout(resolve, ms));
 const routes = new Map([
-  ['/api/health', []], ['/api/session', []], ['/api/state', ['mode', 'refresh']],
-  ['/api/skill', ['mode', 'id']], ['/api/updates/progress', ['mode']],
-  ['/api/plugin-icon', ['mode', 'id', 'theme']],
+  ['/api/health', []], ['/api/session', []], ['/api/state', ['mode', 'refresh', 'multiAgent']],
+  ['/api/skill', ['mode', 'id', 'agent']], ['/api/updates/progress', ['mode', 'agent']],
+  ['/api/plugin-icon', ['mode', 'id', 'theme', 'agent']],
 ]);
 
 export function localOrigin(value) {
@@ -30,6 +30,9 @@ export function readRoute(value) {
     throw new Error('Unsupported SkillDock read route.');
   if (url.searchParams.has('mode') && !['local', 'sandbox'].includes(url.searchParams.get('mode'))) throw new Error('Invalid workspace mode.');
   if (url.searchParams.has('refresh') && !['true', 'false'].includes(url.searchParams.get('refresh'))) throw new Error('Invalid refresh flag.');
+  // API-SDX-001 36c §9: multiAgent only as 1, agent only as codex or claude.
+  if (url.searchParams.has('multiAgent') && url.searchParams.get('multiAgent') !== '1') throw new Error('Invalid multiAgent flag.');
+  if (url.searchParams.has('agent') && !['codex', 'claude'].includes(url.searchParams.get('agent'))) throw new Error('Invalid agent.');
   return url.pathname + url.search;
 }
 

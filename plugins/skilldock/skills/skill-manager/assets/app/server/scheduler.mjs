@@ -28,7 +28,7 @@ function sameBindingIdentity(before, after) {
 }
 
 
-export async function createScheduler({ environments, snapshot, perform, signature, verifySynchronized, hasPreview, coreBusy, clock = () => Date.now(), pollMs = 1000, startTimer = false, recover = true, beforeConfigure, disabledSchedule = async () => null, planVersion = 1 }) {
+export async function createScheduler({ environments, snapshot, perform, signature, verifySynchronized, hasPreview, coreBusy, clock = () => Date.now(), pollMs = 1000, startTimer = false, recover = true, beforeConfigure, disabledSchedule = async () => null, planVersion = 1, paused = async () => null }) {
   const states = {}; const writes = {}; const configuring = new Set(); let running = false; let activeMode; let closed = false; let runningPromise; let timer; let readGeneration = 0;
   const timestamp = () => new Date(clock()).toISOString();
   async function persist(mode) {
@@ -200,6 +200,9 @@ export async function createScheduler({ environments, snapshot, perform, signatu
           const appendResult = result => record.items.push({ target, name, occurredAt: timestamp(),
             ...(checked?.installedVersion || item?.installedVersion ? { installedVersion: checked?.installedVersion || item.installedVersion } : {}),
             ...(checked?.availableVersion ? { availableVersion: checked.availableVersion } : {}), ...result });
+          // HLD 3.8: a target whose Agent is not managed pauses; it is not a failure.
+          const pause = await paused(mode, target);
+          if (pause) { appendResult({ status: 'skipped', message: pause, reasonCode: 'AGENT_PAUSED' }); await persist(mode); continue; }
           if (!item) { appendResult({ status: 'skipped', message: '原目标已不存在；重新选择目标后才会纳入计划。', reasonCode: 'TARGET_MISSING' }); await persist(mode); continue; }
           if (trigger !== 'manual') {
             let actual; try { actual = await signature(mode, target, currentState); } catch { actual = null; }
@@ -225,7 +228,7 @@ export async function createScheduler({ environments, snapshot, perform, signatu
           } catch (error) { appendResult({ status: 'error', message: redact(error.message), reasonCode: error.code || 'UPDATE_FAILED' }); }
           await persist(mode);
         }
-        const failures = record.items.filter(item => ['error', 'skipped'].includes(item.status));
+        const failures = record.items.filter(item => ['error', 'skipped'].includes(item.status) && item.reasonCode !== 'AGENT_PAUSED');
         record.status = stopped || failures.length ? record.items.length && failures.length === record.items.length && record.items.every(item => item.status === 'error') ? 'error' : 'partial' : 'success';
       } catch (error) {
         record.status = 'error'; record.items.push({ target: { kind: 'host', id: 'update-run' }, name: 'Update run', status: 'error', occurredAt: timestamp(), reasonCode: error.code || 'UPDATE_FAILED', message: redact(error.message) });

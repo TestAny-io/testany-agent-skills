@@ -17,7 +17,7 @@ import { readRecord, writeRecord, mirrorRecord, buildRecord, stoppedRecord, refr
 import { installationContext, delegationTarget, delegate, newerDataError, legacyOwnershipDetail, migrationCheck, preferredWhenRunning, failureText, EXIT_MIGRATION_BLOCKED } from '../assets/app/server/launch-plan.mjs';
 import { convertPlan, snapshotFiles, writeMigrationFailure, clearMigrationFailure } from '../assets/app/server/migration.mjs';
 import { backgroundPaths, registrationExists, takeOverRegistration } from '../assets/app/server/background-registration.mjs';
-import { writeClaudeRoot, startedFromClaude } from '../assets/app/server/claude-root.mjs';
+import { writeClaudeRoot, startedFromClaude, recordClaudeSessionRoot } from '../assets/app/server/claude-root.mjs';
 import { recordSessionCli } from '../assets/app/server/claude-cli.mjs';
 import { childEnvironment } from '../assets/app/server/process-env.mjs';
 import { defaultUpdateState } from '../assets/app/server/update-state.mjs';
@@ -288,7 +288,10 @@ export async function launch(action = 'start', options = {}) {
     // DEC-SDX-024 level 2: a Claude session's own directories and command line are saved
     // (files 0.10.2 never reads); the service and background tasks use the saved values.
     if (plan.claudeRoot.origin === 'session' && !plan.claudeRoot.saved) await writeClaudeRoot(state, plan.claudeRoot);
-    if (startedFromClaude(env)) await recordSessionCli(state, env.CLAUDE_CODE_EXECPATH).catch(() => {});
+    if (startedFromClaude(env)) {
+      await recordSessionCli(state, env.CLAUDE_CODE_EXECPATH).catch(() => {});
+      await recordClaudeSessionRoot(state, env, home).catch(() => {});
+    }
     // Generation 2 without a record (a 0.10.x launcher removed it): write it back first.
     if (!migrating && await readText(recordFile) === undefined) await withStateLocks(state, codexHome, () => restoreRecord(state, { verify: verifyInstance }), { wait: 10000 }).catch(() => {});
     const current = await readRecord(state); await checkOwner(current);

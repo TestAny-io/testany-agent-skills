@@ -71,7 +71,7 @@ export async function createApp(options = {}) {
         return response.end(request.method === 'HEAD' ? undefined : await fs.readFile(file));
       }
       if (request.method === 'GET' && url.pathname === '/api/session') return send(response, 200, { token, defaultMode: service.defaultMode });
-      if (request.method === 'GET' && url.pathname === '/api/state') return send(response, 200, await service.snapshot(url.searchParams.get('mode') || 'local', url.searchParams.get('refresh') === 'true'));
+      if (request.method === 'GET' && url.pathname === '/api/state') return send(response, 200, await service.snapshot(url.searchParams.get('mode') || 'local', url.searchParams.get('refresh') === 'true', { multiAgent: url.searchParams.get('multiAgent') === '1' }));
       if (request.method === 'GET' && url.pathname === '/api/updates/progress') return send(response, 200, { progress: await service.updateProgress(url.searchParams.get('mode') || 'local') });
       if (request.method === 'GET' && url.pathname === '/api/skill') return send(response, 200, await service.skill(url.searchParams.get('mode') || 'local', url.searchParams.get('id')));
       if (request.method === 'GET' && url.pathname === '/api/plugin-icon') return send(response, 200, await service.directoryIcon(url.searchParams.get('mode') || 'local', url.searchParams.get('id'), url.searchParams.get('theme')));

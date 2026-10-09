@@ -42,3 +42,22 @@ export async function resolveClaudeRoot({ state, env = process.env, home = os.ho
   const configDir = path.join(home, '.claude');
   return { configDir: await canonical(configDir), pluginCacheDir: await canonical(path.join(configDir, 'plugins/cache')), origin: 'default', saved: false };
 }
+
+/**
+ * The directories of the last Claude session that opened SkillDock. The saved record is
+ * never replaced silently (DEC-SDX-024); the service compares the two and offers a switch.
+ */
+export const claudeSessionRootFile = state => path.join(state, 'agents/claude-session-root.json');
+
+export async function readClaudeSessionRoot(state) {
+  const value = await readJsonFile(claudeSessionRootFile(state));
+  return value && value.format === 1 && absolute(value.configDir) && absolute(value.pluginCacheDir) ? value : null;
+}
+
+export async function recordClaudeSessionRoot(state, env = process.env, home = os.homedir()) {
+  if (!startedFromClaude(env)) return;
+  const configDir = absolute(env.CLAUDE_CONFIG_DIR) ? env.CLAUDE_CONFIG_DIR : path.join(home, '.claude');
+  const pluginCacheDir = absolute(env.CLAUDE_CODE_PLUGIN_CACHE_DIR) ? env.CLAUDE_CODE_PLUGIN_CACHE_DIR : path.join(configDir, 'plugins/cache');
+  await writeAtomic(claudeSessionRootFile(state), `${JSON.stringify({ format: 1, configDir: await canonical(configDir), pluginCacheDir: await canonical(pluginCacheDir), seenAt: new Date().toISOString() }, null, 2)}\n`);
+}
+
