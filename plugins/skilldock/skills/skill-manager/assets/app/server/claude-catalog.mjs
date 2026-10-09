@@ -256,7 +256,7 @@ export async function claudeCatalog({ claudeRoot, project, cli, env = process.en
       agents: ['claude'], id: claudeIds.plugin(item.id, item.scope, projectPath), name, displayName: manifest?.name !== name ? manifest?.name : undefined,
       description: typeof manifest?.description === 'string' ? manifest.description : '', marketplace, version: typeof item.version === 'string' ? item.version : undefined,
       installed: true, enabled, skillCount: installPath ? await countSkills(installPath) : 0, ...(installPath ? { installedPath: installPath, realPath: await fs.realpath(installPath).catch(() => installPath) } : {}),
-      installation, enablement: source, manifests, ...(synced ? { protection: 'synced' } : source.locked ? { protection: 'managed' } : {}),
+      installation, enablement: source, manifests, ...(synced ? { protection: 'synced' } : source.locked || item.scope === 'managed' ? { protection: 'managed' } : {}),
       canInstall: false, canRemove: !blocked, canToggle: !toggleReason,
       ...(blocked ?? toggleReason ? { reason: blocked ?? toggleReason } : {}),
       revision: revision({ id: item.id, scope: item.scope, projectPath, version: item.version, enabled, source }),
@@ -318,11 +318,13 @@ export async function claudeCatalog({ claudeRoot, project, cli, env = process.en
     const managedDeclaration = decidedBy(layers, 'extraKnownMarketplaces', item.name).layer === 'managed';
     marketplaces.push({ agents: ['claude'], id: claudeIds.marketplace(item.name), name: item.name, source: publicSource(String(sourceText)), type: item.source, pluginCount, autoUpdate,
       ...(typeof entry.lastUpdated === 'string' ? { refreshedAt: entry.lastUpdated } : {}), canRemove: !managedDeclaration, canRefresh: true,
-      ...(managedDeclaration ? { reason: '由组织托管设置声明的 marketplace 不能在这里移除。' } : {}),
+      ...(managedDeclaration ? { protection: 'managed', reason: '由组织托管设置声明的 marketplace 不能在这里移除。' } : {}),
       revision: revision({ name: item.name, autoUpdate, plugins: plugins.filter(plugin => plugin.marketplace === item.name).map(plugin => plugin.id).sort() }) });
   }
   plugins.push(...available);
   diagnostics.push(...problems.slice(1));
   const unconfirmed = !cli?.available ? null : problems.length ? `无法确认 Claude 中的插件状态：${problems[0]}` : null;
-  return { skills, plugins, marketplaces, diagnostics, unconfirmed, evidence: installed ? 'cli' : record ? 'record' : 'none', listed: !!(cli?.available && rooted) };
+  // Which settings layers declare each marketplace: removing one deletes every declaration (4a review P1-01).
+  const declarations = Object.fromEntries(marketplaces.map(market => [market.name, LAYERS.filter(layer => Object.hasOwn(layers[layer].extraKnownMarketplaces || {}, market.name))]));
+  return { skills, plugins, marketplaces, diagnostics, unconfirmed, evidence: installed ? 'cli' : record ? 'record' : 'none', listed: !!(cli?.available && rooted), declarations };
 }

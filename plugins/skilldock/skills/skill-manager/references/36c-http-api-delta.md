@@ -219,7 +219,7 @@ export interface NativeRule {
 | 字段 | 类型 | 说明 |
 |------|------|------|
 | `agent` | `Agent` | 对象所属的一侧。带 `agent` 的写请求按 2 版规则处理；2 版客户端的所有写请求都必须带（见第 6 节“2 版请求的判定”）。缺省为 Codex（1 版） |
-| `scope` | `"user" \| "project" \| "local"` | Claude 写入作用域；缺省 `user`，`plugin.toggle` 例外：缺省按安装范围，用户范围的安装为 `user`，project、local 范围的安装与项目范围的技能目录插件为 `local`（只写该项目的本地设置，不影响其他项目，HLD 3.3）。`skill.toggle`（Claude 技能）缺省：个人技能为 `user`，当前由项目的本地或共享设置决定时为 `local`；项目技能为 `local`（HLD 3.4）。`skill.previewInstall`（Claude）：`user` 为个人技能目录，`project` 为当前项目的 `.claude/skills`，不接受 `local`。`project` 会改动协作者共享的设置，须同时带 `confirm: true`。写入 `local` 会在 Git 仓库中新建未被忽略的 `.claude/settings.local.json` 时，须带 `gitExclude`（`true` 或 `false`），否则返回 `CONFIRMATION_REQUIRED`，`nativeRules` 中一条 `kind: "scope"` 的 `items` 列出该文件 |
+| `scope` | `"user" \| "project" \| "local"` | Claude 写入作用域；缺省 `user`，`plugin.toggle` 例外：缺省按安装范围与决定层，用户范围的安装为 `user`，但当前由项目的本地或共享设置决定时为 `local`；project、local 范围的安装与技能目录插件为 `local`（只写当前项目的本地设置，不影响其他项目，HLD 3.3）。`skill.toggle`（Claude 技能）缺省：个人技能为 `user`，当前由项目的本地或共享设置决定时为 `local`；项目技能为 `local`（HLD 3.4）。`skill.previewInstall`（Claude）：`user` 为个人技能目录，`project` 为当前项目的 `.claude/skills`，不接受 `local`。`project` 会改动协作者共享的设置，须同时带 `confirm: true`。写入 `local` 会在 Git 仓库中新建未被忽略的 `.claude/settings.local.json` 时，须带 `gitExclude`（`true` 或 `false`），否则返回 `CONFIRMATION_REQUIRED`，`nativeRules` 中一条 `kind: "scope"` 的 `items` 列出该文件 |
 | `confirm` | `boolean` | 用户已在确认框中同意本次需要确认的改动：共享作用域、可见性从“仅名称/仅用户可调用”改为开或关、卸载 Claude 插件（默认删除插件数据）、移除 Claude marketplace（会卸载从它安装的插件）、移走两侧共用的技能目录、移除或更新会改写另一侧插件目录内容的技能、批量移除中涉及上述两类的项、另一侧已启用管理时把这类技能加入或改入后台计划、把含这类技能的计划改为自动应用或启用自动应用的计划、在计划设置中确认待确认的这类目标（第 6 节“跨侧影响提示”）、清理 SkillDock 管理的本地 marketplace |
 | `gitExclude` | `boolean` | 新建的 `.claude/settings.local.json` 位于未忽略的 Git 仓库时，用户是否同意写入 `.git/info/exclude` |
 | `keepData` | `boolean` | 卸载 Claude 插件时保留插件数据 |
@@ -245,7 +245,7 @@ export interface NativeRule {
 | `plugin.install`、`plugin.installSource`、`plugin.previewInstall` | 经 Claude 命令行安装，显式带作用域；无 manifest 的直接来源只允许 `user`、`local` 作用域（HLD 3.3） |
 | `plugin.toggle` | 写对应作用域设置中的启用条目；不支持“只启用部分技能”（`UNSUPPORTED_FOR_AGENT`） |
 | `plugin.remove` | 卸载，`keepData` 决定是否保留数据 |
-| `marketplace.add`、`marketplace.refresh`、`marketplace.remove` | 经 Claude 命令行；移除前在确认框列出从该 marketplace 安装的插件。`marketplace.add` 的 `scope` 决定声明写在哪一层设置（缺省 `user`）；Claude 侧不支持 `ref`（`UNSUPPORTED_FOR_AGENT`）；新 marketplace 按添加前后清单的差异读回 |
+| `marketplace.add`、`marketplace.refresh`、`marketplace.remove` | 经 Claude 命令行；移除前在确认框列出从该 marketplace 安装的插件。`marketplace.add` 的 `scope` 决定声明写在哪一层设置（缺省 `user`）；Claude 侧不支持 `ref`（`UNSUPPORTED_FOR_AGENT`）；新 marketplace 按添加前后清单的差异读回。`marketplace.remove` 由 Claude 从所有设置层删除声明并卸载从它安装的插件：项目共享设置声明了它、或其中有 project 范围的安装时，确认的 `nativeRules` 另有一条 `kind: "scope"` 说明会改动协作者共享的 `.claude/settings.json`；组织托管设置声明的不可移除（`HOST_MANAGED`）；结果只说读回证实的卸载数 |
 | `plugin.previewMarketplace` | Claude 中未安装的插件：返回 `PluginInstallPreview`（`agent`、`scopes`、`defaultScope`、`nativeRules`；`canSelectSkills` 为假），不保存预览；随后的 `plugin.install` 以 `expectedRevision` 绑定所见的插件，`previewId` 不作校验 |
 | `skill.toggle` | 写技能可见性条目；当前值为后两档时须 `confirm: true` |
 | `skill.install`、`skill.update`、`skill.remove`、`activity.restore` | 复用现有文件事务，目标为 Claude 个人根或项目的 `.claude/skills`；`activity.restore` 作用于操作记录中的一侧 |
@@ -257,7 +257,7 @@ export interface NativeRule {
 
 需要确认的操作在未带 `confirm: true` 时返回 `CONFIRMATION_REQUIRED`，错误体额外带 `nativeRules`（`{ "error": { "code", "message", "nativeRules": NativeRule[] } }`），界面据此显示确认框（AC-016）；这是错误体唯一的扩展字段，只出现在这个错误码上。
 
-所有 Claude 写操作：写前重新读取对象状态并与 `expectedRevision` 比较（多目标操作见 7.1）；成功后读回，结果带 `needsReload: true` 与 `agent: "claude"`。
+所有 Claude 写操作：写前重新读取对象状态并与 `expectedRevision` 比较（多目标操作见 7.1）；成功后读回，结果带 `agent: "claude"`；改变会话中可用内容的（插件与技能的启停、安装、卸载、移除，以及卸载了插件的 marketplace 移除）带 `needsReload: true`，添加与刷新 marketplace 不带。项目目录不存在的 project、local 范围安装返回 `PROJECT_PATH_MISSING`；组织托管范围的安装与托管设置声明的 marketplace 返回 `HOST_MANAGED`；命令行超时返回 `CLI_TIMEOUT`，结果未确认，须刷新核实。
 
 ### 7.4 示例
 
@@ -272,6 +272,9 @@ export interface NativeRule {
 { "message": "已在项目设置中启用 demo。新会话生效，已打开的会话需重载插件。", "needsReload": true, "agent": "claude",
   "nativeRules": [{ "kind": "scope", "message": "这会改动协作者共享的 .claude/settings.json。" }] }
 ```
+
+（示例中的 `nativeRules` 只在确认类结果中出现；实现中启停的成功结果不带。）
+
 
 未带 `confirm` 时：
 

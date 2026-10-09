@@ -253,8 +253,11 @@ export async function createService(options = {}) {
     }
     const result = await enrichSources(await scan(env, registry, await catalogFor(env, registry, force)), env, registry);
     enrichTags(result, registry);
+    // A version-1 snapshot keeps 0.10.2 semantics: Claude's activity is not Codex's, and it does not
+    // take places among the 200 shown (4a review P3-05).
+    if (!multiAgent) result.activity = result.activity.filter(item => (item.agent ?? 'codex') === 'codex');
     if (scheduler) { const { extraActivity, ...updateState } = scheduler.data(mode, result); Object.assign(result, updateState); result.activity = [...result.activity, ...extraActivity].sort((a, b) => b.createdAt.localeCompare(a.createdAt)).slice(0, 200); }
-    else result.updates = buildUpdateItems(result, {}, hasPreview);
+    else { result.activity = result.activity.slice(0, 200); result.updates = buildUpdateItems(result, {}, hasPreview); }
     for (const file of (await fs.readdir(env.root)).filter(name => /^pending-plugin-update-[a-f0-9-]+\.json$/.test(name)).slice(0, 20)) result.diagnostics.push(`存在未确认的包更新记录 ${file}；请核对插件版本和启用状态，旧写请求不会自动重放。`);
     if (mode === 'local' && background && result.schedule) {
       result.schedule.background = await background.status(result.schedule.enabled);
@@ -277,8 +280,6 @@ export async function createService(options = {}) {
     } else if (multiAgent) {
       mergeClaude(result, { skills: [], plugins: [], marketplaces: [], diagnostics: [] }); result.agents = [];
     }
-    // A version-1 snapshot keeps 0.10.2 semantics: Claude's activity is not Codex's.
-    if (!multiAgent) result.activity = result.activity.filter(item => (item.agent ?? 'codex') === 'codex');
     result.durationMs = Math.round(performance.now() - started); return result;
   }
   // The Claude catalog for multi-agent snapshots, kept for 15 seconds like the Codex one.
@@ -301,7 +302,7 @@ export async function createService(options = {}) {
     },
     writer: state => options.claudeWriter ? options.claudeWriter(state) : claudeWriter({ cli: state.cli, claudeRoot: state.claudeRoot, env: agentEnv }),
     journal: async entry => {
-      const env = environment('local'); const registry = await registryFor(env);
+      const env = environment('local'); await verifyDirectoryRoot(env.stateBoundary); const registry = await registryFor(env);
       registry.activity.unshift(entry);
       await writeJson(env.registryFile, registry);
     },

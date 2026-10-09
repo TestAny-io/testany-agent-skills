@@ -56,11 +56,19 @@ try {
   installed = await plugin(item => item.id === installed.id);
   await act('卸载并保留数据', { action: 'plugin.remove', id: installed.id, expectedRevision: installed.revision, confirm: true, keepData: true });
   assert.equal(await plugin(item => item.installed), undefined);
+  // A local installation in the project: Claude's record of the project path must match the readback.
+  const again = await plugin(item => !item.installed);
+  await act('安装（项目本地设置）', { action: 'plugin.install', id: again.id, scope: 'local', expectedRevision: again.revision });
+  const local = await plugin(item => item.installed && item.installation.scope === 'local');
+  assert.equal(await fs.realpath(local.installation.projectPath), await fs.realpath(project));
   let marketplace = (await claude()).marketplaces.find(item => item.name === 'smoke-market');
   await act('刷新 marketplace', { action: 'marketplace.refresh', id: marketplace.id, expectedRevision: marketplace.revision });
   marketplace = (await claude()).marketplaces.find(item => item.name === 'smoke-market');
-  await act('移除 marketplace', { action: 'marketplace.remove', id: marketplace.id, expectedRevision: marketplace.revision, confirm: true });
+  // Removed while a plugin installed from it is still there: the message says what Claude did to it.
+  const removal = await act('移除 marketplace（仍有插件）', { action: 'marketplace.remove', id: marketplace.id, expectedRevision: marketplace.revision, confirm: true });
   assert.equal((await claude()).marketplaces.some(item => item.name === 'smoke-market'), false);
+  steps.push(`移除后提示全文：${removal.message.replace(/\n/g, ' / ')}`);
+  steps.push(`移除后仍安装的插件：${(await claude()).plugins.filter(item => item.agents?.includes('claude') && item.installed && item.name === 'smoke-plugin').length}`);
   // Everything Claude wrote stays in the temporary world.
   const written = (await fs.readdir(path.join(home, '.claude'), { recursive: true })).length;
   console.log(steps.join('\n'));

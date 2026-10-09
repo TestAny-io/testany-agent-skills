@@ -26,3 +26,11 @@ export function requestRevision(request: Omit<ActionRequest, "mode">, snapshot: 
   const object = id ? [...snapshot.skills, ...snapshot.plugins, ...snapshot.marketplaces].find(item => item.id === id) : undefined;
   return object && !(object.agents ?? ["codex"]).includes("codex") ? object.revision : undefined;
 }
+
+/**
+ * The side a creation request (a new marketplace, a new skill) names: the one chosen whenever any
+ * Agent is managed, so that a Claude-only setup does not fall back to Codex (4a review P2-02).
+ */
+export function creationAgent(managed: Agent[], chosen: Agent): Agent | undefined {
+  return managed.length ? (managed.includes(chosen) ? chosen : managed[0]) : undefined;
+}

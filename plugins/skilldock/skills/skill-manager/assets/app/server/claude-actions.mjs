@@ -6,7 +6,7 @@
 import fs from 'node:fs/promises';
 import path from 'node:path';
 import crypto from 'node:crypto';
-import { AppError, fail } from './errors.mjs';
+import { AppError, fail, redact } from './errors.mjs';
 import { acquireFileLock, operationLock } from './process-lock.mjs';
 import { localSettingsExposure, excludeLocalSettings } from './local-settings.mjs';
 import { patchClaudeSetting } from './claude-settings.mjs';
@@ -40,8 +40,12 @@ const cliId = plugin => `${plugin.name}@${plugin.marketplace}`;
  */
 export function createClaudeActions({ root, read, writer, journal, git, now = () => new Date().toISOString() }) {
   const gitOptions = git ? { git } : {};
+  // A user-scope write runs from the current project if it still exists, else from Claude's home (4a review P3-02).
+  const userCwd = async state => await isDirectory(state.project) ? state.project : path.dirname(state.claudeRoot.configDir);
+  let targetName;
   function find(list, id, label) {
     const object = list.find(item => item.id === id);
+    if (object) targetName = object.name;
     if (!object) fail(404, 'NOT_FOUND', label === 'plugin' ? '未找到这个 Claude 插件，请刷新后重试。' : '未找到这个 Claude marketplace，请刷新后重试。');
     return object;
   }
@@ -79,6 +83,7 @@ export function createClaudeActions({ root, read, writer, journal, git, now = ()
     async 'skill.toggle'(request, state) {
       const skill = state.claude.skills.find(item => item.id === request.id);
       if (!skill) fail(404, 'NOT_FOUND', '未找到这个 Claude 技能，请刷新后重试。');
+      targetName = skill.name;
       if (!skill.canToggle) fail(403, skill.protection ? 'HOST_MANAGED' : 'PROTECTED_SKILL', skill.reason || '这个技能不支持切换。');
       checkRevision(skill, request);
       const value = request.enabled ? 'on' : 'off';
@@ -103,19 +108,25 @@ export function createClaudeActions({ root, read, writer, journal, git, now = ()
     async 'plugin.toggle'(request, state, run) {
       const plugin = find(state.claude.plugins, request.id, 'plugin');
       if (!plugin.installed) fail(404, 'NOT_FOUND', '这个 Claude 插件尚未安装。');
+      if (plugin.installation?.readOnlyReason) fail(422, 'PROJECT_PATH_MISSING', plugin.installation.readOnlyReason);
       if (!plugin.canToggle) fail(403, plugin.protection ? 'HOST_MANAGED' : 'PROTECTED_PLUGIN', plugin.reason || '这个插件不支持切换。');
       checkRevision(plugin, request);
       // Default: an installation for the user is switched for the user; one in a project (and a
       // project skills-directory plugin, whose key has no directory) in that project's local
       // settings, so that no other project with the same plugin is affected (HLD 3.3).
+      // A user installation that the project's own settings decide now is switched in the local
+      // settings too: the user settings would not take effect here and would change every other
+      // project (4a review P2-01). A project skills-directory plugin, which may sit in a parent
+      // directory, is switched in the current project (P3-06).
       const installScope = plugin.installation?.scope ?? 'user';
-      const scope = request.scope ?? (installScope === 'user' ? 'user' : 'local');
-      const home = plugin.installation?.projectPath ?? (plugin.installation?.skillsDir ? path.dirname(path.dirname(plugin.installation.skillsDir)) : undefined);
-      const cwd = scope === 'user' ? state.project : await projectFor(installScope === 'user' ? state.project : home);
+      const decided = plugin.enablement?.decidedBy;
+      const scope = request.scope ?? (installScope === 'user' && !['local', 'project'].includes(decided) ? 'user' : 'local');
+      const home = plugin.installation?.projectPath ?? state.project;
+      const cwd = scope === 'user' ? await userCwd(state) : await projectFor(installScope === 'user' ? state.project : home);
       const exposure = await scopeChecks(scope, cwd, request, [RELOAD]);
       await run(['plugin', request.enabled ? 'enable' : 'disable', cliId(plugin), '--scope', scope, '--json'], { cwd });
       const after = (await read()).claude.plugins.find(item => item.id === plugin.id);
-      if (!after || after.enabled !== request.enabled) readbackFailed('Claude 命令行已返回，但读回的启用状态与预期不同：可能由更高层级的设置决定，请刷新核实。');
+      if (!after || after.enabled !== request.enabled) readbackFailed(`已写入${SETTINGS[scope]}，但读回的启用状态与预期不同：可能由更高层级的设置决定，请刷新核实。`);
       return { message: `已在${SETTINGS[scope]}中${request.enabled ? '启用' : '停用'} Claude 插件 ${plugin.name}。${RELOAD_NOTE}${await afterLocal(exposure, request)}`,
         needsReload: true, agent: 'claude', target: plugin.name };
     },
@@ -135,7 +146,7 @@ export function createClaudeActions({ root, read, writer, journal, git, now = ()
       if (plugin.installed || !plugin.canInstall) fail(403, 'PROTECTED_PLUGIN', plugin.reason || '这个插件不能在这里安装。');
       checkRevision(plugin, request);
       const scope = request.scope ?? 'user';
-      const cwd = scope === 'user' ? state.project : await projectFor(state.project);
+      const cwd = scope === 'user' ? await userCwd(state) : await projectFor(state.project);
       const exposure = await scopeChecks(scope, cwd, request, [RELOAD]);
       await run(['plugin', 'install', cliId(plugin), '--scope', scope, '--json'], { cwd });
       const project = scope === 'user' ? null : await real(cwd);
@@ -147,6 +158,7 @@ export function createClaudeActions({ root, read, writer, journal, git, now = ()
     },
     async 'plugin.remove'(request, state, run) {
       const plugin = find(state.claude.plugins, request.id, 'plugin');
+      if (plugin.installed && plugin.installation?.readOnlyReason) fail(422, 'PROJECT_PATH_MISSING', plugin.installation.readOnlyReason);
       if (!plugin.installed || !plugin.canRemove) fail(403, plugin.protection ? 'HOST_MANAGED' : 'PROTECTED_PLUGIN', plugin.reason || '这个插件不能在这里卸载。');
       checkRevision(plugin, request);
       const scope = plugin.installation.scope;
@@ -154,7 +166,7 @@ export function createClaudeActions({ root, read, writer, journal, git, now = ()
         ...(request.keepData ? [] : [{ kind: 'data-removal', message: '卸载默认删除插件数据（~/.claude/plugins/data 中该插件的目录）；可以选择保留。' }]),
         ...(scope === 'project' ? [SHARED] : []), RELOAD];
       if (!request.confirm) needConfirmation(`卸载 Claude 插件 ${plugin.name} 前需要确认。`, rules);
-      const cwd = scope === 'user' ? state.project : await projectFor(plugin.installation.projectPath);
+      const cwd = scope === 'user' ? await userCwd(state) : await projectFor(plugin.installation.projectPath);
       await run(['plugin', 'uninstall', cliId(plugin), '--scope', scope, ...(request.keepData ? ['--keep-data'] : []), '--json'], { cwd });
       if ((await read()).claude.plugins.some(item => item.id === plugin.id && item.installed)) readbackFailed('Claude 命令行已返回，但插件仍在已安装清单中，请刷新核实。');
       return { message: `已卸载 Claude 插件 ${plugin.name}${request.keepData ? '，插件数据已保留' : ''}。${RELOAD_NOTE}`, needsReload: true, agent: 'claude', target: plugin.name, nativeRules: rules };
@@ -162,7 +174,7 @@ export function createClaudeActions({ root, read, writer, journal, git, now = ()
     async 'marketplace.add'(request, state, run) {
       if (request.ref !== undefined) fail(422, 'UNSUPPORTED_FOR_AGENT', 'Claude 的 marketplace 不能在这里指定 Git ref；请在 Claude Code 中添加。');
       const scope = request.scope ?? 'user';
-      const cwd = scope === 'user' ? state.project : await projectFor(state.project);
+      const cwd = scope === 'user' ? await userCwd(state) : await projectFor(state.project);
       const exposure = await scopeChecks(scope, cwd, request, []);
       const before = new Set(state.claude.marketplaces.map(item => item.name));
       await run(['plugin', 'marketplace', 'add', request.source, '--scope', scope, '--json'], { cwd });
@@ -172,23 +184,33 @@ export function createClaudeActions({ root, read, writer, journal, git, now = ()
     },
     async 'marketplace.refresh'(request, state, run) {
       const market = find(state.claude.marketplaces, request.id, 'marketplace');
-      if (!market.canRefresh) fail(403, 'PROTECTED_MARKETPLACE', market.reason || '这个 marketplace 不能刷新。');
+      if (!market.canRefresh) fail(403, market.protection ? 'HOST_MANAGED' : 'PROTECTED_MARKETPLACE', market.reason || '这个 marketplace 不能刷新。');
       checkRevision(market, request);
-      await run(['plugin', 'marketplace', 'update', market.name, '--json'], { cwd: state.project });
+      await run(['plugin', 'marketplace', 'update', market.name, '--json'], { cwd: await userCwd(state) });
       if (!(await read()).claude.marketplaces.some(item => item.id === market.id)) readbackFailed('Claude 命令行已返回，但读回的清单中没有这个 marketplace，请刷新核实。');
       return { message: `已刷新 Claude 的 marketplace ${market.name}；这不表示已安装的插件已经更新。`, agent: 'claude', target: market.name };
     },
     async 'marketplace.remove'(request, state, run) {
       const market = find(state.claude.marketplaces, request.id, 'marketplace');
-      if (!market.canRemove) fail(403, 'PROTECTED_MARKETPLACE', market.reason || '这个 marketplace 不能移除。');
+      if (!market.canRemove) fail(403, market.protection ? 'HOST_MANAGED' : 'PROTECTED_MARKETPLACE', market.reason || '这个 marketplace 不能移除。');
       // The revision covers the plugins installed from it, so the list confirmed is the list removed (36c 7.3).
       checkRevision(market, request);
-      const affected = [...new Set(state.claude.plugins.filter(item => item.installed && item.marketplace === market.name).map(item => item.name))].sort();
-      const rules = [{ kind: 'affected-plugins', message: affected.length ? '移除后，从它安装的这些插件也会被卸载：' : '没有从它安装的插件。', ...(affected.length ? { items: affected } : {}) }, ...(affected.length ? [RELOAD] : [])];
+      const installs = state.claude.plugins.filter(item => item.installed && item.marketplace === market.name);
+      const affected = [...new Set(installs.map(item => item.name))].sort();
+      // Claude removes the declaration from every settings layer, and uninstalls what came from
+      // it: the shared project settings change when they declare it or hold such an installation (4a review P1-01).
+      const shared = (state.claude.declarations?.[market.name] ?? []).includes('project') || installs.some(item => item.installation?.scope === 'project');
+      const rules = [{ kind: 'affected-plugins', message: affected.length ? '移除后，从它安装的这些插件也会被卸载：' : '没有从它安装的插件。', ...(affected.length ? { items: affected } : {}) },
+        ...(shared ? [{ kind: 'scope', message: '这会改动协作者共享的 .claude/settings.json：其中这个 marketplace 的声明或从它安装的插件条目会被删除。' }] : []), ...(affected.length ? [RELOAD] : [])];
       if (!request.confirm) needConfirmation(`移除 Claude 的 marketplace ${market.name} 前需要确认。`, rules);
       await run(['plugin', 'marketplace', 'remove', market.name, '--json'], { cwd: state.project });
-      if ((await read()).claude.marketplaces.some(item => item.id === market.id)) readbackFailed('Claude 命令行已返回，但这个 marketplace 仍在清单中，请刷新核实。');
-      return { message: `已从 Claude 中移除 marketplace ${market.name}${affected.length ? `，并卸载了从它安装的 ${affected.length} 个插件` : ''}。`, ...(affected.length ? { needsReload: true } : {}), agent: 'claude', target: market.name, nativeRules: rules };
+      const after = await read();
+      if (after.claude.marketplaces.some(item => item.id === market.id)) readbackFailed('Claude 命令行已返回，但这个 marketplace 仍在清单中，请刷新核实。');
+      // Say only what the readback shows (P3-04).
+      const remaining = installs.filter(item => after.claude.plugins.some(other => other.id === item.id && other.installed)).length;
+      const removed = installs.length - remaining;
+      return { message: `已从 Claude 中移除 marketplace ${market.name}${removed ? `，并卸载了从它安装的 ${removed} 个插件` : ''}。${remaining ? `\n仍有 ${remaining} 个从它安装的插件留在 Claude 中，请在插件页核实。` : ''}`,
+        ...(removed ? { needsReload: true } : {}), agent: 'claude', target: market.name, nativeRules: rules };
     },
   };
 
@@ -197,11 +219,14 @@ export function createClaudeActions({ root, read, writer, journal, git, now = ()
     if (!handler) fail(422, 'UNSUPPORTED_FOR_AGENT', '这一版 SkillDock 还不能在 Claude 中执行这个操作。');
     // DEC-SDX-010: the Claude lock comes after the instance and Codex locks the caller holds;
     // taking it never creates the Claude root. Claude is read afresh under it.
+    targetName = undefined;
     const { configDir } = await root();
     const release = await isDirectory(configDir) ? acquireFileLock(operationLock(configDir)) : () => {};
     const id = crypto.randomUUID();
     try {
       const state = await read();
+      // The checks before the lock may be stale: an unconfirmed Claude is never written (4a review P3-05).
+      if (state.claude.unconfirmed) fail(409, 'AGENT_UNCONFIRMED', state.claude.unconfirmed);
       const result = await handler(request, state, writer(state));
       // `restore` holds only the entry an undo needs; it never reaches a snapshot.
       const { target, restore, ...visible } = result;
@@ -209,7 +234,7 @@ export function createClaudeActions({ root, read, writer, journal, git, now = ()
       return visible;
     } catch (error) {
       if (!['CONFIRMATION_REQUIRED', 'SNAPSHOT_STALE', 'NOT_FOUND'].includes(error.code) && request.action !== 'plugin.previewMarketplace')
-        await journal({ id, action: request.action, agent: 'claude', target: request.id ?? request.source, createdAt: now(), status: 'error', message: error.message, reasonCode: error.code || 'OPERATION_FAILED', canRestore: false }).catch(() => {});
+        await journal({ id, action: request.action, agent: 'claude', target: targetName ?? request.id ?? request.source, createdAt: now(), status: 'error', message: redact(error.message), reasonCode: error.code || 'OPERATION_FAILED', canRestore: false }).catch(() => {});
       throw error;
     } finally { release(); }
   };

@@ -12,7 +12,8 @@ const gitEnvironment = () => {
   for (const key of Object.keys(env)) if (/^GIT_(DIR|WORK_TREE|INDEX_FILE|CONFIG_PARAMETERS|CONFIG_COUNT|CONFIG_KEY_|CONFIG_VALUE_)/.test(key)) delete env[key];
   return env;
 };
-export const defaultGit = (directory, args) => runProcess('git', ['-c', 'core.hooksPath=/dev/null', '-C', directory, ...args], { env: gitEnvironment(), timeout: 5000 }).then(result => result.stdout.trim());
+// No hooks and no file-system monitor program: only Git's own reading of the repository.
+export const defaultGit = (directory, args) => runProcess('git', ['-c', 'core.hooksPath=/dev/null', '-c', 'core.fsmonitor=false', '-C', directory, ...args], { env: gitEnvironment(), timeout: 5000 }).then(result => result.stdout.trim());
 
 /**
  * When writing the project's local settings would create the file inside a Git repository
@@ -27,9 +28,11 @@ export async function localSettingsExposure(projectDir, { git = defaultGit } = {
   const real = await fs.realpath(projectDir).catch(() => projectDir);
   const relative = path.relative(repoRoot, path.join(real, '.claude/settings.local.json'));
   if (!relative || relative.startsWith('..') || path.isAbsolute(relative)) return null;
-  // check-ignore exits 0 when the path is ignored, 1 when it is not.
+  // check-ignore exits 0 when the path is ignored, 1 when it is not. A tracked file is not
+  // protected by an exclude list, so it is not offered one (4a review P3-03).
   const ignored = await git(repoRoot, ['check-ignore', '-q', '--', relative]).then(() => true, () => false);
-  return ignored ? null : { file, repoRoot, relative };
+  const tracked = !ignored && await git(repoRoot, ['ls-files', '--error-unmatch', '--', relative]).then(() => true, () => false);
+  return ignored || tracked ? null : { file, repoRoot, relative };
 }
 
 /** Names the file in the repository's own exclude list (idempotent). */

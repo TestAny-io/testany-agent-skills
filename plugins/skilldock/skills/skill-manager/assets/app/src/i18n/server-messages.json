@@ -1262,5 +1262,37 @@
   "原位置的管理边界已变化。": {
     "en": "The management boundary of the original location has changed.",
     "ja": "元の場所の管理境界が変わりました。"
+  },
+  "仍有 {v0} 个从它安装的插件留在 Claude 中，请在插件页核实。": {
+    "en": "{v0} plugins installed from it are still in Claude; check them on the Plugins page.",
+    "ja": "そこからインストールした {v0} 個のプラグインがまだ Claude に残っています。プラグインページで確認してください。"
+  },
+  "这会改动协作者共享的 .claude/settings.json：其中这个 marketplace 的声明或从它安装的插件条目会被删除。": {
+    "en": "This changes .claude/settings.json, which collaborators share: its declaration of this marketplace or the entries of plugins installed from it are deleted.",
+    "ja": "共同作業者と共有している .claude/settings.json を変更します。このマーケットプレイスの宣言、またはそこからインストールしたプラグインの項目が削除されます。"
+  },
+  "Claude 命令行操作的对象名称无效。": {
+    "en": "The name given to the Claude command line is not valid.",
+    "ja": "Claude コマンドラインに渡す名前が無効です。"
+  },
+  "Claude 命令行参数不能重复。": {
+    "en": "A Claude command-line option cannot be repeated.",
+    "ja": "Claude コマンドラインのオプションは重複できません。"
+  },
+  "Claude 命令行 {v0} 超时，执行结果尚未确认；请刷新查看实际状态后再决定是否重试。": {
+    "en": "The Claude command line {v0} timed out and its outcome is not confirmed. Refresh to see the actual state before deciding whether to retry.",
+    "ja": "Claude コマンドライン {v0} がタイムアウトし、実行結果は確認できていません。更新して実際の状態を確認してから、再試行するか判断してください。"
+  },
+  "已写入用户设置，但读回的启用状态与预期不同：可能由更高层级的设置决定，请刷新核实。": {
+    "en": "Wrote user settings, but the enablement read back differs from what was expected: a higher settings level may decide it. Refresh to check.",
+    "ja": "ユーザー設定に書き込みましたが、読み戻した有効状態が想定と異なります。より上位の設定で決まっている可能性があります。更新して確認してください。"
+  },
+  "已写入项目共享设置，但读回的启用状态与预期不同：可能由更高层级的设置决定，请刷新核实。": {
+    "en": "Wrote the project's shared settings, but the enablement read back differs from what was expected: a higher settings level may decide it. Refresh to check.",
+    "ja": "プロジェクトの共有設定に書き込みましたが、読み戻した有効状態が想定と異なります。より上位の設定で決まっている可能性があります。更新して確認してください。"
+  },
+  "已写入项目本地设置，但读回的启用状态与预期不同：可能由更高层级的设置决定，请刷新核实。": {
+    "en": "Wrote the project's local settings, but the enablement read back differs from what was expected: a higher settings level may decide it. Refresh to check.",
+    "ja": "プロジェクトのローカル設定に書き込みましたが、読み戻した有効状態が想定と異なります。より上位の設定で決まっている可能性があります。更新して確認してください。"
   }
 }

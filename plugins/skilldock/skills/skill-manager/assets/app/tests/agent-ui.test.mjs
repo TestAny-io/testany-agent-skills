@@ -145,6 +145,15 @@ test('writes to a Claude object carry its revision; a confirmation is sent again
   assert.match(html, /移除后，从它安装的这些插件也会被卸载：/); assert.match(html, /<code>demo<\/code>/); assert.equal((html.match(/<li>/g) || []).length + (html.match(/<li /g) || []).length >= 3, true);
 });
 
+test('a new marketplace or skill names the chosen side whenever an Agent is managed', () => {
+  const { creationAgent } = ui();
+  assert.equal(creationAgent(['codex', 'claude'], 'claude'), 'claude');
+  assert.equal(creationAgent(['claude'], 'claude'), 'claude', '只有 Claude 时不回落到 Codex');
+  assert.equal(creationAgent(['claude'], 'codex'), 'claude');
+  assert.equal(creationAgent(['codex'], 'codex'), 'codex');
+  assert.equal(creationAgent([], 'codex'), undefined, '都不可管理时按 1 版处理');
+});
+
 test('nested service messages translate both the outer and the inner sentence (en)', () => {
   const { t } = translatorFor('en');
   assert.equal(t('无法确认 Claude 中的插件状态：设置文件 /x/settings.json 不是有效的 JSON。'), 'Cannot confirm the plugin state in Claude: The settings file /x/settings.json is not valid JSON.');

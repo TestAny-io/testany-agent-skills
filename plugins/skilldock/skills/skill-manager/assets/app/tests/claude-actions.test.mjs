@@ -11,6 +11,7 @@ import { createService } from '../server/service.mjs';
 import { createApp } from '../server/index.mjs';
 import { writeGeneration } from '../server/generation.mjs';
 import { claudeWriteArgs, claudeWriter } from '../server/claude-writer.mjs';
+import { localSettingsExposure, excludeLocalSettings } from '../server/local-settings.mjs';
 import { assertTranslated } from './i18n-helper.mjs';
 
 // Every message, native rule and reason the tests below see; checked for translations last.
@@ -36,16 +37,28 @@ async function world(t, { management = 'enabled', cli = true, repo = null } = {}
   const claude = {
     plugins: [{ id: 'demo@m', scope: 'user', enabled: true, version: '1.0.0' }, { id: 'proj@m', scope: 'project', projectPath: project, enabled: true, version: '1.0.0' }],
     marketplaces: [{ name: 'm', source: 'github', repo: 'o/m', installLocation: marketDir }],
-    calls: [], noop: false, fail: null,
+    calls: [], noop: false, fail: null, twist: {}, locks: [], listCalls: 0, failFrom: Infinity,
   };
   const writer = () => async (args, { cwd }) => {
     claude.calls.push({ args, cwd });
     claudeWriteArgs(args);
+    // Whether the Claude lock was held while the command ran, and whether the root existed.
+    claude.locks.push([await fs.stat(path.join(configDir, '.skilldock-operation.lock')).then(() => true, () => false), await fs.stat(configDir).then(() => true, () => false)]);
     if (claude.fail) throw Object.assign(new Error(claude.fail), { status: 502, code: 'CLI_FAILED' });
     if (claude.noop) return { ok: true };
-    const [, verb, a, b] = args; const scope = args[args.indexOf('--scope') + 1];
-    if (verb === 'enable' || verb === 'disable') { const item = claude.plugins.find(p => p.id === a); item.enabled = verb === 'enable'; if (scope === 'local') await write(path.join(cwd, '.claude/settings.local.json'), '{}'); }
-    if (verb === 'install') { claude.plugins.push({ id: a, scope, enabled: true, version: '2.0.0', ...(scope === 'user' ? {} : { projectPath: cwd }) }); if (scope === 'local') await write(path.join(cwd, '.claude/settings.local.json'), '{}'); }
+    const [, verb, a, b] = args; const scope = claude.twist.installScope ?? args[args.indexOf('--scope') + 1];
+    if (verb === 'marketplace' && a === 'add') await fs.mkdir(configDir, { recursive: true });
+    if (verb === 'marketplace' && a === 'add' && claude.twist.addTwo) claude.marketplaces.push({ name: 'added-too', source: 'directory', path: b });
+    if (verb === 'marketplace' && a === 'update' && claude.twist.refreshDrops) claude.marketplaces = claude.marketplaces.filter(m => m.name !== b);
+    if (verb === 'marketplace' && a === 'remove' && claude.twist.removeKeepsPlugins) { claude.marketplaces = claude.marketplaces.filter(m => m.name !== b); return { ok: true }; }
+    if (verb === 'enable' || verb === 'disable') {
+      // Like Claude: the entry goes into the settings file of the scope, and the list reports the result.
+      const file = scope === 'user' ? path.join(configDir, 'settings.json') : path.join(cwd, '.claude', scope === 'project' ? 'settings.json' : 'settings.local.json');
+      const current = JSON.parse(await fs.readFile(file, 'utf8').catch(() => '{}'));
+      await write(file, { ...current, enabledPlugins: { ...current.enabledPlugins, [a]: verb === 'enable' } });
+      const item = claude.plugins.find(p => p.id === a); item.enabled = verb === 'enable';
+    }
+    if (verb === 'install') { claude.plugins.push({ id: a, scope, enabled: true, version: '2.0.0', ...(scope === 'user' ? {} : { projectPath: claude.twist.installProject ?? cwd }) }); if (scope === 'local') await write(path.join(cwd, '.claude/settings.local.json'), '{}'); }
     if (verb === 'uninstall') claude.plugins = claude.plugins.filter(p => !(p.id === a && p.scope === scope));
     if (verb === 'marketplace' && a === 'add') claude.marketplaces.push({ name: 'added', source: 'directory', path: b });
     if (verb === 'marketplace' && a === 'remove') { claude.marketplaces = claude.marketplaces.filter(m => m.name !== b); claude.plugins = claude.plugins.filter(p => !p.id.endsWith(`@${b}`)); }
@@ -63,7 +76,7 @@ async function world(t, { management = 'enabled', cli = true, repo = null } = {}
   const options = { home, codexHome: path.join(home, '.codex'), projectDir: project, stateDir: state, background: false, env: { HOME: home },
     adapter: { list: async () => ({ plugins: [], marketplaces: [], diagnostics: [], listed: { plugins: true, marketplaces: true }, cli: { available: true, version: 'codex-cli 0.200.0', path: '/stand-in/codex' } }) },
     claudeCli: async () => cli ? { available: true, version: '2.1.288', path: '/stand-in/claude' } : { available: false, error: 'stand-in: none' },
-    claudeCatalog: { managedDir: path.join(root, 'no-managed'), listPlugins: async () => structuredClone(claude.plugins), listMarketplaces: async () => structuredClone(claude.marketplaces) },
+    claudeCatalog: { managedDir: path.join(root, 'no-managed'), listPlugins: async () => { if (++claude.listCalls >= claude.failFrom) throw new Error('stand-in list failure'); return structuredClone(claude.plugins); }, listMarketplaces: async () => structuredClone(claude.marketplaces) },
     claudeWriter: writer, claudeGit: git };
   const service = await createService(options);
   t.after(async () => { await service.close(); await fs.rm(root, { recursive: true, force: true }); });
@@ -87,6 +100,11 @@ test('the command line runs only whitelisted writes, with an explicit scope and 
     [['plugin', 'enable', 'a@m', 'b@m', '--scope', 'user', '--json'], '恰好一个对象'],
     [['plugin', 'enable', '--scope', 'user', '--json'], '恰好一个对象'],
     [['plugin', 'enable', 'demo@m', '--keep-data', '--scope', 'user', '--json'], '只有卸载可以保留数据'],
+    [['plugin', 'marketplace', 'update', '', '--json'], '空名称在 Claude 中意味着全部'],
+    [['plugin', 'marketplace', 'update', '../m', '--json'], '名称不合规'],
+    [['plugin', 'enable', 'demo', '--scope', 'user', '--json'], '插件须为 名称@marketplace'],
+    [['plugin', 'enable', 'demo@m', '--scope', 'user', '--scope', 'project', '--json'], '参数不能重复'],
+    [['plugin', 'enable', 'demo@m', '--scope', 'user', '--json', '--json'], '参数不能重复'],
   ]) assert.throws(() => claudeWriteArgs(args), /./, label);
 });
 
@@ -94,11 +112,33 @@ test('a command line that asks to run a marketplace-declared command is refused,
   const root = await fs.realpath(await fs.mkdtemp(path.join(os.tmpdir(), 'skilldock-claude-writer-')));
   t.after(() => fs.rm(root, { recursive: true, force: true }));
   const stand = path.join(root, 'claude');
-  await fs.writeFile(stand, `#!/bin/sh\nif [ "$3" = "asks" ]; then echo '{"shownCommand":{"sha256":"abc"}}'; exit 1; fi\nif [ "$3" = "fails" ]; then echo 'boom' >&2; exit 3; fi\necho 'note'\necho '{"ok":true}'\n`, { mode: 0o700 });
+  await fs.writeFile(stand, `#!/bin/sh\nif [ "$3" = "asks@m" ]; then echo '{"shownCommand":{"sha256":"abc"}}'; exit 1; fi\nif [ "$3" = "fails@m" ]; then echo 'boom https://user:secret@example.com/r.git token=abc' >&2; exit 3; fi\nif [ "$3" = "slow@m" ]; then sleep 5; fi\necho 'note'\necho '{"ok":true}'\n`, { mode: 0o700 });
   const run = claudeWriter({ cli: { path: stand }, claudeRoot: { configDir: path.join(root, '.claude') }, env: { HOME: root } });
-  assert.deepEqual(await run(['plugin', 'install', 'fine', '--scope', 'user', '--json'], { cwd: root }), { ok: true }, '取最后一行机器可读结果');
-  await assert.rejects(run(['plugin', 'install', 'asks', '--scope', 'user', '--json'], { cwd: root }), { code: 'HOST_MANAGED' });
-  await assert.rejects(run(['plugin', 'install', 'fails', '--scope', 'user', '--json'], { cwd: root }), error => error.code === 'CLI_FAILED' && /boom/.test(error.message));
+  assert.deepEqual(await run(['plugin', 'install', 'fine@m', '--scope', 'user', '--json'], { cwd: root }), { ok: true }, '取最后一行机器可读结果');
+  await assert.rejects(run(['plugin', 'install', 'asks@m', '--scope', 'user', '--json'], { cwd: root }), { code: 'HOST_MANAGED' });
+  await assert.rejects(run(['plugin', 'install', 'fails@m', '--scope', 'user', '--json'], { cwd: root }), error => error.code === 'CLI_FAILED' && /boom/.test(error.message) && !/secret|token=abc/.test(error.message));
+  const slow = claudeWriter({ cli: { path: stand }, claudeRoot: { configDir: path.join(root, '.claude') }, env: { HOME: root }, timeout: 300 });
+  await assert.rejects(slow(['plugin', 'install', 'slow@m', '--scope', 'user', '--json'], { cwd: root }), error => error.code === 'CLI_TIMEOUT' && /执行结果尚未确认/.test(error.message));
+});
+
+test('local settings: ignored or tracked files are not offered an exclude entry; writing it twice leaves one line', async t => {
+  const root = await fs.realpath(await fs.mkdtemp(path.join(os.tmpdir(), 'skilldock-local-settings-')));
+  t.after(() => fs.rm(root, { recursive: true, force: true }));
+  const state = { ignored: false, tracked: false };
+  const git = async (directory, args) => {
+    if (args[0] === 'rev-parse' && args[1] === '--show-toplevel') return root;
+    if (args[0] === 'check-ignore') { if (state.ignored) return ''; throw new Error('not ignored'); }
+    if (args[0] === 'ls-files') { if (state.tracked) return '.claude/settings.local.json'; throw new Error('not tracked'); }
+    if (args[0] === 'rev-parse' && args[1] === '--git-path') return '.git/info/exclude';
+    throw new Error('unexpected');
+  };
+  const exposure = await localSettingsExposure(root, { git });
+  assert.equal(exposure.relative, '.claude/settings.local.json');
+  state.ignored = true; assert.equal(await localSettingsExposure(root, { git }), null, '已被忽略');
+  state.ignored = false; state.tracked = true; assert.equal(await localSettingsExposure(root, { git }), null, '已被跟踪');
+  await write(path.join(root, '.git/info/exclude'), '# existing');
+  await excludeLocalSettings(exposure, { git }); await excludeLocalSettings(exposure, { git });
+  assert.equal(await fs.readFile(path.join(root, '.git/info/exclude'), 'utf8'), '# existing\n/.claude/settings.local.json\n');
 });
 
 test('while Claude is read-only, not installed, unconfirmed or without a command line, writes are refused and nothing runs', async t => {
@@ -201,7 +241,8 @@ test('a project installation whose project is gone is read-only', async t => {
   w.claude.plugins.push({ id: 'gone@m', scope: 'local', projectPath: path.join(w.root, 'missing'), enabled: true, version: '1' });
   const gone = (await w.snapshot()).plugins.find(item => item.name === 'gone');
   assert.deepEqual([gone.canToggle, gone.canRemove], [false, false]); assert.match(gone.reason, /不存在，这条安装只读/);
-  assert.equal((await w.act({ action: 'plugin.remove', id: gone.id, expectedRevision: gone.revision, confirm: true })).code, 'PROTECTED_PLUGIN');
+  assert.equal((await w.act({ action: 'plugin.remove', id: gone.id, expectedRevision: gone.revision, confirm: true })).code, 'PROJECT_PATH_MISSING');
+  assert.equal((await w.act({ action: 'plugin.toggle', id: gone.id, enabled: false, expectedRevision: gone.revision })).code, 'PROJECT_PATH_MISSING');
 });
 
 test('marketplaces: add (no ref), refresh, and removal that lists the plugins it uninstalls', async t => {
@@ -224,6 +265,111 @@ test('marketplaces: add (no ref), refresh, and removal that lists the plugins it
   const removed = await w.act({ action: 'marketplace.remove', id: market.id, expectedRevision: current.revision, confirm: true });
   assert.match(removed.message, /并卸载了从它安装的 3 个插件/);
   assert.equal(w.claude.calls.at(-1).args.join(' '), 'plugin marketplace remove m --json');
+});
+
+test('removing a marketplace that the shared project settings declare, or that project installations came from, names the shared file', async t => {
+  const w = await world(t);
+  const removalRules = async () => { const market = (await w.snapshot()).marketplaces.find(item => item.id === 'claude:marketplace:m'); return (await w.act({ action: 'marketplace.remove', id: market.id, expectedRevision: market.revision })).nativeRules.map(rule => rule.kind); };
+  assert.deepEqual(await removalRules(), ['affected-plugins', 'scope', 'reload'], 'proj 装在项目范围');
+  w.claude.plugins = w.claude.plugins.filter(item => item.scope !== 'project');
+  assert.deepEqual(await removalRules(), ['affected-plugins', 'reload'], '只剩用户范围的安装');
+  await write(path.join(w.project, '.claude/settings.json'), { extraKnownMarketplaces: { m: { source: { source: 'github', repo: 'o/m' } } } });
+  assert.deepEqual(await removalRules(), ['affected-plugins', 'scope', 'reload'], '项目共享设置声明了它');
+  // Declared by managed settings: not removable here.
+  await write(path.join(w.root, 'no-managed/managed-settings.json'), { extraKnownMarketplaces: { m: { source: { source: 'github', repo: 'o/m' } } } });
+  const managed = (await w.snapshot()).marketplaces.find(item => item.id === 'claude:marketplace:m');
+  assert.deepEqual([managed.canRemove, managed.protection], [false, 'managed']);
+  assert.equal((await w.act({ action: 'marketplace.remove', id: managed.id, expectedRevision: managed.revision, confirm: true })).code, 'HOST_MANAGED');
+});
+
+test('switching a user installation that the project decides writes the local settings; the readback names the layer', async t => {
+  const w = await world(t);
+  await write(path.join(w.project, '.claude/settings.json'), { enabledPlugins: { 'demo@m': true } });
+  const demo = await w.object('plugins', 'demo');
+  assert.equal(demo.enablement.decidedBy, 'project');
+  await w.act({ action: 'plugin.toggle', id: demo.id, enabled: false, expectedRevision: demo.revision, gitExclude: false });
+  assert.deepEqual([w.claude.calls.at(-1).args.join(' '), w.claude.calls.at(-1).cwd], ['plugin disable demo@m --scope local --json', w.project]);
+  w.claude.noop = true; const again = await w.object('plugins', 'demo');
+  const failed = await w.act({ action: 'plugin.toggle', id: again.id, enabled: true, scope: 'user', expectedRevision: again.revision });
+  assert.equal(failed.code, 'READBACK_FAILED'); assert.match(failed.message, /已写入用户设置/);
+});
+
+test('every write reads back what it claims: installs, uninstalls, marketplace additions, refreshes and removals', async t => {
+  const w = await world(t);
+  const other = async () => (await w.snapshot()).plugins.find(item => item.id === 'claude:plugin:other@m');
+  w.claude.noop = true;
+  let plugin = await other();
+  assert.equal((await w.act({ action: 'plugin.install', id: plugin.id, expectedRevision: plugin.revision })).code, 'READBACK_FAILED', '安装没有发生');
+  w.claude.noop = false; w.claude.twist = { installScope: 'user' };
+  assert.equal((await w.act({ action: 'plugin.install', id: plugin.id, scope: 'local', gitExclude: false, expectedRevision: plugin.revision })).code, 'READBACK_FAILED', '装到了别的作用域');
+  w.claude.plugins = w.claude.plugins.filter(item => item.id !== 'other@m');
+  const elsewhere = path.join(w.root, 'elsewhere'); await fs.mkdir(elsewhere);
+  w.claude.twist = { installProject: elsewhere }; plugin = await other();
+  assert.equal((await w.act({ action: 'plugin.install', id: plugin.id, scope: 'local', gitExclude: false, expectedRevision: plugin.revision })).code, 'READBACK_FAILED', '装到了别的项目');
+  w.claude.twist = {}; w.claude.noop = true;
+  const demo = await w.object('plugins', 'demo');
+  assert.equal((await w.act({ action: 'plugin.remove', id: demo.id, expectedRevision: demo.revision, confirm: true })).code, 'READBACK_FAILED', '卸载没有发生');
+  const source = path.join(w.root, 'market-source'); await fs.mkdir(source);
+  assert.equal((await w.act({ action: 'marketplace.add', sourceType: 'local', source })).code, 'READBACK_FAILED', '没有新增');
+  w.claude.noop = false; w.claude.twist = { addTwo: true };
+  assert.equal((await w.act({ action: 'marketplace.add', sourceType: 'local', source })).code, 'READBACK_FAILED', '新增了两个');
+  w.claude.twist = { refreshDrops: true };
+  let market = (await w.snapshot()).marketplaces.find(item => item.id === 'claude:marketplace:m');
+  assert.equal((await w.act({ action: 'marketplace.refresh', id: market.id, expectedRevision: market.revision })).code, 'READBACK_FAILED', '刷新后消失');
+  w.claude.marketplaces.push({ name: 'm', source: 'github', repo: 'o/m', installLocation: path.join(w.configDir, 'plugins/marketplaces/m') });
+  w.claude.twist = {}; w.claude.noop = true;
+  market = (await w.snapshot()).marketplaces.find(item => item.id === 'claude:marketplace:m');
+  assert.equal((await w.act({ action: 'marketplace.remove', id: market.id, expectedRevision: market.revision, confirm: true })).code, 'READBACK_FAILED', '移除后仍在');
+  // Removed, but its plugins stay: the message says only what happened.
+  w.claude.noop = false; w.claude.twist = { removeKeepsPlugins: true };
+  const kept = await w.act({ action: 'marketplace.remove', id: market.id, expectedRevision: market.revision, confirm: true });
+  assert.match(kept.message, /已从 Claude 中移除 marketplace m。/); assert.match(kept.message, /仍有 3 个从它安装的插件留在 Claude 中/);
+});
+
+test('the Claude lock is held while a command runs, released after, and never creates the Claude root', async t => {
+  const w = await world(t);
+  const demo = await w.object('plugins', 'demo');
+  await w.act({ action: 'plugin.toggle', id: demo.id, enabled: false, expectedRevision: demo.revision });
+  assert.deepEqual(w.claude.locks.at(-1), [true, true]);
+  assert.equal(await fs.stat(path.join(w.configDir, '.skilldock-operation.lock')).then(() => true, () => false), false, '结束后释放');
+  await fs.rm(w.configDir, { recursive: true, force: true });
+  const source = path.join(w.root, 'market-source'); await fs.mkdir(source);
+  await w.act({ action: 'marketplace.add', sourceType: 'local', source });
+  assert.deepEqual(w.claude.locks.at(-1), [false, false], '根不存在时不取锁、不创建根');
+  // An unconfirmed Claude seen under the lock is never written, even when the check before it passed.
+  const v = await world(t);
+  const item = await v.object('plugins', 'demo');
+  v.claude.failFrom = v.claude.listCalls + 2;
+  assert.equal((await v.act({ action: 'plugin.toggle', id: item.id, enabled: false, expectedRevision: item.revision })).code, 'AGENT_UNCONFIRMED');
+  assert.deepEqual(v.claude.calls, []);
+});
+
+test('capabilities: managed installations and enablement decided beyond the settings files cannot be changed', async t => {
+  const w = await world(t);
+  w.claude.plugins.push({ id: 'org@m', scope: 'managed', enabled: true, version: '1' });
+  await write(path.join(w.configDir, 'settings.json'), { enabledPlugins: { 'demo@m': false } });
+  const plugins = (await w.snapshot()).plugins;
+  const org = plugins.find(item => item.name === 'org'); const demo = plugins.find(item => item.name === 'demo' && item.installation?.scope === 'user');
+  assert.deepEqual([org.canToggle, org.canRemove, org.protection], [false, false, 'managed']);
+  assert.equal((await w.act({ action: 'plugin.toggle', id: org.id, enabled: false, expectedRevision: org.revision })).code, 'HOST_MANAGED');
+  assert.deepEqual([demo.enabled, demo.canToggle], [true, false]); assert.match(demo.reason, /设置文件中是停用，但 Claude 实际启用了它/);
+});
+
+test('a project installation in another project is changed from that project; nothing is journaled for a confirmation or a stale page', async t => {
+  const w = await world(t);
+  const other = path.join(w.root, 'other-project'); await fs.mkdir(other);
+  w.claude.plugins.push({ id: 'far@m', scope: 'local', projectPath: other, enabled: true, version: '1' });
+  const far = (await w.snapshot()).plugins.find(item => item.name === 'far');
+  await w.act({ action: 'plugin.toggle', id: far.id, enabled: false, expectedRevision: far.revision, gitExclude: false });
+  assert.equal(w.claude.calls.at(-1).cwd, other);
+  const after = (await w.snapshot()).plugins.find(item => item.name === 'far');
+  const before = (await w.snapshot()).activity.length;
+  await w.act({ action: 'plugin.remove', id: after.id, expectedRevision: after.revision });
+  await w.act({ action: 'plugin.remove', id: after.id, expectedRevision: 'abcd', confirm: true });
+  assert.equal((await w.snapshot()).activity.length, before, '确认与过期不记为失败');
+  await w.act({ action: 'plugin.remove', id: after.id, expectedRevision: after.revision, confirm: true });
+  assert.deepEqual([w.claude.calls.at(-1).args.join(' '), w.claude.calls.at(-1).cwd], ['plugin uninstall far@m --scope local --json', other]);
+  assert.equal((await w.service.action({ mode: 'sandbox', agent: 'claude', action: 'plugin.toggle', id: far.id, enabled: true }).catch(error => error)).code, 'MODE_DISABLED');
 });
 
 test('the HTTP error body carries the native rules of a confirmation, and only of a confirmation', async t => {

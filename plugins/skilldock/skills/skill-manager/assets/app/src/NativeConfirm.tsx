@@ -41,7 +41,8 @@ export function NativeRuleList({ rules }: { rules: NativeRule[] }) {
 export function NativeConfirmDialog({ confirmation, busy, action, onClose }: { confirmation: NativeConfirmation; busy: string | null; action: ActionHandler; onClose: () => void }) {
   const offered = confirmationChoices(confirmation.rules);
   const [keepData, setKeepData] = useState(false);
-  const [gitExclude, setGitExclude] = useState(true);
+  // Writing .git/info/exclude needs the user's consent (HLD 3.4): unticked until they tick it.
+  const [gitExclude, setGitExclude] = useState(false);
   const [error, setError] = useState("");
   async function confirm() {
     setError("");

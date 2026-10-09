@@ -92,7 +92,7 @@ import { LibraryFilters, ViewSwitch, CollectionFooter } from "./LibraryUI";
 import { NativeConfirmDialog, type NativeConfirmation } from "./NativeConfirm";
 import { AgentFilter, AgentBadges, AgentSplit, ClaudePluginFacts, ClaudeSkillFacts, MarketAutoUpdate, matchesAgent, showsAgents, objectAgents, type AgentFilterValue } from "./AgentUI";
 import { AgentEnvironments } from "./AgentEnvironments";
-import { requestAgent, requestRevision, stateUrl } from "./agent-requests";
+import { creationAgent, requestAgent, requestRevision, stateUrl } from "./agent-requests";
 
 type Page = "skills" | "plugins" | "markets" | "updates" | "activity" | "agents";
 type Metric = "all" | "enabled" | "standalone" | "attention";
@@ -523,6 +523,7 @@ export default function App() {
     if (paused) throw new Error(t("SkillDock 正在重新连接，请稍后再操作。"));
     const capturedMode = modeRef.current;
     if (!capturedMode) throw new Error("工作空间尚未就绪，请重新读取清单。");
+    let sentRevision: string | undefined;
     const key = `${request.action}:${request.id || ""}`;
     busyRef.current = key;
     setBusy(key);
@@ -534,13 +535,14 @@ export default function App() {
       )
         throw new Error("工作空间已变化，请重新读取清单后重试。");
       tokenRef.current = session.token;
+      sentRevision = multiAgentRef.current ? requestRevision(request, snapshot) : undefined;
       const result = await api<ActionResult>("/api/actions", {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
           "X-SkillDock-Token": tokenRef.current,
         },
-        body: JSON.stringify({ ...request, ...(multiAgentRef.current ? { agent: requestAgent(request, snapshot), expectedRevision: requestRevision(request, snapshot) } : {}), mode: capturedMode }),
+        body: JSON.stringify({ ...request, ...(multiAgentRef.current ? { agent: requestAgent(request, snapshot), expectedRevision: sentRevision } : {}), mode: capturedMode }),
       });
       if (modeRef.current !== capturedMode) return undefined;
       if (result.update && request.id)
@@ -574,7 +576,7 @@ export default function App() {
           kind: (result.run && result.run.status !== "success") || (result.remoteInstall && !result.remoteInstall.installed) ? "error" : "success",
           message:
             (result.run ? t(result.run.status === "success" ? "更新检查已完成" : result.run.status === "partial" ? "更新检查部分完成" : "更新检查未完成") : message) +
-            (result.needsReload ? " 新的 Codex 会话或重载后生效。" : ""),
+            (result.needsReload && result.agent !== "claude" ? " 新的 Codex 会话或重载后生效。" : ""),
         });
         await refresh();
       }
@@ -583,7 +585,8 @@ export default function App() {
       // The service asks the user first: show what the change touches, then send it again.
       const { code, nativeRules } = error as { code?: string; nativeRules?: NativeRule[] };
       if (code === "CONFIRMATION_REQUIRED" && Array.isArray(nativeRules) && modeRef.current === capturedMode) {
-        setDialog({ type: "native-confirm", confirmation: { request, message: (error as Error).message, rules: nativeRules } });
+        // The confirmed request carries the revision the user saw, so what was confirmed is what runs.
+        setDialog({ type: "native-confirm", confirmation: { request: { ...request, ...(sentRevision !== undefined ? { expectedRevision: sentRevision } : {}) }, message: (error as Error).message, rules: nativeRules } });
         return undefined;
       }
       if (modeRef.current === capturedMode) {
@@ -1917,7 +1920,7 @@ function MarketDialog({
     try {
       const result = await action({
         action: "marketplace.add",
-        ...(agents.length > 1 ? { agent } : {}),
+        ...(creationAgent(agents, agent) ? { agent: creationAgent(agents, agent) } : {}),
         sourceType,
         source: source.trim(),
         ...(sourceType === "git" && agent === "codex" && ref.trim() ? { ref: ref.trim() } : {}),

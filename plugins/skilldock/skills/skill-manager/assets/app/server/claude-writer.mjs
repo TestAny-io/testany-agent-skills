@@ -12,6 +12,9 @@ const SCOPED = new Set(['plugin install', 'plugin uninstall', 'plugin enable', '
 const COMMANDS = new Set([...SCOPED, 'plugin marketplace remove', 'plugin marketplace update']);
 const SCOPES = new Set(['user', 'project', 'local']);
 const FLAGS = new Set(['--json', '--keep-data', '--scope']);
+// What each command names: a plugin as <name>@<marketplace>, a marketplace by name, a source as given.
+const PLUGIN = /^[A-Za-z0-9][A-Za-z0-9._-]{0,127}@[A-Za-z0-9][A-Za-z0-9._-]{0,127}$/;
+const NAME = /^[A-Za-z0-9][A-Za-z0-9._-]{0,127}$/;
 
 /** The command a write runs, or an error naming why it is refused. */
 export function claudeWriteArgs(args) {
@@ -19,7 +22,12 @@ export function claudeWriteArgs(args) {
   if (!COMMANDS.has(command)) throw new AppError(403, 'CLI_COMMAND', '不支持该 Claude 命令行操作。');
   const rest = args.slice(command.split(' ').length);
   const positional = rest.filter((value, index) => !value.startsWith('-') && rest[index - 1] !== '--scope');
-  if (positional.length !== 1 || /[\x00-\x1f]/.test(positional[0]) || positional[0].startsWith('-')) throw new AppError(400, 'CLI_COMMAND', 'Claude 命令行操作需要恰好一个对象。');
+  if (positional.length !== 1 || !positional[0] || /[\x00-\x1f]/.test(positional[0]) || positional[0].startsWith('-')) throw new AppError(400, 'CLI_COMMAND', 'Claude 命令行操作需要恰好一个对象。');
+  const object = positional[0];
+  // An empty or unexpected name could mean "all" to Claude (`marketplace update` without a name updates every one).
+  if (command.startsWith('plugin marketplace') ? command !== 'plugin marketplace add' && !NAME.test(object) : !PLUGIN.test(object)) throw new AppError(400, 'CLI_COMMAND', 'Claude 命令行操作的对象名称无效。');
+  const flags = rest.filter(value => value.startsWith('-'));
+  if (new Set(flags).size !== flags.length) throw new AppError(400, 'CLI_COMMAND', 'Claude 命令行参数不能重复。');
   for (const [index, value] of rest.entries()) {
     if (!value.startsWith('-')) continue;
     if (!FLAGS.has(value)) throw new AppError(403, 'CLI_COMMAND', `不支持 Claude 命令行参数 ${value}。`);
@@ -31,7 +39,8 @@ export function claudeWriteArgs(args) {
   return command;
 }
 
-// With --json the command prints one machine-readable line, the last one on stdout.
+// With --json the command prints one machine-readable line as the last line on stdout; the last
+// line that starts with `{` is taken, which also tolerates trailing notes.
 function lastJson(text) {
   const line = String(text).trim().split('\n').reverse().find(value => value.trim().startsWith('{'));
   try { return line ? JSON.parse(line) : null; } catch { return null; }
@@ -53,7 +62,9 @@ export function claudeWriter({ cli, claudeRoot, env = process.env, timeout = 120
         if (confirmationNeeded(result)) return reject(new AppError(403, 'HOST_MANAGED', '这个插件需要执行 marketplace 声明的命令才能安装或更新，SkillDock 不代为确认；请在 Claude Code 中用 /plugin 手动处理。'));
         if (error) {
           const detail = (result && typeof result.error === 'string' && result.error) || (result && typeof result.message === 'string' && result.message) || String(stderr || error.message).split('\n').find(Boolean) || '没有返回详情';
-          return reject(new AppError(error.killed ? 504 : 502, error.killed ? 'CLI_TIMEOUT' : 'CLI_FAILED', `Claude 命令行 ${command} 失败：${redact(detail)}`));
+          // A command that timed out may still have done its work: the outcome is unknown, not failed.
+          if (error.killed) return reject(new AppError(504, 'CLI_TIMEOUT', `Claude 命令行 ${command} 超时，执行结果尚未确认；请刷新查看实际状态后再决定是否重试。`));
+          return reject(new AppError(502, 'CLI_FAILED', `Claude 命令行 ${command} 失败：${redact(detail)}`));
         }
         if (!result) return reject(new AppError(502, 'CLI_JSON', `Claude 命令行 ${command} 没有返回机器可读结果，无法确认实际状态。`));
         resolve(result);
