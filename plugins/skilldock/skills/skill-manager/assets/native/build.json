@@ -10,9 +10,9 @@
     "server/native-server.mjs": "73306e0d9a5a7b89642e98a71525ac0ee69a2dd8a0a10e20b076902c80ee77b4",
     "server/process-lock.mjs": "2978f4ffe74d6d2c12980b03e5a28d4f00a4f7e559e6c46b3e1d5917960352c7",
     "src/AgentEnvironments.tsx": "807f1529152221823120ef14090212ea4baa287510a139da9874c3048041c1a8",
-    "src/AgentUI.css": "8eb92c58d070ee0552fca91e24d6320a50f22ec96186eb2d04d30a41dc03e292",
-    "src/AgentUI.tsx": "543a7b805036824335b93783cc4ffa1d43ae971c80f099d8671b87ab037739f2",
-    "src/App.tsx": "128d54157254e537933532ab7aba2a6f70b499e6f17e0e7f5fd6808f3a2ef101",
+    "src/AgentUI.css": "612ab8d9f28296819722dd59756f3947dc4dd078b6169effad109e23b2fa5d34",
+    "src/AgentUI.tsx": "7fa0d0ba3e0ba4790132838106688ed417d4a61e0e62ff94e538d2ce83df7747",
+    "src/App.tsx": "3ff87f5301a61ce9e5d6d8b69c614ede6c63e22cb39d1842550df8052d34c83a",
     "src/CompatibilityWarnings.tsx": "dc7f57da6a06829e5e24fc6149535f69bd6128bd0cbae93e10ee423a623d1f62",
     "src/DesktopUI.tsx": "a827ba36401fa368b332297efea7dc1d0a8151844b4179e0d7eae189fb99d063",
     "src/DiffBrowser.css": "42fb14f283c1be1c73ce375286f9cc29259351dc129a730a4643ebb4afacac94",
@@ -40,8 +40,8 @@
     "src/desktop.css": "15814dc52392f308d2afa57b9c076d9149e22e06228e3424264984d939ec03ce",
     "src/i18n.tsx": "4b108b7ca620c3013d2118ad0b2b6ffd963d391fcf17a67c7ae4d4a3869bbf82",
     "src/i18n/errors.json": "c5b132a42055099209988fbcc5b4ea2a003a86b3cf0f2d370cdf26b9937e4efc",
-    "src/i18n/messages.json": "a499b1839a7fa90c9105253c5f824a194a8f0417578f5ccf7f67c69ba25f2560",
-    "src/i18n/server-messages.json": "c39c710578eb5595e743ae65ae731c727e4bdf1f3b8d43a61974f4ffa2d37381",
+    "src/i18n/messages.json": "6a9fe98aa4bec56132de5f3bfe93385d20086acb070672b7c63c8665a56d1c71",
+    "src/i18n/server-messages.json": "5e8eeda5156269556792c94308d713c20f23803cd3fe3a073e29780797e0b96f",
     "src/main.tsx": "0b17df37f3ddac17ba356b85184252cd545e0afa93a2246a8202b30b8a879fff",
     "src/native-icon.svg": "9b7d7c19189c56b43fe691c0cb01e19b1f88abc61d1d130c974c5f5411b7288c",
     "src/plugin-presentation.ts": "f221117671d3b93250a16e6e54326879e6ae1a6aaf3e50dea401e8fdfb86dadf",
@@ -54,7 +54,7 @@
   },
   "artifacts": {
     "server.mjs": "b1067621bebba924955a3f1be05145f144a7c17eb0afa20b3b9aba16be6e9f71",
-    "ui.html": "6b79ba3e3ce94dd68d121a3acbce8d354056ffd73320d12dbc309028f21441d4",
+    "ui.html": "9f9454fdb98fe7b2188be59209d8494ca5663d2db9d4d46057b693a1aa56b1d8",
     "icon.svg": "9b7d7c19189c56b43fe691c0cb01e19b1f88abc61d1d130c974c5f5411b7288c",
     "THIRD_PARTY_NOTICES.txt": "0580c525bbaf94d006050bf773e482a470c9f983971e23b26e8048505e11bd4f"
   }

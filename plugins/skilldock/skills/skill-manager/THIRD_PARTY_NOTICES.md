@@ -16,6 +16,12 @@ The launcher may use Node.js/npm already supplied by Codex or the user. When a p
 
 The SkillDock wordmark in `assets/app/src/brand-wordmark.svg` is an outlined graphic rendered from Ubuntu Medium 0.83 (weight 500). The original font's copyright notice is: “Copyright 2011 Canonical Ltd. Licensed under the Ubuntu Font Licence 1.0.” The artwork uses saved glyph outlines rather than a bundled font runtime.
 
+## Agent marks
+
+The Claude mark in `assets/app/src/AgentUI.tsx` is the `claude` icon from Simple Icons 16.0.0, whose icon data is released under CC0 1.0 Universal. Claude is a trademark of Anthropic, PBC. SkillDock uses the mark only to show which objects belong to Claude; this does not imply endorsement by Anthropic.
+
+Codex objects are shown with Lucide's generic `square-terminal` icon (ISC, see below). OpenAI's logo is not used: OpenAI's brand guidelines require permission to use its logos, and Simple Icons removed it in 16.0.0 for that reason.
+
 
 ## lucide-react 1.45.0 — ISC
 

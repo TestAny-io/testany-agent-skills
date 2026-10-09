@@ -37,7 +37,9 @@ export async function resolveBackgroundSource(context, adapter) {
   const id = `${identity.plugin}@${identity.marketplace}`;
   const installed = catalog.plugins.find(plugin => plugin.installed && plugin.id === id);
   if (!installed) {
-    if (!catalog.cli.available || !listCovers(catalog, 'plugins', id)) throw new Error('无法确认 SkillDock 安装状态；未删除后台任务，请恢复 Codex CLI 后重试。');
+    const read = catalog.cli.available && (catalog.listed ? catalog.listed.plugins === true : !catalog.diagnostics.length);
+    if (!read) throw new Error('无法确认 SkillDock 安装状态；未删除后台任务，请恢复 Codex CLI 后重试。');
+    if (!listCovers(catalog, 'plugins', id)) throw new Error('无法确认 SkillDock 安装状态：Codex 返回的插件记录中有无法安全使用的项，可能正是 SkillDock；未删除后台任务。');
     return null;
   }
   if (installed.enabled === false) return null;

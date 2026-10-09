@@ -88,7 +88,7 @@ import { TagStrip, TagFilter, TagsDialog, matchesTags, type TagSubject } from ".
 import { ProjectPicker, ProjectDialog } from "./ProjectControls";
 import { InstallDialog } from "./InstallDialog";
 import { LibraryFilters, ViewSwitch, CollectionFooter } from "./LibraryUI";
-import { AgentFilter, AgentBadges, ClaudePluginFacts, ClaudeSkillFacts, MarketAutoUpdate, matchesAgent, showsAgents, objectAgents, type AgentFilterValue } from "./AgentUI";
+import { AgentFilter, AgentBadges, AgentSplit, ClaudePluginFacts, ClaudeSkillFacts, MarketAutoUpdate, matchesAgent, showsAgents, objectAgents, type AgentFilterValue } from "./AgentUI";
 import { AgentEnvironments } from "./AgentEnvironments";
 import { requestAgent, stateUrl } from "./agent-requests";
 
@@ -677,14 +677,17 @@ export default function App() {
       }),
     [skills, query, scope, metric, skillTags, duplicatesOnly, language, effectiveAgent],
   );
-  const filteredPlugins = (data?.plugins || []).filter(
+  const inPluginCategory = (plugin: Plugin) =>
+    pluginFilter === "all" ||
+    (pluginFilter === "installed"
+      ? plugin.installed
+      : pluginFilter === "enabled" ? plugin.installed && plugin.enabled === true : !plugin.installed);
+  // Counts follow the Agent filter, so each side's numbers are never summed together.
+  const agentPlugins = (data?.plugins || []).filter(plugin => matchesAgent(plugin, effectiveAgent));
+  const filteredPlugins = agentPlugins.filter(
     (plugin) =>
-      (pluginFilter === "all" ||
-        (pluginFilter === "installed"
-          ? plugin.installed
-          : pluginFilter === "enabled" ? plugin.installed && plugin.enabled === true : !plugin.installed)) &&
+      inPluginCategory(plugin) &&
       (marketFilter === "all" || plugin.marketplace === marketFilter) &&
-      matchesAgent(plugin, effectiveAgent) &&
       matchesTags(plugin.tags, pluginTags) &&
       matchesPlugin(plugin, query),
   );
@@ -692,12 +695,17 @@ export default function App() {
   const visibleActivity = (data?.activity || []).filter(item => effectiveAgent === "all" || (item.agent ?? "codex") === effectiveAgent);
   const agentCounts = (list: { agents?: ("codex" | "claude")[] }[]): Record<AgentFilterValue, number> =>
     ({ all: list.length, codex: list.filter(item => objectAgents(item).includes("codex")).length, claude: list.filter(item => objectAgents(item).includes("claude")).length });
-  const pageAgentCounts = page === "skills" ? agentCounts(skills) : page === "plugins" ? agentCounts(data?.plugins || [])
+  const pageAgentCounts = page === "skills" ? agentCounts(skills) : page === "plugins" ? agentCounts((data?.plugins || []).filter(inPluginCategory))
     : page === "markets" ? agentCounts(data?.marketplaces || []) : agentCounts((data?.activity || []).map(item => ({ agents: [item.agent ?? "codex"] })));
   const pluginMatchesOutsideFilter = query.trim() && !filteredPlugins.length ? (data?.plugins || []).filter(plugin => matchesPlugin(plugin, query)).length : 0;
   const availableUpdates = data?.updates
     ? data.updates.filter((item) => item.status === "available").length
     : Object.values(updates).filter((update) => update.available).length;
+  // The title counts what the Agent filter shows; with both Agents shown, each side's share too.
+  const titleObjects: { agents?: ("codex" | "claude")[] }[] | null = page === "skills" ? skills : page === "plugins" ? (data?.plugins || []).filter(plugin => plugin.installed) : page === "markets" ? data?.marketplaces || [] : null;
+  const titleCount = !data ? "" : titleObjects ? titleObjects.filter(item => matchesAgent(item, effectiveAgent)).length
+    : page === "activity" ? visibleActivity.length : page === "agents" ? data.agents?.length ?? "" : availableUpdates || "";
+  const titleSplit = titleObjects && showAgentDimension && effectiveAgent === "all" ? agentCounts(titleObjects) : null;
   const displaySkill = inspection?.kind === "skill" ? skills.find(skill => skill.id === inspection.id) : null;
   const displayPlugin = inspection?.kind === "plugin" ? data?.plugins.find(plugin => plugin.id === inspection.id) : null;
   function showOwningPlugin(id?: string) {
@@ -773,7 +781,7 @@ export default function App() {
       <div className="workspace">
         <header className="topbar">
           <button className="icon-button sidebar-toggle" aria-label={t(sidebarCollapsed ? "展开侧边栏" : "收起侧边栏")} title={t(sidebarCollapsed ? "展开侧边栏" : "收起侧边栏")} aria-expanded={!sidebarCollapsed} onClick={() => setSidebarCollapsed(value => !value)}><PanelLeft size={19} /></button>
-          <div className="workspace-title"><h1>{t(currentNav.label)}{data && <span className="title-count">{page === "skills" ? data.skills.length : page === "plugins" ? data.plugins.filter(plugin => plugin.installed).length : page === "markets" ? data.marketplaces.length : page === "activity" ? data.activity.length : page === "agents" ? data.agents?.length ?? "" : availableUpdates || ""}</span>}</h1><p>{t({ skills: "浏览、整理与管理你的技能", plugins: "扩展工作流，管理插件与附带技能", markets: "管理插件的发现与安装来源", updates: "检查变化，让你的工具保持最新", activity: "查看操作结果，恢复之前的内容", agents: "查看本机的 Agent 环境与 SkillDock 对它们的管理" }[page])}</p></div>
+          <div className="workspace-title"><h1>{t(currentNav.label)}{data && <span className="title-count">{titleCount}</span>}{titleSplit && <AgentSplit counts={titleSplit} />}</h1><p>{t({ skills: "浏览、整理与管理你的技能", plugins: "扩展工作流，管理插件与附带技能", markets: "管理插件的发现与安装来源", updates: "检查变化，让你的工具保持最新", activity: "查看操作结果，恢复之前的内容", agents: "查看本机的 Agent 环境与 SkillDock 对它们的管理" }[page])}</p></div>
           <div className="heading-actions">
             {showAgentDimension && ["skills", "plugins", "markets", "activity"].includes(page) && <AgentFilter value={agentFilter} onChange={setAgentFilter} counts={pageAgentCounts} />}
             <Button variant="ghost" busy={loading} onClick={() => void refresh()} disabled={!!busy} aria-label={t("刷新清单")} title={t("刷新清单")}>{!loading && <RefreshCw size={17} />}</Button>
@@ -1112,12 +1120,14 @@ export default function App() {
                     </div>
                   )}
                   <LibraryFilters selected={pluginFilter} onChange={setPluginFilter} items={[
-                    { id: "all", label: "全部插件", count: data.plugins.length, icon: <Blocks size={16} /> },
-                    { id: "enabled", label: "已启用", count: data.plugins.filter(item => item.installed && item.enabled === true).length, icon: <CircleCheck size={16} /> },
-                    { id: "installed", label: "已安装", count: data.plugins.filter(item => item.installed).length, icon: <Package size={16} /> },
-                    { id: "available", label: "未安装", count: data.plugins.filter(item => !item.installed).length, icon: <Download size={16} /> },
+                    { id: "all", label: "全部插件", count: agentPlugins.length, icon: <Blocks size={16} /> },
+                    { id: "enabled", label: "已启用", count: agentPlugins.filter(item => item.installed && item.enabled === true).length, icon: <CircleCheck size={16} /> },
+                    { id: "installed", label: "已安装", count: agentPlugins.filter(item => item.installed).length, icon: <Package size={16} /> },
+                    { id: "available", label: "未安装", count: agentPlugins.filter(item => !item.installed).length, icon: <Download size={16} /> },
                   ]} />
-                  {pluginFilter === "available" && <p className="category-explanation">{t("未安装：已连接 Marketplace 中可发现的插件；也可直接从 Git 或本地目录安装单个插件。")}</p>}
+                  {pluginFilter === "available" && <p className="category-explanation">{t(effectiveAgent === "claude"
+                    ? "未安装：Claude 已添加的 Marketplace 中尚未安装的插件，取自 Claude 在本机保存的副本；这一版只能查看。"
+                    : "未安装：已连接 Marketplace 中可发现的插件；也可直接从 Git 或本地目录安装单个插件。")}</p>}
                   <div className="toolbar">
                     <SearchField
                       query={query}

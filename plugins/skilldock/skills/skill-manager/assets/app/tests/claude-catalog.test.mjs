@@ -109,15 +109,24 @@ test('installable plugins come from the marketplace copy on disk: not installed,
   const w = await world(t);
   const marketDir = path.join(w.configDir, 'plugins/marketplaces/m');
   const revision = (await claudeCatalog(w.base)).marketplaces.find(item => item.name === 'm').revision;
-  await write(path.join(marketDir, '.claude-plugin/marketplace.json'), { name: 'm', plugins: [{ name: 'a' }, { name: 'd', displayName: 'Dee', description: 'Plugin D.', version: '2.0.0' }, { name: 'd' }, { name: '../e' }, { name: 'f@g' }, null] });
-  const catalog = await claudeCatalog(w.base);
+  await write(path.join(marketDir, '.claude-plugin/marketplace.json'), { name: 'm', plugins: [{ name: 'a' }, { name: 'b' }, { name: 'l' }, { name: 'r' }, { name: 'd', displayName: 'Dee', description: 'Plugin D.', version: '2.0.0' }, { name: 'd' }, { name: '../e' }, { name: 'f@g' }, { name: 'h:user' }, { name: 'n\u0000x' }, null] });
+  // b is installed in this project, l only in another project (local scope), r only in Claude's own record.
+  await write(path.join(w.configDir, 'plugins/installed_plugins.json'), { version: 2, plugins: { 'a@m': [{ scope: 'user', installPath: w.installA, version: 'abc' }], 'r@m': [{ scope: 'project', projectPath: '/elsewhere', version: '1' }] } });
+  const listed = await w.base.listPlugins();
+  const otherMarket = path.join(w.root, 'odd-market'); await write(path.join(otherMarket, '.claude-plugin/marketplace.json'), { name: 'odd:name', plugins: [{ name: 'z' }] });
+  const broken = path.join(w.root, 'broken-market'); await fs.mkdir(broken);
+  const base = { ...w.base, listPlugins: async () => [...listed, { id: 'l@m', scope: 'local', projectPath: '/elsewhere', enabled: false }],
+    listMarketplaces: async () => [...await w.base.listMarketplaces(), { name: 'odd:name', source: 'directory', path: otherMarket, installLocation: otherMarket }, { name: 'broken', source: 'directory', path: broken, installLocation: broken }] };
+  const catalog = await claudeCatalog(base);
   const available = catalog.plugins.filter(item => !item.installed);
-  assert.deepEqual(available.map(item => [item.id, item.name, item.displayName, item.description, item.version, item.marketplace]), [['claude:plugin:d@m', 'd', 'Dee', 'Plugin D.', '2.0.0', 'm']], '已安装的、重复的与不安全的名称都不列出');
+  assert.deepEqual(available.map(item => [item.id, item.name, item.displayName, item.description, item.version, item.marketplace]), [['claude:plugin:d@m', 'd', 'Dee', 'Plugin D.', '2.0.0', 'm']], '任何作用域已安装的、重复的、名称不合规的与市场名不合规的都不列出');
+  assert.ok(catalog.diagnostics.some(item => item.startsWith('marketplace broken 的本机副本无法读取')), '副本读不了时说明原因');
+  assert.equal(catalog.unconfirmed, null, '副本问题不影响 Claude 的确认状态');
   assert.deepEqual([available[0].enabled, available[0].canInstall, available[0].agents.join()], [null, false, 'claude']);
   assert.match(available[0].reason, /只列出 Claude 中可安装的插件/);
-  assert.equal(catalog.marketplaces.find(item => item.name === 'm').revision, revision, '市场的修订号只随已安装插件变化');
+  assert.equal((await claudeCatalog(w.base)).marketplaces.find(item => item.name === 'm').revision, revision, '市场的修订号只随已安装插件变化');
   // Claude's install record is enough evidence; without any evidence an entry might be installed.
-  assert.deepEqual((await claudeCatalog({ ...w.base, cli: null })).plugins.filter(item => !item.installed).map(item => item.name), ['d']);
+  assert.deepEqual((await claudeCatalog({ ...w.base, cli: null })).plugins.filter(item => !item.installed).map(item => item.name), ['b', 'l', 'd']);
   await fs.rm(path.join(w.configDir, 'plugins/installed_plugins.json'));
   assert.deepEqual((await claudeCatalog({ ...w.base, cli: null })).plugins.filter(item => !item.installed), []);
 });

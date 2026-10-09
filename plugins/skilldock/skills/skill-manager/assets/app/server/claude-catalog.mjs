@@ -24,8 +24,9 @@ const exists = async file => !!(await fs.lstat(file).catch(() => null));
 const isDirectory = async directory => (await fs.stat(directory).catch(() => null))?.isDirectory() ?? false;
 const READ_ONLY = '这一版 SkillDock 只读取 Claude 中的对象，暂不能在这里修改。';
 const NOT_INSTALLABLE = '这一版 SkillDock 只列出 Claude 中可安装的插件，暂不能在这里安装；可以在 Claude Code 中用 /plugin 安装。';
-// A name Claude can address as <name>@<marketplace>.
-const plainName = value => typeof value === 'string' && value.length <= 128 && /^[^@\s/\\]+$/.test(value) && !['.', '..'].includes(value);
+// Plugin and marketplace names as Claude writes them (letters, digits, '.', '_', '-'), so an
+// ID made from them stays unambiguous and carries no control characters.
+const plainName = value => typeof value === 'string' && /^[A-Za-z0-9][A-Za-z0-9._-]{0,127}$/.test(value);
 
 /** 36c §6: Claude object IDs are derived from the installation identity; clients never parse them. */
 export const claudeIds = {
@@ -267,7 +268,9 @@ export async function claudeCatalog({ claudeRoot, project, cli, env = process.en
       canInstall: false, canRemove: false, canToggle: false, reason: READ_ONLY, revision: revision({ id, directory, enabled: listed?.enabled, source }) });
   }
   const marketplaces = []; const available = [];
-  const listedIds = new Set(pluginList.map(item => item.id));
+  // Installed in any scope, by the command line or Claude's own record (which also lists
+  // installs in other projects), is not "not installed".
+  const listedIds = new Set([...pluginList, ...(installed ? await installRecord(configDir) ?? [] : [])].map(item => item.id));
   for (const item of markets ?? Object.entries(known).map(([name, entry]) => ({ name, source: entry?.source?.source ?? 'unknown', installLocation: entry?.installLocation }))) {
     const entry = known[item.name] || {};
     const declared = decidedBy(layers, 'extraKnownMarketplaces', item.name).value;
@@ -293,7 +296,7 @@ export async function claudeCatalog({ claudeRoot, project, cli, env = process.en
             description: typeof plugin.description === 'string' ? plugin.description : '', marketplace: item.name, version, installed: false, enabled: null, skillCount: 0,
             canInstall: false, canRemove: false, canToggle: false, reason: NOT_INSTALLABLE, revision: revision({ id, version }) });
         }
-      } catch { /* unknown */ }
+      } catch { diagnostics.push(`marketplace ${item.name.replace(/\p{C}/gu, '').slice(0, 80)} 的本机副本无法读取，插件数与其中未安装的插件暂不显示。`); }
     }
     const sourceText = item.repo || item.url || item.path || entry.source?.repo || entry.source?.url || entry.source?.path || item.source;
     marketplaces.push({ agents: ['claude'], id: claudeIds.marketplace(item.name), name: item.name, source: publicSource(String(sourceText)), type: item.source, pluginCount, autoUpdate,

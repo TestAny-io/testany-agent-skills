@@ -1731,6 +1731,10 @@
     "en": "Not installed: plugins found in connected marketplaces. You can also install a single plugin directly from Git or a local folder.",
     "ja": "未インストール：接続済み Marketplace のプラグインです。Git やローカルフォルダーから単一プラグインを直接インストールすることもできます。"
   },
+  "未安装：Claude 已添加的 Marketplace 中尚未安装的插件，取自 Claude 在本机保存的副本；这一版只能查看。": {
+    "en": "Not installed: plugins in the marketplaces added to Claude that are not installed yet, read from the copies Claude keeps on this Mac. This version can only show them.",
+    "ja": "未インストール：Claude に追加したマーケットプレイスのうち、まだインストールしていないプラグインです。Claude がこの Mac に保存しているコピーから読み取ります。このバージョンでは表示のみです。"
+  },
   "从本地目录、Git 仓库或 Marketplace 安装第一个插件。": {
     "en": "Install your first plugin from a local folder, Git repository, or marketplace.",
     "ja": "ローカルフォルダー、Git リポジトリ、Marketplace から最初のプラグインをインストールしましょう。"

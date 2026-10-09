@@ -439,9 +439,13 @@
     "en": "An unverified package update record exists: {v0}. Check the plugin version and enabled state; previous write requests will not be replayed.",
     "ja": "未確認のパッケージ更新記録があります：{v0}。プラグインの版と有効状態を確認してください。以前の書き込み要求は再実行しません。"
   },
-  "CLI 返回了无法安全使用的插件身份或版本，已忽略该记录。": {
-    "en": "The CLI returned an unsafe plugin identity or version. That record was ignored.",
-    "ja": "CLI が安全に使用できないプラグイン ID または版を返したため、その記録を無視しました。"
+  "CLI 返回了无法安全使用的插件记录 {v0}，已忽略。": {
+    "en": "The CLI returned plugin record {v0} with an unsafe identity or version. That record was ignored.",
+    "ja": "CLI が安全に使用できないプラグインレコード {v0} を返したため、そのレコードを無視しました。"
+  },
+  "CLI 返回了一条没有插件身份的记录，已忽略。": {
+    "en": "The CLI returned a plugin record without an identity. That record was ignored.",
+    "ja": "CLI が識別情報のないプラグインレコードを返したため、そのレコードを無視しました。"
   },
   "市场来源不在当前已确认清单中。": {
     "en": "The marketplace source is not in the verified inventory.",
@@ -518,6 +522,10 @@
   "无法确认 SkillDock 安装状态；未删除后台任务，请恢复 Codex CLI 后重试。": {
     "en": "The SkillDock installation status could not be verified. The background task was retained; restore the Codex CLI and retry.",
     "ja": "SkillDock のインストール状態を確認できません。バックグラウンドタスクは保持しています。Codex CLI を復旧して再試行してください。"
+  },
+  "无法确认 SkillDock 安装状态：Codex 返回的插件记录中有无法安全使用的项，可能正是 SkillDock；未删除后台任务。": {
+    "en": "Cannot confirm whether SkillDock is installed: Codex returned a plugin record that cannot be used safely, and it may be SkillDock. The background task was not removed.",
+    "ja": "SkillDock のインストール状態を確認できません。Codex が安全に使用できないプラグインレコードを返しており、それが SkillDock である可能性があります。バックグラウンドタスクは削除していません。"
   },
   "无法确认 SkillDock 的已安装版本。": {
     "en": "The installed SkillDock version could not be verified.",
@@ -818,5 +826,9 @@
   "这一版 SkillDock 只列出 Claude 中可安装的插件，暂不能在这里安装；可以在 Claude Code 中用 /plugin 安装。": {
     "en": "This version of SkillDock only lists the plugins you can install in Claude; it cannot install them yet. Install them in Claude Code with /plugin.",
     "ja": "このバージョンの SkillDock は Claude にインストールできるプラグインを表示するだけで、ここからはまだインストールできません。Claude Code で /plugin を使ってインストールしてください。"
+  },
+  "marketplace {v0} 的本机副本无法读取，插件数与其中未安装的插件暂不显示。": {
+    "en": "The local copy of marketplace {v0} cannot be read, so its plugin count and the plugins not installed from it are not shown.",
+    "ja": "マーケットプレイス {v0} のローカルコピーを読み取れないため、プラグイン数と未インストールのプラグインは表示されません。"
   }
 }

@@ -6,9 +6,13 @@
 .agent-filter button span { font-weight: 500; opacity: 0.7; }
 .agent-line { display: flex; flex-wrap: wrap; gap: 6px; align-items: center; margin: 2px 0 6px; }
 .agent-badges { display: inline-flex; gap: 4px; }
-.agent-badge { border-radius: 5px; font-size: 9px; font-weight: 600; padding: 2px 6px; line-height: 1.4; }
+.agent-badge { display: inline-grid; place-items: center; width: 20px; height: 20px; border-radius: 6px; }
 .agent-codex { background: light-dark(#e8eef8, #1f2633); color: light-dark(#3f5f8f, #b7c8e2); }
-.agent-claude { background: light-dark(#f8ece3, #33261d); color: light-dark(#94573a, #e2c3b0); }
+.agent-claude { background: light-dark(#f8ece3, #33261d); color: light-dark(#c4613f, #e59a7c); }
+.agent-filter button svg { flex: none; }
+.agent-filter button:not(.active) svg { opacity: 0.8; }
+.agent-split { display: inline-flex; gap: 6px; margin-left: 10px; vertical-align: middle; }
+.agent-split-item { display: inline-flex; align-items: center; gap: 4px; border-radius: 999px; padding: 1px 8px 1px 6px; font-size: 11px; font-weight: 550; line-height: 1.5; font-variant-numeric: tabular-nums; }
 .agent-facts { display: inline-flex; flex-wrap: wrap; gap: 6px; }
 .agent-fact { display: inline-flex; gap: 4px; align-items: center; font-size: 10px; color: var(--muted); }
 .agent-fact.protected { color: light-dark(#8c5f26, #decaaf); }

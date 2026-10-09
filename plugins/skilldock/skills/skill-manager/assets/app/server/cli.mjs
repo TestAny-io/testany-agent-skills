@@ -103,11 +103,20 @@ export class CodexAdapter {
   }
   async list() {
     const diagnostics = []; let plugins = []; let marketplaces = []; let directoryError;
-    // Which lists were read in full, and which plugin IDs were dropped: a readback after an
-    // operation checks only these for its own target (unrelated problems stay diagnostics).
-    const listed = { plugins: false, marketplaces: false }; const dropped = { plugins: [], marketplaces: [] };
+    // Which lists were read in full, and every identity of the records that were dropped: a
+    // readback after an operation checks only these for its own target (unrelated problems stay
+    // diagnostics). A dropped record without any identity could be the target itself.
+    const listed = { plugins: false, marketplaces: false };
+    const dropped = { plugins: [], marketplaces: [], unidentified: { plugins: false, marketplaces: false } };
     await this.probe();
     if (!this.info.available) return { plugins, marketplaces, diagnostics: [this.info.error], listed, dropped, cli: this.info };
+    const dropPlugin = record => {
+      const identities = [record?.pluginId, typeof record?.name === 'string' && typeof record?.marketplaceName === 'string' ? `${record.name}@${record.marketplaceName}` : undefined].filter(value => typeof value === 'string');
+      dropped.plugins.push(...identities);
+      if (!identities.length) { dropped.unidentified.plugins = true; diagnostics.push('CLI 返回了一条没有插件身份的记录，已忽略。'); return; }
+      // Name the record so it can be found; control and format characters never reach the page.
+      diagnostics.push(`CLI 返回了无法安全使用的插件记录 ${redact(identities[0].replace(/\p{C}/gu, '').slice(0, 80))}，已忽略。`);
+    };
     const results = await Promise.allSettled([this.command(['plugin', 'list', '--available', '--json']), this.command(['plugin', 'marketplace', 'list', '--json'])]);
     if (results[0].status === 'fulfilled') {
       const data = results[0].value;
@@ -116,7 +125,7 @@ export class CodexAdapter {
         listed.plugins = true;
         const seen = new Set();
         for (const [records, installed] of [[data.installed, true], [data.available, false]]) for (const p of records) {
-          if (!p || !safeSegment(p.name) || !safeSegment(p.marketplaceName) || p.pluginId !== `${p.name}@${p.marketplaceName}` || (p.version !== undefined && !safeSegment(p.version))) { diagnostics.push('CLI 返回了无法安全使用的插件身份或版本，已忽略该记录。'); if (typeof p?.pluginId === 'string') dropped.plugins.push(p.pluginId); continue; }
+          if (!p || !safeSegment(p.name) || !safeSegment(p.marketplaceName) || p.pluginId !== `${p.name}@${p.marketplaceName}` || (p.version !== undefined && !safeSegment(p.version))) { dropPlugin(p); continue; }
           if (seen.has(p.pluginId)) continue;
           seen.add(p.pluginId);
           const local = p.source?.source === 'local' && typeof p.source?.path === 'string';
@@ -133,7 +142,7 @@ export class CodexAdapter {
       if (!Array.isArray(results[1].value.marketplaces)) diagnostics.push('CLI 市场清单形状不受支持。');
       else listed.marketplaces = true;
       for (const m of listed.marketplaces ? results[1].value.marketplaces : []) {
-        if (!safeSegment(m?.name) || typeof m.root !== 'string' || !path.isAbsolute(m.root)) { if (typeof m?.name === 'string') dropped.marketplaces.push(m.name); continue; }
+        if (!safeSegment(m?.name) || typeof m.root !== 'string' || !path.isAbsolute(m.root)) { if (typeof m?.name === 'string') dropped.marketplaces.push(m.name); else dropped.unidentified.marketplaces = true; continue; }
         const type = m.marketplaceSource?.sourceType || 'managed'; const source = m.marketplaceSource?.source || m.root;
         const managed = /^(openai-bundled|openai-primary-runtime|openai-curated|openai-curated-remote)$/.test(m.name);
         marketplaces.push({ id: m.name, name: m.name, source: publicSource(typeof source === 'string' ? source : m.root), type, pluginCount: plugins.filter(p => p.marketplace === m.name).length, canRemove: !!m.marketplaceSource && !managed, canRefresh: type === 'git' && !managed, reason: managed ? '平台维护的市场来源。' : undefined, _root: m.root });
@@ -181,19 +190,20 @@ export class CodexAdapter {
       marketplaces.push({ id: 'openai-curated-remote', name: 'openai-curated-remote', displayName: 'Codex Plugin Directory', type: 'remote', source: 'https://developers.openai.com/plugins', pluginCount: plugins.filter(item => item.marketplace === 'openai-curated-remote').length, canRemove: false, canRefresh: false, reason: '官方目录随 Codex 账号提供。' });
     }
     for (const market of marketplaces) market.warnings = plugins.filter(plugin => plugin.marketplace === market.name).flatMap(plugin => plugin.warnings || []);
-    return { plugins, marketplaces, diagnostics, directoryError, listed, dropped, cli: this.info };
+    return { plugins, marketplaces, diagnostics: [...new Set(diagnostics)], directoryError, listed, dropped, cli: this.info };
   }
 }
 
 /**
  * Whether a catalog read can confirm the state of one object (0.11 UAT): the list the object
- * belongs to was read in full and its own record was not dropped. A problem with an unrelated
- * record stays a diagnostic. Adapters that do not report `listed` keep the earlier rule: any
+ * belongs to was read in full, its own record was not dropped under any of its identities, and
+ * no record without an identity was dropped. A problem with an unrelated record stays a diagnostic. Adapters that do not report `listed` keep the earlier rule: any
  * diagnostic leaves the outcome unconfirmed.
  */
 export function listCovers(catalog, list, id) {
   const complete = catalog.listed ? catalog.listed[list] === true : !catalog.diagnostics.length;
-  return complete && !(catalog.dropped?.[list] ?? []).includes(id);
+  const dropped = catalog.dropped ?? {};
+  return complete && !dropped.unidentified?.[list] && !(dropped[list] ?? []).includes(id);
 }
 
 export async function readMarketplace(root) {

@@ -17,10 +17,10 @@ function adapterFixture() {
   const adapter = new CodexAdapter({ codexHome: '/unused', appDirectory: directory });
   adapter.probe = async () => (adapter.info = { available: true, path: '/fixture/codex' });
   adapter.command = async args => {
-    if (args[1] === 'add') { state.calls.push(args); if (!state.pending) state.installed = true; return { pluginId: id, authPolicy: 'ON_INSTALL' }; }
+    if (args[1] === 'add') { state.calls.push(args); if (!state.pending) state.installed = true; if (state.dropAfterAdd) state.version = '../unsafe'; return { pluginId: id, authPolicy: 'ON_INSTALL' }; }
     if (args[1] === 'marketplace') return { marketplaces: [] };
     const record = { pluginId: id, name: 'app-opaque-board', marketplaceName: 'openai-curated-remote', version: state.version, enabled: state.installed, installPolicy: state.policy, authPolicy: 'ON_INSTALL', source: { source: 'remote', id: 'plugin_asdk_app_board' } };
-    return { installed: state.installed ? [record] : [], available: state.installed ? [] : [record] };
+    return { installed: state.installed ? [record] : [], available: [...(state.installed ? [] : [record]), ...(state.extra || [])] };
   };
   return { state, adapter, directory };
 }
@@ -101,6 +101,16 @@ test('a successful CLI return without confirmed installation is not reported as 
   assert.match(result.message, /尚未确认/);
   const snapshot = await f.service.snapshot('local');
   assert.equal(snapshot.activity.find(item => item.action === 'plugin.install').status, 'error');
+});
+
+test('an unrelated unusable record does not block a confirmed install; a dropped target record does', async t => {
+  const f = await serviceFixture(t);
+  f.state.extra = [{ pluginId: 'bad@elsewhere', name: '../bad', marketplaceName: 'elsewhere' }];
+  const result = await f.act('plugin.install', { previewId: (await f.act('plugin.previewMarketplace')).pluginPreview.id });
+  assert.equal(result.remoteInstall.installed, true);
+  assert.ok((await f.service.snapshot('local')).diagnostics.includes('CLI 返回了无法安全使用的插件记录 bad@elsewhere，已忽略。'), '提示指名被忽略的记录');
+  const g = await serviceFixture(t); g.state.dropAfterAdd = true;
+  await assert.rejects(g.act('plugin.install', { previewId: (await g.act('plugin.previewMarketplace')).pluginPreview.id }), { code: 'READBACK_FAILED' });
 });
 
 test('CLI failures do not retry installation and leave a status-check path', async t => {

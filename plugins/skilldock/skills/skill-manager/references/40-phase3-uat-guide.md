@@ -7,6 +7,11 @@
 > - Codex 中安装、卸载插件和刷新、移除 marketplace 后，只核实这次操作的对象。其他插件的问题（例如某个插件的来源目录失效）照常显示为提示，但不再让成功的操作报“无法确认终态”。
 > - Claude 中未安装、但已添加的 marketplace 里有的插件，会出现在插件页的“未安装”中。内容读自 Claude 在本机保存的 marketplace 副本，不联网。
 > - Claude 卡片上注明：桌面应用为会话自带的插件（例如内置浏览器、电脑操作）不在此列。
+>
+> **同日第二批修正**（同样需要 `restart`）：
+> - 提示区里“被忽略的插件记录”会写出是哪一条（例如某个名称带空格的插件）。
+> - 插件页的计数跟随顶部的 Agent 选择；选“全部”时，标题旁分别显示 Codex 与 Claude 的已安装数量。
+> - Agent 标识改为图标：Claude 用它的标志；Codex 暂用一个通用的终端图标（使用 OpenAI 的标志需要 OpenAI 许可）。把鼠标停在图标上会显示名称。
 
 ## 1. 试用前提
 
@@ -48,6 +53,7 @@ SKILLDOCK_STATE_DIR="$HOME/.local/share/skilldock-uat" PORT=4781 /bin/sh "/Users
    - 由 claude.ai 同步或组织托管的插件显示锁形标识。
    - 切到“未安装”并选 Claude：应看到各 marketplace 中尚未安装的插件（例如 `claude-plugins-official` 中除已装的 context7、playwright 以外的条目）。安装按钮不可用，详情中说明“这一版只列出，可以在 Claude Code 中用 /plugin 安装”。
    - Codex 中某个插件的来源有问题时（提示区可见），对其他插件或 marketplace 的操作应照常成功。
+   - 顶部切到 Claude 时，标题、左侧分类与“未安装”说明都只算 Claude；切回“全部”时标题旁显示两侧各自的数量。
 4. **市场来源**
    - Claude 的 marketplace 显示“自动更新：开/关”，以及是否为默认值、插件数和最近刷新时间。
 5. **启用 Claude 管理（可选）**

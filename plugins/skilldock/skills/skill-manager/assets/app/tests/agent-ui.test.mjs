@@ -57,14 +57,26 @@ test('the Agent environments page offers what each state allows and opens a conf
     environments: [environment('codex', 'enabled', { skilldock: { version: '0.11.0', running: true, canUpdate: false } }),
       environment('claude', 'read-only', { notes: ['从 Claude 桌面应用打开的会话不会自动更新插件（桌面应用为会话关闭了自动更新）；可在 SkillDock 或终端中手动更新。'] }),
       { ...environment('claude', 'unconfirmed'), agent: 'claude', reason: '无法确认 Claude 中的插件状态：stand-in。' }],
-    skills: [{ agents: ['codex', 'claude'] }, { agents: ['claude'] }], plugins: [{ installed: true, agents: ['claude'] }], busy: false,
+    skills: [{ agents: ['codex', 'claude'] }, { agents: ['claude'] }], plugins: [{ installed: true, agents: ['claude'] }, { installed: false, agents: ['claude'] }], busy: false,
     onRun: request => ran.push(request), onConfirm: spec => confirmed.push(spec) });
   assert.match(html, /Codex<\/h2><span class="badge badge-green">已启用管理/);
   assert.match(html, /停用管理/); assert.match(html, /启用管理/); assert.match(html, /0\.11\.0（正在运行）/);
-  assert.match(html, /配置根 \/home\/\.claude · 技能 2 个 · 插件 1 个/);
+  assert.match(html, /配置根 \/home\/\.claude · 技能 2 个 · 插件 1 个/, '未安装的插件不计入');
   assert.match(html, /桌面应用/); assert.match(html, /无法确认 Claude 中的插件状态：stand-in。/);
   assert.equal((html.match(/>启用管理</g) || []).length, 1, '无法确认的环境不提供启用');
   assert.match(html, /切换 Claude 根目录/); assert.match(html, /Node\.js/);
+});
+
+test('Agents are shown by their marks, named for screen readers and tooltips; the split counts each side', () => {
+  const { AgentBadges, AgentSplit, AgentFilter } = ui();
+  const badges = render(AgentBadges, { agents: ['codex', 'claude'] });
+  assert.equal((badges.match(/<svg/g) || []).length, 2);
+  assert.match(badges, /role="img" aria-label="Codex" title="Codex"/); assert.match(badges, /aria-label="Claude" title="Claude"/);
+  assert.equal(/>(Codex|Claude)</.test(badges), false, '不再用文字标识');
+  const split = render(AgentSplit, { counts: { codex: 28, claude: 5 } });
+  assert.match(split, /agent-split-item agent-codex.*Codex<\/span>28/); assert.match(split, /agent-split-item agent-claude.*Claude<\/span>5/);
+  const filter = render(AgentFilter, { value: 'all', onChange() {}, counts: { all: 33, codex: 28, claude: 5 } });
+  assert.equal((filter.match(/<svg/g) || []).length, 2, '筛选按钮带图标');
 });
 
 test('Claude facts: install scope, enablement source, protection, visibility and auto-update', () => {
@@ -87,10 +99,12 @@ test('the new texts are translated (en)', () => {
   assert.equal(/[一-鿿]/.test(html), false, '英文界面不残留中文');
 });
 
-test('the notes about desktop-app plugins and installable Claude plugins are translated (en, ja)', () => {
+test('the new notes and diagnostics are translated (en, ja)', () => {
   for (const language of ['en', 'ja']) {
     const { t } = translatorFor(language);
-    for (const text of ['Claude 桌面应用为会话自带的插件（例如内置浏览器、电脑操作）不安装在 Claude 配置目录中，这里不列出。', '这一版 SkillDock 只列出 Claude 中可安装的插件，暂不能在这里安装；可以在 Claude Code 中用 /plugin 安装。']) {
+    for (const text of ['Claude 桌面应用为会话自带的插件（例如内置浏览器、电脑操作）不安装在 Claude 配置目录中，这里不列出。', '这一版 SkillDock 只列出 Claude 中可安装的插件，暂不能在这里安装；可以在 Claude Code 中用 /plugin 安装。',
+      '未安装：Claude 已添加的 Marketplace 中尚未安装的插件，取自 Claude 在本机保存的副本；这一版只能查看。', 'CLI 返回了无法安全使用的插件记录 bad@elsewhere，已忽略。', 'marketplace broken 的本机副本无法读取，插件数与其中未安装的插件暂不显示。',
+      'CLI 返回了一条没有插件身份的记录，已忽略。', '无法确认 SkillDock 安装状态：Codex 返回的插件记录中有无法安全使用的项，可能正是 SkillDock；未删除后台任务。']) {
       const translated = t(text);
       assert.notEqual(translated, text, text);
       if (language === 'en') assert.equal(/[一-鿿]/.test(translated), false, translated);
