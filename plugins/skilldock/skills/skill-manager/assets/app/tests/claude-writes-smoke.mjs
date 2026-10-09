@@ -1,6 +1,7 @@
 // SPDX-License-Identifier: AGPL-3.0-only
-// Opt-in smoke for phase 4a (not part of `npm test`): the real Claude command line, in a
-// temporary HOME and Claude configuration directory, against a local directory marketplace.
+// Opt-in smoke for phases 4a and 4d (not part of `npm test`): the real Claude command line, in a
+// temporary HOME and Claude configuration directory, against a local directory marketplace, and
+// plugins from a local directory with and without a Claude manifest.
 // Run it only without network access, e.g.:
 //   SKILLDOCK_SMOKE_CLAUDE=/path/to/claude sandbox-exec -f no-network.sb node tests/claude-writes-smoke.mjs
 import assert from 'node:assert/strict';
@@ -20,6 +21,11 @@ await fs.mkdir(path.join(home, '.claude'), { recursive: true }); await fs.mkdir(
 await write(path.join(market, '.claude-plugin/marketplace.json'), { name: 'smoke-market', owner: { name: 'SkillDock smoke' }, plugins: [{ name: 'smoke-plugin', source: './plugins/smoke-plugin', description: 'Smoke plugin.' }] });
 await write(path.join(market, 'plugins/smoke-plugin/.claude-plugin/plugin.json'), { name: 'smoke-plugin', version: '1.0.0', description: 'Smoke plugin.' });
 await write(path.join(market, 'plugins/smoke-plugin/skills/hello/SKILL.md'), '---\nname: hello\ndescription: Smoke skill.\n---\n');
+// Phase 4d sources: one with only a Codex manifest, one with a Claude manifest.
+await write(path.join(root, 'plain-src/.codex-plugin/plugin.json'), { name: 'plain-plugin', version: '2.0.0', description: 'No Claude manifest.' });
+await write(path.join(root, 'plain-src/skills/plain/SKILL.md'), '---\nname: plain\ndescription: Plain skill.\n---\n');
+await write(path.join(root, 'dir-src/.claude-plugin/plugin.json'), { name: 'dir-plugin', version: '1.0.0', description: 'Skills-directory plugin.' });
+await write(path.join(root, 'dir-src/skills/inside/SKILL.md'), '---\nname: inside\ndescription: Inside skill.\n---\n');
 const state = path.join(root, 'state'); await fs.mkdir(state); await writeGeneration(state, 2);
 await write(path.join(state, 'settings/agents.json'), { format: 1, agents: { claude: { management: 'enabled', origin: 'user', changedAt: new Date().toISOString() } } });
 
@@ -69,6 +75,39 @@ try {
   assert.equal((await claude()).marketplaces.some(item => item.name === 'smoke-market'), false);
   steps.push(`移除后提示全文：${removal.message.replace(/\n/g, ' / ')}`);
   steps.push(`移除后仍安装的插件：${(await claude()).plugins.filter(item => item.agents?.includes('claude') && item.installed && item.name === 'smoke-plugin').length}`);
+  // Phase 4d: a source without a Claude manifest, through the marketplace SkillDock writes.
+  const declared = async () => Object.keys(JSON.parse(await fs.readFile(path.join(home, '.claude/settings.json'), 'utf8')).extraKnownMarketplaces ?? {}).filter(name => name.startsWith('skilldock-'));
+  const named = async name => (await claude()).plugins.find(item => item.agents?.includes('claude') && item.name === name && item.installed);
+  const installPlain = async label => {
+    const preview = (await act(`${label}：预览`, { action: 'plugin.previewInstall', sourceType: 'local', source: path.join(root, 'plain-src') })).pluginPreview;
+    assert.deepEqual(preview.scopes, ['user', 'local']);
+    await act(`${label}：安装（用户）`, { action: 'plugin.installSource', previewId: preview.id });
+    const plain = await named('plain-plugin');
+    assert.ok(plain?.marketplace.startsWith('skilldock-'), '经 SkillDock 生成的 marketplace 安装');
+    assert.deepEqual(await declared(), [plain.marketplace], '用户设置中出现这条声明');
+    steps.push(`${label}：Claude 读到的版本 ${plain.version}，技能 ${plain.skillCount} 个，来源标注 ${(await claude()).marketplaces.find(item => item.name === plain.marketplace)?.direct}`);
+    return plain;
+  };
+  let plain = await installPlain('无 manifest 来源');
+  await act('无 manifest 来源：卸载', { action: 'plugin.remove', id: plain.id, expectedRevision: plain.revision, confirm: true });
+  assert.equal((await claude()).marketplaces.some(item => item.name === plain.marketplace), false, '最后一个插件卸载后 marketplace 一并移除');
+  assert.deepEqual(await declared(), [], '用户设置中的声明随之删除');
+  plain = await installPlain('再次安装');
+  const off = await act('停用 Claude 管理并一并清理', { action: 'agent.setManagement', management: 'read-only', confirm: true });
+  assert.match(off.message, /已清理 SkillDock 生成的本地 marketplace/);
+  assert.deepEqual([await named('plain-plugin'), await declared()], [undefined, []]);
+  await act('重新启用 Claude 管理', { action: 'agent.setManagement', management: 'enabled' });
+  // Phase 4d: a source with a Claude manifest becomes a skills-directory plugin.
+  const dirPreview = (await act('带 manifest 来源：预览', { action: 'plugin.previewInstall', sourceType: 'local', source: path.join(root, 'dir-src') })).pluginPreview;
+  await act('带 manifest 来源：放入个人技能目录', { action: 'plugin.installSource', previewId: dirPreview.id });
+  const dir = await named('dir-plugin');
+  assert.equal(dir?.marketplace, 'skills-dir', 'Claude 识别为技能目录插件');
+  steps.push(`带 manifest 来源：Claude 读到 ${dir.name}@${dir.marketplace}，版本 ${dir.version}，可移除 ${dir.canRemove}`);
+  await act('带 manifest 来源：移除', { action: 'plugin.remove', id: dir.id, expectedRevision: dir.revision, confirm: true });
+  assert.equal(await named('dir-plugin'), undefined);
+  const record = (await claude()).activity.find(item => item.agent === 'claude' && item.action === 'plugin.remove' && item.canRestore);
+  await act('带 manifest 来源：恢复', { action: 'activity.restore', id: record.id });
+  assert.equal((await named('dir-plugin'))?.marketplace, 'skills-dir', '恢复后 Claude 再次读到');
   // Everything Claude wrote stays in the temporary world.
   const written = (await fs.readdir(path.join(home, '.claude'), { recursive: true })).length;
   console.log(steps.join('\n'));
