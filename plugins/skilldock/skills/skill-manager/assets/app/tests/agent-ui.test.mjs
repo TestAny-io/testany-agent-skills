@@ -57,7 +57,7 @@ test('the Agent environments page offers what each state allows and opens a conf
     environments: [environment('codex', 'enabled', { skilldock: { version: '0.11.0', running: true, canUpdate: false } }),
       environment('claude', 'read-only', { notes: ['从 Claude 桌面应用打开的会话不会自动更新插件（桌面应用为会话关闭了自动更新）；可在 SkillDock 或终端中手动更新。'] }),
       { ...environment('claude', 'unconfirmed'), agent: 'claude', reason: '无法确认 Claude 中的插件状态：stand-in。' }],
-    skills: [{ agents: ['codex', 'claude'] }, { agents: ['claude'] }], plugins: [{ installed: true, agents: ['claude'] }, { installed: false, agents: ['claude'] }], busy: false,
+    skills: [{ agents: ['codex', 'claude'] }, { agents: ['claude'] }], plugins: [{ installed: true, agents: ['claude'] }, { installed: false, agents: ['claude'] }], marketplaces: [{ agents: ['claude'], name: 'skilldock-0a', displayName: 'helper', direct: true }], busy: false,
     onRun: request => ran.push(request), onConfirm: spec => confirmed.push(spec) });
   assert.match(html, /Codex<\/h2><span class="badge badge-green">已启用管理/);
   assert.match(html, /停用管理/); assert.match(html, /启用管理/); assert.match(html, /0\.11\.0（正在运行）/);
@@ -93,7 +93,7 @@ test('Claude facts: install scope, enablement source, protection, visibility and
 
 test('the new texts are translated (en)', () => {
   const { AgentEnvironments, ClaudePluginFacts } = ui('en');
-  const html = render(AgentEnvironments, { environments: [environment('claude', 'read-only')], skills: [], plugins: [], busy: false, onRun() {}, onConfirm() {} });
+  const html = render(AgentEnvironments, { environments: [environment('claude', 'read-only')], skills: [], plugins: [], marketplaces: [], busy: false, onRun() {}, onConfirm() {} });
   for (const text of ['Read-only', 'Turn on management', 'Show paths', 'Change Claude root', 'Configuration root /home/.claude · 0 skills · 0 plugins', 'Detect again']) assert.ok(html.includes(text), text);
   assert.match(render(ClaudePluginFacts, { plugin: { installation: { scope: 'user' }, enabled: false, enablement: { decidedBy: 'user' } } }), /Install scope: User.*Set by user settings: Disabled/);
   assert.equal(/[一-鿿]/.test(html), false, '英文界面不残留中文');

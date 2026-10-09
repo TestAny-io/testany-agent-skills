@@ -25,7 +25,7 @@ const isDirectory = async directory => (await fs.stat(directory).catch(() => nul
 // Capabilities below are what Claude's native rules allow; the service marks every Claude
 // object read-only while Claude management is not enabled (36c §5).
 // Removal and updates come from SkillDock's own records; the service adds them (phase 4b2).
-const SKILLS_DIR_REMOVAL = '技能目录插件的移除随后续版本提供；可以在 Claude 的技能目录中手动删除。';
+const SKILLS_DIR_REMOVAL = '这个技能目录插件不在个人技能目录或当前项目的 .claude/skills 中，不能在这里移除。';
 // Plugin and marketplace names as Claude writes them (letters, digits, '.', '_', '-'), so an
 // ID made from them stays unambiguous and carries no control characters.
 const plainName = value => typeof value === 'string' && /^[A-Za-z0-9][A-Za-z0-9._-]{0,127}$/.test(value);
@@ -274,11 +274,14 @@ export async function claudeCatalog({ claudeRoot, project, cli, env = process.en
     const { source } = enablement(layers, 'enabledPlugins', id, (a, b) => a === b);
     // Claude reports a skills-directory plugin only once it loads it (a project directory must be trusted).
     const toggleReason = source.locked ? '启用状态由组织托管设置决定，不能在这里修改。' : !listed ? 'Claude 尚未加载这个技能目录插件（项目目录可能未被信任），暂不能切换。' : undefined;
+    // Removal moves the directory to the restorable area (phase 4d): only from the personal skills
+    // directory or the current project's .claude/skills.
+    const removable = [path.join(configDir, 'skills'), path.join(project, '.claude/skills')].includes(path.dirname(directory));
     plugins.push({ agents: ['claude'], id: claudeIds.plugin(id, scope, directory), name, description: typeof manifest.description === 'string' ? manifest.description : '', marketplace: 'skills-dir',
       version: typeof manifest.version === 'string' ? manifest.version : undefined, installed: true, enabled: listed ? listed.enabled : null, skillCount: await countSkills(directory),
       installedPath: directory, realPath: await fs.realpath(directory).catch(() => directory), installation: { scope, skillsDir: path.dirname(directory) }, enablement: source,
       manifests: ['claude', ...(await exists(path.join(directory, '.codex-plugin/plugin.json')) ? ['codex'] : [])].sort(),
-      canInstall: false, canRemove: false, canToggle: !toggleReason, reason: toggleReason ?? SKILLS_DIR_REMOVAL, revision: revision({ id, directory, enabled: listed?.enabled, source }) });
+      canInstall: false, canRemove: removable, canToggle: !toggleReason, ...(toggleReason ?? (removable ? undefined : SKILLS_DIR_REMOVAL) ? { reason: toggleReason ?? SKILLS_DIR_REMOVAL } : {}), revision: revision({ id, directory, enabled: listed?.enabled, source }) });
   }
   const marketplaces = []; const available = [];
   // Installed in any scope, by the command line or Claude's own record (which also lists

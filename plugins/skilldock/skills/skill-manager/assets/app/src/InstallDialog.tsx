@@ -25,10 +25,12 @@ export function InstallDialog({ kind, data, initialPlugin, initialMarket = false
   const [enabledSkills, setEnabledSkills] = useState<string[]>([]);
   const [scope, setScope] = useState<"user" | "project" | "local">("user");
   // A skill goes to Codex, or to Claude's personal skills or the current project's .claude/skills (HLD 3.4).
-  const chooseAgent = kind === "skill" && agents.length > 1;
+  // A plugin from a local directory or Git may go to either side as well (HLD 3.3).
+  const fromSource = kind === "skill" || sourceType !== "market";
+  const chooseAgent = fromSource && agents.length > 1;
   const [agent, setAgent] = useState<"codex" | "claude">(agents.includes("codex") || !agents.length ? "codex" : agents[0]);
   const [skillScope, setSkillScope] = useState<"user" | "project">("user");
-  const side = kind === "skill" && agent === "claude" ? { agent: "claude" as const } : {};
+  const side = fromSource && agent === "claude" ? { agent: "claude" as const } : {};
   const initialized = useRef(false);
   const [error, setError] = useState(""); const review = preview;
   const [remoteResult, setRemoteResult] = useState<ActionResult['remoteInstall']>();
@@ -58,8 +60,8 @@ export function InstallDialog({ kind, data, initialPlugin, initialMarket = false
       if (direct?.remote) setAttempted(true);
       const skillChoice = direct?.canSelectSkills ? { enabledSkills } : {};
       const result = await action(selection && preview ? { action: "plugin.install", id: selection.id, previewId: preview.id, ...skillChoice, ...(claudePreview ? { scope } : {}) } : preview
-        ? { action: plugin ? "plugin.installSource" : "skill.install", previewId: preview.id, ...skillChoice, ...side }
-        : { action: plugin ? "plugin.previewInstall" : "skill.previewInstall", ...side, ...("agent" in side ? { scope: skillScope } : {}), sourceType: sourceType === "git" ? "git" : "local", source: source.trim(), ...(subpath.trim() ? { subpath: subpath.trim() } : {}), ...(sourceType === "git" && gitRef.trim() ? { ref: gitRef.trim() } : {}) });
+        ? { action: plugin ? "plugin.installSource" : "skill.install", previewId: preview.id, ...skillChoice, ...side, ...(plugin && claudePreview ? { scope } : {}) }
+        : { action: plugin ? "plugin.previewInstall" : "skill.previewInstall", ...side, ...(kind === "skill" && "agent" in side ? { scope: skillScope } : {}), sourceType: sourceType === "git" ? "git" : "local", source: source.trim(), ...(subpath.trim() ? { subpath: subpath.trim() } : {}), ...(sourceType === "git" && gitRef.trim() ? { ref: gitRef.trim() } : {}) });
       if (result?.remoteInstall) setRemoteResult(result.remoteInstall);
       else if (result?.pluginPreview) acceptPreview(result.pluginPreview);
       else if (result?.preview) setPreview(result.preview);
@@ -95,7 +97,7 @@ export function InstallDialog({ kind, data, initialPlugin, initialMarket = false
             <ExternalLink href={direct.remote.installUrl} target="_blank" rel="noopener noreferrer">{t('查看官方详情与授权')}<LinkIcon size={13} /></ExternalLink>
           </section>}
           {claudePreview && <div className="scope-choice" role="radiogroup" aria-label={t("安装范围")}>
-            {(direct?.scopes ?? ["user"]).filter((item): item is "user" | "project" | "local" => item !== "managed").map(item => <label key={item}><input type="radio" name="claude-scope" checked={scope === item} onChange={() => setScope(item)} />{t({ user: "当前用户（所有项目）", local: "当前项目，只给自己（本地设置）", project: "当前项目，所有协作者（共享设置，需要确认）" }[item])}</label>)}
+            {(direct?.scopes ?? ["user"]).filter((item): item is "user" | "project" | "local" => item !== "managed").map(item => <label key={item}><input type="radio" name="claude-scope" checked={scope === item} onChange={() => setScope(item)} />{t(direct?.scopes?.includes("local") === false && item === "project" ? "当前项目（.claude/skills）" : { user: "当前用户（所有项目）", local: "当前项目，只给自己（本地设置）", project: "当前项目，所有协作者（共享设置，需要确认）" }[item])}</label>)}
             {direct?.nativeRules?.map(rule => <p key={rule.message} className="field-hint"><ServiceMessage value={rule.message} /></p>)}
           </div>}
           {direct && !direct.remote && !claudePreview && <><PluginSkillPicker preview={direct} selected={enabledSkills} onChange={setEnabledSkills} disabled={!!busy} /><div className="install-components">
@@ -122,7 +124,7 @@ export function InstallDialog({ kind, data, initialPlugin, initialMarket = false
           </div> : <>{(chooseAgent || "agent" in side) && <div className="scope-choice" role="radiogroup" aria-label={t("安装到")}>
             {chooseAgent ? agents.map(item => <label key={item}><input type="radio" name="skill-agent" checked={agent === item} onChange={() => setAgent(item)} />{t("安装到 {v0}", { v0: item === "codex" ? "Codex" : "Claude" })}</label>)
               : <p className="field-hint">{t("将安装到 {v0}。", { v0: "Claude" })}</p>}
-            {agent === "claude" && (["user", "project"] as const).map(item => <label key={item}><input type="radio" name="skill-scope" checked={skillScope === item} onChange={() => setSkillScope(item)} />{t(item === "user" ? "个人技能（所有项目）" : "当前项目（.claude/skills）")}</label>)}
+            {agent === "claude" && kind === "skill" && (["user", "project"] as const).map(item => <label key={item}><input type="radio" name="skill-scope" checked={skillScope === item} onChange={() => setSkillScope(item)} />{t(item === "user" ? "个人技能（所有项目）" : "当前项目（.claude/skills）")}</label>)}
           </div>}</>}{sourceType === "market" ? null : sourceType === "git" ? <GitSourceFields kind={kind} source={source} subpath={subpath} gitRef={gitRef} setSource={setSource} setSubpath={setSubpath} setRef={setRef} /> : <label className="field"><span>{t(plugin ? "插件目录路径" : "技能目录路径")}</span><input required value={source} disabled={!!busy} autoComplete="off" placeholder={plugin ? "/Users/you/plugins/my-plugin" : "/Users/you/skills/my-skill"} onChange={e => setSource(e.target.value)} /></label>}
           {plugin && sourceType !== "market" && <p className="field-hint">{t("选择单个插件的目录，内含 plugin.json。无需先添加 Marketplace；SkillDock 会记录来源，供后续更新使用。")}</p>}
         </>}

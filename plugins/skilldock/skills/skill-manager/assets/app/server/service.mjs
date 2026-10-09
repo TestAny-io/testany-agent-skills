@@ -22,7 +22,8 @@ import { instanceLock } from './state-locks.mjs';
 import { createBackgroundManager, backgroundPaths } from './background.mjs';
 import { readGeneration, CURRENT_GENERATION } from './generation.mjs';
 import { projectCatalog, createProjectIntegration } from './projects.mjs';
-import { inspectPlugin, directLocation, writeDirectMarketplace, decorateDirectCatalog } from './direct-plugins.mjs';
+import { inspectPlugin, directLocation, writeDirectMarketplace, decorateDirectCatalog, inspectClaudePlugin, claudeDirectLocation, writeClaudeDirectMarketplace, decorateClaudeDirect } from './direct-plugins.mjs';
+import { localSettingsExposure, excludeLocalSettings } from './local-settings.mjs';
 import { pluginContents } from './plugin-contents.mjs';
 import { officialAppUrl } from './app-directory.mjs';
 import { createDirectoryIcons } from './directory-icons.mjs';
@@ -270,6 +271,7 @@ export async function createService(options = {}) {
     if (multiAgent && mode === 'local') {
       const found = await agentLayer.discover({ force });
       const claude = found.installed.claude ? await claudeFor(found, env.project, force) : null;
+      if (claude) decorateClaudeDirect(claude, registry, env);
       mergeClaude(result, claude ?? { skills: [], plugins: [], marketplaces: [], diagnostics: [] });
       if (claude) await decorateClaudeSkills(result, registry, { user: path.join(found.claudeRoot.configDir, 'skills'), project: path.join(env.project, '.claude/skills') });
       if (found.stored.codex?.management === 'read-only') markReadOnly(result, 'codex', CODEX_READ_ONLY_REASON);
@@ -310,6 +312,8 @@ export async function createService(options = {}) {
       await writeJson(env.registryFile, registry);
     },
     ...(options.claudeGit ? { git: options.claudeGit } : {}),
+    removeSkillsDir: plugin => removeSkillsDirPlugin(plugin),
+    cleanupDirect: market => cleanupClaudeDirect(market),
   });
   // Phase 4b2 (HLD 3.4; 36c 7.3): Claude skills reuse the file transactions — staging, guarded
   // moves, the restorable area and source records — inside Claude's own skill roots. Their source
@@ -447,7 +451,7 @@ export async function createService(options = {}) {
       afterRestore: () => {},
       dropStaging: staging => removeStaging(env, staging),
       messages: { installed: name => `已在 Claude 中安装技能 ${name}。新的 Claude 会话会加载它。`, linked: name => `已关联 Claude 技能 ${name} 的更新来源，本机文件保持原样。`,
-        updated: name => `已更新 Claude 技能 ${name}，旧版已保留，可从操作记录恢复。`, removed: name => `已把 Claude 技能 ${name} 移至可恢复区；可从操作记录恢复。`, restored: name => `已恢复 Claude 技能 ${name}。` },
+        updated: name => `已更新 Claude 技能 ${name}，旧版已保留，可从操作记录恢复。`, removed: name => `已把 Claude 技能 ${name} 移至可恢复区；可从操作记录恢复。`, restored: (name, entry) => entry?.plugin ? `已恢复 Claude 插件 ${name}。` : `已恢复 Claude 技能 ${name}。` },
     };
   }
   /**
@@ -553,7 +557,7 @@ export async function createService(options = {}) {
         if (entry.sync) { const partition = entry.sync.partition === 'claude' ? (registry.claudeSources ??= {}) : registry.sources; partition[entry.sync.key] = entry.sync.previous; }
         side.afterRestore(entry);
         previous.canRestore = false;
-        return { result: { message: side.messages.restored(previous.target), needsReload: true, ...side.tag }, target: previous.target, activityPath: previous.path || path.join(entry.directory, 'SKILL.md') };
+        return { result: { message: side.messages.restored(previous.target, entry), needsReload: true, ...side.tag }, target: previous.target, activityPath: previous.path || path.join(entry.directory, 'SKILL.md') };
       }
       default: fail(422, 'UNSUPPORTED_FOR_AGENT', '这一版 SkillDock 还不能在 Claude 中执行这个操作。');
     }
@@ -605,6 +609,139 @@ export async function createService(options = {}) {
       return { request: { ...request, id: own.id, expectedRevision: own.revision }, notes };
     }
     return { request, notes };
+  }
+  // Phase 4d (HLD 3.3, DEC-SDX-025): a Claude plugin from a local directory or Git. With a Claude
+  // manifest it goes into a Claude skills directory as a skills-directory plugin, by the same file
+  // transaction as a skill (no settings entry points into SkillDock's data); without one, through a
+  // marketplace SkillDock writes into its data and registers with Claude, then the command line.
+  const CLAUDE_PLUGIN_SOURCES = new Set(['plugin.previewInstall', 'plugin.installSource']);
+  const claudeRunner = found => options.claudeWriter ? options.claudeWriter({ cli: found.cli.claude, claudeRoot: found.claudeRoot }) : claudeWriter({ cli: found.cli.claude, claudeRoot: found.claudeRoot, env: agentEnv });
+  const SKILLS_DIR_PLACE = { user: '个人技能目录', project: '当前项目的 .claude/skills' };
+  async function claudePluginSourceAction(request) {
+    const env = environment('local'); const roots = await claudeSkillRoots(); const { found } = roots;
+    const release = await fs.stat(found.claudeRoot.configDir).then(stat => stat.isDirectory(), () => false) ? acquireFileLock(operationLock(found.claudeRoot.configDir)) : () => {};
+    let registry; let original; const undo = []; const activityId = crypto.randomUUID(); let target = request.source ?? 'plugin';
+    moveWarnings.length = 0;
+    try {
+      await verifyDirectoryRoot(env.stateBoundary); registry = await registryFor(env); original = structuredClone(registry);
+      const claude = await claudeFor(found, project, true);
+      if (claude.unconfirmed) fail(409, 'AGENT_UNCONFIRMED', claude.unconfirmed);
+      if (request.action === 'plugin.previewInstall') {
+        const staged = await stageSource(env, request, 'claude-plugin'); const detail = staged.detail;
+        const rules = [];
+        if (detail.mode === 'skills-dir') {
+          const same = claude.plugins.filter(item => item.marketplace === 'skills-dir' && item.name === detail.name).map(item => item.installedPath);
+          if (same.length) rules.push({ kind: 'scope', message: '已有同名的技能目录插件；个人目录中的会遮蔽项目中的同名插件：', items: same });
+          rules.push({ kind: 'scope', message: '放入当前项目的 .claude/skills 时，只有 Claude 以该项目为工作目录并信任它时才会加载。' });
+        } else {
+          const location = claudeDirectLocation(env, staged);
+          if (claude.plugins.some(item => item.installed && `${item.name}@${item.marketplace}` === location.pluginId)) { await removeStaging(env, staged.staging); fail(409, 'PLUGIN_ALREADY_INSTALLED', '这个来源的插件已安装到 Claude。'); }
+          rules.push({ kind: 'scope', message: 'SkillDock 会在自己的数据目录中生成一个本地 marketplace 并登记到 Claude（用户设置中会出现一条指向它的声明）；卸载最后一个这样安装的插件时一并移除。只能安装给当前用户或当前项目的本地设置。' });
+        }
+        rules.push({ kind: 'reload', message: '新会话生效；已打开的 Claude 会话需要重载插件（/reload-plugins）。' });
+        const id = crypto.randomUUID(); previews.set(id, { ...staged, id, mode: env.mode, kind: 'claude-plugin-install', agent: 'claude', created: previewNow() });
+        return { message: '插件安装预览已准备好。', agent: 'claude', pluginPreview: { agent: 'claude', id, name: detail.name, version: detail.version, description: detail.description, source: staged.source, sourceType: staged.sourceType,
+          subpath: staged.subpath, ref: staged.ref, commit: staged.commit, files: staged.tree.files, bytes: staged.tree.bytes, skills: detail.skills, skillDetails: [], canSelectSkills: false, components: detail.commands ? ['commands'] : [], duplicates: [],
+          manifests: detail.manifests, scopes: detail.mode === 'skills-dir' ? ['user', 'project'] : ['user', 'local'], defaultScope: 'user', nativeRules: rules } };
+      }
+      // plugin.installSource
+      const staged = await assertPreview(env, request.previewId, 'claude-plugin-install', 'claude'); const detail = staged.detail; target = detail.name;
+      const scope = request.scope ?? 'user';
+      let result;
+      if (detail.mode === 'skills-dir') {
+        if (scope === 'local') fail(400, 'INVALID_ACTION', '带 Claude manifest 的插件放入个人技能目录或当前项目的 .claude/skills，不使用本地设置作用域。');
+        const root = scope === 'user' ? roots.user : roots.project; const destination = path.join(root, detail.name);
+        const side = claudeSkillSide(env, registry, roots, request);
+        const boundaries = await side.prepareInstall({ root });
+        if (await exists(destination)) fail(409, 'TARGET_EXISTS', '同名安装目录已存在，不能覆盖。');
+        await move(staged.candidate, destination, boundaries); undo.push(async () => { if ((await inspectTree(destination)).fingerprint === staged.tree.fingerprint) await move(destination, staged.candidate, boundaries); });
+        (registry.claudeSources ??= {})[await realDirectory(destination)] = provenance(staged, destination);
+        const after = await claudeFor(found, project, true);
+        if (!after.plugins.some(item => item.marketplace === 'skills-dir' && item.installedPath === destination)) fail(502, 'READBACK_FAILED', '插件目录已放入，但 Claude 的清单中没有读到它，请刷新核实。');
+        result = { message: scope === 'user' ? `已把 Claude 插件 ${detail.name} 放入个人技能目录。新会话生效，已打开的会话需要重载插件。` : `已把 Claude 插件 ${detail.name} 放入当前项目的 .claude/skills。Claude 信任该项目后加载；已打开的会话需要重载插件。`, needsReload: true, agent: 'claude' };
+      } else {
+        if (scope === 'project') fail(422, 'UNSUPPORTED_FOR_AGENT', '不带 Claude manifest 的来源只能安装给当前用户或当前项目的本地设置：项目共享设置会引用只在本机存在的 marketplace。');
+        if (!found.cli.claude.available) fail(422, 'CLI_UNAVAILABLE', '未找到可用的 Claude 命令行，暂不能修改 Claude。');
+        const cwd = scope === 'user' ? (await fs.stat(project).then(() => project, () => path.dirname(found.claudeRoot.configDir))) : project;
+        const exposure = scope === 'local' ? await localSettingsExposure(cwd, options.claudeGit ? { git: options.claudeGit } : {}) : null;
+        if (exposure && typeof request.gitExclude !== 'boolean')
+          throw new AppError(409, 'CONFIRMATION_REQUIRED', `这次会新建 ${exposure.relative}，它不在 Git 的忽略规则中；请选择是否把它写入本机的 .git/info/exclude。`,
+            { nativeRules: [{ kind: 'scope', message: '项目本地设置只属于你；不忽略它可能被误提交。写入 .git/info/exclude 只影响本机，不改动受版本管理的 .gitignore。', items: [exposure.relative] }] });
+        const location = claudeDirectLocation(env, staged); const { market, root, pluginId } = location;
+        const destination = path.join(root, 'plugins', detail.name);
+        await verifyDescendantDirectory(env.stateBoundary, destination);
+        if (await exists(destination)) {
+          if ((await inspectTree(destination)).fingerprint !== staged.tree.fingerprint) fail(409, 'TARGET_EXISTS', '之前为 Claude 生成的同一来源目录仍然存在且内容不同，请先核对。');
+        } else { await fs.mkdir(path.dirname(destination), { recursive: true }); await copySkill(staged.candidate, destination); }
+        await writeClaudeDirectMarketplace(env, staged, location);
+        // Kept even if the command line fails: Claude may already have registered the marketplace.
+        const tracked = { root, name: detail.name, source: staged.source, sourceType: staged.sourceType, subpath: staged.subpath, ref: staged.ref, commit: staged.commit, fingerprint: staged.tree.fingerprint };
+        (registry.claudeDirectPlugins ??= {})[market] = tracked; (original.claudeDirectPlugins ??= {})[market] = tracked;
+        await writeJson(env.registryFile, registry);
+        const run = claudeRunner(found);
+        if (!claude.marketplaces.some(item => item.name === market)) {
+          await run(['plugin', 'marketplace', 'add', root, '--scope', 'user', '--json'], { cwd });
+          if (!(await claudeFor(found, project, true)).marketplaces.some(item => item.name === market)) fail(502, 'READBACK_FAILED', '未能确认 SkillDock 生成的 marketplace 已登记到 Claude，请刷新核实。');
+        }
+        await run(['plugin', 'install', pluginId, '--scope', scope, '--json'], { cwd });
+        const real = scope === 'user' ? null : await realDirectory(cwd);
+        const installs = (await claudeFor(found, project, true)).plugins.filter(item => item.installed && `${item.name}@${item.marketplace}` === pluginId && item.installation?.scope === scope);
+        if (!(await Promise.all(installs.map(async item => item.installation.projectPath ? realDirectory(item.installation.projectPath) : null))).includes(real)) fail(502, 'READBACK_FAILED', 'Claude 命令行已返回，但读回的插件清单中没有这次安装，请刷新核实。');
+        let note = '';
+        if (exposure) { if (request.gitExclude) { if (await exists(exposure.file)) { await excludeLocalSettings(exposure, options.claudeGit ? { git: options.claudeGit } : {}); note = `\n已把 ${exposure.relative} 写入本机的 .git/info/exclude。`; } } else note = `\n${exposure.relative} 不在 Git 的忽略规则中，注意不要提交它。`; }
+        result = { message: `${scope === 'user' ? `已为当前用户安装 Claude 插件 ${detail.name}。` : `已在当前项目中安装 Claude 插件 ${detail.name}，只给你自己使用。`}新会话生效，已打开的会话需要重载插件。${note}`, needsReload: true, agent: 'claude' };
+      }
+      previews.delete(request.previewId);
+      if (moveWarnings.length) result.message += `\n${moveWarnings.join('\n')}`;
+      registry.activity.unshift({ id: activityId, action: request.action, agent: 'claude', target, createdAt: now(), status: 'success', message: result.message, canRestore: false });
+      await writeJson(env.registryFile, registry);
+      await removeStaging(env, staged.staging).catch(() => {});
+      claudeCache = undefined;
+      return result;
+    } catch (error) {
+      let rollbackError;
+      for (const reverse of undo.reverse()) try { await reverse(); } catch (e) { rollbackError = e; }
+      let message = redact(error.message); if (rollbackError) message += `；自动恢复未完成：${redact(rollbackError.message)}，请保留备份区。`;
+      if (original && request.action === 'plugin.installSource' && !['CONFIRMATION_REQUIRED', 'STALE_PREVIEW'].includes(error.code)) {
+        original.activity.unshift({ id: activityId, action: request.action, agent: 'claude', target, createdAt: now(), status: 'error', message, reasonCode: error.code || 'OPERATION_FAILED', canRestore: false });
+        try { await writeJson(env.registryFile, original); } catch { message += '；操作记录无法写入。'; }
+      }
+      throw new AppError(error.status || 500, error.code || 'OPERATION_FAILED', message, error.nativeRules ? { nativeRules: error.nativeRules } : {});
+    } finally { moveWarnings.length = 0; release(); claudeCache = undefined; }
+  }
+  /**
+   * A skills-directory plugin leaves the Claude skills directory by the file transaction (to the
+   * restorable area), like a skill; returns what the Claude write path journals.
+   */
+  async function removeSkillsDirPlugin(plugin) {
+    const env = environment('local'); const roots = await claudeSkillRoots();
+    const directory = plugin.installedPath;
+    if (!directory || ![roots.user, roots.project].includes(path.dirname(directory))) fail(403, 'ROOT_BOUNDARY', '只能移除个人技能目录或当前项目 .claude/skills 中的技能目录插件。');
+    const boundary = await captureDirectoryRoot(path.dirname(directory));
+    if ((await claudeProtectedRoots(roots)).some(root => inside(root, boundary.real))) fail(403, 'TARGET_BOUNDARY', 'Claude 的技能根指向插件或系统管理目录，不能修改其中的内容。');
+    const isLink = (await fs.lstat(directory)).isSymbolicLink();
+    if (!isLink && !inside(boundary.real, await fs.realpath(directory))) fail(403, 'ROOT_BOUNDARY', '插件目录的实际位置越出 Claude 的技能根。');
+    const registry = await registryFor(env); const sources = (registry.claudeSources ??= {}); const key = await realDirectory(directory);
+    const fingerprint = await objectFingerprint(directory); const parent = await parentIdentity(directory);
+    const backup = path.join(env.root, 'quarantine', crypto.randomUUID());
+    await move(directory, backup, [boundary]);
+    const restore = { kind: 'remove', agent: 'claude', plugin: true, directory, backup, ...parent, priorFingerprint: fingerprint, skillId: plugin.id, ...(isLink ? { link: true } : { source: sources[key], sourceKey: key }) };
+    if (!isLink) { delete sources[key]; await writeJson(env.registryFile, registry); }
+    return { restore, activityPath: directory };
+  }
+  /**
+   * A marketplace SkillDock wrote leaves Claude with its last plugin, and its files with it
+   * (HLD 3.3). Returns whether it was cleaned up.
+   */
+  async function cleanupClaudeDirect(market) {
+    const env = environment('local'); const registry = await registryFor(env); const tracked = registry.claudeDirectPlugins?.[market];
+    if (!tracked) return false;
+    const found = await agentLayer.discover(); const claude = await claudeFor(found, project, true);
+    if (claude.plugins.some(item => item.installed && item.marketplace === market)) return false;
+    if (claude.marketplaces.some(item => item.name === market)) await claudeRunner(found)(['plugin', 'marketplace', 'remove', market, '--json'], { cwd: await fs.stat(project).then(() => project, () => path.dirname(found.claudeRoot.configDir)) });
+    if (inside(path.join(env.root, 'claude-direct-plugins'), tracked.root)) { await verifyDescendantDirectory(env.stateBoundary, tracked.root); await fs.rm(tracked.root, { recursive: true, force: true }); }
+    delete registry.claudeDirectPlugins[market]; await writeJson(env.registryFile, registry);
+    return true;
   }
   async function claudeSkillAction(request) {
     const env = environment('local'); const roots = await claudeSkillRoots();
@@ -766,7 +903,7 @@ export async function createService(options = {}) {
       const realRoot = await fs.realpath(sourceRoot); const directory = path.resolve(realRoot, subpath);
       if (!inside(realRoot, directory) || !(await exists(directory)) || !inside(realRoot, await fs.realpath(directory))) fail(422, 'SOURCE_BOUNDARY', '子路径不存在或越出来源根目录。');
       const candidate = path.join(staging, 'candidate'); const tree = await copySkill(directory, candidate);
-      const detail = kind === 'plugin' ? await inspectPlugin(candidate) : await metadata(candidate);
+      const detail = kind === 'plugin' ? await inspectPlugin(candidate) : kind === 'claude-plugin' ? await inspectClaudePlugin(candidate) : await metadata(candidate);
       if (kind === 'skill') { const icons = createIconCatalog(); detail.icon = await icons.skill(candidate); detail.iconAssets = icons.assets; }
       return { staging, candidate, source, sourceType: request.sourceType, subpath, ref, commit, originalDirectory: directory, detail, tree };
     } catch (e) { await fs.rm(staging, { recursive: true, force: true }); throw e; }
@@ -1364,7 +1501,7 @@ export async function createService(options = {}) {
     if (request.action === 'preview.diff') return;
     const side = request.action === 'activity.restore' ? await activityAgent(request.id) : request.agent;
     if (side === 'claude' && !AGENT_FLAG_ONLY.has(request.action)) {
-      if (!CLAUDE_WRITES.has(request.action) && !CLAUDE_SKILL_FILES.has(request.action) && request.action !== 'activity.restore') fail(422, 'UNSUPPORTED_FOR_AGENT', '这一版 SkillDock 还不能在 Claude 中执行这个操作。');
+      if (!CLAUDE_WRITES.has(request.action) && !CLAUDE_SKILL_FILES.has(request.action) && !CLAUDE_PLUGIN_SOURCES.has(request.action) && request.action !== 'activity.restore') fail(422, 'UNSUPPORTED_FOR_AGENT', '这一版 SkillDock 还不能在 Claude 中执行这个操作。');
       // 36c §8: which of the environment's states refuses the write, checked before the Claude lock.
       const found = await agentLayer.discover({ force: true });
       if (!found.installed.claude) fail(404, 'AGENT_NOT_INSTALLED', '本机未找到 Claude。');
@@ -1399,7 +1536,7 @@ export async function createService(options = {}) {
   }
   async function agentAction(request) {
     if (request.mode !== 'local') fail(403, 'MODE_DISABLED', '测试环境不能修改 Agent 环境。');
-    if (request.action === 'agent.setManagement') return setManagement(request.agent, request.management);
+    if (request.action === 'agent.setManagement') return setManagement(request.agent, request.management, request.confirm === true);
     if (request.action === 'settings.setClaudeRoot') {
       const { configDir, pluginCacheDir } = request.claudeRoot;
       for (const [label, directory, required] of [['配置目录', configDir, true], ['插件缓存目录', pluginCacheDir, false]]) {
@@ -1426,7 +1563,7 @@ export async function createService(options = {}) {
     fail(422, 'UNSUPPORTED_FOR_AGENT', '一键更新另一侧的 SkillDock 将在后续版本提供；请按“Agent 环境”页给出的步骤手动更新。');
   }
   // HLD 3.6, 6.4: enabling checks the main evidence first and reads the state back.
-  async function setManagement(agent, management) {
+  async function setManagement(agent, management, cleanup = false) {
     const found = await agentLayer.discover({ force: true });
     // Turning management off needs no installation: an environment enabled before can be turned off after it is gone.
     if (!found.installed[agent] && (management === 'enabled' || !found.stored[agent])) fail(404, 'AGENT_NOT_INSTALLED', `本机未找到 ${AGENT_NAME[agent]}。`);
@@ -1437,12 +1574,36 @@ export async function createService(options = {}) {
       const state = agentLayer.effective(agent, found, side => side === 'claude' ? claude?.unconfirmed : null);
       if (state.management === 'unconfirmed') fail(409, 'AGENT_UNCONFIRMED', state.reason);
     }
+    const note = agent === 'claude' && management === 'read-only' ? await claudeDirectBeforeDisabling(found, cleanup) : '';
     const stored = await readManagement(stateDir);
     stored[agent] = { management, origin: 'user', changedAt: now() };
     await writeManagement(stateDir, stored);
     if ((await readManagement(stateDir))[agent]?.management !== management) fail(502, 'READBACK_FAILED', '管理状态写入后读回不一致，请重试。');
     return { message: management === 'enabled' ? `已启用 ${AGENT_NAME[agent]} 管理。`
-      : `已把 ${AGENT_NAME[agent]} 设为只读；SkillDock 不再修改其中的技能和插件，计划中的相关项暂停。` };
+      : `已把 ${AGENT_NAME[agent]} 设为只读；SkillDock 不再修改其中的技能和插件，计划中的相关项暂停。${note}` };
+  }
+  /**
+   * HLD 3.3: turning Claude management off says which marketplaces SkillDock wrote are still in
+   * Claude, and with the user's confirmation removes them first, through the ordinary removal
+   * (it uninstalls what came from them and reads back). A failure leaves management on.
+   */
+  async function claudeDirectBeforeDisabling(found, cleanup) {
+    const tracked = (await registryFor(environment('local'))).claudeDirectPlugins ?? {};
+    if (!Object.keys(tracked).length) return '';
+    const claude = found.installed.claude ? await claudeFor(found, project, true) : null;
+    const listed = Object.keys(tracked).filter(name => !claude || claude.unconfirmed || claude.marketplaces.some(item => item.name === name));
+    const label = names => names.map(name => `${name}（${tracked[name].name}）`).join('、');
+    if (!cleanup) return listed.length ? `\nSkillDock 生成的本地 marketplace 仍登记在 Claude 中：${label(listed)}。需要清理时，重新启用管理后再停用，并勾选一并清理。` : '';
+    if (claude?.unconfirmed) fail(409, 'AGENT_UNCONFIRMED', claude.unconfirmed);
+    if (listed.length && !found.cli.claude.available) fail(422, 'CLI_UNAVAILABLE', '未找到可用的 Claude 命令行，暂不能修改 Claude。');
+    for (const name of Object.keys(tracked)) {
+      const market = claude?.marketplaces.find(item => item.name === name);
+      if (market) await claudeAction({ mode: 'local', action: 'marketplace.remove', agent: 'claude', id: market.id, expectedRevision: market.revision, confirm: true });
+      else await cleanupClaudeDirect(name);
+    }
+    const left = Object.keys((await registryFor(environment('local'))).claudeDirectPlugins ?? {});
+    if (left.length) fail(502, 'READBACK_FAILED', `SkillDock 生成的本地 marketplace 未能全部清理：${label(left)}；管理保持启用，请在 Marketplace 页核实后重试。`);
+    return `\n已清理 SkillDock 生成的本地 marketplace：${label(Object.keys(tracked))}。`;
   }
   async function executeRequest(input, internal = false) {
     const context = { notes: [] };
@@ -1465,6 +1626,10 @@ export async function createService(options = {}) {
     if (request.agent === 'claude' && CLAUDE_WRITES.has(request.action)) {
       requestBusy = true;
       try { return await claudeAction(request); } finally { requestBusy = false; claudeCache = undefined; }
+    }
+    if (mode === 'local' && request.agent === 'claude' && CLAUDE_PLUGIN_SOURCES.has(request.action)) {
+      requestBusy = true;
+      try { return await claudePluginSourceAction(request); } finally { requestBusy = false; }
     }
     if (mode === 'local' && (request.agent === 'claude' && CLAUDE_SKILL_FILES.has(request.action) || request.action === 'activity.restore' && await activityAgent(request.id) === 'claude')) {
       requestBusy = true;

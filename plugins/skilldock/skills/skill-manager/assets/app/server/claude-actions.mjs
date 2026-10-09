@@ -46,7 +46,7 @@ const cliId = plugin => `${plugin.name}@${plugin.marketplace}`;
  * @param {(entry: object) => Promise<void>} deps.journal  Appends an activity record.
  * @param {(directory: string, args: string[]) => Promise<string>} [deps.git]
  */
-export function createClaudeActions({ root, read, writer, journal, git, now = () => new Date().toISOString() }) {
+export function createClaudeActions({ root, read, writer, journal, git, removeSkillsDir, cleanupDirect, now = () => new Date().toISOString() }) {
   const gitOptions = git ? { git } : {};
   // A user-scope write runs from the current project if it still exists, else from Claude's home (4a review P3-02).
   const userCwd = async state => await isDirectory(state.project) ? state.project : path.dirname(state.claudeRoot.configDir);
@@ -190,6 +190,13 @@ export function createClaudeActions({ root, read, writer, journal, git, now = ()
       if (plugin.installed && plugin.installation?.readOnlyReason) fail(422, 'PROJECT_PATH_MISSING', plugin.installation.readOnlyReason);
       if (!plugin.installed || !plugin.canRemove) fail(403, plugin.protection ? 'HOST_MANAGED' : 'PROTECTED_PLUGIN', plugin.reason || '这个插件不能在这里卸载。');
       checkRevision(plugin, request);
+      // A skills-directory plugin leaves by the file transaction, restorably (HLD 3.3).
+      if (plugin.marketplace === 'skills-dir') {
+        const rules = [{ kind: 'scope', message: '插件目录会移到 SkillDock 的可恢复区，可从操作记录恢复；Claude 保存的插件数据不变。' }, RELOAD];
+        if (!request.confirm) needConfirmation(`移除 Claude 插件 ${plugin.name} 前需要确认。`, rules);
+        const { restore, activityPath } = await removeSkillsDir(plugin);
+        return { message: `已把 Claude 插件 ${plugin.name} 移至可恢复区；可从操作记录恢复。`, needsReload: true, agent: 'claude', target: plugin.name, nativeRules: rules, restore, restorable: true, activityPath };
+      }
       const scope = plugin.installation.scope;
       const rules = [
         ...(request.keepData ? [] : [{ kind: 'data-removal', message: '卸载默认删除插件数据（~/.claude/plugins/data 中该插件的目录）；可以选择保留。' }]),
@@ -198,7 +205,9 @@ export function createClaudeActions({ root, read, writer, journal, git, now = ()
       const cwd = scope === 'user' ? await userCwd(state) : await projectFor(plugin.installation.projectPath);
       await run(['plugin', 'uninstall', cliId(plugin), '--scope', scope, ...(request.keepData ? ['--keep-data'] : []), '--json'], { cwd });
       if ((await read()).claude.plugins.some(item => item.id === plugin.id && item.installed)) readbackFailed('Claude 命令行已返回，但插件仍在已安装清单中，请刷新核实。');
-      return { message: `已卸载 Claude 插件 ${plugin.name}${request.keepData ? '，插件数据已保留' : ''}。${RELOAD_NOTE}`, needsReload: true, agent: 'claude', target: plugin.name, nativeRules: rules };
+      // A marketplace SkillDock wrote for a source leaves with its last plugin (HLD 3.3).
+      const cleaned = plugin.marketplace.startsWith('skilldock-') && cleanupDirect && await cleanupDirect(plugin.marketplace);
+      return { message: `已卸载 Claude 插件 ${plugin.name}${request.keepData ? '，插件数据已保留' : ''}。${RELOAD_NOTE}${cleaned ? `\n已移除 SkillDock 为它生成的本地 marketplace ${plugin.marketplace}。` : ''}`, needsReload: true, agent: 'claude', target: plugin.name, nativeRules: rules };
     },
     async 'marketplace.add'(request, state, run) {
       if (request.ref !== undefined) fail(422, 'UNSUPPORTED_FOR_AGENT', 'Claude 的 marketplace 不能在这里指定 Git ref；请在 Claude Code 中添加。');
@@ -241,7 +250,9 @@ export function createClaudeActions({ root, read, writer, journal, git, now = ()
       // Say only what the readback shows (P3-04).
       const remaining = installs.filter(item => after.claude.plugins.some(other => other.id === item.id && other.installed)).length;
       const removed = installs.length - remaining;
-      return { message: `已从 Claude 中移除 marketplace ${market.name}${removed ? `，并卸载了从它安装的 ${removed} 个插件` : ''}。${remaining ? `\n仍有 ${remaining} 个从它安装的插件留在 Claude 中，请在插件页核实。` : ''}`,
+      // A marketplace SkillDock wrote takes its files along once nothing installed from it is left (HLD 3.3).
+      const cleaned = market.name.startsWith('skilldock-') && cleanupDirect && await cleanupDirect(market.name);
+      return { message: `已从 Claude 中移除 marketplace ${market.name}${removed ? `，并卸载了从它安装的 ${removed} 个插件` : ''}。${remaining ? `\n仍有 ${remaining} 个从它安装的插件留在 Claude 中，请在插件页核实。` : ''}${cleaned ? '\nSkillDock 为它生成的本地文件已一并删除。' : ''}`,
         ...(removed ? { needsReload: true } : {}), agent: 'claude', target: market.name, nativeRules: rules };
     },
   };
@@ -261,8 +272,8 @@ export function createClaudeActions({ root, read, writer, journal, git, now = ()
       if (state.claude.unconfirmed) fail(409, 'AGENT_UNCONFIRMED', state.claude.unconfirmed);
       const result = await handler(request, state, writer(state));
       // `restore` holds only the entry an undo needs; it never reaches a snapshot.
-      const { target, restore, ...visible } = result;
-      if (request.action !== 'plugin.previewMarketplace') await journal({ id, action: request.action, agent: 'claude', target: target ?? request.id ?? request.source, createdAt: now(), status: 'success', message: visible.message, canRestore: false, ...(restore ? { restore } : {}) });
+      const { target, restore, restorable, activityPath, ...visible } = result;
+      if (request.action !== 'plugin.previewMarketplace') await journal({ id, action: request.action, agent: 'claude', target: target ?? request.id ?? request.source, ...(activityPath ? { path: activityPath } : {}), createdAt: now(), status: 'success', message: visible.message, canRestore: !!restorable, ...(restore ? { restore } : {}) });
       return visible;
     } catch (error) {
       if (!['CONFIRMATION_REQUIRED', 'SNAPSHOT_STALE', 'NOT_FOUND'].includes(error.code) && request.action !== 'plugin.previewMarketplace')

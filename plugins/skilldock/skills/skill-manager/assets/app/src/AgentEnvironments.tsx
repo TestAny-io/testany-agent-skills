@@ -1,12 +1,13 @@
 // Settings › Agent environments (PRD 5.1, REQ-SDX-001; HLD 3.1, 3.6, 3.10).
 import { useState } from "react";
 import { FolderTree, RefreshCw } from "lucide-react";
-import type { ActionRequest, AgentEnvironment, Plugin, Skill } from "../shared/contracts";
+import type { ActionRequest, AgentEnvironment, Marketplace, Plugin, Skill } from "../shared/contracts";
 import { t } from "./i18n";
 import { AGENT_LABEL } from "./AgentUI";
 
 type Request = Omit<ActionRequest, "mode">;
-export interface ConfirmSpec { title: string; description: string; target: string; request: Request; danger?: boolean; label: string; affected?: string[]; affectedTitle?: string }
+/** `option`: a choice the user may tick, which sends its request instead. */
+export interface ConfirmSpec { title: string; description: string; target: string; request: Request; danger?: boolean; label: string; affected?: string[]; affectedTitle?: string; option?: { label: string; request: Request } }
 
 const STATE: Record<AgentEnvironment["management"], { label: string; tone: string }> = {
   enabled: { label: "已启用管理", tone: "badge-green" },
@@ -15,8 +16,8 @@ const STATE: Record<AgentEnvironment["management"], { label: string; tone: strin
 };
 const ORIGIN: Record<string, string> = { default: "默认位置", session: "来自 Agent 会话", explicit: "手动指定" };
 
-function EnvironmentCard({ environment, skills, plugins, busy, onRun, onConfirm }: {
-  environment: AgentEnvironment; skills: Skill[]; plugins: Plugin[]; busy: boolean; onRun: (request: Request) => void; onConfirm: (spec: ConfirmSpec) => void;
+function EnvironmentCard({ environment, skills, plugins, marketplaces, busy, onRun, onConfirm }: {
+  environment: AgentEnvironment; skills: Skill[]; plugins: Plugin[]; marketplaces: Marketplace[]; busy: boolean; onRun: (request: Request) => void; onConfirm: (spec: ConfirmSpec) => void;
 }) {
   const [paths, setPaths] = useState(false);
   const [switching, setSwitching] = useState(false);
@@ -31,12 +32,17 @@ function EnvironmentCard({ environment, skills, plugins, busy, onRun, onConfirm 
     ...(environment.agent === "claude" ? [t("当前项目的 .claude/settings.json 与 .claude/settings.local.json（只在你选择项目范围时）")] : [])];
   const enable = () => onConfirm({ title: t("启用 {v0} 管理？", { v0: name }),
     description: environment.agent === "claude"
-      ? t("这一版 SkillDock 只读取 Claude 中的对象；启用后，后续版本才能按你的操作修改 Claude 中的技能、插件和 marketplace，并把它们加入后台更新计划。启用这一步本身不会改动任何文件。")
+      ? t("启用后，SkillDock 可以按你的操作修改 Claude 中的技能、插件和 marketplace；Claude 中的对象加入后台更新计划将在后续版本提供。启用这一步本身不会改动任何文件。")
       : t("启用后，SkillDock 可以按你的操作修改 {v0} 中的技能、插件和 marketplace，并可以把它们加入后台更新计划。启用这一步本身不会改动任何文件。", { v0: name }),
     affected: places, affectedTitle: "启用后 SkillDock 可能写入的位置", target: name, request: { action: "agent.setManagement", agent: environment.agent, management: "enabled" }, label: t("启用管理") });
+  // HLD 3.3: marketplaces SkillDock wrote for Claude sources can be cleaned up on the way out.
+  const direct = environment.agent === "claude" ? marketplaces.filter(item => item.direct && item.agents?.includes("claude")) : [];
+  const disabling: Request = { action: "agent.setManagement", agent: environment.agent, management: "read-only" };
   const disable = () => onConfirm({ title: t("停用 {v0} 管理？", { v0: name }),
     description: t("停用后 {v0} 回到只读：SkillDock 只显示其中的对象，不再修改它们；更新计划中属于 {v0} 的项暂停，重新启用后恢复。", { v0: name }),
-    target: name, request: { action: "agent.setManagement", agent: environment.agent, management: "read-only" }, label: t("停用管理"), danger: true });
+    target: name, request: disabling, label: t("停用管理"), danger: true,
+    ...(direct.length ? { affected: direct.map(item => `${item.name}（${item.displayName ?? item.name}）`), affectedTitle: "SkillDock 为单插件来源生成的本地 marketplace",
+      option: { label: t("一并清理：卸载从它们安装的插件，再从 Claude 移除这些 marketplace"), request: { ...disabling, confirm: true } } } : {}) });
   return (
     <section className="agent-card" aria-label={name}>
       <header>
@@ -95,13 +101,13 @@ function NodeSettings({ busy, onRun }: { busy: boolean; onRun: (request: Request
   );
 }
 
-export function AgentEnvironments({ environments, skills, plugins, busy, onRun, onConfirm }: {
-  environments: AgentEnvironment[]; skills: Skill[]; plugins: Plugin[]; busy: boolean; onRun: (request: Request) => void; onConfirm: (spec: ConfirmSpec) => void;
+export function AgentEnvironments({ environments, skills, plugins, marketplaces, busy, onRun, onConfirm }: {
+  environments: AgentEnvironment[]; skills: Skill[]; plugins: Plugin[]; marketplaces: Marketplace[]; busy: boolean; onRun: (request: Request) => void; onConfirm: (spec: ConfirmSpec) => void;
 }) {
   return (
     <div className="agent-environments">
       {!environments.length && <p className="agent-hint">{t("本机没有发现 Codex 或 Claude。")}</p>}
-      {environments.map(environment => <EnvironmentCard key={environment.agent} environment={environment} skills={skills} plugins={plugins} busy={busy} onRun={onRun} onConfirm={onConfirm} />)}
+      {environments.map(environment => <EnvironmentCard key={environment.agent} environment={environment} skills={skills} plugins={plugins} marketplaces={marketplaces} busy={busy} onRun={onRun} onConfirm={onConfirm} />)}
       <NodeSettings busy={busy} onRun={onRun} />
     </div>
   );

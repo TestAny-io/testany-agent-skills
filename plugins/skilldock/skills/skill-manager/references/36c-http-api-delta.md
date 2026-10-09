@@ -8,8 +8,8 @@
 | 项目 | 内容 |
 |------|------|
 | 契约 | API-SDX-001-C HTTP 接口增量 |
-| 版本 | 0.14 |
-| 状态 | 第 12 轮契约复核 APPROVED（v0.12）。v0.13 处理第 12 轮的 P2；v0.14 为阶段 3 试用与阶段 4a、4b 实现中的澄清（索引 0.15），待增量复核。第 4、5 节随 0.10.3 冻结（HLD 11A 条件 1a，0.10.3 已发布）；其余各节属条件 1b |
+| 版本 | 0.15 |
+| 状态 | 第 12 轮契约复核 APPROVED（v0.12）。v0.13 处理第 12 轮的 P2；v0.14 为阶段 3 试用与阶段 4a、4b 实现中的澄清（索引 0.15），v0.15 为阶段 4d 实现中的澄清（索引 0.16），均待增量复核。第 4、5 节随 0.10.3 冻结（HLD 11A 条件 1a，0.10.3 已发布）；其余各节属条件 1b |
 | Owner | SkillDock 维护者（产品 Owner：用户） |
 | 服务方 | SkillDock 0.11.x 本机服务（仅监听 `127.0.0.1`） |
 | 消费方 | 0.11.x 浏览器界面与原生界面；0.10.2、0.10.3 的原生界面（经各自原生入口代理）；0.10.2 启动器与原生入口、0.10.3 转交链（只读健康检查） |
@@ -219,8 +219,8 @@ export interface NativeRule {
 | 字段 | 类型 | 说明 |
 |------|------|------|
 | `agent` | `Agent` | 对象所属的一侧。带 `agent` 的写请求按 2 版规则处理；2 版客户端的所有写请求都必须带（见第 6 节“2 版请求的判定”）。缺省为 Codex（1 版） |
-| `scope` | `"user" \| "project" \| "local"` | Claude 写入作用域；缺省 `user`，`plugin.toggle` 例外：缺省按安装范围与决定层，用户范围的安装为 `user`，但当前由项目的本地或共享设置决定时为 `local`（写当前项目）；project、local 范围的安装为 `local`（写该安装所在项目），技能目录插件为 `local`（写当前项目），都不影响其他项目（HLD 3.3）。显式指定的 `scope` 低于当前决定启用状态或可见性的层时，返回 `SCOPE_INEFFECTIVE`，不写入。`skill.toggle`（Claude 技能）缺省：个人技能为 `user`，当前由项目的本地或共享设置决定时为 `local`；项目技能为 `local`（HLD 3.4）。`skill.previewInstall`（Claude）：`user` 为个人技能目录，`project` 为当前项目的 `.claude/skills`，不接受 `local`。`project` 会改动协作者共享的设置，须同时带 `confirm: true`。写入 `local` 会在 Git 仓库中新建未被忽略的 `.claude/settings.local.json` 时，须带 `gitExclude`（`true` 或 `false`），否则返回 `CONFIRMATION_REQUIRED`，`nativeRules` 中一条 `kind: "scope"` 的 `items` 列出该文件 |
-| `confirm` | `boolean` | 用户已在确认框中同意本次需要确认的改动：共享作用域、可见性从“仅名称/仅用户可调用”改为开或关、卸载 Claude 插件（默认删除插件数据）、移除 Claude marketplace（会卸载从它安装的插件）、移走两侧共用的技能目录、移除或更新会改写另一侧插件目录内容的技能、批量移除中涉及上述两类的项、另一侧已启用管理时把这类技能加入或改入后台计划、把含这类技能的计划改为自动应用或启用自动应用的计划、在计划设置中确认待确认的这类目标（第 6 节“跨侧影响提示”）、清理 SkillDock 管理的本地 marketplace |
+| `scope` | `"user" \| "project" \| "local"` | Claude 写入作用域；缺省 `user`，`plugin.toggle` 例外：缺省按安装范围与决定层，用户范围的安装为 `user`，但当前由项目的本地或共享设置决定时为 `local`（写当前项目）；project、local 范围的安装为 `local`（写该安装所在项目），技能目录插件为 `local`（写当前项目），都不影响其他项目（HLD 3.3）。显式指定的 `scope` 低于当前决定启用状态或可见性的层时，返回 `SCOPE_INEFFECTIVE`，不写入。`skill.toggle`（Claude 技能）缺省：个人技能为 `user`，当前由项目的本地或共享设置决定时为 `local`；项目技能为 `local`（HLD 3.4）。`skill.previewInstall`（Claude）：`user` 为个人技能目录，`project` 为当前项目的 `.claude/skills`，不接受 `local`。`plugin.installSource`（Claude）：来源带 Claude manifest 时同上（`local` 返回 `INVALID_ACTION`）；不带 manifest 时只接受 `user`、`local`（`project` 返回 `UNSUPPORTED_FOR_AGENT`）；预览的 `scopes` 给出可选值。`project` 会改动协作者共享的设置，须同时带 `confirm: true`。写入 `local` 会在 Git 仓库中新建未被忽略的 `.claude/settings.local.json` 时，须带 `gitExclude`（`true` 或 `false`），否则返回 `CONFIRMATION_REQUIRED`，`nativeRules` 中一条 `kind: "scope"` 的 `items` 列出该文件 |
+| `confirm` | `boolean` | 用户已在确认框中同意本次需要确认的改动：共享作用域、可见性从“仅名称/仅用户可调用”改为开或关、卸载 Claude 插件（默认删除插件数据）、移除 Claude marketplace（会卸载从它安装的插件）、移走两侧共用的技能目录、移除或更新会改写另一侧插件目录内容的技能、批量移除中涉及上述两类的项、另一侧已启用管理时把这类技能加入或改入后台计划、把含这类技能的计划改为自动应用或启用自动应用的计划、在计划设置中确认待确认的这类目标（第 6 节“跨侧影响提示”）、清理 SkillDock 管理的本地 marketplace（停用 Claude 管理时，见 7.2 `agent.setManagement`） |
 | `gitExclude` | `boolean` | 新建的 `.claude/settings.local.json` 位于未忽略的 Git 仓库时，用户是否同意写入 `.git/info/exclude` |
 | `keepData` | `boolean` | 卸载 Claude 插件时保留插件数据 |
 | `expectedRevision` | `string` | 界面所依据的对象 `revision`。2 版请求对**单个**已存在、带 `revision` 的对象（Claude 对象、共用技能、Claude marketplace）的写操作必须带；缺失或不一致都返回 `SNAPSHOT_STALE`，界面刷新后重试。多目标操作不带：`updates.run` 执行前按目标重新读取并核对预览基线，不一致的目标单独记为失败并说明原因，不影响其他目标；`skill.removeSelected` 保持 0.10.2 的整批原子语义（见第 6 节“批量移除”）；`schedule.configure` 只保存计划，不做修订号核对，其余校验沿用 0.10.2（启用计划时每个目标都须可检查，否则整体拒绝；暂停的目标除外，见第 6 节）。1 版请求免带 |
@@ -232,7 +232,7 @@ export interface NativeRule {
 
 | 操作 | 说明 | 成功结果 | 主要错误 |
 |------|------|----------|----------|
-| `agent.setManagement` | 启用或停用某 Agent 环境的管理；启用前验证主证据可读、命令行可用并读回 | `message`；快照中环境状态更新 | `AGENT_NOT_INSTALLED`、`AGENT_UNCONFIRMED`、`CLI_UNAVAILABLE` |
+| `agent.setManagement` | 启用或停用某 Agent 环境的管理；启用前验证主证据可读、命令行可用并读回。停用 Claude 管理而 SkillDock 管理的本地 marketplace 仍在时（HLD 3.3）：不带 `confirm: true` 照常停用，`message` 列出仍登记在 Claude 中的这些 marketplace；带 `confirm: true` 先逐个按 `marketplace.remove` 的语义移除（卸载从它安装的插件、读回、删除生成的文件与登记，各自留操作记录），全部成功后才停用，任何一步失败即返回该错误，管理保持启用 | `message`；快照中环境状态更新 | `AGENT_NOT_INSTALLED`、`AGENT_UNCONFIRMED`、`CLI_UNAVAILABLE`；清理时另有 `marketplace.remove` 的错误与 `READBACK_FAILED` |
 | `agent.updateSkilldock` | 一键更新另一侧的 SkillDock（经该 Agent 的插件更新命令并读回） | `message`、`needsReload` | `AGENT_UNCONFIRMED`（该侧无法确认，附手动步骤）、`CLI_UNAVAILABLE`、`SKILLDOCK_UPDATE_FAILED`、`READBACK_FAILED` |
 | `settings.setClaudeRoot` | 切换 Claude 根目录；切换前重新核验新目录 | `message` | `INVALID_PATH`、`AGENT_UNCONFIRMED` |
 | `settings.setNodePath` | 手动指定 Node 路径；按 HLD 3.10 核验后保存 | `message` | `NODE_UNAVAILABLE` |
@@ -242,9 +242,10 @@ export interface NativeRule {
 
 | 操作 | Claude 侧语义 |
 |------|---------------|
-| `plugin.install`、`plugin.installSource`、`plugin.previewInstall` | 经 Claude 命令行安装，显式带作用域；无 manifest 的直接来源只允许 `user`、`local` 作用域（HLD 3.3） |
+| `plugin.install` | 经 Claude 命令行安装，显式带作用域 |
+| `plugin.previewInstall`、`plugin.installSource` | 从本地目录或 Git 安装（HLD 3.3、DEC-SDX-025）。来源带 Claude manifest 时作为技能目录插件放入个人技能目录或当前项目的 `.claude/skills`：文件事务，不经命令行、不写设置，来源记录写 Claude 分区，按 Claude 清单读回。不带 manifest 但有 Claude 能加载的技能或命令时，在数据目录生成 SkillDock 管理的本地 marketplace，登记后经命令行安装，只允许 `user`、`local`。两者都没有返回 `UNSUPPORTED_FOR_AGENT`；同一来源已安装返回 `PLUGIN_ALREADY_INSTALLED`。预览为 `PluginInstallPreview`（`agent`、`manifests`、`scopes`、`defaultScope`、`nativeRules`；`canSelectSkills` 为假）。从这类 marketplace 安装的最后一个插件被卸载、或这个 marketplace 被移除时，一并删除生成的文件与登记；快照中这类 marketplace 带 `direct: true` 与原始来源 |
 | `plugin.toggle` | 写对应作用域设置中的启用条目；不支持“只启用部分技能”（`UNSUPPORTED_FOR_AGENT`） |
-| `plugin.remove` | 卸载，`keepData` 决定是否保留数据 |
+| `plugin.remove` | 卸载，`keepData` 决定是否保留数据。技能目录插件位于个人技能目录或当前项目的 `.claude/skills` 时，确认后移到可恢复区，可经 `activity.restore` 恢复；其他位置的不可移除（`canRemove` 为假并说明原因） |
 | `marketplace.add`、`marketplace.refresh`、`marketplace.remove` | 经 Claude 命令行；移除前在确认框列出从该 marketplace 安装的插件。`marketplace.add` 的 `scope` 决定声明写在哪一层设置（缺省 `user`）；Claude 侧不支持 `ref`（`UNSUPPORTED_FOR_AGENT`）；新 marketplace 按添加前后清单的差异读回。`marketplace.remove` 由 Claude 从所有设置层删除声明并卸载从它安装的插件：项目共享设置声明了它、或其中有 project 范围的安装时，确认的 `nativeRules` 另有一条 `kind: "scope"` 说明会改动协作者共享的 `.claude/settings.json`；组织托管设置声明的不可移除（`HOST_MANAGED`）；结果只说读回证实的卸载数 |
 | `plugin.previewMarketplace` | Claude 中未安装的插件：返回 `PluginInstallPreview`（`agent`、`scopes`、`defaultScope`、`nativeRules`；`canSelectSkills` 为假），不保存预览；随后的 `plugin.install` 以 `expectedRevision` 绑定所见的插件，`previewId` 不作校验 |
 | `skill.toggle` | 写技能可见性条目；当前值（决定层的或写入层中的）为后两档时须 `confirm: true`；同名的其他 Claude 技能共用这一条目，会一并改变，须 `confirm: true`（`nativeRules` 列出它们）；这些确认与共享设置、本地设置文件的选择一次给出。两侧共用技能的 Claude 一侧在阶段 4c 之前返回 `UNSUPPORTED_FOR_AGENT` |
@@ -335,7 +336,7 @@ export interface NativeRule {
 - 沿用现有边界：仅绑定 `127.0.0.1`；同源静态页与接口；校验 Host、Origin、跨站标记；写请求要求会话令牌与 JSON；请求体 ≤ 32 KiB。
 - 快照与详情不返回 Claude 设置中与功能无关的键（环境变量、凭证辅助程序等），不返回任何凭证。
 - 1 版快照（不带 `multiAgent=1`）的 `activity` 不含 Claude 一侧的操作记录，保持 0.10.2 语义；过滤在最近 1000 条记录中进行，Claude 记录超过这个数且都比 Codex 记录新时，1 版看到的 Codex 记录会少于 200 条。
-- 首屏快照不调用联网的命令（如带 `--available` 的列表）；“可安装插件”在用户打开时单独请求。0.11 的多 Agent 快照中，Claude 的未安装插件取自 Claude 在本机保存的 marketplace 副本（HLD 3.2 表中的辅助来源，不联网）；联网的 `--available` 清单仍只在用户打开时单独请求（随阶段 4）。
+- 首屏快照不调用联网的命令（如带 `--available` 的列表）；“可安装插件”在用户打开时单独请求。0.11 的多 Agent 快照中，Claude 的未安装插件取自 Claude 在本机保存的 marketplace 副本（HLD 3.2 表中的辅助来源，不联网）。0.11 不调用联网的 `--available` 清单：可安装插件取自本机副本，刷新 marketplace（`marketplace.refresh`）即更新副本（阶段 4d 决定）。
 
 ## 11. 兼容性与版本策略
 

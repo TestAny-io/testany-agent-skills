@@ -116,6 +116,7 @@ type Dialog =
       label: string;
       affected?: string[];
       affectedTitle?: string;
+      option?: { label: string; request: Omit<ActionRequest, "mode"> };
     };
 type Toast = { kind: "success" | "error"; message: string };
 const scopeLabels: Record<Scope, string> = {
@@ -1310,7 +1311,7 @@ export default function App() {
                 />
               )}
               {page === "agents" && (
-                <AgentEnvironments environments={data.agents ?? []} skills={data.skills} plugins={data.plugins} busy={!!busy || paused}
+                <AgentEnvironments environments={data.agents ?? []} skills={data.skills} plugins={data.plugins} marketplaces={data.marketplaces} busy={!!busy || paused}
                   onRun={request => run(request)}
                   onConfirm={spec => setDialog({ type: "confirm", ...spec })} />
               )}
@@ -2045,10 +2046,11 @@ function ConfirmDialog({
   onClose: () => void;
 }) {
   const [error, setError] = useState("");
+  const [chosen, setChosen] = useState(false);
   async function confirm() {
     setError("");
     try {
-      if (await action(dialog.request)) onClose();
+      if (await action(chosen && dialog.option ? dialog.option.request : dialog.request)) onClose();
     } catch (error) {
       setError((error as Error).message);
     }
@@ -2073,6 +2075,12 @@ function ConfirmDialog({
               ))}
             </ul>
           </div>
+        )}
+        {dialog.option && (
+          <label className="check-field">
+            <input type="checkbox" checked={chosen} onChange={(event) => setChosen(event.target.checked)} />
+            {dialog.option.label}
+          </label>
         )}
         {error && (
           <div className="field-error" role="alert">

@@ -26,6 +26,8 @@ async function world(t) {
   await skill(path.join(repo, '.claude/skills'), 'p1'); await skill(path.join(project, '.claude/skills'), 'p2');
   await write(path.join(configDir, 'skills/sd/.claude-plugin/plugin.json'), { name: 'sd', description: 'Skills-dir plugin.' });
   await skill(path.join(configDir, 'skills/sd/skills'), 'inner');
+  // A skills-directory plugin Claude finds above the project, outside the two roots SkillDock writes.
+  await write(path.join(repo, '.claude/skills/up/.claude-plugin/plugin.json'), { name: 'up', description: 'Above the project.' });
   const cache = path.join(configDir, 'plugins/cache/m');
   const installA = path.join(cache, 'a/abc'); await skill(path.join(installA, 'skills'), 'a-skill');
   await write(path.join(installA, '.claude-plugin/plugin.json'), { name: 'a', description: 'Plugin A.' }); await write(path.join(installA, '.codex-plugin/plugin.json'), { name: 'a' });
@@ -58,8 +60,10 @@ test('plugins: enablement source, overrides, managed and synced protection, mani
   assert.deepEqual([byName('x').protection, byName('x').enablement.locked], ['synced', true]);
   assert.ok(catalog.plugins.every(item => item.id.startsWith('claude:plugin:') && item.agents.join() === 'claude' && !item.canInstall && item.revision));
   // Phase 4a: what Claude lets SkillDock change (the service marks all of it read-only while Claude is not managed).
-  assert.deepEqual(['a', 'b', 'c', 'x', 'sd'].map(name => [name, byName(name).canToggle, byName(name).canRemove]),
-    [['a', true, true], ['b', true, true], ['c', false, true], ['x', false, false], ['sd', false, false]]);
+  // Phase 4d: a skills-directory plugin in either root SkillDock writes leaves by the file transaction.
+  assert.deepEqual(['a', 'b', 'c', 'x', 'sd', 'up'].map(name => [name, byName(name).canToggle, byName(name).canRemove]),
+    [['a', true, true], ['b', true, true], ['c', false, true], ['x', false, false], ['sd', false, true], ['up', false, false]]);
+  assert.match(byName('up').reason, /尚未加载|不能在这里移除/);
   assert.equal(byName('a').reason, undefined); assert.match(byName('c').reason, /组织托管设置决定/); assert.match(byName('x').reason, /claude\.ai 同步/); assert.match(byName('sd').reason, /尚未加载/);
   assert.notEqual(byName('a').id, byName('b').id);
   assert.match(byName('b').id, /^claude:plugin:b@m:project:[a-f0-9]{12}$/);
@@ -174,7 +178,8 @@ esac`);
   // Without Claude's configuration root nothing runs: listing would create it (PH3-P1-02).
   await fs.rm(argv); await fs.rm(w.configDir, { recursive: true });
   const rootless = await claudeCatalog({ ...w.base, listPlugins: undefined, listMarketplaces: undefined, cli: { available: true, path: cli }, env: { HOME: w.home, PATH: '/usr/bin:/bin' } });
-  assert.deepEqual([rootless.unconfirmed, rootless.evidence, rootless.plugins.length, rootless.listed], [null, 'none', 0, false]);
+  // Only the project's skills-directory plugin, found from its files, is left.
+  assert.deepEqual([rootless.unconfirmed, rootless.evidence, rootless.plugins.map(item => item.name), rootless.listed], [null, 'none', ['up'], false]);
   await assert.rejects(fs.stat(argv), { code: 'ENOENT' }); await assert.rejects(fs.stat(w.configDir), { code: 'ENOENT' });
 });
 
