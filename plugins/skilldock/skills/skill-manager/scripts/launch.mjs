@@ -21,6 +21,7 @@ import { writeClaudeRoot, startedFromClaude } from '../assets/app/server/claude-
 import { recordSessionCli } from '../assets/app/server/claude-cli.mjs';
 import { childEnvironment } from '../assets/app/server/process-env.mjs';
 import { defaultUpdateState } from '../assets/app/server/update-state.mjs';
+import { writeSavedNode } from '../assets/app/server/node-candidates.mjs';
 
 const defaultApp = fileURLToPath(new URL('../assets/app/', import.meta.url));
 const ACTIONS = ['start', 'status', 'stop', 'restart'];
@@ -236,6 +237,11 @@ export async function launch(action = 'start', options = {}) {
     throw new Error('此数据目录属于另一个源码实例；旧 testany-eng 用户可使用 --migrate-from testany-eng 接续数据，其他来源请使用独立 SKILLDOCK_STATE_DIR。');
   }
   await checkOwner(initial);
+  // HLD 3.10: the Node the bootstrap selected is saved only now, in a data directory that
+  // belongs to this installation (an unchanged saved selection is not written again).
+  if (env.SKILLDOCK_NODE_SOURCE && env.SKILLDOCK_NODE_SOURCE !== 'saved' && absolute(env.SKILLDOCK_SELECTED_NPM_CLI))
+    await writeSavedNode(state, { node: process.execPath, nodeVersion: process.version, npmCli: env.SKILLDOCK_SELECTED_NPM_CLI,
+      npmVersion: env.SKILLDOCK_SELECTED_NPM_VERSION, source: env.SKILLDOCK_NODE_SOURCE }).catch(error => process.stderr.write(`SkillDock：未能保存所选 Node：${error.message}\n`));
   // 36a §7: the fixed legacy directory is confirmed on every run once migrated.
   if (generation >= CURRENT_GENERATION) await ensureLegacyProject(state);
   if (action === 'status') {

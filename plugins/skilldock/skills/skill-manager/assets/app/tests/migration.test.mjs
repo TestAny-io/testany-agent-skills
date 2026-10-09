@@ -359,6 +359,8 @@ test('stop on a stale Claude-side 0.10.x record stops that instance and removes 
 test('a record from an unseen Claude configuration is refused with its reason; a live old service is named first; nothing changes', async t => {
   const f = await fixture(t); const port = await freePort();
   const next = { ...await installedVersion(f, '0.11.0'), port };
+  // The bootstrap's Node selection is not saved into a data directory that is refused (HLD 3.10).
+  next.env = { ...next.env, SKILLDOCK_NODE_SOURCE: 'nvm', SKILLDOCK_SELECTED_NPM_CLI: path.join(f.root, 'npm-cli.js'), SKILLDOCK_SELECTED_NPM_VERSION: '11.0.0' };
   // Claude with a custom configuration directory, seen from the Codex side.
   const custom = path.join(f.home, 'custom-claude');
   const versionDir = path.join(custom, 'plugins/cache', MARKET, 'skilldock/sha-old');

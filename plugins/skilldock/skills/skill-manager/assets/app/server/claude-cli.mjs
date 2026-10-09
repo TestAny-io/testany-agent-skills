@@ -1,8 +1,10 @@
 // SPDX-License-Identifier: AGPL-3.0-only
-// Bootstrap-safe. Claude command-line discovery (HLD 3.3): explicit → saved → the path a
-// Claude session gave the launcher → the desktop app's bundled command line (highest
-// version) → PATH → standalone installs under the home directory. The choice is saved
-// and checked with a version query before use; a failed check rediscovers.
+// Bootstrap-safe. Claude command-line discovery (HLD 3.3): explicit (the only candidate)
+// → a saved choice the user made → the path a Claude session gave the launcher → the
+// desktop app's bundled command line (highest version) → a saved choice found earlier →
+// PATH → standalone installs under the home directory. A found choice therefore follows
+// session and desktop-app upgrades. The choice is saved and checked with a version query
+// before use; a failed check rediscovers.
 import fs from 'node:fs/promises';
 import path from 'node:path';
 import os from 'node:os';
@@ -53,9 +55,10 @@ export async function claudeCliCandidates({ env = process.env, home = os.homedir
   if (env.SKILLDOCK_CLAUDE_BIN) return [{ file: env.SKILLDOCK_CLAUDE_BIN, source: 'explicit' }];
   const list = [];
   const add = (file, source) => { if (typeof file === 'string' && path.isAbsolute(file) && !list.some(item => item.file === file)) list.push({ file, source }); };
-  add(saved?.path, 'saved');
+  if (saved?.source === 'manual') add(saved.path, 'saved');
   add(saved?.sessionPath, 'session');
   for (const file of await desktopCommandLines(home)) add(file, 'desktop');
+  add(saved?.path, 'saved');
   for (const directory of (env.PATH || '').split(path.delimiter)) if (path.isAbsolute(directory)) add(path.join(directory, 'claude'), 'path');
   add(path.join(home, '.local/bin/claude'), 'user');
   add(path.join(home, '.claude/local/claude'), 'user');
@@ -85,7 +88,7 @@ export async function resolveClaudeCli({ state, env = process.env, home = os.hom
     const checked = await verify(file, { env, claudeRoot });
     if (!checked.version) { attempts.push({ path: file, source, error: checked.reason }); continue; }
     if (save && state && source !== 'explicit' && (saved?.path !== file || saved?.version !== checked.version))
-      await writeClaudeCliSettings(state, { ...saved, path: file, version: checked.version, source, verifiedAt: new Date().toISOString() }).catch(() => {});
+      await writeClaudeCliSettings(state, { ...saved, path: file, version: checked.version, source: source === 'saved' ? saved.source : source, verifiedAt: new Date().toISOString() }).catch(() => {});
     return { available: true, path: file, version: checked.version, source, attempts };
   }
   return { available: false, attempts, error: '未找到可用的 Claude 命令行。' };

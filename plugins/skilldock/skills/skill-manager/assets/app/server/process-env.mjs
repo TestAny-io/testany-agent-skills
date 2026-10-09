@@ -10,7 +10,7 @@ const ALLOWED = new Set(['HOME', 'USER', 'LOGNAME', 'LANG', 'LANGUAGE', 'TMPDIR'
   'NODE_EXTRA_CA_CERTS', 'SSL_CERT_FILE', 'SSL_CERT_DIR', 'GIT_SSL_CAINFO']);
 // Per-invocation SkillDock variables of the launch chain, not settings.
 const LAUNCH_ONLY = new Set(['SKILLDOCK_RESTART_JOB', 'SKILLDOCK_HANDOVER', 'SKILLDOCK_HANDOVER_AGENT', 'SKILLDOCK_HANDOVER_FROM',
-  'SKILLDOCK_DELEGATED', 'SKILLDOCK_GATE_CHECKED']);
+  'SKILLDOCK_DELEGATED', 'SKILLDOCK_GATE_CHECKED', 'SKILLDOCK_SELECTED_NPM_VERSION']);
 const FIXED_PATH = ['/usr/bin', '/bin', '/usr/sbin', '/sbin', '/opt/homebrew/bin', '/usr/local/bin'];
 
 /**

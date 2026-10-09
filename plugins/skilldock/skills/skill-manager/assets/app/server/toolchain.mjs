@@ -162,11 +162,13 @@ export async function installPrivateRuntime({ stateDir, arch = process.arch, pla
  * version, npm present) and is replaced when it fails. Nothing is downloaded: without a
  * usable Node the result is `available: false` and the entry shows guidance.
  * `save: false` (doctor) never writes; `system: false` leaves out fixed system paths (tests).
+ * An explicit Node is saved too, so background runs keep using it; an explicit npm CLI
+ * is never replaced by a saved selection.
  */
 export async function resolveToolchain({ stateDir, env = process.env, home = os.homedir(), apps = appRoots(env, home),
   platform = process.platform, inspect = inspectNode, save = true, system = true,
   log = message => process.stderr.write(`SkillDock：${message}\n`) } = {}) {
-  const saved = env.SKILLDOCK_NODE_BIN ? null : await readSavedNode(stateDir);
+  const saved = env.SKILLDOCK_NODE_BIN || env.SKILLDOCK_NPM_CLI ? null : await readSavedNode(stateDir);
   const candidates = env.SKILLDOCK_NODE_BIN ? [{ file: env.SKILLDOCK_NODE_BIN, source: 'explicit' }]
     : await nodeCandidates({ env, home, stateDir, saved: saved?.node, system });
   const rejected = []; const seen = new Set();
@@ -184,7 +186,7 @@ export async function resolveToolchain({ stateDir, env = process.env, home = os.
     const npm = await findNpm(node.node, { env, apps, via: file });
     if (!npm) { rejected.push({ source, path: file, reason: '未找到能由此 Node 执行的 npm CLI。' }); continue; }
     const selection = { ...node, ...npm, source };
-    if (save && source !== 'explicit') await writeSavedNode(stateDir, selection).catch(error => log(`未能保存所选 Node：${error.message}`));
+    if (save) await writeSavedNode(stateDir, selection).catch(error => log(`未能保存所选 Node：${error.message}`));
     return selection;
   }
   if (env.SKILLDOCK_NODE_BIN || env.SKILLDOCK_NPM_CLI) throw new Error(`显式运行环境配置不可用：${rejected.map(item => item.reason).join('；')}`);

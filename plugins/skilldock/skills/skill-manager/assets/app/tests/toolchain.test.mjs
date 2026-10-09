@@ -153,6 +153,15 @@ test('the selection is saved and reused with a light check; a broken saved Node 
   assert.deepEqual([rescanned.source, rescanned.node], ['nvm', await fs.realpath(other)]);
   assert.match(logs[0], /已不可用/);
   assert.equal((await readSavedNode(f.stateDir)).node, rescanned.node);
+  // An explicit Node is saved as well, so the background entry keeps using it.
+  const chosen = path.join(f.root, 'chosen/bin/node'); await fs.mkdir(path.dirname(chosen), { recursive: true }); await wrapper(chosen);
+  const explicit = await resolveToolchain({ ...options, env: { ...options.env, SKILLDOCK_NODE_BIN: chosen } });
+  assert.deepEqual([explicit.source, (await readSavedNode(f.stateDir)).node, (await readSavedNode(f.stateDir)).source], ['explicit', explicit.node, 'explicit']);
+  assert.equal((await fs.readFile(path.join(f.stateDir, 'settings/node-path'), 'utf8')).trim(), explicit.node);
+  // An explicit npm CLI is never replaced by the saved selection, and a wrong one fails.
+  await assert.rejects(resolveToolchain({ ...options, env: { ...options.env, SKILLDOCK_NPM_CLI: path.join(f.root, 'absent-npm-cli.js') } }), /显式运行环境配置不可用/);
+  const withNpm = await resolveToolchain({ ...options, env: { ...options.env, SKILLDOCK_NPM_CLI: f.npmCli } });
+  assert.deepEqual([withNpm.source === 'saved', withNpm.npmCli], [false, await fs.realpath(f.npmCli)]);
 });
 
 test('the guidance dialog runs in its own process with the command to re-check, and never for restart jobs or headless runs', async t => {

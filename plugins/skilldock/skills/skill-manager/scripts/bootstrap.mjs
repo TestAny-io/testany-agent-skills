@@ -38,8 +38,9 @@ try {
   } else {
     let toolchain;
     if (action === 'start' || action === 'restart' || action === 'doctor') {
-      // HLD 3.10: doctor only reads; start and restart save the selection.
-      toolchain = await resolveToolchain({ stateDir, save: action !== 'doctor' });
+      // HLD 3.10: the bootstrap only selects; the launcher saves the selection once the
+      // data directory is known to be this installation's (doctor never saves).
+      toolchain = await resolveToolchain({ stateDir, save: false });
       if (action === 'doctor') {
         const cli = await resolveCodexCli();
         const project = await resolveProject({ projectDir: options.projectDir, stateDir });
@@ -57,7 +58,7 @@ try {
       const node = toolchain?.node || process.execPath;
       // The gate's command-line confirmation already ran here; launch.mjs only re-reads files.
       const env = { ...process.env, ...(plan.gateChecked ? { SKILLDOCK_GATE_CHECKED: '1' } : {}), ...(toolchain ? {
-        SKILLDOCK_SELECTED_NPM_CLI: toolchain.npmCli, SKILLDOCK_NODE_SOURCE: toolchain.source,
+        SKILLDOCK_SELECTED_NPM_CLI: toolchain.npmCli, SKILLDOCK_SELECTED_NPM_VERSION: toolchain.npmVersion, SKILLDOCK_NODE_SOURCE: toolchain.source,
         PATH: `${path.dirname(node)}${path.delimiter}${process.env.PATH || ''}`,
       } : {}) };
       process.exitCode = await new Promise((resolve, reject) => {

@@ -374,11 +374,15 @@ test('the service inherits only allowed variables; the command line of a Claude 
   const session = path.join(f.root, 'claude-cli');
   const env = { ...f.env, CLAUDECODE: '1', CLAUDE_CODE_EXECPATH: session, CLAUDE_CODE_ENTRYPOINT: 'claude-desktop', ANTHROPIC_API_KEY: 'not-a-real-key',
     CLAUDE_CODE_OAUTH_TOKEN: 'not-a-real-token', CODEX_THREAD_ID: 'thread', npm_config_loglevel: 'warn' };
-  const first = await launch('start', { ...options, env, codexBin });
+  const selection = { SKILLDOCK_NODE_SOURCE: 'nvm', SKILLDOCK_SELECTED_NPM_CLI: path.join(f.root, 'npm-cli.js'), SKILLDOCK_SELECTED_NPM_VERSION: '11.0.0' };
+  const first = await launch('start', { ...options, env: { ...env, ...selection }, codexBin });
   try {
+    // The launcher saves the bootstrap's selection once the data directory is known to be its own.
+    const saved = JSON.parse(await fs.readFile(path.join(first.state, 'settings/runtime.json'), 'utf8'));
+    assert.deepEqual([saved.node, saved.nodeVersion, saved.npmCli, saved.npmVersion, saved.source], [process.execPath, process.version, selection.SKILLDOCK_SELECTED_NPM_CLI, '11.0.0', 'nvm']);
     const keys = JSON.parse(await fs.readFile(path.join(first.state, 'service-env.json'), 'utf8'));
     const sessionKeys = ['CLAUDECODE', 'CLAUDE_CODE_EXECPATH', 'CLAUDE_CODE_ENTRYPOINT', 'ANTHROPIC_API_KEY', 'CLAUDE_CODE_OAUTH_TOKEN', 'CODEX_THREAD_ID'];
-    for (const key of [...sessionKeys, 'npm_config_loglevel']) assert.equal(keys.includes(key), false, key);
+    for (const key of [...sessionKeys, 'npm_config_loglevel', 'SKILLDOCK_SELECTED_NPM_VERSION']) assert.equal(keys.includes(key), false, key);
     for (const key of ['HOME', 'PATH', 'PORT', 'SKILLDOCK_STATE_DIR', 'SKILLDOCK_PROJECT_DIR']) assert.ok(keys.includes(key), key);
     for (const name of ['codex---version', 'codex-plugin', 'build']) {
       const received = (await fs.readFile(path.join(seen, name), 'utf8')).split('\n');

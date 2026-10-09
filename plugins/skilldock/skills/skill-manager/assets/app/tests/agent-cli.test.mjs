@@ -29,7 +29,7 @@ test('service and command-line environments keep only allowed variables and Skil
   assert.equal(claudeCliEnvironment(env, { configDir: '/r', pluginCacheDir: '/elsewhere' }).CLAUDE_CODE_PLUGIN_CACHE_DIR, '/elsewhere');
 });
 
-test('Claude command line: explicit, saved, session, desktop (highest version), PATH, home installs; the choice is saved and rechecked', async t => {
+test('Claude command line: explicit only, session, desktop (highest version), PATH, home installs; a found choice follows upgrades, a chosen one stays', async t => {
   const root = await temp(t); const home = path.join(root, 'home'); const state = path.join(root, 'state');
   const version = v => `[ "$1" = --version ] && echo "${v} (Claude Code)"`;
   const desktopOld = await script(path.join(home, 'Library/Application Support/Claude/claude-code/2.1.9/aaa/claude.app/Contents/MacOS/claude'), version('2.1.9'));
@@ -42,16 +42,27 @@ test('Claude command line: explicit, saved, session, desktop (highest version), 
   let found = await resolveClaudeCli({ state, env, home });
   assert.deepEqual([found.path, found.version, found.source], [desktopNew, '2.1.10', 'desktop']);
   assert.equal((await readClaudeCliSettings(state)).path, desktopNew);
-  await recordSessionCli(state, session);
-  assert.equal((await claudeCliCandidates({ env, home, saved: await readClaudeCliSettings(state) }))[1].source, 'session');
-  // The saved choice comes before the session path; when it breaks, discovery moves on.
+  // The desktop app updated: its newer bundled command line replaces the one found before.
+  const desktopNext = await script(path.join(home, 'Library/Application Support/Claude/claude-code/2.1.12/ccc/claude.app/Contents/MacOS/claude'), version('2.1.12'));
   found = await resolveClaudeCli({ state, env, home });
-  assert.equal(found.source, 'saved');
-  await fs.writeFile(desktopNew, '#!/bin/sh\nexit 3\n');
+  assert.deepEqual([found.path, found.source], [desktopNext, 'desktop']);
+  // A Claude session's own command line comes before the desktop app's.
+  await recordSessionCli(state, session);
+  assert.equal((await claudeCliCandidates({ env, home, saved: await readClaudeCliSettings(state) }))[0].source, 'session');
   found = await resolveClaudeCli({ state, env, home });
   assert.deepEqual([found.path, found.source], [session, 'session']);
-  assert.equal((await resolveClaudeCli({ state, env: { ...env, SKILLDOCK_CLAUDE_BIN: user }, home })).source, 'explicit');
-  assert.equal((await readClaudeCliSettings(state)).path, session, '显式指定的命令行不保存');
+  // When it breaks, discovery moves on.
+  await fs.writeFile(session, '#!/bin/sh\nexit 3\n');
+  assert.equal((await resolveClaudeCli({ state, env, home })).path, desktopNext);
+  // A command line the user chose stays first.
+  const settings = await readClaudeCliSettings(state);
+  await fs.writeFile(path.join(state, 'settings/claude-cli.json'), JSON.stringify({ ...settings, path: user, source: 'manual' }));
+  found = await resolveClaudeCli({ state, env, home });
+  assert.deepEqual([found.path, found.source, (await readClaudeCliSettings(state)).source], [user, 'saved', 'manual']);
+  // An explicit one is the only candidate and is not saved.
+  assert.equal((await resolveClaudeCli({ state, env: { ...env, SKILLDOCK_CLAUDE_BIN: onPath }, home })).source, 'explicit');
+  assert.equal((await resolveClaudeCli({ state, env: { ...env, SKILLDOCK_CLAUDE_BIN: path.join(root, 'absent') }, home })).available, false);
+  assert.equal((await readClaudeCliSettings(state)).path, user, '显式指定的命令行不保存');
   const none = await resolveClaudeCli({ state: path.join(root, 'other'), env: { HOME: root, PATH: '' }, home: root });
   assert.equal(none.available, false);
 });
