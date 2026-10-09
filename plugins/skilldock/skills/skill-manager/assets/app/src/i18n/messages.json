@@ -2470,5 +2470,9 @@
   "当前项目（.claude/skills）": {
     "en": "Current project (.claude/skills)",
     "ja": "現在のプロジェクト（.claude/skills）"
+  },
+  "将安装到 {v0}。": {
+    "en": "It will be installed to {v0}.",
+    "ja": "{v0} にインストールします。"
   }
 }

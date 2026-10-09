@@ -9,7 +9,7 @@
 |------|------|
 | 契约 | API-SDX-001-C HTTP 接口增量 |
 | 版本 | 0.14 |
-| 状态 | 第 12 轮契约复核 APPROVED（v0.12）。v0.13 处理第 12 轮的 P2；v0.14 为阶段 3 试用与阶段 4a 实现中的澄清（索引 0.15），待增量复核。第 4、5 节随 0.10.3 冻结（HLD 11A 条件 1a，0.10.3 已发布）；其余各节属条件 1b |
+| 状态 | 第 12 轮契约复核 APPROVED（v0.12）。v0.13 处理第 12 轮的 P2；v0.14 为阶段 3 试用与阶段 4a、4b 实现中的澄清（索引 0.15），待增量复核。第 4、5 节随 0.10.3 冻结（HLD 11A 条件 1a，0.10.3 已发布）；其余各节属条件 1b |
 | Owner | SkillDock 维护者（产品 Owner：用户） |
 | 服务方 | SkillDock 0.11.x 本机服务（仅监听 `127.0.0.1`） |
 | 消费方 | 0.11.x 浏览器界面与原生界面；0.10.2、0.10.3 的原生界面（经各自原生入口代理）；0.10.2 启动器与原生入口、0.10.3 转交链（只读健康检查） |
@@ -257,7 +257,7 @@ export interface NativeRule {
 
 需要确认的操作在未带 `confirm: true` 时返回 `CONFIRMATION_REQUIRED`，错误体额外带 `nativeRules`（`{ "error": { "code", "message", "nativeRules": NativeRule[] } }`），界面据此显示确认框（AC-016）；这是错误体唯一的扩展字段，只出现在这个错误码上。
 
-所有 Claude 写操作：写前重新读取对象状态并与 `expectedRevision` 比较（多目标操作见 7.1）；成功后读回，结果带 `agent: "claude"`；改变会话中可用内容的（插件与技能的启停、安装、卸载、移除，以及卸载了插件的 marketplace 移除）带 `needsReload: true`，添加与刷新 marketplace 不带。项目目录不存在的 project、local 范围安装返回 `PROJECT_PATH_MISSING`；组织托管范围的安装与托管设置声明的 marketplace 返回 `HOST_MANAGED`；命令行超时返回 `CLI_TIMEOUT`，结果未确认，须刷新核实。
+所有 Claude 写操作：写前重新读取对象状态并与 `expectedRevision` 比较（多目标操作见 7.1）；成功后核对结果（命令行操作与可见性从 Claude 的清单读回；技能文件事务以内容指纹与移动结果核对，与 Codex 一侧相同），结果带 `agent: "claude"`；改变会话中可用内容的（插件与技能的启停、安装、卸载、移除，以及卸载了插件的 marketplace 移除）带 `needsReload: true`，添加与刷新 marketplace 不带。项目目录不存在的 project、local 范围安装返回 `PROJECT_PATH_MISSING`；组织托管范围的安装与托管设置声明的 marketplace 返回 `HOST_MANAGED`；命令行超时返回 `CLI_TIMEOUT`，结果未确认，须刷新核实。
 
 ### 7.4 示例
 

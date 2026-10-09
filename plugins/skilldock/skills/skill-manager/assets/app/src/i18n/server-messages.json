@@ -1294,5 +1294,37 @@
   "已写入项目本地设置，但读回的启用状态与预期不同：可能由更高层级的设置决定，请刷新核实。": {
     "en": "Wrote the project's local settings, but the enablement read back differs from what was expected: a higher settings level may decide it. Refresh to check.",
     "ja": "プロジェクトのローカル設定に書き込みましたが、読み戻した有効状態が想定と異なります。より上位の設定で決まっている可能性があります。更新して確認してください。"
+  },
+  "同名的其他 Claude 技能共用这一可见性条目，会一并改变：": {
+    "en": "Other Claude skills with the same name share this visibility entry and change with it:",
+    "ja": "同じ名前の他の Claude スキルもこの表示設定を共有しており、一緒に変わります："
+  },
+  "两侧共用的技能在 Claude 一侧的切换随后续版本提供。": {
+    "en": "Switching the Claude side of a skill both Agents share comes in a later version.",
+    "ja": "両方の Agent が共有するスキルの Claude 側の切り替えは今後のバージョンで提供します。"
+  },
+  "两侧共用的技能在 Claude 一侧的修改随后续版本提供。": {
+    "en": "Changing the Claude side of a skill both Agents share comes in a later version.",
+    "ja": "両方の Agent が共有するスキルの Claude 側の変更は今後のバージョンで提供します。"
+  },
+  "设置文件：{v0}": {
+    "en": "Settings file: {v0}",
+    "ja": "設定ファイル：{v0}"
+  },
+  "设置文件 {v0} 含有超出安全范围的整数，改写会改变它的值，SkillDock 不会改写它。": {
+    "en": "The settings file {v0} holds an integer beyond the safe range; rewriting would change its value, so SkillDock does not rewrite it.",
+    "ja": "設定ファイル {v0} には安全な範囲を超える整数が含まれており、書き換えると値が変わるため、SkillDock は書き換えません。"
+  },
+  "只能修改个人技能目录或当前项目 .claude/skills 中的 Claude 技能。": {
+    "en": "Only Claude skills in the personal skills directory or the current project's .claude/skills can be changed.",
+    "ja": "変更できるのは、個人スキルディレクトリか現在のプロジェクトの .claude/skills にある Claude スキルだけです。"
+  },
+  "Claude 的技能根指向插件或系统管理目录，不能修改其中的内容。": {
+    "en": "Claude's skills root points into a plugin or system-managed directory; its contents cannot be changed.",
+    "ja": "Claude のスキルルートがプラグインまたはシステム管理のディレクトリを指しているため、その内容は変更できません。"
+  },
+  "技能安装根指向插件或系统管理目录，不能写入。": {
+    "en": "The skill installation root points into a plugin or system-managed directory and cannot be written.",
+    "ja": "スキルのインストール先がプラグインまたはシステム管理のディレクトリを指しているため、書き込めません。"
   }
 }

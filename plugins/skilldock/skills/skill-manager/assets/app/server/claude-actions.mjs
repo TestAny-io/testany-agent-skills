@@ -81,29 +81,46 @@ export function createClaudeActions({ root, read, writer, journal, git, now = ()
   const handlers = {
     // HLD 3.4: a Claude skill's visibility is an entry in a settings file; Claude has no command for it.
     async 'skill.toggle'(request, state) {
+      // The Claude side of a skill both Agents share is switched by 4c (36c §6); its ID is Codex's.
+      if (!request.id.startsWith('claude:')) fail(422, 'UNSUPPORTED_FOR_AGENT', '两侧共用的技能在 Claude 一侧的切换随后续版本提供。');
       const skill = state.claude.skills.find(item => item.id === request.id);
       if (!skill) fail(404, 'NOT_FOUND', '未找到这个 Claude 技能，请刷新后重试。');
       targetName = skill.name;
       if (!skill.canToggle) fail(403, skill.protection ? 'HOST_MANAGED' : 'PROTECTED_SKILL', skill.reason || '这个技能不支持切换。');
       checkRevision(skill, request);
       const value = request.enabled ? 'on' : 'off';
-      const rules = [];
-      if (MIDDLE[skill.visibility]) rules.push({ kind: 'visibility', message: MIDDLE[skill.visibility][request.enabled] });
-      if (rules.length && !request.confirm) needConfirmation('修改这个技能的可见性前需要确认。', [...rules, RELOAD]);
       // Default layer: a personal skill in user settings, unless the project's settings decide
       // it now (local beats project and user, and is not shared); a project skill in local settings.
       const decided = skill.enablement?.decidedBy;
       const layer = request.scope ?? (skill.scope === 'user' && !['local', 'project'].includes(decided) ? 'user' : 'local');
+      // Every rule the change touches is confirmed at once (4b review P2-01): a middle tier that
+      // is dropped, the shared project settings, and other skills with the same name, which
+      // share the entry (P3-03).
+      const sameName = state.claude.skills.filter(item => item.name === skill.name && item.id !== skill.id);
+      const rules = [
+        ...(MIDDLE[skill.visibility] ? [{ kind: 'visibility', message: MIDDLE[skill.visibility][request.enabled] }] : []),
+        ...(sameName.length ? [{ kind: 'visibility', message: '同名的其他 Claude 技能共用这一可见性条目，会一并改变：', items: sameName.map(item => item.path) }] : []),
+        ...(layer === 'project' ? [SHARED] : []),
+      ];
+      if (rules.length && !request.confirm) needConfirmation('修改这个技能的可见性前需要确认。', [...rules, RELOAD]);
       const project = layer === 'user' ? null : await projectFor(state.project);
-      const exposure = await scopeChecks(layer, project ?? state.project, request, [...rules, RELOAD]);
+      const exposure = await scopeChecks(layer, project ?? state.project, { ...request, confirm: true }, [...rules, RELOAD]);
       const file = layer === 'user' ? path.join(state.claudeRoot.configDir, 'settings.json') : path.join(project, '.claude', layer === 'project' ? 'settings.json' : 'settings.local.json');
-      const patch = await patchClaudeSetting(file, 'skillOverrides', skill.name, value);
+      // The decision above came from an earlier read: the entry as the patch reads it must still
+      // agree (P3-02), and a middle tier in this very file is never dropped unasked (P3-08).
+      const expected = decided === layer ? { enabled: 'on', disabled: 'off' }[skill.visibility] ?? skill.visibility : undefined;
+      const patch = await patchClaudeSetting(file, 'skillOverrides', skill.name, value, { beforeWrite: previous => {
+        if (expected !== undefined && (previous ?? 'on') !== expected) fail(409, 'SNAPSHOT_STALE', 'Claude 中已有改动，请刷新后重试。');
+        if (['name-only', 'user-invocable-only'].includes(previous) && !request.confirm)
+          needConfirmation('修改这个技能的可见性前需要确认。', [{ kind: 'visibility', message: MIDDLE[previous][request.enabled] }, RELOAD]);
+      } });
+      const restore = { kind: 'claude-visibility', file: patch.file, section: 'skillOverrides', key: skill.name, previous: patch.previous ?? null, created: patch.created };
       const after = (await read()).claude.skills.find(item => item.id === skill.id);
       if (!after || after.visibility !== (request.enabled ? 'enabled' : 'disabled'))
-        readbackFailed(`已写入 ${file}，但读回的可见性与预期不同：可能由更高层级的设置决定，请刷新核实。`);
-      return { message: `已在${SETTINGS[layer]}中把 Claude 技能 ${skill.name} 设为${request.enabled ? '可见' : '关闭'}。新会话生效。${await afterLocal(exposure, request)}`,
-        needsReload: true, agent: 'claude', target: skill.name, ...(rules.length ? { nativeRules: rules } : {}),
-        restore: { kind: 'claude-visibility', file: patch.file, section: 'skillOverrides', key: skill.name, previous: patch.previous ?? null, created: patch.created } };
+        throw Object.assign(new AppError(502, 'READBACK_FAILED', `已写入 ${file}，但读回的可见性与预期不同：可能由更高层级的设置决定，请刷新核实。`), { restore });
+      const where = layer === 'user' ? '' : `\n设置文件：${path.relative(state.project, file)}`;
+      return { message: `已在${SETTINGS[layer]}中把 Claude 技能 ${skill.name} 设为${request.enabled ? '可见' : '关闭'}。新会话生效。${where}${await afterLocal(exposure, request)}`,
+        needsReload: true, agent: 'claude', target: skill.name, ...(rules.length ? { nativeRules: rules } : {}), restore };
     },
     async 'plugin.toggle'(request, state, run) {
       const plugin = find(state.claude.plugins, request.id, 'plugin');
@@ -234,7 +251,7 @@ export function createClaudeActions({ root, read, writer, journal, git, now = ()
       return visible;
     } catch (error) {
       if (!['CONFIRMATION_REQUIRED', 'SNAPSHOT_STALE', 'NOT_FOUND'].includes(error.code) && request.action !== 'plugin.previewMarketplace')
-        await journal({ id, action: request.action, agent: 'claude', target: targetName ?? request.id ?? request.source, createdAt: now(), status: 'error', message: redact(error.message), reasonCode: error.code || 'OPERATION_FAILED', canRestore: false }).catch(() => {});
+        await journal({ id, action: request.action, agent: 'claude', target: targetName ?? request.id ?? request.source, createdAt: now(), status: 'error', message: redact(error.message), reasonCode: error.code || 'OPERATION_FAILED', canRestore: false, ...(error.restore ? { restore: error.restore } : {}) }).catch(() => {});
       throw error;
     } finally { release(); }
   };

@@ -119,8 +119,9 @@ export function InstallDialog({ kind, data, initialPlugin, initialMarket = false
             </button>)}</div>
             {!listed.length && <div className="empty-state"><Globe2 size={28} /><h3>{t("没有找到匹配的插件")}</h3><p>{t("调整筛选，或添加一个 Marketplace 来源。")}</p><Button onClick={onMarket}>{t("添加来源")}</Button></div>}
             {listed.length > limit && <Button onClick={() => setLimit(limit + 30)}>{t("显示更多")}</Button>}
-          </div> : <>{chooseAgent && <div className="scope-choice" role="radiogroup" aria-label={t("安装到")}>
-            {agents.map(item => <label key={item}><input type="radio" name="skill-agent" checked={agent === item} onChange={() => setAgent(item)} />{t("安装到 {v0}", { v0: item === "codex" ? "Codex" : "Claude" })}</label>)}
+          </div> : <>{(chooseAgent || "agent" in side) && <div className="scope-choice" role="radiogroup" aria-label={t("安装到")}>
+            {chooseAgent ? agents.map(item => <label key={item}><input type="radio" name="skill-agent" checked={agent === item} onChange={() => setAgent(item)} />{t("安装到 {v0}", { v0: item === "codex" ? "Codex" : "Claude" })}</label>)
+              : <p className="field-hint">{t("将安装到 {v0}。", { v0: "Claude" })}</p>}
             {agent === "claude" && (["user", "project"] as const).map(item => <label key={item}><input type="radio" name="skill-scope" checked={skillScope === item} onChange={() => setSkillScope(item)} />{t(item === "user" ? "个人技能（所有项目）" : "当前项目（.claude/skills）")}</label>)}
           </div>}</>}{sourceType === "market" ? null : sourceType === "git" ? <GitSourceFields kind={kind} source={source} subpath={subpath} gitRef={gitRef} setSource={setSource} setSubpath={setSubpath} setRef={setRef} /> : <label className="field"><span>{t(plugin ? "插件目录路径" : "技能目录路径")}</span><input required value={source} disabled={!!busy} autoComplete="off" placeholder={plugin ? "/Users/you/plugins/my-plugin" : "/Users/you/skills/my-skill"} onChange={e => setSource(e.target.value)} /></label>}
           {plugin && sourceType !== "market" && <p className="field-hint">{t("选择单个插件的目录，内含 plugin.json。无需先添加 Marketplace；SkillDock 会记录来源，供后续更新使用。")}</p>}

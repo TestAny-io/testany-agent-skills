@@ -21,7 +21,7 @@
     "src/DuplicateSkillsDialog.tsx": "ef23afe5f3b5a194f7b352d4e8d067be5c07f920411c3746c4feca10708b3b0c",
     "src/ExternalLink.tsx": "c1900acfd24c1ebbaba2125c30063368a593ec0c2c06022496cf54cf6e433a96",
     "src/GitSourceFields.tsx": "8086774f5a6973d77be0b5b7b15403db37bd2b224f9ea34966f6a65f9e6e2b12",
-    "src/InstallDialog.tsx": "ecb3ea26f97b143e6729d7d332a6160cee2468b5f8a37ce5812b1fb71238f4f2",
+    "src/InstallDialog.tsx": "17814493e7c62278f1993e2145a9a3cd7d14d5b077e11124f8659df6fbbfc825",
     "src/LibraryUI.tsx": "b75579cfd53f320476ca6352d2d40584fa1b96b91409a7bcc4dd660a77a64108",
     "src/Modal.tsx": "77548e5ee4a95fbea3a62841fecf81761abe9f8a84976d1217c108bdce860e8f",
     "src/NativeConfirm.tsx": "7d7aaf7cec7b8852e96ad0d955879b9766fd8eb019a429cf6fa7025d8a02dd97",
@@ -41,8 +41,8 @@
     "src/desktop.css": "15814dc52392f308d2afa57b9c076d9149e22e06228e3424264984d939ec03ce",
     "src/i18n.tsx": "a2327d918accb6e9114e8779c7b6b74e5bd7db3ce4489adb1f8aba74da09c6a4",
     "src/i18n/errors.json": "c5b132a42055099209988fbcc5b4ea2a003a86b3cf0f2d370cdf26b9937e4efc",
-    "src/i18n/messages.json": "b5f1082e1ee866310bb0e72a6b425f487a239d124f2d861c3b9f57bdb2959b92",
-    "src/i18n/server-messages.json": "fb41c91f51b53dbe778963fb8f3299b9c86ed7013b2acc5f2b7556d94337e53f",
+    "src/i18n/messages.json": "42966789c761fcd73bef0b461319591eb1dba0268a544f7614e408d514cccc0a",
+    "src/i18n/server-messages.json": "02849a1402bf947fa47ef46b4a41e2fd79ae159fd879353f410dc2f87aa66fcc",
     "src/main.tsx": "0b17df37f3ddac17ba356b85184252cd545e0afa93a2246a8202b30b8a879fff",
     "src/native-icon.svg": "9b7d7c19189c56b43fe691c0cb01e19b1f88abc61d1d130c974c5f5411b7288c",
     "src/plugin-presentation.ts": "f221117671d3b93250a16e6e54326879e6ae1a6aaf3e50dea401e8fdfb86dadf",
@@ -55,7 +55,7 @@
   },
   "artifacts": {
     "server.mjs": "70aa636d69c178cf496ea1a6c0fb870e83dec0776b87410542fcec30a432ec1d",
-    "ui.html": "91201cb11a09bc2d92d09704c72f9ac8a56a3ea2cf131ca922b11cd36b882f61",
+    "ui.html": "b594346481dce68b7303934789ccf620c5461ddc55e0e006c6873d643e056e00",
     "icon.svg": "9b7d7c19189c56b43fe691c0cb01e19b1f88abc61d1d130c974c5f5411b7288c",
     "THIRD_PARTY_NOTICES.txt": "0580c525bbaf94d006050bf773e482a470c9f983971e23b26e8048505e11bd4f"
   }

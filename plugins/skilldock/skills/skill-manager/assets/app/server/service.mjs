@@ -271,7 +271,7 @@ export async function createService(options = {}) {
       const found = await agentLayer.discover({ force });
       const claude = found.installed.claude ? await claudeFor(found, env.project, force) : null;
       mergeClaude(result, claude ?? { skills: [], plugins: [], marketplaces: [], diagnostics: [] });
-      if (claude) await decorateClaudeSkills(result, registry, { user: path.join(found.claudeRoot.configDir, 'skills') });
+      if (claude) await decorateClaudeSkills(result, registry, { user: path.join(found.claudeRoot.configDir, 'skills'), project: path.join(env.project, '.claude/skills') });
       if (found.stored.codex?.management === 'read-only') markReadOnly(result, 'codex', CODEX_READ_ONLY_REASON);
       // Claude objects offer changes only while Claude management is enabled and confirmed.
       const claudeState = agentLayer.effective('claude', found, side => side === 'claude' ? claude?.unconfirmed : null);
@@ -318,14 +318,23 @@ export async function createService(options = {}) {
     const found = await agentLayer.discover();
     return { found, user: path.join(found.claudeRoot.configDir, 'skills'), project: path.join(project, '.claude/skills') };
   }
+  // Codex's protected roots and Claude's own plugin directories (4b review P3-06).
+  async function claudeProtectedRoots(roots) {
+    const own = [path.join(roots.found.claudeRoot.configDir, 'plugins'), roots.found.claudeRoot.pluginCacheDir].filter(Boolean);
+    return [...await protectedRoots(environment('local')), ...await Promise.all(own.map(realDirectory))];
+  }
   /** Removal and updates of Claude-only skills, from SkillDock's own records (snapshots only). */
   async function decorateClaudeSkills(result, registry, roots) {
     for (const skill of result.skills) {
+      // The Claude side of a shared skill is switched, removed and updated by 4c (36c §6).
+      if (skill.agents?.length === 2 && skill.perAgent?.claude) Object.assign(skill.perAgent.claude, { canToggle: false, canRemove: false, canUpdate: false, reason: '两侧共用的技能在 Claude 一侧的修改随后续版本提供。' });
       if (skill.agents?.length !== 1 || skill.agents[0] !== 'claude' || !['user', 'project'].includes(skill.scope) || skill.protection) continue;
       const directory = path.dirname(skill.path);
-      const source = registry.claudeSources?.[path.dirname(skill.realPath ?? skill.path)];
-      const inRoot = skill.scope === 'user' ? path.dirname(directory) === roots.user : directory.split(path.sep).slice(-3, -1).join('/') === '.claude/skills';
-      if (!inRoot) continue;
+      // Only the personal skills directory and the current project's .claude/skills: a parent
+      // directory's skills belong to the repository and its other projects (4b review P3-04).
+      if (path.dirname(directory) !== (skill.scope === 'user' ? roots.user : roots.project)) continue;
+      // The same key as the operations: the directory's real path (P3-06).
+      const source = registry.claudeSources?.[await realDirectory(directory)];
       const repository = await exists(path.join(directory, '.git'));
       Object.assign(skill, { canRemove: true, removeKind: skill.isLink ? 'link' : 'directory', canUpdate: !!source && !skill.isLink && !repository });
       if (skill.canToggle) delete skill.reason;
@@ -339,7 +348,10 @@ export async function createService(options = {}) {
     if (!record[capability]) fail(403, record.protection ? 'HOST_MANAGED' : 'PROTECTED_SKILL', record.reason || '这个技能不支持此操作。');
     if (request.expectedRevision === undefined || request.expectedRevision !== record.revision) fail(409, 'SNAPSHOT_STALE', 'Claude 中已有改动，请刷新后重试。');
     const directory = path.dirname(record.path);
+    const roots = await claudeSkillRoots();
+    if (path.dirname(directory) !== (record.scope === 'user' ? roots.user : roots.project)) fail(403, 'ROOT_BOUNDARY', '只能修改个人技能目录或当前项目 .claude/skills 中的 Claude 技能。');
     const boundary = await captureDirectoryRoot(path.dirname(directory));
+    if ((await claudeProtectedRoots(roots)).some(root => inside(root, boundary.real))) fail(403, 'TARGET_BOUNDARY', 'Claude 的技能根指向插件或系统管理目录，不能修改其中的内容。');
     // A directory must stay inside its root; only a link may point elsewhere, and then only the link moves.
     if (!record.isLink && !inside(boundary.real, await fs.realpath(directory))) fail(403, 'ROOT_BOUNDARY', '技能实际位置越出 Claude 的技能根。');
     if (inside(await realDirectory(directory), fileURLToPath(import.meta.url)) || directory.split(path.sep).includes('.system')) fail(403, 'PROTECTED_SKILL', '应用自身或系统内容不可修改。');
@@ -350,6 +362,7 @@ export async function createService(options = {}) {
     const env = environment('local'); const roots = await claudeSkillRoots();
     const release = await fs.stat(roots.found.claudeRoot.configDir).then(stat => stat.isDirectory(), () => false) ? acquireFileLock(operationLock(roots.found.claudeRoot.configDir)) : () => {};
     let registry; let original; const undo = []; const activityId = crypto.randomUUID(); let restore; let result; let target = request.id || request.source || 'skill'; let activityPath; let consumed;
+    moveWarnings.length = 0;
     try {
       await verifyDirectoryRoot(env.stateBoundary);
       registry = await registryFor(env); original = structuredClone(registry); registry.claudeSources ??= {};
@@ -369,7 +382,7 @@ export async function createService(options = {}) {
         case 'skill.install': {
           const preview = await assertPreview(env, request.previewId, 'install', 'claude');
           const boundary = await captureDirectoryRoot(preview.root);
-          if ((await protectedRoots(env)).some(root => inside(root, boundary.real))) fail(403, 'TARGET_BOUNDARY', '技能安装根指向插件或系统管理目录，不能写入。');
+          if ((await claudeProtectedRoots(roots)).some(root => inside(root, boundary.real))) fail(403, 'TARGET_BOUNDARY', '技能安装根指向插件或系统管理目录，不能写入。');
           await fs.mkdir(preview.root, { recursive: true }); await verifyDirectoryRoot(boundary);
           const root = await captureDirectoryRoot(preview.root);
           if (await exists(preview.target)) fail(409, 'TARGET_EXISTS', '安装目标已存在，请重新预览。');
@@ -382,8 +395,10 @@ export async function createService(options = {}) {
           const { record, directory, boundary, key } = await claudeSkillRecord(request.id, 'canRemove', request);
           const fingerprint = await objectFingerprint(directory); const parent = await parentIdentity(directory);
           const backup = path.join(env.root, 'quarantine', activityId); await move(directory, backup, [boundary]); undo.push(async () => { if (!(await exists(directory))) await move(backup, directory, [boundary]); });
-          restore = { kind: 'remove', agent: 'claude', directory, backup, ...parent, priorFingerprint: fingerprint, source: sources[key], sourceKey: key, skillId: record.id };
-          delete sources[key]; target = record.name; activityPath = record.path;
+          // Removing a link removes only the link: the source record belongs to the directory it
+          // points to, which stays (4b review P2-03).
+          restore = { kind: 'remove', agent: 'claude', directory, backup, ...parent, priorFingerprint: fingerprint, skillId: record.id, ...(record.isLink ? { link: true } : { source: sources[key], sourceKey: key }) };
+          if (!record.isLink) delete sources[key]; target = record.name; activityPath = record.path;
           result = { message: `已把 Claude 技能 ${target} 移至可恢复区；可从操作记录恢复。`, needsReload: true, agent: 'claude' }; break;
         }
         case 'skill.previewSource': {
@@ -448,8 +463,7 @@ export async function createService(options = {}) {
             await move(entry.directory, discarded, [boundary]); undo.push(async () => { if (!(await exists(entry.directory))) await move(discarded, entry.directory, [boundary]); });
             await move(entry.backup, entry.directory, [boundary]); undo.push(async () => { await move(entry.directory, entry.backup, [boundary]); });
           }
-          const key = await realDirectory(entry.directory);
-          if (entry.source) sources[key] = entry.source; else delete sources[key];
+          if (!entry.link) { const key = await realDirectory(entry.directory); if (entry.source) sources[key] = entry.source; else delete sources[key]; }
           previous.canRestore = false; target = previous.target; activityPath = previous.path || path.join(entry.directory, 'SKILL.md');
           result = { message: `已恢复 Claude 技能 ${target}。`, needsReload: true, agent: 'claude' }; break;
         }
@@ -1230,6 +1244,8 @@ export async function createService(options = {}) {
   }
   async function assertAgentWritable(request) {
     if (request.mode !== 'local') { if (request.agent === 'claude') fail(403, 'MODE_DISABLED', '演练环境不包含 Claude。'); return; }
+    // A file diff only reads a preview, and checks against the preview's own side.
+    if (request.action === 'preview.diff') return;
     const side = request.action === 'activity.restore' ? await activityAgent(request.id) : request.agent;
     if (side === 'claude' && !AGENT_FLAG_ONLY.has(request.action)) {
       if (!CLAUDE_WRITES.has(request.action) && !CLAUDE_SKILL_FILES.has(request.action) && request.action !== 'activity.restore') fail(422, 'UNSUPPORTED_FOR_AGENT', '这一版 SkillDock 还不能在 Claude 中执行这个操作。');
@@ -1330,7 +1346,7 @@ export async function createService(options = {}) {
       if (request.action === 'preview.diff') {
         const entry = previews.get(request.previewId);
         if (!entry || !['update', 'source-link', 'plugin-update'].includes(entry.kind)) fail(409, 'STALE_PREVIEW', '预览已过期，请重新检查更新。');
-        const preview = await assertPreview(environment(mode), request.previewId, entry.kind);
+        const preview = await assertPreview(environment(mode), request.previewId, entry.kind, entry.agent ?? 'codex');
         await verifyDirectoryRoot(preview.targetBoundary);
         const before = await inspectTree(preview.target);
         if (before.fingerprint !== preview.baseline) fail(409, 'LOCAL_CHANGES', '本机文件在预览后发生变化，请重新检查更新。');

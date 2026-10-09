@@ -140,7 +140,7 @@
 | 0.12 | 2026-10-08 | 处理第 11 轮 P2（APIR11-P2-01～03）与归属判定的死路：计划目标增加只供 0.11.x 界面的 `confirmation`，确认框覆盖将被确认的全部目标；暂停豁免只用于请求之外保留的目标与 2 版请求中已暂停的目标，1 版请求中的目标照 0.10.2 校验；退出码 4 的归属判定只在 Claude 旧安装仍在用且低于 0.10.3 时成立。处理对照见第 20 节 |
 | 0.13 | 2026-10-08 | 处理第 12 轮 P2（APIR12-P2-01～02）与范围外观察：`confirmation` 只出现在快照、服务端忽略请求中的该字段、照常应用的目标省略；6.3 写明来源不同或无法核实时退出 1；新增 G-18 覆盖归属判定的三种情形；`stop` 对 0.10.x 记录按 0.10.2 删除。处理对照见第 21 节 |
 | 0.14 | 2026-10-08 | 处理第 13 轮 P2（APIR13-P2-01）与代码复核 r4、HLD 第 21 轮的联动：6.3 括号补“或其 `package.json` 读不出”；G-18 第一种结果写明处理步骤的来源（代号 1 下由门槛给出，读不出时为权限步骤），不是 JSON 时不算安装，“配置目录不可见”的判定与旧服务仍在运行时先给停止步骤。处理对照见第 22 节 |
-| 0.15 | 2026-10-09 | 阶段 3 试用与阶段 4a 实现中的澄清（36c 升为 0.14，待增量复核）：第 6 节补未安装 Claude 插件的 ID 写法；第 10 节写明快照中的未安装插件取自本机 marketplace 副本、1 版快照不含 Claude 的操作记录；7.1 `scope` 写明 `plugin.toggle` 缺省按安装范围、Claude 技能 `skill.toggle` 的缺省写入层与 `skill.previewInstall` 的取值、新建未被忽略的本地设置文件须带 `gitExclude`；7.3 写明 Claude 侧 `marketplace.add` 不支持 `ref`、`plugin.previewMarketplace` 的 Claude 形态、`marketplace.remove` 涉及项目共享设置时的确认、`needsReload` 的适用范围与几种错误码（阶段 4a 评审） |
+| 0.15 | 2026-10-09 | 阶段 3 试用与阶段 4a、4b 实现中的澄清（36c 升为 0.14，待增量复核）：第 6 节补未安装 Claude 插件的 ID 写法；第 10 节写明快照中的未安装插件取自本机 marketplace 副本、1 版快照不含 Claude 的操作记录；7.1 `scope` 写明 `plugin.toggle` 缺省按安装范围、Claude 技能 `skill.toggle` 的缺省写入层与 `skill.previewInstall` 的取值、新建未被忽略的本地设置文件须带 `gitExclude`；7.3 写明 Claude 侧 `marketplace.add` 不支持 `ref`、`plugin.previewMarketplace` 的 Claude 形态、`marketplace.remove` 涉及项目共享设置时的确认、`needsReload` 的适用范围与几种错误码（阶段 4a 评审） |
 
 ## 11. 首轮契约评审意见处理（v0.2）
 
