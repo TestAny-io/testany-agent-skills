@@ -168,6 +168,22 @@ test('Claude-side requests: later-phase actions are not offered yet; the others 
   assert.notEqual((await w.act({ action: 'updates.run', agent: 'claude', targets: [], autoApply: false })).code, 'UNSUPPORTED_FOR_AGENT');
 });
 
+test('Codex without a command line is shown as unconfirmed, still writable; with Claude managed its plugin targets pause', async t => {
+  const w = await world(t);
+  w.status.codex = { available: false, error: 'stand-in: none' };
+  const codex = (await w.agents()).find(item => item.agent === 'codex');
+  assert.equal(codex.management, 'unconfirmed'); assert.match(codex.reason, /Codex 命令行不可用/);
+  const demo = (await w.service.snapshot('local', true)).skills.find(item => item.name === 'demo');
+  assert.notEqual((await w.act({ action: 'skill.toggle', id: demo.id, enabled: false })).code, 'AGENT_UNCONFIRMED', '技能照常管理（MR-SDX-001）');
+  const reasons = async () => (await w.act({ action: 'updates.run', targets: [{ kind: 'skill', id: demo.id }, { kind: 'plugin', id: 'gone@market' }], autoApply: false })).run.items.map(item => item.reasonCode);
+  assert.equal((await reasons()).includes('AGENT_PAUSED'), false, 'Claude 未启用管理时保持 0.10.2 行为');
+  await w.act({ action: 'agent.setManagement', agent: 'claude', management: 'enabled' }).catch(() => {});
+  await fs.writeFile(path.join(w.state, 'settings/agents.json'), JSON.stringify({ format: 1, agents: { ...(await w.stored()), claude: { management: 'enabled', origin: 'user', changedAt: '2026-10-09T00:00:00.000Z' } } }));
+  const paused = await reasons();
+  assert.notEqual(paused[0], 'AGENT_PAUSED', '技能目标不需要 Codex 命令行');
+  assert.equal(paused[1], 'AGENT_PAUSED', '插件目标暂停');
+});
+
 test('enabling needs readable main evidence; an uninstalled environment can be turned off, a never-enabled one is not listed', async t => {
   const w = await world(t);
   w.lists.fail = 'Claude 命令行 plugin list 失败：stand-in';

@@ -89,7 +89,7 @@ export function validateAction(input) {
   }
   if (input.enabledSkills !== undefined && (!Array.isArray(input.enabledSkills) || input.enabledSkills.length > 3000 || new Set(input.enabledSkills).size !== input.enabledSkills.length || input.enabledSkills.some(value => typeof value !== 'string' || !value.endsWith('/SKILL.md') && value !== 'SKILL.md' || path.isAbsolute(value) || value.split(/[\\/]/).some(part => !part || part === '..' || part === '.') || /[\x00-\x1f]/.test(value)))) fail(400, 'INVALID_SELECTION', '请选择预览中有效且不重复的技能。');
   if (fields.includes('enabled') && typeof input.enabled !== 'boolean') fail(400, 'INVALID_ACTION', 'enabled 必须为布尔值。');
-  if (fields.includes('ids') && (!Array.isArray(input.ids) || !input.ids.length || input.ids.length > 100 || input.ids.some(id => typeof id !== 'string' || !/^[a-f0-9]{24}$/.test(id)) || new Set(input.ids).size !== input.ids.length)) fail(400, 'INVALID_SELECTION', '请选择 1 至 100 份不同的技能。');
+  if (fields.includes('ids') && (!Array.isArray(input.ids) || !input.ids.length || input.ids.length > 100 || input.ids.some(id => typeof id !== 'string' || !(/^[a-f0-9]{24}$/.test(id) || input.agent !== undefined && /^claude:skill:(user|project):[a-f0-9]{12}$/.test(id))) || new Set(input.ids).size !== input.ids.length)) fail(400, 'INVALID_SELECTION', '请选择 1 至 100 份不同的技能。');
   if (fields.includes('groupName') && (typeof input.groupName !== 'string' || !input.groupName.trim() || input.groupName.length > 200 || /[\x00-\x1f]/.test(input.groupName))) fail(400, 'INVALID_SELECTION', '需要有效的同名技能组。');
   if (fields.includes('source')) {
     if (!['local', 'git'].includes(input.sourceType)) fail(400, 'INVALID_SOURCE', 'sourceType 必须为 local 或 git。');
@@ -276,7 +276,10 @@ export async function createService(options = {}) {
       // Claude objects offer changes only while Claude management is enabled and confirmed.
       const claudeState = agentLayer.effective('claude', found, side => side === 'claude' ? claude?.unconfirmed : null);
       if (claudeState.management !== 'enabled') markReadOnly(result, 'claude', claudeState.management === 'unconfirmed' && claudeState.reason ? claudeState.reason : CLAUDE_READ_ONLY_REASON);
-      result.agents = await agentLayer.environments({ found, unconfirmed: agent => agent === 'claude' ? claude?.unconfirmed : null });
+      // Codex is shown as unconfirmed when its command line cannot list its plugins; its writes keep
+      // 0.10.2 behaviour (MR-SDX-001), so this is shown, not enforced.
+      const codexUnconfirmed = found.installed.codex && !result.cli?.available ? 'Codex 命令行不可用，无法确认 Codex 中的插件状态；技能照常管理，插件操作需要可用的 Codex 命令行。' : null;
+      result.agents = await agentLayer.environments({ found, unconfirmed: agent => agent === 'claude' ? claude?.unconfirmed : codexUnconfirmed });
     } else if (multiAgent) {
       mergeClaude(result, { skills: [], plugins: [], marketplaces: [], diagnostics: [] }); result.agents = [];
     }
@@ -663,24 +666,51 @@ export async function createService(options = {}) {
     const stat = await fs.lstat(directory);
     return { dev: String(stat.dev), ino: String(stat.ino), real: await fs.realpath(directory), fingerprint: await objectFingerprint(directory), ...await parentIdentity(directory) };
   }
+  // 36c §6 batch removal: a version-2 request sees both Agents' copies of a name; each one is
+  // checked by its own side; moving a shared real directory, or rewriting a plugin of the other
+  // side, is confirmed before the whole batch runs. Version 1 keeps 0.10.2.
+  async function removalItem(env, id, current, multiAgent) {
+    const record = current.skills.find(item => item.id === id);
+    if (multiAgent && record?.agents?.join() === 'claude') {
+      const { directory, boundary } = await claudeSkillRecord(id, 'canRemove', { expectedRevision: record.revision });
+      return { record, directory, agent: 'claude', boundaries: [boundary] };
+    }
+    const { record: codex, directory } = await assertWritableSkill(env, id, 'canRemove', current);
+    return { record: codex, directory, agent: 'codex', boundaries: [] };
+  }
+  function removalRules(items, current) {
+    const rules = [];
+    const shared = items.filter(({ record }) => record.agents?.length === 2 && record.removeKind === 'directory').map(({ record }) => record.path);
+    if (shared.length) rules.push({ kind: 'scope', message: '这些技能目录由 Codex 与 Claude 共用，移走后两侧都会失去它们（可从操作记录恢复）：', items: shared });
+    const affected = new Set();
+    for (const { record, agent } of items) {
+      if (record.agents?.length === 2 || record.removeKind !== 'directory') continue;
+      const real = path.dirname(record.realPath ?? record.path); const other = agent === 'codex' ? 'claude' : 'codex';
+      for (const plugin of current.plugins) if ((plugin.agents ?? ['codex']).includes(other) && plugin.installed && plugin.realPath && inside(plugin.realPath, real)) affected.add(plugin.displayName || plugin.name);
+    }
+    if (affected.size) rules.push({ kind: 'affected-plugins', message: '其中有技能的内容在另一侧插件的目录中，移除会改写这些插件：', items: [...affected] });
+    return rules;
+  }
   async function previewRemoval(env, request) {
-    const current = await snapshot(env.mode, true); const group = current.skills.filter(record => record.name === request.groupName);
+    const multiAgent = request.agent !== undefined && env.mode === 'local';
+    const current = await snapshot(env.mode, true, { multiAgent }); const group = current.skills.filter(record => record.name === request.groupName);
     if (group.length < 2 || request.ids.some(id => !group.some(record => record.id === id))) fail(409, 'REMOVAL_CHANGED', '同名技能清单已变化，请重新选择。');
-    const selected = []; const remove = []; const keep = group.filter(record => !request.ids.includes(record.id));
+    const selected = []; const remove = []; const keep = group.filter(record => !request.ids.includes(record.id)); const items = [];
     for (const id of request.ids) {
-      const { record, directory } = await assertWritableSkill(env, id, 'canRemove', current);
-      selected.push({ id, directory, identity: await removalIdentity(directory) }); remove.push(record);
+      const item = await removalItem(env, id, current, multiAgent); items.push(item);
+      selected.push({ id, directory: item.directory, agent: item.agent, identity: await removalIdentity(item.directory) }); remove.push(item.record);
     }
     await assertRemovalIsolation(selected, current);
+    const rules = multiAgent ? removalRules(items, current) : [];
     // Keep preview data bounded without creating files or activity records.
     for (const [id, preview] of removalPreviews) if (previewNow() - preview.created > 30 * 60000) removalPreviews.delete(id);
     while (removalPreviews.size >= 20) removalPreviews.delete(removalPreviews.keys().next().value);
     const id = crypto.randomUUID(); const result = { id, name: request.groupName, remove, keep };
-    removalPreviews.set(id, { mode: env.mode, created: previewNow(), group: removalGroupSignature(group), selected, result });
-    return { message: '移除预览已准备好，请核对每份路径。', removalPreview: result };
+    removalPreviews.set(id, { mode: env.mode, created: previewNow(), group: removalGroupSignature(group), selected, result, multiAgent, rules });
+    return { message: '移除预览已准备好，请核对每份路径。', removalPreview: result, ...(rules.length ? { nativeRules: rules } : {}) };
   }
-  async function verifyRemovalItem(env, item, current) {
-    const writable = await assertWritableSkill(env, item.id, 'canRemove', current);
+  async function verifyRemovalItem(env, item, current, multiAgent = false) {
+    const writable = await removalItem(env, item.id, current, multiAgent);
     if (writable.directory !== item.directory || JSON.stringify(await removalIdentity(item.directory)) !== JSON.stringify(item.identity)) fail(409, 'REMOVAL_CHANGED', '选中的技能在预览后发生变化，请重新选择。');
     return writable;
   }
@@ -922,7 +952,7 @@ export async function createService(options = {}) {
   async function executeAction(request, { pluginCheckOptions } = {}) {
     const env = environment(request.mode);
     if (busy) fail(409, 'BUSY', '另一个操作正在进行，请等待后重试。');
-    busy = true; moveWarnings.length = 0; let registry; let originalRegistry;
+    busy = true; moveWarnings.length = 0; let registry; let originalRegistry; let claudeLockRelease = () => {};
     const undo = []; const individualActivities = []; let restore; let activityPath; let consumedPreview; let target = request.id || request.source || 'skill'; const activityId = crypto.randomUUID(); let result;
     try {
       await verifyDirectoryRoot(env.stateBoundary);
@@ -1086,21 +1116,36 @@ export async function createService(options = {}) {
           const preview = removalPreviews.get(request.previewId);
           if (!preview || preview.mode !== env.mode || previewNow() - preview.created > 30 * 60000) fail(409, 'STALE_PREVIEW', '预览已过期或属于其他环境，请重新预览。');
           target = preview.result.name;
-          const current = await snapshot(env.mode, true); const group = current.skills.filter(record => record.name === target);
+          if (preview.rules?.length && !request.confirm) throw new AppError(409, 'CONFIRMATION_REQUIRED', '这次批量移除会影响另一侧，请确认后重试。', { nativeRules: preview.rules });
+          const current = await snapshot(env.mode, true, { multiAgent: !!preview.multiAgent }); const group = current.skills.filter(record => record.name === target);
           if (removalGroupSignature(group) !== preview.group) fail(409, 'REMOVAL_CHANGED', '同名技能清单已变化，请重新选择。');
           // Check the whole selection before moving any directory.
-          for (const item of preview.selected) await verifyRemovalItem(env, item, current);
+          for (const item of preview.selected) await verifyRemovalItem(env, item, current, preview.multiAgent);
           await assertRemovalIsolation(preview.selected, current);
+          // Claude copies take the Claude lock too (DEC-SDX-010), after the instance and Codex locks held here.
+          if (preview.selected.some(item => item.agent === 'claude')) {
+            const { configDir } = (await agentLayer.discover()).claudeRoot;
+            if (await fs.stat(configDir).then(stat => stat.isDirectory(), () => false)) claudeLockRelease = acquireFileLock(operationLock(configDir));
+          }
           for (const item of preview.selected) {
-            const { record, directory } = await verifyRemovalItem(env, item, current);
+            const { record, directory, agent, boundaries } = await verifyRemovalItem(env, item, current, preview.multiAgent);
             const id = crypto.randomUUID(); const backup = path.join(env.root, 'quarantine', id);
-            await move(directory, backup);
+            await move(directory, backup, boundaries);
             undo.push(async () => {
               if (await exists(directory)) fail(409, 'TARGET_EXISTS', '原位置已被占用，移除回滚不能覆盖新内容。');
-              await move(backup, directory);
+              await move(backup, directory, boundaries);
             });
             if (await objectFingerprint(backup) !== item.identity.fingerprint) fail(409, 'REMOVAL_CHANGED', '选中的技能在移动期间发生变化，已停止移除。');
             const { parentReal, parentDev, parentIno } = item.identity;
+            if (agent === 'claude') {
+              // A Claude copy: its source record lives in the Claude partition, and a link keeps the target's (4b P2-03).
+              const sources = (registry.claudeSources ??= {}); const key = item.identity.real;
+              const keep = record.isLink;
+              const entry = { kind: 'remove', agent: 'claude', directory, backup, parentReal, parentDev, parentIno, priorFingerprint: item.identity.fingerprint, skillId: record.id, ...(keep ? { link: true } : { source: sources[key], sourceKey: key }) };
+              if (!keep) delete sources[key];
+              individualActivities.push({ id, action: 'skill.remove', agent: 'claude', target: record.name, path: record.path, createdAt: now(), status: 'success', message: `已把 Claude 技能 ${record.name} 移至可恢复区；可从操作记录恢复。`, canRestore: true, restore: entry });
+              continue;
+            }
             const entry = { kind: 'remove', directory, backup, parentReal, parentDev, parentIno, priorFingerprint: item.identity.fingerprint, source: registry.sources[record.id], skillId: record.id };
             delete registry.sources[record.id];
             individualActivities.push({ id, action: 'skill.remove', target: record.name, path: record.path, createdAt: now(), status: 'success', message: `已将 ${record.name} 移至可恢复区；可从操作记录恢复。`, canRestore: true, restore: entry });
@@ -1239,7 +1284,7 @@ export async function createService(options = {}) {
       }
       cachedCatalog = undefined;
       throw new AppError(error.status || 500, error.code || 'OPERATION_FAILED', message);
-    } finally { busy = false; }
+    } finally { busy = false; claudeLockRelease(); }
   }
   function remoteInstallationResult(plugin) {
     const installed = plugin.installed === true, connected = plugin.directory.connected === true;
@@ -1339,7 +1384,15 @@ export async function createService(options = {}) {
   async function pausedTarget(mode, target) {
     if (mode !== 'local') return null;
     const agent = target.agent ?? 'codex';
-    const management = (await readManagement(stateDir))[agent]?.management;
+    const stored = await readManagement(stateDir);
+    const management = stored[agent]?.management;
+    // HLD 3.8: a Codex that is gone, or whose command line cannot confirm its plugins, pauses its
+    // targets once Claude is managed too; with Codex alone, 0.10.2 behaviour stays (MR-SDX-001).
+    if (agent === 'codex' && management !== 'read-only' && stored.claude?.management === 'enabled') {
+      const found = await agentLayer.discover();
+      if (!found.installed.codex) return '本机未找到 Codex，计划中的这一项暂停；恢复后继续。';
+      if (target.kind === 'plugin' && !found.cli.codex.available) return 'Codex 命令行不可用，无法确认插件状态，计划中的这一项暂停；恢复后继续。';
+    }
     if (agent === 'codex' && management !== 'read-only') return null;
     if (management === 'enabled') return 'Claude 中的对象暂不能由更新计划处理，这一项暂停。';
     return `${AGENT_NAME[agent]} 管理未启用，计划中的这一项暂停；在 SkillDock 的“Agent 环境”页启用后恢复。`;

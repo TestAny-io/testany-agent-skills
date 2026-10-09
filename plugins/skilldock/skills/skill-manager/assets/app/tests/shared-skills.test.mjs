@@ -152,6 +152,34 @@ test('a standalone skill whose content lies inside a plugin of the other side is
   assert.match((await w.act({ action: 'skill.remove', id: inner.id })).message, /已将 inner 移至可恢复区/);
 });
 
+test('batch removal of copies of a name: Claude copies in version 2, a shared directory confirmed first', async t => {
+  const w = await world(t);
+  // A Claude-only copy of the same name in the project.
+  await skillFile(path.join(w.project, '.claude/skills'), 'shared');
+  const group = (await w.snapshot()).skills.filter(item => item.name === 'shared');
+  const shared = group.find(item => item.agents.length === 2); const copy = group.find(item => item.agents.join() === 'claude');
+  assert.ok(shared && copy);
+  // Version 1 cannot name a Claude object.
+  assert.equal((await w.act({ action: 'skill.previewRemoval', groupName: 'shared', ids: [copy.id] })).code, 'INVALID_SELECTION');
+  const preview = await w.act({ action: 'skill.previewRemoval', agent: 'codex', groupName: 'shared', ids: [copy.id] });
+  assert.equal(preview.removalPreview.remove[0].id, copy.id); assert.equal(preview.nativeRules, undefined, '只移除 Claude 副本，不涉及另一侧');
+  const done = await w.act({ action: 'skill.removeSelected', agent: 'codex', previewId: preview.removalPreview.id });
+  assert.match(done.message, /已移除选中的 1 份同名技能/);
+  assert.equal(await exists(path.join(w.project, '.claude/skills/shared')), false);
+  const record = (await w.snapshot()).activity.find(item => item.agent === 'claude' && item.action === 'skill.remove');
+  assert.ok(record?.canRestore);
+  await w.act({ action: 'activity.restore', id: record.id });
+  assert.ok(await exists(path.join(w.project, '.claude/skills/shared/SKILL.md')), '按 Claude 一侧恢复');
+  // Selecting the shared skill moves its real directory: the batch is confirmed first.
+  const again = await w.act({ action: 'skill.previewRemoval', agent: 'codex', groupName: 'shared', ids: [shared.id] });
+  assert.deepEqual(again.nativeRules.map(rule => rule.kind), ['scope']);
+  const ask = await w.act({ action: 'skill.removeSelected', agent: 'codex', previewId: again.removalPreview.id });
+  assert.equal(ask.code, 'CONFIRMATION_REQUIRED');
+  assert.ok(await exists(path.join(w.codexHome, 'skills/shared/SKILL.md')), '确认前不动');
+  await w.act({ action: 'skill.removeSelected', agent: 'codex', previewId: again.removalPreview.id, confirm: true });
+  assert.equal(await exists(path.join(w.codexHome, 'skills/shared')), false);
+});
+
 test('every message seen above has a whole English and Japanese translation', async () => {
   const messages = [...seen].filter(text => /[一-鿿]/.test(text));
   assert.ok(messages.length > 5, `${messages.length}`);

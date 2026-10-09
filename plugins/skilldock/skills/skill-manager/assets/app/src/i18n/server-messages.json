@@ -1390,5 +1390,33 @@
   "这个技能在 Claude 一侧不能在这里修改。": {
     "en": "The Claude side of this skill cannot be changed here.",
     "ja": "このスキルの Claude 側はここでは変更できません。"
+  },
+  "这些技能目录由 Codex 与 Claude 共用，移走后两侧都会失去它们（可从操作记录恢复）：": {
+    "en": "Codex and Claude share these skill directories; moving them away removes them from both sides (they can be restored from the activity log):",
+    "ja": "これらのスキルディレクトリは Codex と Claude が共有しています。移動すると両側からなくなります（操作履歴から復元できます）："
+  },
+  "其中有技能的内容在另一侧插件的目录中，移除会改写这些插件：": {
+    "en": "Some of these skills lie in a plugin directory of the other side; removing them rewrites these plugins:",
+    "ja": "一部のスキルはもう一方のプラグインのディレクトリにあり、削除すると次のプラグインが書き換わります："
+  },
+  "这次批量移除会影响另一侧，请确认后重试。": {
+    "en": "This batch removal affects the other side. Confirm and try again.",
+    "ja": "この一括削除はもう一方にも影響します。確認してから再試行してください。"
+  },
+  "请选择 1 至 100 份不同的技能。": {
+    "en": "Select 1 to 100 different skills.",
+    "ja": "異なるスキルを 1〜100 個選んでください。"
+  },
+  "Codex 命令行不可用，无法确认 Codex 中的插件状态；技能照常管理，插件操作需要可用的 Codex 命令行。": {
+    "en": "The Codex command line is unavailable, so the plugin state in Codex cannot be confirmed. Skills are managed as usual; plugin actions need a working Codex command line.",
+    "ja": "Codex コマンドラインが使えないため、Codex のプラグイン状態を確認できません。スキルは通常どおり管理できます。プラグインの操作には使える Codex コマンドラインが必要です。"
+  },
+  "本机未找到 Codex，计划中的这一项暂停；恢复后继续。": {
+    "en": "Codex was not found on this Mac, so this plan item is paused; it resumes once Codex is back.",
+    "ja": "この Mac で Codex が見つからないため、計画のこの項目は一時停止しています。戻ると再開します。"
+  },
+  "Codex 命令行不可用，无法确认插件状态，计划中的这一项暂停；恢复后继续。": {
+    "en": "The Codex command line is unavailable and the plugin state cannot be confirmed, so this plan item is paused; it resumes once the command line works.",
+    "ja": "Codex コマンドラインが使えずプラグインの状態を確認できないため、計画のこの項目は一時停止しています。使えるようになると再開します。"
   }
 }
