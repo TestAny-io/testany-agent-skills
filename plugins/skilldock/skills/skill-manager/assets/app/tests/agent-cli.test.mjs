@@ -6,6 +6,9 @@ import assert from 'node:assert/strict';
 import fs from 'node:fs/promises';
 import os from 'node:os';
 import path from 'node:path';
+import { execFile } from 'node:child_process';
+import { promisify } from 'node:util';
+import { fileURLToPath } from 'node:url';
 import { childEnvironment, claudeCliEnvironment } from '../server/process-env.mjs';
 import { resolveClaudeCli, claudeCliCandidates, recordSessionCli, readClaudeCliSettings } from '../server/claude-cli.mjs';
 import { commandLineGateEvidence } from '../server/gate-cli.mjs';
@@ -102,4 +105,34 @@ esac`);
   evidence = await commandLineGateEvidence({ codexHome: path.join(bare, '.codex'), claudeRoot: { configDir: path.join(bare, '.claude') }, state, env, home: bare });
   assert.deepEqual(evidence.blockers, []);
   await assert.rejects(fs.stat(bare), { code: 'ENOENT' });
+});
+
+test('through the real entry: the cli pass-through gets the allowed variables and CODEX_HOME; a refused launch saves no Node selection', async t => {
+  const root = await temp(t); const home = path.join(root, 'home'); const state = path.join(root, 'state'); await fs.mkdir(home);
+  const seen = path.join(root, 'seen');
+  const codex = await script(path.join(root, 'codex'), `/usr/bin/env | /usr/bin/cut -d= -f1 > "${seen}-$1-$2"
+case "$1 $2" in
+"--version ") echo "codex-cli 0.200.0" ;;
+"plugin --help") echo "list marketplace" ;;
+*) echo listed ;;
+esac`);
+  const launcher = fileURLToPath(new URL('../../../scripts/launch.sh', import.meta.url));
+  const session = { CLAUDECODE: '1', ANTHROPIC_API_KEY: 'not-a-real-key', CLAUDE_CODE_OAUTH_TOKEN: 'not-a-real-token', CODEX_THREAD_ID: 'thread' };
+  const env = { HOME: home, PATH: '/usr/bin:/bin', SKILLDOCK_NODE_BIN: process.execPath, SKILLDOCK_STATE_DIR: state, SKILLDOCK_NO_DIALOG: '1',
+    SKILLDOCK_CODEX_BIN: codex, SKILLDOCK_CLAUDE_BIN: path.join(root, 'absent-claude'), CODEX_HOME: path.join(root, 'codex-home'), ...session };
+  const run = args => promisify(execFile)('/bin/sh', [launcher, ...args], { env, cwd: root });
+  assert.equal((await run(['cli', 'plugin', 'list'])).stdout.trim(), 'listed');
+  for (const name of ['--version-', 'plugin---help', 'plugin-list']) {
+    const received = (await fs.readFile(`${seen}-${name}`, 'utf8')).split('\n');
+    for (const key of Object.keys(session)) assert.equal(received.includes(key), false, `${name} ${key}`);
+    assert.ok(received.includes('CODEX_HOME'), name);
+  }
+  // A data directory of another source: refused (exit 1, nothing on stdout), and the
+  // bootstrap's Node selection is not written into it.
+  await fs.mkdir(state); const other = path.join(root, 'other/app'); await fs.mkdir(other, { recursive: true });
+  await fs.writeFile(path.join(state, 'launcher.json'), JSON.stringify({ url: 'http://127.0.0.1:9', pid: 2 ** 22 + 99, state: await fs.realpath(state), project: root, projectContext: null,
+    source: other, installation: { kind: 'directory', source: other }, digest: 'x', runtime: path.join(state, 'runtimes/x'), codexHome: env.CODEX_HOME, cli: null, execution: null }));
+  const refused = await run(['start', '--project', root]).then(() => null, error => error);
+  assert.deepEqual([refused?.code, refused.stdout], [1, '']); assert.match(refused.stderr, /另一个源码实例/);
+  await assert.rejects(fs.stat(path.join(state, 'settings')), { code: 'ENOENT' });
 });

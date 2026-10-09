@@ -349,7 +349,7 @@ export async function launch(action = 'start', options = {}) {
           : { ...current, project: health.launchProject || health.project, projectContext: health.projectContext || current.projectContext };
       } catch { /* Never restore unverified files. */ }
     }
-    const cli = await resolveCodexCli({ codexHome, explicit: options.codexBin || env.SKILLDOCK_CODEX_BIN });
+    const cli = await resolveCodexCli({ codexHome, explicit: options.codexBin || env.SKILLDOCK_CODEX_BIN, env, home });
     for (const attempt of cli.attempts) process.stderr.write(`SkillDock：跳过 CLI ${attempt.path}：${attempt.error}\n`);
     process.stderr.write(cli.available ? `SkillDock：Codex CLI ${cli.path}（${cli.version}）\n` : `SkillDock：${cli.error}\n`);
     const expected = JSON.stringify(live ? current : await readRecord(state));

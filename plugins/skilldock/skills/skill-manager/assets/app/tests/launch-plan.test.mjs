@@ -7,7 +7,7 @@ import fs from 'node:fs/promises';
 import os from 'node:os';
 import path from 'node:path';
 import { resolveLaunchProject } from '../server/project-context.mjs';
-import { installationContext, delegationTarget, legacyOwnership, legacyOwnershipDetail, planLaunch, refreshInstallations } from '../server/launch-plan.mjs';
+import { installationContext, delegationTarget, legacyOwnership, legacyOwnershipDetail, planLaunch, refreshInstallations, migrationCheck } from '../server/launch-plan.mjs';
 import { buildRecord, legacyFields, ensureLegacyProject, writeRecord, readRecord } from '../server/launcher-record.mjs';
 import { writeRestart } from '../server/installation.mjs';
 import { writeMigrationFailure } from '../server/migration.mjs';
@@ -136,9 +136,9 @@ test('delegation: only start and restart, never a restart job, never twice, only
   assert.equal(delegationTarget(newest, { action: 'start', env: {} }), null);
   // Bootstrap planning: newer data stops before any toolchain work.
   await fs.writeFile(path.join(w.state, 'generation.json'), JSON.stringify({ format: 1, generation: 3 }));
-  const plan = await planLaunch({ action: 'start', env: { SKILLDOCK_STATE_DIR: w.state }, home: w.home, appDir: codex });
+  const plan = await planLaunch({ action: 'start', env: { ...w.env, SKILLDOCK_STATE_DIR: w.state }, home: w.home, appDir: codex });
   assert.deepEqual([plan.kind, plan.error.exitCode, plan.error.output.status], ['error', 3, 'update-required']);
-  assert.equal((await planLaunch({ action: 'doctor', env: { SKILLDOCK_STATE_DIR: w.state }, home: w.home, appDir: codex })).kind, 'continue');
+  assert.equal((await planLaunch({ action: 'doctor', env: { ...w.env, SKILLDOCK_STATE_DIR: w.state }, home: w.home, appDir: codex })).kind, 'continue');
 });
 
 test('health version 2: frozen fields, installation summary without paths, restart derived from restart.json only', async t => {
@@ -175,7 +175,7 @@ test('health version 2: frozen fields, installation summary without paths, resta
 test('bootstrap planning stops generation-1 data at the gate and refuses a failed target for restart jobs, before any toolchain work', async t => {
   const w = await world(t);
   const codex = await w.install('codex', '0.11.0'); await w.install('claude', '0.10.2');
-  const env = { SKILLDOCK_STATE_DIR: w.state };
+  const env = { ...w.env, SKILLDOCK_STATE_DIR: w.state };
   let plan = await planLaunch({ action: 'start', env, home: w.home, appDir: codex });
   assert.deepEqual([plan.kind, plan.error.exitCode, plan.error.output.status], ['error', 4, 'migration-blocked']);
   plan = await planLaunch({ action: 'restart', env: { ...env, SKILLDOCK_RESTART_JOB: 'j' }, home: w.home, appDir: codex });
@@ -189,6 +189,18 @@ test('bootstrap planning stops generation-1 data at the gate and refuses a faile
   assert.equal((await planLaunch({ action: 'start', env, home: w.home, appDir: codex })).kind, 'continue', '交互入口不受快速拒绝限制');
   await writeMigrationFailure(w.state, { appDir: codex, version: '0.10.9', message: 'x' });
   assert.equal((await planLaunch({ action: 'restart', env: { ...env, SKILLDOCK_RESTART_JOB: 'j' }, home: w.home, appDir: codex })).kind, 'continue', '目标版本变化后解除');
+});
+
+test('the gate notes which command line confirmed each Agent, or that the install record was used (HLD 3.7)', async t => {
+  const w = await world(t);
+  const codex = await w.install('codex', '0.11.0');
+  const cli = path.join(w.root, 'codex-stand-in');
+  await fs.writeFile(cli, '#!/bin/sh\ncase "$1 $2" in\n"--version ") echo "codex-cli 0.200.0" ;;\n"plugin --help") echo "list marketplace" ;;\n"plugin list") echo \'{"installed":[]}\' ;;\nesac\n', { mode: 0o755 });
+  const env = { ...w.env, SKILLDOCK_CODEX_BIN: cli };
+  const context = await installationContext({ env, home: w.home, state: w.state, appDir: codex });
+  const notes = [];
+  assert.equal(await migrationCheck({ state: w.state, context, env, home: w.home, codexHome: w.codexHome, log: note => notes.push(note) }), null);
+  assert.deepEqual(notes, [`已用 Codex 命令行 ${cli}（codex-cli 0.200.0）确认插件清单。`, 'Claude 命令行不可用，改用安装记录。']);
 });
 
 test('installation changes refresh the preferred target and legacy fields, never the running installation (HLD 3.7)', async t => {

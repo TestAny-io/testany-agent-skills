@@ -188,6 +188,7 @@ test('the command lines confirm what the file evidence lets through; refused job
   const next = { ...await installedVersion(f, '0.10.3'), port };
   const options = { ...f, port, codexHome: next.codexHome };
   const codex = await codexStandIn(f, ['0.10.2']); const env = { ...f.env, SKILLDOCK_CODEX_BIN: codex.file };
+  t.after(() => launch('stop', { ...options, env }).catch(() => {}));
   // The cache shows 0.10.3 only; Codex itself still reports 0.10.2.
   const blocked = await launch('start', { ...options, env }).then(() => null, error => error);
   assert.equal(blocked?.exitCode, 4);
@@ -369,6 +370,7 @@ test('a record from an unseen Claude configuration is refused with its reason; a
   const listing = async () => (await fs.readdir(old.state, { recursive: true })).sort();
   const before = await listing(); const bytes = await fs.readFile(path.join(old.state, 'launcher.json'));
   const realCustom = await fs.realpath(custom);
+  t.after(() => launch('stop', { ...next, env: { ...next.env, CLAUDE_CONFIG_DIR: custom } }).catch(() => {}));
   let refused = await launch('start', next).then(() => null, error => error);
   assert.deepEqual([refused?.exitCode, refused.output.status], [1, 'owner-unverified']);
   assert.ok(refused.message.includes(realCustom));

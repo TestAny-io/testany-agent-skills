@@ -187,7 +187,8 @@ const quoted = value => `'${value.replaceAll("'", `'\\''`)}'`;
 async function shellEntryCopy(f) {
   const scripts = path.join(f.root, 'skill/scripts'); await fs.mkdir(scripts, { recursive: true });
   const osascript = path.join(f.root, 'osascript'); const marker = path.join(f.root, 'dialog.txt');
-  await fs.writeFile(osascript, `#!/bin/sh\n{ printf '%s\\n' "$@"; /bin/ps -o pgid= -p $$; } > "${marker}"\n/bin/sleep 3\n`, { mode: 0o755 });
+  // The stand-in records its arguments and its process group (perl: /bin/ps may be unavailable in a sandbox).
+  await fs.writeFile(osascript, `#!/bin/sh\n{ printf '%s\\n' "$@"; /usr/bin/perl -e 'print getpgrp(), "\\n"'; } > "${marker}"\n/bin/sleep 3\n`, { mode: 0o755 });
   const source = fileURLToPath(new URL('../../../scripts/', import.meta.url));
   let text = await fs.readFile(path.join(source, 'launch.sh'), 'utf8');
   for (const [from, to] of [['/opt/homebrew/bin/node', path.join(f.root, 'none/brew')], ['/usr/local/bin/node', path.join(f.root, 'none/local')],
@@ -216,11 +217,12 @@ test('the shell entry without any usable Node exits 1 with guidance; the dialog 
   const result = await run(['start', '--project', f.root]);
   assert.deepEqual([result.code, result.stdout], [1, '']); assert.match(result.stderr, /已显示安装引导/); assert.ok(result.elapsed < 2500, `${result.elapsed} ms`);
   let lines = [];
-  for (let i = 0; i < 40 && lines.length < 2; i++) { lines = (await fs.readFile(entry.marker, 'utf8').catch(() => '')).trim().split('\n'); if (lines.length < 2) await new Promise(resolve => setTimeout(resolve, 50)); }
+  for (let i = 0; i < 40 && !/^\d+$/.test(lines.at(-1) ?? ''); i++) { lines = (await fs.readFile(entry.marker, 'utf8').catch(() => '')).trim().split('\n'); if (!/^\d+$/.test(lines.at(-1) ?? '')) await new Promise(resolve => setTimeout(resolve, 50)); }
   // The dialog re-runs the same call: the guide script, the settings, then the command.
   assert.equal(path.basename(lines[0]), 'node-guide.applescript');
   assert.deepEqual(lines.slice(1, 9), [`SKILLDOCK_STATE_DIR=${f.stateDir}`, 'PORT=4771', 'SKILLDOCK_PROJECT_DIR=', '/bin/sh', await fs.realpath(entry.launcher), 'start', '--project', f.root]);
   // With the default shell (bash) the dialog has its own process group, apart from the call's.
+  assert.match(lines.at(-1), /^\d+$/, '记录到进程组号');
   if ((await fs.readlink('/private/var/select/sh').catch(() => '')).endsWith('bash')) assert.notEqual(Number(lines.at(-1)), result.pid);
 });
 
