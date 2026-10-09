@@ -361,117 +361,175 @@ export async function createService(options = {}) {
     if (capability === 'canUpdate' && await exists(path.join(directory, '.git'))) fail(422, 'GIT_OWNER_MANAGED', '该目录本身是 Git 仓库，SkillDock 不替换工作树或 .git 元数据。');
     return { record, directory, boundary, key: await realDirectory(directory) };
   }
+  // One implementation of the skill file transactions for both sides (4b review P2-04; DEC-SDX-020).
+  // A side says how it finds a writable record and its source key, where its source records live,
+  // where it installs, which places a restore may return to, which roots its moves add, and what
+  // its messages say. The Codex side returns exactly what 0.10.2 did.
+  function codexSkillSide(env, registry) {
+    return {
+      agent: 'codex', sources: registry.sources, tag: {}, linkKeepsSource: false,
+      async record(id, capability) { const { record, directory } = await assertWritableSkill(env, id, capability); return { record, directory, key: record.id, boundaries: [] }; },
+      installKey: async target => identity(target),
+      async installTarget(request, name) { return { root: env.skills, destination: path.join(env.skills, name) }; },
+      async prepareInstall() { await assertTargetRoot(env); return []; },
+      async restorePlace(entry) {
+        if (entry.kind !== 'remove') return [];
+        const parent = await fs.realpath(path.dirname(entry.directory));
+        const managedRoots = await Promise.all((env.discoveryRoots || await rootsFor(env)).filter(root => root.scope !== 'system').map(async root => { try { return await fs.realpath(root.directory); } catch { return root.directory; } }));
+        if (!managedRoots.some(root => inside(root, parent)) || parent.split(path.sep).includes('.system')) fail(403, 'RESTORE_BOUNDARY', '原位置的管理边界已变化。');
+        return [];
+      },
+      restoreKey: async entry => entry.skillId,
+      afterRestore: entry => env.skillLinks.delete(entry.directory),
+      dropStaging: staging => fs.rm(staging, { recursive: true, force: true }),
+      messages: { installed: name => `已安装 ${name}。请开启新的 Codex 会话以加载。`, linked: name => `已关联 ${name} 的更新来源，本机文件保持原样。`,
+        updated: name => `已更新 ${name}，旧版已保留，可从操作记录恢复。`, removed: name => `已将 ${name} 移至可恢复区；可从操作记录恢复。`, restored: name => `已恢复 ${name}。` },
+    };
+  }
+  function claudeSkillSide(env, registry, roots, request) {
+    return {
+      agent: 'claude', sources: (registry.claudeSources ??= {}), tag: { agent: 'claude' }, linkKeepsSource: true,
+      async record(id, capability) { const { record, directory, boundary, key } = await claudeSkillRecord(id, capability, request); return { record, directory, key, boundaries: [boundary] }; },
+      installKey: target => realDirectory(target),
+      async installTarget(input, name) {
+        const scope = input.scope ?? 'user';
+        if (scope === 'local') fail(400, 'INVALID_ACTION', 'Claude 技能只能安装到个人技能目录或项目的 .claude/skills。');
+        const root = scope === 'user' ? roots.user : roots.project;
+        return { root, destination: path.join(root, name), scope };
+      },
+      async prepareInstall(preview) {
+        const boundary = await captureDirectoryRoot(preview.root);
+        if ((await claudeProtectedRoots(roots)).some(root => inside(root, boundary.real))) fail(403, 'TARGET_BOUNDARY', '技能安装根指向插件或系统管理目录，不能写入。');
+        await fs.mkdir(preview.root, { recursive: true }); await verifyDirectoryRoot(boundary);
+        return [await captureDirectoryRoot(preview.root)];
+      },
+      async restorePlace(entry) {
+        // The original place must still be one of Claude's skill roots.
+        const parent = path.dirname(entry.directory);
+        const allowed = parent === roots.user || parent.split(path.sep).slice(-2).join('/') === '.claude/skills';
+        if (!allowed || parent.split(path.sep).includes('.system')) fail(403, 'RESTORE_BOUNDARY', '原位置的管理边界已变化。');
+        return [await captureDirectoryRoot(parent)];
+      },
+      restoreKey: entry => realDirectory(entry.directory),
+      afterRestore: () => {},
+      dropStaging: staging => removeStaging(env, staging),
+      messages: { installed: name => `已在 Claude 中安装技能 ${name}。新的 Claude 会话会加载它。`, linked: name => `已关联 Claude 技能 ${name} 的更新来源，本机文件保持原样。`,
+        updated: name => `已更新 Claude 技能 ${name}，旧版已保留，可从操作记录恢复。`, removed: name => `已把 Claude 技能 ${name} 移至可恢复区；可从操作记录恢复。`, restored: name => `已恢复 Claude 技能 ${name}。` },
+    };
+  }
+  /**
+   * The skill file transactions of one side. Returns `{ early }` for a preview (nothing
+   * changed, nothing journaled), else `{ result, target, restore, activityPath, consumed }`.
+   */
+  async function skillOperation(side, request, { env, registry, undo, activityId }) {
+    const sources = side.sources;
+    switch (request.action) {
+      case 'skill.previewSource': {
+        const { record, directory } = await side.record(request.id, 'canRemove');
+        if ((await fs.lstat(directory)).isSymbolicLink() || await exists(path.join(directory, '.git'))) fail(422, 'GIT_OWNER_MANAGED', '链接或 Git 仓库根由原所有者管理；请选择独立技能副本关联来源。');
+        const current = await inspectTree(directory); const staged = await stageSource(env, request); const id = crypto.randomUUID();
+        previews.set(id, { ...staged, id, mode: env.mode, kind: 'source-link', ...side.tag, target: directory, skillId: record.id, baseline: current.fingerprint, installedFiles: current.entries, targetBoundary: await captureDirectoryRoot(directory), created: previewNow() });
+        return { early: { message: '请确认来源与本机差异；关联本身不会替换内容。', ...side.tag, sourcePreview: { id, skillId: record.id, name: record.name, source: staged.source, subpath: staged.subpath, ref: staged.ref, commit: staged.commit, target: record.path, matchesInstalled: current.fingerprint === staged.tree.fingerprint, changes: diffFiles(current.entries, staged.tree.entries) } } };
+      }
+      case 'skill.connectSource': {
+        const preview = await assertPreview(env, request.previewId, 'source-link', side.agent);
+        if (preview.skillId !== request.id) fail(409, 'PREVIEW_MISMATCH', '来源预览不属于该技能。');
+        const { record, directory, key } = await side.record(request.id, 'canRemove'); await verifyDirectoryRoot(preview.targetBoundary);
+        const current = await inspectTree(directory); if (current.fingerprint !== preview.baseline) fail(409, 'LOCAL_CHANGES', '本机内容在来源预览后发生变化，请重新预览。');
+        sources[key] = { ...provenance(preview, directory), confidence: 'user-confirmed', fingerprint: current.fingerprint, files: current.entries };
+        return { result: { message: side.messages.linked(record.name), ...side.tag }, target: record.name, consumed: preview };
+      }
+      case 'skill.previewInstall': {
+        const staged = await stageSource(env, request); const name = request.name || staged.detail.name;
+        if (!safeName(name)) { await side.dropStaging(staged.staging); fail(422, 'INVALID_NAME', '技能 name 不适合作为安装目录，请在请求中指定有效 name。'); }
+        let place;
+        try { place = await side.installTarget(request, name); } catch (error) { await side.dropStaging(staged.staging); throw error; }
+        if (await exists(place.destination)) { await side.dropStaging(staged.staging); fail(409, 'TARGET_EXISTS', '同名安装目录已存在，不能覆盖。'); }
+        const id = crypto.randomUUID(); previews.set(id, { ...staged, id, mode: env.mode, kind: 'install', ...side.tag, target: place.destination, ...(side.agent === 'claude' ? { root: place.root, scope: place.scope } : {}), created: previewNow() });
+        return { early: { message: '预览已准备；确认后才会安装。', ...side.tag, preview: { id, name: staged.detail.name, description: staged.detail.description, icon: staged.detail.icon, iconAssets: staged.detail.iconAssets, target: place.destination, source: staged.source, subpath: staged.subpath, ref: staged.ref, commit: staged.commit, files: staged.tree.files, bytes: staged.tree.bytes } } };
+      }
+      case 'skill.install': {
+        const preview = await assertPreview(env, request.previewId, 'install', side.agent); const boundaries = await side.prepareInstall(preview);
+        if (await exists(preview.target)) fail(409, 'TARGET_EXISTS', '安装目标已存在，请重新预览。');
+        await move(preview.candidate, preview.target, boundaries); undo.push(async () => { if ((await inspectTree(preview.target)).fingerprint === preview.tree.fingerprint) await move(preview.target, preview.candidate, boundaries); });
+        sources[await side.installKey(preview.target)] = provenance(preview, preview.target);
+        return { result: { message: side.messages.installed(preview.detail.name), needsReload: true, ...side.tag }, target: preview.detail.name, consumed: preview };
+      }
+      case 'skill.checkUpdate': {
+        const { record, directory, key } = await side.record(request.id, 'canUpdate'); const source = sources[key];
+        const current = await inspectTree(directory);
+        if (current.fingerprint !== source.fingerprint) fail(409, 'LOCAL_CHANGES', '已安装技能有本地修改；请先保留或整理修改，不能自动覆盖。');
+        const staged = await stageSource(env, source); const changes = diffFiles(current.entries, staged.tree.entries); const id = crypto.randomUUID();
+        if (changes.length) previews.set(id, { ...staged, id, mode: env.mode, kind: 'update', ...side.tag, target: directory, skillId: record.id, baseline: current.fingerprint, sourceIdentity: JSON.stringify(source), targetBoundary: await captureDirectoryRoot(directory), created: previewNow() });
+        else await removeStaging(env, staged.staging);
+        return { early: { message: changes.length ? '发现来源变化，请检查文件列表。' : '当前内容与来源一致。', ...side.tag, update: { id, skillId: record.id, name: record.name, available: changes.length > 0, changes, message: changes.length ? `${changes.length} 个文件有变化；更新前会保留旧版本。` : '当前内容与来源一致。' } } };
+      }
+      case 'skill.update': {
+        const preview = await assertPreview(env, request.previewId, 'update', side.agent);
+        if (request.id !== preview.skillId) fail(409, 'PREVIEW_MISMATCH', '更新预览不属于该技能。');
+        const { record, directory, key, boundaries } = await side.record(request.id, 'canUpdate');
+        if (JSON.stringify(sources[key]) !== preview.sourceIdentity) fail(409, 'SOURCE_RELINKED', '更新来源在预览后重新关联，请重新检查。');
+        await verifyDirectoryRoot(preview.targetBoundary);
+        if ((await inspectTree(directory)).fingerprint !== preview.baseline) fail(409, 'LOCAL_CHANGES', '技能在预览后发生变化，请重新检查。');
+        if (preview.tree.fingerprint === preview.baseline) fail(409, 'NO_UPDATE', '没有需要更新的内容。');
+        const backup = path.join(env.root, 'quarantine', activityId); const previousSource = sources[key]; const parent = await parentIdentity(directory);
+        await move(directory, backup, boundaries); undo.push(async () => { if (!(await exists(directory))) await move(backup, directory, boundaries); });
+        await move(preview.candidate, directory, boundaries); undo.push(async () => { if ((await inspectTree(directory)).fingerprint === preview.tree.fingerprint) await move(directory, preview.candidate, boundaries); });
+        sources[key] = { ...provenance(preview, directory), generation: previousSource.generation || crypto.randomUUID(), confidence: previousSource.confidence || 'verified' };
+        const restore = { kind: 'update', ...side.tag, directory, backup, ...parent, expectedFingerprint: preview.tree.fingerprint, priorFingerprint: preview.baseline, source: previousSource, ...(side.agent === 'claude' ? { sourceKey: key } : {}), skillId: record.id };
+        return { result: { message: side.messages.updated(record.name), needsReload: true, ...side.tag }, target: record.name, restore, consumed: preview };
+      }
+      case 'skill.remove': {
+        const { record, directory, key, boundaries } = await side.record(request.id, 'canRemove'); const fingerprint = await objectFingerprint(directory); const parent = await parentIdentity(directory);
+        const backup = path.join(env.root, 'quarantine', activityId); await move(directory, backup, boundaries); undo.push(async () => { if (!(await exists(directory))) await move(backup, directory, boundaries); });
+        // Removing a link removes only the link: on the Claude side the source record belongs to
+        // the directory it points to, which stays (4b review P2-03).
+        const keep = side.linkKeepsSource && record.isLink;
+        const restore = { kind: 'remove', ...side.tag, directory, backup, ...parent, priorFingerprint: fingerprint, ...(keep ? { link: true } : { source: sources[key], ...(side.agent === 'claude' ? { sourceKey: key } : {}) }), skillId: record.id };
+        if (!keep) delete sources[key];
+        return { result: { message: side.messages.removed(record.name), needsReload: true, ...side.tag }, target: record.name, restore, activityPath: record.path };
+      }
+      case 'activity.restore': {
+        const previous = registry.activity.find(entry => entry.id === request.id);
+        if (!previous?.canRestore || !previous.restore || (previous.agent ?? 'codex') !== side.agent) fail(404, 'RESTORE_MISSING', '没有可用的恢复记录。');
+        const entry = previous.restore;
+        if (!inside(path.join(env.root, 'quarantine'), entry.backup) || !(await exists(entry.backup))) fail(409, 'BACKUP_MISSING', '恢复备份缺失或不在受管理范围。');
+        if (!inside(path.join(env.root, 'quarantine'), await fs.realpath(path.dirname(entry.backup)))) fail(403, 'BACKUP_BOUNDARY', '备份目录链接越出受管理范围。');
+        await verifyRestoreParent(env, entry);
+        if (await objectFingerprint(entry.backup) !== entry.priorFingerprint) fail(409, 'BACKUP_CHANGED', '备份内容发生变化，已停止恢复。');
+        let boundaries;
+        if (entry.kind === 'remove') {
+          if (await exists(entry.directory)) fail(409, 'TARGET_EXISTS', '原位置已被占用，不能覆盖恢复。');
+          boundaries = await side.restorePlace(entry);
+          await move(entry.backup, entry.directory, boundaries); undo.push(async () => { await move(entry.directory, entry.backup, boundaries); });
+        } else {
+          boundaries = await side.restorePlace(entry);
+          if (!(await exists(entry.directory)) || await objectFingerprint(entry.directory) !== entry.expectedFingerprint) fail(409, 'LOCAL_CHANGES', '更新后的技能有新的修改，不能覆盖恢复。');
+          const discarded = path.join(env.root, 'quarantine', `${activityId}-replaced`);
+          await move(entry.directory, discarded, boundaries); undo.push(async () => { if (!(await exists(entry.directory))) await move(discarded, entry.directory, boundaries); });
+          await move(entry.backup, entry.directory, boundaries); undo.push(async () => { await move(entry.directory, entry.backup, boundaries); });
+        }
+        if (!entry.link) { const key = await side.restoreKey(entry); if (entry.source) sources[key] = entry.source; else delete sources[key]; }
+        side.afterRestore(entry);
+        previous.canRestore = false;
+        return { result: { message: side.messages.restored(previous.target), needsReload: true, ...side.tag }, target: previous.target, activityPath: previous.path || path.join(entry.directory, 'SKILL.md') };
+      }
+      default: fail(422, 'UNSUPPORTED_FOR_AGENT', '这一版 SkillDock 还不能在 Claude 中执行这个操作。');
+    }
+  }
   async function claudeSkillAction(request) {
     const env = environment('local'); const roots = await claudeSkillRoots();
+    // DEC-SDX-010: the Claude lock after the instance and Codex locks; never creating the root.
     const release = await fs.stat(roots.found.claudeRoot.configDir).then(stat => stat.isDirectory(), () => false) ? acquireFileLock(operationLock(roots.found.claudeRoot.configDir)) : () => {};
-    let registry; let original; const undo = []; const activityId = crypto.randomUUID(); let restore; let result; let target = request.id || request.source || 'skill'; let activityPath; let consumed;
+    let registry; let original; const undo = []; const activityId = crypto.randomUUID(); let target = request.id || request.source || 'skill';
     moveWarnings.length = 0;
     try {
       await verifyDirectoryRoot(env.stateBoundary);
-      registry = await registryFor(env); original = structuredClone(registry); registry.claudeSources ??= {};
-      const sources = registry.claudeSources;
-      switch (request.action) {
-        case 'skill.previewInstall': {
-          const scope = request.scope ?? 'user';
-          if (scope === 'local') fail(400, 'INVALID_ACTION', 'Claude 技能只能安装到个人技能目录或项目的 .claude/skills。');
-          const root = scope === 'user' ? roots.user : roots.project;
-          const staged = await stageSource(env, request); const name = request.name || staged.detail.name;
-          if (!safeName(name)) { await removeStaging(env, staged.staging); fail(422, 'INVALID_NAME', '技能 name 不适合作为安装目录，请在请求中指定有效 name。'); }
-          const destination = path.join(root, name);
-          if (await exists(destination)) { await removeStaging(env, staged.staging); fail(409, 'TARGET_EXISTS', '同名安装目录已存在，不能覆盖。'); }
-          const id = crypto.randomUUID(); previews.set(id, { ...staged, id, mode: 'local', kind: 'install', agent: 'claude', target: destination, root, scope, created: previewNow() });
-          return { message: '预览已准备；确认后才会安装。', agent: 'claude', preview: { id, name: staged.detail.name, description: staged.detail.description, icon: staged.detail.icon, iconAssets: staged.detail.iconAssets, target: destination, source: staged.source, subpath: staged.subpath, ref: staged.ref, commit: staged.commit, files: staged.tree.files, bytes: staged.tree.bytes } };
-        }
-        case 'skill.install': {
-          const preview = await assertPreview(env, request.previewId, 'install', 'claude');
-          const boundary = await captureDirectoryRoot(preview.root);
-          if ((await claudeProtectedRoots(roots)).some(root => inside(root, boundary.real))) fail(403, 'TARGET_BOUNDARY', '技能安装根指向插件或系统管理目录，不能写入。');
-          await fs.mkdir(preview.root, { recursive: true }); await verifyDirectoryRoot(boundary);
-          const root = await captureDirectoryRoot(preview.root);
-          if (await exists(preview.target)) fail(409, 'TARGET_EXISTS', '安装目标已存在，请重新预览。');
-          await move(preview.candidate, preview.target, [root]); undo.push(async () => { if ((await inspectTree(preview.target)).fingerprint === preview.tree.fingerprint) await move(preview.target, preview.candidate, [root]); });
-          sources[await realDirectory(preview.target)] = provenance(preview, preview.target); target = preview.detail.name;
-          consumed = previews.get(request.previewId); previews.delete(request.previewId);
-          result = { message: `已在 Claude 中安装技能 ${target}。新的 Claude 会话会加载它。`, needsReload: true, agent: 'claude' }; break;
-        }
-        case 'skill.remove': {
-          const { record, directory, boundary, key } = await claudeSkillRecord(request.id, 'canRemove', request);
-          const fingerprint = await objectFingerprint(directory); const parent = await parentIdentity(directory);
-          const backup = path.join(env.root, 'quarantine', activityId); await move(directory, backup, [boundary]); undo.push(async () => { if (!(await exists(directory))) await move(backup, directory, [boundary]); });
-          // Removing a link removes only the link: the source record belongs to the directory it
-          // points to, which stays (4b review P2-03).
-          restore = { kind: 'remove', agent: 'claude', directory, backup, ...parent, priorFingerprint: fingerprint, skillId: record.id, ...(record.isLink ? { link: true } : { source: sources[key], sourceKey: key }) };
-          if (!record.isLink) delete sources[key]; target = record.name; activityPath = record.path;
-          result = { message: `已把 Claude 技能 ${target} 移至可恢复区；可从操作记录恢复。`, needsReload: true, agent: 'claude' }; break;
-        }
-        case 'skill.previewSource': {
-          const { record, directory } = await claudeSkillRecord(request.id, 'canRemove', request);
-          if ((await fs.lstat(directory)).isSymbolicLink() || await exists(path.join(directory, '.git'))) fail(422, 'GIT_OWNER_MANAGED', '链接或 Git 仓库根由原所有者管理；请选择独立技能副本关联来源。');
-          const current = await inspectTree(directory); const staged = await stageSource(env, request); const id = crypto.randomUUID();
-          previews.set(id, { ...staged, id, mode: 'local', kind: 'source-link', agent: 'claude', target: directory, skillId: record.id, baseline: current.fingerprint, installedFiles: current.entries, targetBoundary: await captureDirectoryRoot(directory), created: previewNow() });
-          return { message: '请确认来源与本机差异；关联本身不会替换内容。', agent: 'claude', sourcePreview: { id, skillId: record.id, name: record.name, source: staged.source, subpath: staged.subpath, ref: staged.ref, commit: staged.commit, target: record.path, matchesInstalled: current.fingerprint === staged.tree.fingerprint, changes: diffFiles(current.entries, staged.tree.entries) } };
-        }
-        case 'skill.connectSource': {
-          const preview = await assertPreview(env, request.previewId, 'source-link', 'claude');
-          if (preview.skillId !== request.id) fail(409, 'PREVIEW_MISMATCH', '来源预览不属于该技能。');
-          const { record, directory, key } = await claudeSkillRecord(request.id, 'canRemove', request); await verifyDirectoryRoot(preview.targetBoundary);
-          const current = await inspectTree(directory); if (current.fingerprint !== preview.baseline) fail(409, 'LOCAL_CHANGES', '本机内容在来源预览后发生变化，请重新预览。');
-          sources[key] = { ...provenance(preview, directory), confidence: 'user-confirmed', fingerprint: current.fingerprint, files: current.entries };
-          target = record.name; consumed = previews.get(request.previewId); previews.delete(request.previewId); result = { message: `已关联 Claude 技能 ${record.name} 的更新来源，本机文件保持原样。`, agent: 'claude' }; break;
-        }
-        case 'skill.checkUpdate': {
-          const { record, directory, key } = await claudeSkillRecord(request.id, 'canUpdate', request); const source = sources[key];
-          const current = await inspectTree(directory);
-          if (current.fingerprint !== source.fingerprint) fail(409, 'LOCAL_CHANGES', '已安装技能有本地修改；请先保留或整理修改，不能自动覆盖。');
-          const staged = await stageSource(env, source); const changes = diffFiles(current.entries, staged.tree.entries); const id = crypto.randomUUID();
-          if (changes.length) previews.set(id, { ...staged, id, mode: 'local', kind: 'update', agent: 'claude', target: directory, skillId: record.id, baseline: current.fingerprint, sourceIdentity: JSON.stringify(source), targetBoundary: await captureDirectoryRoot(directory), created: previewNow() });
-          else await removeStaging(env, staged.staging);
-          return { message: changes.length ? '发现来源变化，请检查文件列表。' : '当前内容与来源一致。', agent: 'claude', update: { id, skillId: record.id, name: record.name, available: changes.length > 0, changes, message: changes.length ? `${changes.length} 个文件有变化；更新前会保留旧版本。` : '当前内容与来源一致。' } };
-        }
-        case 'skill.update': {
-          const preview = await assertPreview(env, request.previewId, 'update', 'claude');
-          if (request.id !== preview.skillId) fail(409, 'PREVIEW_MISMATCH', '更新预览不属于该技能。');
-          const { record, directory, boundary, key } = await claudeSkillRecord(request.id, 'canUpdate', request);
-          if (JSON.stringify(sources[key]) !== preview.sourceIdentity) fail(409, 'SOURCE_RELINKED', '更新来源在预览后重新关联，请重新检查。');
-          await verifyDirectoryRoot(preview.targetBoundary);
-          if ((await inspectTree(directory)).fingerprint !== preview.baseline) fail(409, 'LOCAL_CHANGES', '技能在预览后发生变化，请重新检查。');
-          if (preview.tree.fingerprint === preview.baseline) fail(409, 'NO_UPDATE', '没有需要更新的内容。');
-          const backup = path.join(env.root, 'quarantine', activityId); const previousSource = sources[key]; const parent = await parentIdentity(directory);
-          await move(directory, backup, [boundary]); undo.push(async () => { if (!(await exists(directory))) await move(backup, directory, [boundary]); });
-          await move(preview.candidate, directory, [boundary]); undo.push(async () => { if ((await inspectTree(directory)).fingerprint === preview.tree.fingerprint) await move(directory, preview.candidate, [boundary]); });
-          sources[key] = { ...provenance(preview, directory), generation: previousSource.generation || crypto.randomUUID(), confidence: previousSource.confidence || 'verified' }; target = record.name;
-          restore = { kind: 'update', agent: 'claude', directory, backup, ...parent, expectedFingerprint: preview.tree.fingerprint, priorFingerprint: preview.baseline, source: previousSource, sourceKey: key, skillId: record.id };
-          consumed = previews.get(request.previewId); previews.delete(request.previewId);
-          result = { message: `已更新 Claude 技能 ${target}，旧版已保留，可从操作记录恢复。`, needsReload: true, agent: 'claude' }; break;
-        }
-        case 'activity.restore': {
-          const previous = registry.activity.find(entry => entry.id === request.id);
-          if (!previous?.canRestore || !previous.restore || previous.agent !== 'claude') fail(404, 'RESTORE_MISSING', '没有可用的恢复记录。');
-          const entry = previous.restore;
-          if (!inside(path.join(env.root, 'quarantine'), entry.backup) || !(await exists(entry.backup))) fail(409, 'BACKUP_MISSING', '恢复备份缺失或不在受管理范围。');
-          if (!inside(path.join(env.root, 'quarantine'), await fs.realpath(path.dirname(entry.backup)))) fail(403, 'BACKUP_BOUNDARY', '备份目录链接越出受管理范围。');
-          await verifyRestoreParent(env, entry);
-          if (await objectFingerprint(entry.backup) !== entry.priorFingerprint) fail(409, 'BACKUP_CHANGED', '备份内容发生变化，已停止恢复。');
-          // The original place must still be one of Claude's skill roots.
-          const parent = path.dirname(entry.directory);
-          const allowed = parent === roots.user || parent.split(path.sep).slice(-2).join('/') === '.claude/skills';
-          if (!allowed || parent.split(path.sep).includes('.system')) fail(403, 'RESTORE_BOUNDARY', '原位置的管理边界已变化。');
-          const boundary = await captureDirectoryRoot(parent);
-          if (entry.kind === 'remove') {
-            if (await exists(entry.directory)) fail(409, 'TARGET_EXISTS', '原位置已被占用，不能覆盖恢复。');
-            await move(entry.backup, entry.directory, [boundary]); undo.push(async () => { await move(entry.directory, entry.backup, [boundary]); });
-          } else {
-            if (!(await exists(entry.directory)) || await objectFingerprint(entry.directory) !== entry.expectedFingerprint) fail(409, 'LOCAL_CHANGES', '更新后的技能有新的修改，不能覆盖恢复。');
-            const discarded = path.join(env.root, 'quarantine', `${activityId}-replaced`);
-            await move(entry.directory, discarded, [boundary]); undo.push(async () => { if (!(await exists(entry.directory))) await move(discarded, entry.directory, [boundary]); });
-            await move(entry.backup, entry.directory, [boundary]); undo.push(async () => { await move(entry.directory, entry.backup, [boundary]); });
-          }
-          if (!entry.link) { const key = await realDirectory(entry.directory); if (entry.source) sources[key] = entry.source; else delete sources[key]; }
-          previous.canRestore = false; target = previous.target; activityPath = previous.path || path.join(entry.directory, 'SKILL.md');
-          result = { message: `已恢复 Claude 技能 ${target}。`, needsReload: true, agent: 'claude' }; break;
-        }
-        default: fail(422, 'UNSUPPORTED_FOR_AGENT', '这一版 SkillDock 还不能在 Claude 中执行这个操作。');
-      }
+      registry = await registryFor(env); original = structuredClone(registry);
+      const outcome = await skillOperation(claudeSkillSide(env, registry, roots, request), request, { env, registry, undo, activityId });
+      if (outcome.early) return outcome.early;
+      const { result, restore, activityPath, consumed } = outcome; target = outcome.target ?? target;
+      if (consumed) previews.delete(request.previewId);
       if (moveWarnings.length) result.message += `\n${moveWarnings.join('\n')}`;
       registry.activity.unshift({ id: activityId, action: request.action, agent: 'claude', target, ...(activityPath ? { path: activityPath } : {}), createdAt: now(), status: 'success', message: result.message, canRestore: !!restore, ...(restore ? { restore } : {}) });
       await writeJson(env.registryFile, registry);
@@ -489,6 +547,7 @@ export async function createService(options = {}) {
       throw new AppError(error.status || 500, error.code || 'OPERATION_FAILED', message);
     } finally { moveWarnings.length = 0; release(); claudeCache = undefined; }
   }
+
   async function skill(mode, id) {
     if (typeof id !== 'string' || id.length > 300) fail(400, 'INVALID_ID', '需要技能 ID。');
     const record = (await snapshot(mode, false, { multiAgent: id.startsWith('claude:') })).skills.find(item => item.id === id);
@@ -912,35 +971,13 @@ export async function createService(options = {}) {
           registry.pluginBaselines ||= {}; registry.pluginBaselines[plugin.id] = { version: preview.availableVersion, fingerprint: preview.tree.fingerprint };
           consumedPreview = previews.get(request.previewId); previews.delete(request.previewId); result = { message: `已将 ${plugin.name} 更新到 ${preview.availableVersion}，并保留原${enabled ? '启用' : '禁用'}状态。旧包备份已保留；包级回退通过所属管理器执行。`, needsReload: true }; break;
         }
-        case 'skill.previewSource': {
-          const { record, directory } = await assertWritableSkill(env, request.id, 'canRemove');
-          if ((await fs.lstat(directory)).isSymbolicLink() || await exists(path.join(directory, '.git'))) fail(422, 'GIT_OWNER_MANAGED', '链接或 Git 仓库根由原所有者管理；请选择独立技能副本关联来源。');
-          const current = await inspectTree(directory); const staged = await stageSource(env, request); const id = crypto.randomUUID();
-          previews.set(id, { ...staged, id, mode: env.mode, kind: 'source-link', target: directory, skillId: record.id, baseline: current.fingerprint, installedFiles: current.entries, targetBoundary: await captureDirectoryRoot(directory), created: previewNow() });
-          return { message: '请确认来源与本机差异；关联本身不会替换内容。', sourcePreview: { id, skillId: record.id, name: record.name, source: staged.source, subpath: staged.subpath, ref: staged.ref, commit: staged.commit, target: record.path, matchesInstalled: current.fingerprint === staged.tree.fingerprint, changes: diffFiles(current.entries, staged.tree.entries) } };
-        }
-        case 'skill.connectSource': {
-          const preview = await assertPreview(env, request.previewId, 'source-link');
-          if (preview.skillId !== request.id) fail(409, 'PREVIEW_MISMATCH', '来源预览不属于该技能。');
-          const { record, directory } = await assertWritableSkill(env, request.id, 'canRemove'); await verifyDirectoryRoot(preview.targetBoundary);
-          const current = await inspectTree(directory); if (current.fingerprint !== preview.baseline) fail(409, 'LOCAL_CHANGES', '本机内容在来源预览后发生变化，请重新预览。');
-          registry.sources[record.id] = { ...provenance(preview, directory), confidence: 'user-confirmed', fingerprint: current.fingerprint, files: current.entries };
-          target = record.name; consumedPreview = previews.get(request.previewId); previews.delete(request.previewId); result = { message: `已关联 ${record.name} 的更新来源，本机文件保持原样。` }; break;
-        }
-        case 'skill.previewInstall': {
-          const staged = await stageSource(env, request); const name = request.name || staged.detail.name;
-          if (!safeName(name)) { await fs.rm(staged.staging, { recursive: true, force: true }); fail(422, 'INVALID_NAME', '技能 name 不适合作为安装目录，请在请求中指定有效 name。'); }
-          const destination = path.join(env.skills, name);
-          if (await exists(destination)) { await fs.rm(staged.staging, { recursive: true, force: true }); fail(409, 'TARGET_EXISTS', '同名安装目录已存在，不能覆盖。'); }
-          const id = crypto.randomUUID(); previews.set(id, { ...staged, id, mode: env.mode, kind: 'install', target: destination, created: previewNow() });
-          return { message: '预览已准备；确认后才会安装。', preview: { id, name: staged.detail.name, description: staged.detail.description, icon: staged.detail.icon, iconAssets: staged.detail.iconAssets, target: destination, source: staged.source, subpath: staged.subpath, ref: staged.ref, commit: staged.commit, files: staged.tree.files, bytes: staged.tree.bytes } };
-        }
-        case 'skill.install': {
-          const preview = await assertPreview(env, request.previewId, 'install'); await assertTargetRoot(env);
-          if (await exists(preview.target)) fail(409, 'TARGET_EXISTS', '安装目标已存在，请重新预览。');
-          await move(preview.candidate, preview.target); undo.push(async () => { if ((await inspectTree(preview.target)).fingerprint === preview.tree.fingerprint) await move(preview.target, preview.candidate); });
-          registry.sources[identity(preview.target)] = provenance(preview, preview.target); target = preview.detail.name;
-          consumedPreview = previews.get(request.previewId); previews.delete(request.previewId); result = { message: `已安装 ${target}。请开启新的 Codex 会话以加载。`, needsReload: true }; break;
+        case 'skill.previewSource': case 'skill.connectSource': case 'skill.previewInstall': case 'skill.install':
+        case 'skill.checkUpdate': case 'skill.update': case 'skill.remove': case 'activity.restore': {
+          const outcome = await skillOperation(codexSkillSide(env, registry), request, { env, registry, undo, activityId });
+          if (outcome.early) return outcome.early;
+          ({ result } = outcome); if (outcome.target) target = outcome.target; if (outcome.restore) restore = outcome.restore; if (outcome.activityPath) activityPath = outcome.activityPath;
+          if (outcome.consumed) { consumedPreview = outcome.consumed; previews.delete(request.previewId); }
+          break;
         }
         case 'skill.toggle': {
           const { record } = await assertWritableSkill(env, request.id, 'canToggle'); target = record.name;
@@ -958,37 +995,6 @@ export async function createService(options = {}) {
             const transaction = await toggleConfig(env.config, 'skill', record.configPath || record.path, request.enabled, path.join(env.root, 'config-backups')); undo.push(transaction.undo);
           }
           result = { message: `已${request.enabled ? '启用' : '禁用'} ${target}。配置已读回；新会话生效。`, needsReload: true }; break;
-        }
-        case 'skill.checkUpdate': {
-          const { record, directory } = await assertWritableSkill(env, request.id, 'canUpdate'); const source = registry.sources[record.id];
-          const current = await inspectTree(directory);
-          if (current.fingerprint !== source.fingerprint) fail(409, 'LOCAL_CHANGES', '已安装技能有本地修改；请先保留或整理修改，不能自动覆盖。');
-          const staged = await stageSource(env, source); const changes = diffFiles(current.entries, staged.tree.entries); const id = crypto.randomUUID();
-          if (changes.length) previews.set(id, { ...staged, id, mode: env.mode, kind: 'update', target: directory, skillId: record.id, baseline: current.fingerprint, sourceIdentity: JSON.stringify(source), targetBoundary: await captureDirectoryRoot(directory), created: previewNow() });
-          else await removeStaging(env, staged.staging);
-          return { message: changes.length ? '发现来源变化，请检查文件列表。' : '当前内容与来源一致。', update: { id, skillId: record.id, name: record.name, available: changes.length > 0, changes, message: changes.length ? `${changes.length} 个文件有变化；更新前会保留旧版本。` : '当前内容与来源一致。' } };
-        }
-        case 'skill.update': {
-          const preview = await assertPreview(env, request.previewId, 'update');
-          if (request.id !== preview.skillId) fail(409, 'PREVIEW_MISMATCH', '更新预览不属于该技能。');
-          const { record, directory } = await assertWritableSkill(env, request.id, 'canUpdate');
-          if (JSON.stringify(registry.sources[record.id]) !== preview.sourceIdentity) fail(409, 'SOURCE_RELINKED', '更新来源在预览后重新关联，请重新检查。');
-          await verifyDirectoryRoot(preview.targetBoundary);
-          if ((await inspectTree(directory)).fingerprint !== preview.baseline) fail(409, 'LOCAL_CHANGES', '技能在预览后发生变化，请重新检查。');
-          if (preview.tree.fingerprint === preview.baseline) fail(409, 'NO_UPDATE', '没有需要更新的内容。');
-          const backup = path.join(env.root, 'quarantine', activityId); const previousSource = registry.sources[record.id]; const parent = await parentIdentity(directory);
-          await move(directory, backup); undo.push(async () => { if (!(await exists(directory))) await move(backup, directory); });
-          await move(preview.candidate, directory); undo.push(async () => { if ((await inspectTree(directory)).fingerprint === preview.tree.fingerprint) await move(directory, preview.candidate); });
-          registry.sources[record.id] = { ...provenance(preview, directory), generation: previousSource.generation || crypto.randomUUID(), confidence: previousSource.confidence || 'verified' }; target = record.name;
-          restore = { kind: 'update', directory, backup, ...parent, expectedFingerprint: preview.tree.fingerprint, priorFingerprint: preview.baseline, source: previousSource, skillId: record.id };
-          consumedPreview = previews.get(request.previewId); previews.delete(request.previewId); result = { message: `已更新 ${target}，旧版已保留，可从操作记录恢复。`, needsReload: true }; break;
-        }
-        case 'skill.remove': {
-          const { record, directory } = await assertWritableSkill(env, request.id, 'canRemove'); const fingerprint = await objectFingerprint(directory); const parent = await parentIdentity(directory);
-          const backup = path.join(env.root, 'quarantine', activityId); await move(directory, backup); undo.push(async () => { if (!(await exists(directory))) await move(backup, directory); });
-          restore = { kind: 'remove', directory, backup, ...parent, priorFingerprint: fingerprint, source: registry.sources[record.id], skillId: record.id };
-          delete registry.sources[record.id]; target = record.name; activityPath = record.path;
-          result = { message: `已将 ${target} 移至可恢复区；可从操作记录恢复。`, needsReload: true }; break;
         }
         case 'skill.removeSelected': {
           const preview = removalPreviews.get(request.previewId);
@@ -1015,30 +1021,6 @@ export async function createService(options = {}) {
           }
           result = { message: `已移除选中的 ${preview.selected.length} 份同名技能，保留 ${preview.result.keep.length} 份；每份均可单独恢复。`, needsReload: true };
           removalPreviews.delete(request.previewId); break;
-        }
-        case 'activity.restore': {
-          const previous = registry.activity.find(entry => entry.id === request.id);
-          if (!previous?.canRestore || !previous.restore) fail(404, 'RESTORE_MISSING', '没有可用的恢复记录。');
-          const entry = previous.restore;
-          if (!inside(path.join(env.root, 'quarantine'), entry.backup) || !(await exists(entry.backup))) fail(409, 'BACKUP_MISSING', '恢复备份缺失或不在受管理范围。');
-          if (!inside(path.join(env.root, 'quarantine'), await fs.realpath(path.dirname(entry.backup)))) fail(403, 'BACKUP_BOUNDARY', '备份目录链接越出受管理范围。');
-          await verifyRestoreParent(env, entry);
-          if (await objectFingerprint(entry.backup) !== entry.priorFingerprint) fail(409, 'BACKUP_CHANGED', '备份内容发生变化，已停止恢复。');
-          if (entry.kind === 'remove') {
-            if (await exists(entry.directory)) fail(409, 'TARGET_EXISTS', '原位置已被占用，不能覆盖恢复。');
-            const parent = await fs.realpath(path.dirname(entry.directory));
-            const managedRoots = await Promise.all((env.discoveryRoots || await rootsFor(env)).filter(root => root.scope !== 'system').map(async root => { try { return await fs.realpath(root.directory); } catch { return root.directory; } }));
-            if (!managedRoots.some(root => inside(root, parent)) || parent.split(path.sep).includes('.system')) fail(403, 'RESTORE_BOUNDARY', '原位置的管理边界已变化。');
-            await move(entry.backup, entry.directory); undo.push(async () => { await move(entry.directory, entry.backup); });
-          } else {
-            if (!(await exists(entry.directory)) || await objectFingerprint(entry.directory) !== entry.expectedFingerprint) fail(409, 'LOCAL_CHANGES', '更新后的技能有新的修改，不能覆盖恢复。');
-            const discarded = path.join(env.root, 'quarantine', `${activityId}-replaced`);
-            await move(entry.directory, discarded); undo.push(async () => { if (!(await exists(entry.directory))) await move(discarded, entry.directory); });
-            await move(entry.backup, entry.directory); undo.push(async () => { await move(entry.directory, entry.backup); });
-          }
-          if (entry.source) registry.sources[entry.skillId] = entry.source; else delete registry.sources[entry.skillId];
-          env.skillLinks.delete(entry.directory);
-          previous.canRestore = false; target = previous.target; activityPath = previous.path || path.join(entry.directory, 'SKILL.md'); result = { message: `已恢复 ${target}。`, needsReload: true }; break;
         }
         case 'plugin.toggle': {
           const plugin = (await snapshot(env.mode)).plugins.find(item => item.id === request.id);
