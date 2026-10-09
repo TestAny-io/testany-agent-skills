@@ -6,6 +6,7 @@ import assert from 'node:assert/strict';
 import fs from 'node:fs/promises';
 import os from 'node:os';
 import path from 'node:path';
+import net from 'node:net';
 import { execFile } from 'node:child_process';
 import { promisify } from 'node:util';
 import { fileURLToPath } from 'node:url';
@@ -96,6 +97,11 @@ esac`);
   const { SKILLDOCK_CLAUDE_BIN, ...withoutClaude } = env;
   evidence = await commandLineGateEvidence({ codexHome, claudeRoot, state, env: withoutClaude, home });
   assert.deepEqual(evidence.blockers.filter(item => item.agent === 'claude').map(item => item.evidence), ['Claude 安装记录']);
+  // A Claude command line that answers its version but fails to list: the record is the evidence.
+  const failing = await script(path.join(root, 'claude-failing'), 'case "$1" in --version) echo "2.1.288 (Claude Code)" ;; *) exit 1 ;; esac');
+  evidence = await commandLineGateEvidence({ codexHome, claudeRoot, state, env: { ...env, SKILLDOCK_CLAUDE_BIN: failing }, home });
+  assert.deepEqual(evidence.blockers.filter(item => item.agent === 'claude').map(item => item.evidence), ['Claude 安装记录']);
+  assert.ok(evidence.notes.some(note => note.startsWith('Claude 命令行插件清单失败') && note.endsWith('改用安装记录。')));
   await fs.writeFile(path.join(oldClaude, '.orphaned_at'), '1');
   evidence = await commandLineGateEvidence({ codexHome, claudeRoot, state, env: withoutClaude, home });
   assert.equal(evidence.blockers.some(item => item.agent === 'claude'), false);
@@ -111,14 +117,16 @@ test('through the real entry: the cli pass-through gets the allowed variables an
   const root = await temp(t); const home = path.join(root, 'home'); const state = path.join(root, 'state'); await fs.mkdir(home);
   const seen = path.join(root, 'seen');
   const codex = await script(path.join(root, 'codex'), `/usr/bin/env | /usr/bin/cut -d= -f1 > "${seen}-$1-$2"
-case "$1 $2" in
-"--version ") echo "codex-cli 0.200.0" ;;
-"plugin --help") echo "list marketplace" ;;
+case "$1 $2 $3" in
+"--version  ") echo "codex-cli 0.200.0" ;;
+"plugin --help ") echo "list marketplace" ;;
+"plugin list --json") echo '{"installed":[]}' ;;
 *) echo listed ;;
 esac`);
   const launcher = fileURLToPath(new URL('../../../scripts/launch.sh', import.meta.url));
   const session = { CLAUDECODE: '1', ANTHROPIC_API_KEY: 'not-a-real-key', CLAUDE_CODE_OAUTH_TOKEN: 'not-a-real-token', CODEX_THREAD_ID: 'thread' };
-  const env = { HOME: home, PATH: '/usr/bin:/bin', SKILLDOCK_NODE_BIN: process.execPath, SKILLDOCK_STATE_DIR: state, SKILLDOCK_NO_DIALOG: '1',
+  const port = await new Promise(resolve => { const server = net.createServer().listen(0, '127.0.0.1', () => { const { port } = server.address(); server.close(() => resolve(port)); }); });
+  const env = { HOME: home, PATH: '/usr/bin:/bin', PORT: String(port), SKILLDOCK_NODE_BIN: process.execPath, SKILLDOCK_STATE_DIR: state, SKILLDOCK_NO_DIALOG: '1',
     SKILLDOCK_CODEX_BIN: codex, SKILLDOCK_CLAUDE_BIN: path.join(root, 'absent-claude'), CODEX_HOME: path.join(root, 'codex-home'), ...session };
   const run = args => promisify(execFile)('/bin/sh', [launcher, ...args], { env, cwd: root });
   assert.equal((await run(['cli', 'plugin', 'list'])).stdout.trim(), 'listed');
@@ -128,11 +136,14 @@ esac`);
     assert.ok(received.includes('CODEX_HOME'), name);
   }
   // A data directory of another source: refused (exit 1, nothing on stdout), and the
-  // bootstrap's Node selection is not written into it.
+  // bootstrap's Node selection is not written into it. The gate ran first and named the
+  // command line that confirmed Codex's plugin list.
+  await fs.mkdir(env.CODEX_HOME);
   await fs.mkdir(state); const other = path.join(root, 'other/app'); await fs.mkdir(other, { recursive: true });
   await fs.writeFile(path.join(state, 'launcher.json'), JSON.stringify({ url: 'http://127.0.0.1:9', pid: 2 ** 22 + 99, state: await fs.realpath(state), project: root, projectContext: null,
     source: other, installation: { kind: 'directory', source: other }, digest: 'x', runtime: path.join(state, 'runtimes/x'), codexHome: env.CODEX_HOME, cli: null, execution: null }));
-  const refused = await run(['start', '--project', root]).then(() => null, error => error);
+  const refused = await run(['start', '--project', root]).then(async () => { await run(['stop']).catch(() => {}); return null; }, error => error);
   assert.deepEqual([refused?.code, refused.stdout], [1, '']); assert.match(refused.stderr, /另一个源码实例/);
+  assert.ok(refused.stderr.includes(`已用 Codex 命令行 ${codex}（codex-cli 0.200.0）确认插件清单。`));
   await assert.rejects(fs.stat(path.join(state, 'settings')), { code: 'ENOENT' });
 });

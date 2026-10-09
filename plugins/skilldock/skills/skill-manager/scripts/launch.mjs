@@ -239,7 +239,7 @@ export async function launch(action = 'start', options = {}) {
   await checkOwner(initial);
   // HLD 3.10: the Node the bootstrap selected is saved only now, in a data directory that
   // belongs to this installation (an unchanged saved selection is not written again).
-  if (env.SKILLDOCK_NODE_SOURCE && env.SKILLDOCK_NODE_SOURCE !== 'saved' && absolute(env.SKILLDOCK_SELECTED_NPM_CLI))
+  if (['start', 'restart'].includes(action) && env.SKILLDOCK_NODE_SOURCE && env.SKILLDOCK_NODE_SOURCE !== 'saved' && absolute(env.SKILLDOCK_SELECTED_NPM_CLI))
     await writeSavedNode(state, { node: process.execPath, nodeVersion: process.version, npmCli: env.SKILLDOCK_SELECTED_NPM_CLI,
       npmVersion: env.SKILLDOCK_SELECTED_NPM_VERSION, source: env.SKILLDOCK_NODE_SOURCE }).catch(error => process.stderr.write(`SkillDock：未能保存所选 Node：${error.message}\n`));
   // 36a §7: the fixed legacy directory is confirmed on every run once migrated.

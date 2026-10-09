@@ -59,6 +59,8 @@ async function legacyData(f, record) {
 }
 
 const changeApp = appDir => fs.appendFile(path.join(appDir, 'README.md'), '\n0.11');
+// The error of a launch expected to be refused; one a regression lets through is stopped at once.
+const refusal = (launched, stop) => launched.then(async () => { await stop().catch(() => {}); return null; }, error => error);
 
 // A stand-in Codex command line: records its arguments, lists SkillDock at `versions`.
 async function codexStandIn(f, versions = []) {
@@ -188,9 +190,8 @@ test('the command lines confirm what the file evidence lets through; refused job
   const next = { ...await installedVersion(f, '0.10.3'), port };
   const options = { ...f, port, codexHome: next.codexHome };
   const codex = await codexStandIn(f, ['0.10.2']); const env = { ...f.env, SKILLDOCK_CODEX_BIN: codex.file };
-  t.after(() => launch('stop', { ...options, env }).catch(() => {}));
   // The cache shows 0.10.3 only; Codex itself still reports 0.10.2.
-  const blocked = await launch('start', { ...options, env }).then(() => null, error => error);
+  const blocked = await refusal(launch('start', { ...options, env }), () => launch('stop', { ...options, env }));
   assert.equal(blocked?.exitCode, 4);
   assert.deepEqual(blocked.output.blockers.map(item => [item.agent, item.version, item.evidence]), [['codex', '0.10.2', 'Codex 命令行插件清单']]);
   for (const name of ['launcher.json', 'restart.json', 'local', 'background', 'generation.json']) assert.equal(await exists(path.join(f.stateDir, name)), false, name);
@@ -370,8 +371,7 @@ test('a record from an unseen Claude configuration is refused with its reason; a
   const listing = async () => (await fs.readdir(old.state, { recursive: true })).sort();
   const before = await listing(); const bytes = await fs.readFile(path.join(old.state, 'launcher.json'));
   const realCustom = await fs.realpath(custom);
-  t.after(() => launch('stop', { ...next, env: { ...next.env, CLAUDE_CONFIG_DIR: custom } }).catch(() => {}));
-  let refused = await launch('start', next).then(() => null, error => error);
+  let refused = await refusal(launch('start', next), () => launch('stop', next));
   assert.deepEqual([refused?.exitCode, refused.output.status], [1, 'owner-unverified']);
   assert.ok(refused.message.includes(realCustom));
   assert.ok(refused.output.steps[0].includes(`pid ${old.pid}`) && refused.output.steps[0].includes('launch.sh" stop'), '旧服务仍在运行时先给出停止步骤');
@@ -385,7 +385,7 @@ test('a record from an unseen Claude configuration is refused with its reason; a
   assert.ok(refused.output.steps[0].startsWith('若那份 SkillDock 已不再使用，且它的服务已停止'));
   // With CLAUDE_CONFIG_DIR the installation is visible: an old one still in use, named by version.
   await fs.writeFile(path.join(custom, 'plugins/known_marketplaces.json'), JSON.stringify({ [MARKET]: { source: { source: 'git', url: 'https://github.com/TestAny-io/testany-agent-skills.git' } } }));
-  refused = await launch('start', { ...next, env: { ...next.env, CLAUDE_CONFIG_DIR: custom } }).then(() => null, error => error);
+  refused = await refusal(launch('start', { ...next, env: { ...next.env, CLAUDE_CONFIG_DIR: custom } }), () => launch('stop', { ...next, env: { ...next.env, CLAUDE_CONFIG_DIR: custom } }));
   assert.deepEqual([refused?.exitCode, refused.output.status], [4, 'migration-blocked']);
   assert.match(refused.message, /SkillDock 0\.0\.0（低于 0\.10\.3）/);
   assert.deepEqual([await listing(), await fs.readFile(path.join(old.state, 'launcher.json'))], [before, bytes]);

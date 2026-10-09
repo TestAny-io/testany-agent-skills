@@ -193,7 +193,7 @@
 |------|------|-----------|
 | 阶段 0 | 已完成 | 契约 v0.6 起的 1b 修订；V11～V14 实测见 HLD 9.3 |
 | 阶段 1 | 已完成 | 迁移、门槛、单实例与 0.10.x 兼容义务；代码复核到第 4 轮（[r4](38-cross-agent-phase1-code-review-r4.md)）通过，其 P2 与 HLD 第 21 轮、契约第 13 轮 P2 在 `7971fd8` 处理（HLD v1.14、契约 v0.14，待增量复审） |
-| 阶段 2 | 已完成，代码复核第 2 轮通过 | 2a 运行环境 `38bd668`；2b Claude 命令行与环境白名单 `fe777f2`；2c 分发 `7d19e86`；2d Claude 侧安装 `e0ed4ab`（两侧互调用例；可选冒烟 `tests/claude-distribution-smoke.mjs` 在临时 HOME 中真实安装：只得到技能与命令、MCP 服务为 0、TeamDesk 标注可见、`doctor` 只读）。冒烟顺带发现 Homebrew Node 与 npm 配对失败，已在 `e0ed4ab` 修正。代码评审（[报告](38-cross-agent-phase2-code-review.md)）P1 1 项、P2 8 项，已在 `a925599`、`35f0b71`、`ef67997`、`af3ffad`、`1f761c8` 修复（HLD v1.15 同步文字）。代码复核第 2 轮（[报告](38-cross-agent-phase2-code-review-r2.md)）APPROVED，P2 3 项与 HLD 第 23 轮两处措辞随后修复（HLD v1.16，待最后一次窄范围复核）。冒烟不再请求远端插件目录，须在禁止外连的沙箱中运行；测试世界不再运行本机的 Agent 命令行；完整套件在禁止外连、禁止执行本机 Agent 命令行的沙箱中通过 |
+| 阶段 2 | 已完成，代码复核第 3 轮与 HLD 第 24 轮通过 | 2a 运行环境 `38bd668`；2b Claude 命令行与环境白名单 `fe777f2`；2c 分发 `7d19e86`；2d Claude 侧安装 `e0ed4ab`（两侧互调用例；可选冒烟 `tests/claude-distribution-smoke.mjs` 在临时 HOME 中真实安装：只得到技能与命令、MCP 服务为 0、TeamDesk 标注可见、`doctor` 只读）。冒烟顺带发现 Homebrew Node 与 npm 配对失败，已在 `e0ed4ab` 修正。代码评审（[报告](38-cross-agent-phase2-code-review.md)）P1 1 项、P2 8 项，已在 `a925599`、`35f0b71`、`ef67997`、`af3ffad`、`1f761c8` 修复（HLD v1.15 同步文字）。代码复核第 2 轮（[报告](38-cross-agent-phase2-code-review-r2.md)）APPROVED，P2 3 项与 HLD 第 23 轮两处措辞在 `58dc726` 修复（HLD v1.16）；第 3 轮窄范围复核（[报告](38-cross-agent-phase2-code-review-r3.md)）APPROVED，HLD 第 24 轮 APPROVED（带条件，证书绑定 v1.16），其余只涉及测试的 P2 在随后的提交中修复（未再开评审轮次）。HLD 第 24 轮的三条观察（3.3 除外清单未列对话框与 `codesign`、处理表措辞、多余空行）留到下次修订 HLD 时一并处理。冒烟不再请求远端插件目录，须在禁止外连的沙箱中运行；测试世界不再运行本机的 Agent 命令行；完整套件在禁止外连、禁止执行本机 Agent 命令行的沙箱中通过 |
 
 ## 估算
 
