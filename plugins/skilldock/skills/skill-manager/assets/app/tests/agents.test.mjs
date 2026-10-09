@@ -24,7 +24,8 @@ async function world(t, { codex = true, claude = true } = {}) {
   const state = path.join(root, 'state'); await fs.mkdir(state); await writeGeneration(state, 2);
   const options = { home, codexHome, projectDir: home, stateDir: state, background: false,
     adapter: { list: async () => ({ plugins: [], marketplaces: [], diagnostics: [], cli: status.codex }) },
-    claudeCli: async () => status.claude, env: { HOME: home } };
+    claudeCli: async () => status.claude, env: { HOME: home },
+    claudeCatalog: { managedDir: path.join(root, 'no-managed'), listPlugins: async () => [], listMarketplaces: async () => [] } };
   const service = await createService(options);
   t.after(async () => { await service.close(); await fs.rm(root, { recursive: true, force: true }); });
   const act = request => service.action({ mode: 'local', ...request }).then(result => result, error => error);
