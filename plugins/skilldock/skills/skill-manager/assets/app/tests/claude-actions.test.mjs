@@ -61,7 +61,14 @@ async function world(t, { management = 'enabled', cli = true, repo = null } = {}
     if (verb === 'install') { claude.plugins.push({ id: a, scope, enabled: true, version: '2.0.0', ...(scope === 'user' ? {} : { projectPath: claude.twist.installProject ?? cwd }) }); if (scope === 'local') await write(path.join(cwd, '.claude/settings.local.json'), '{}'); }
     if (verb === 'uninstall') claude.plugins = claude.plugins.filter(p => !(p.id === a && p.scope === scope));
     if (verb === 'marketplace' && a === 'add') claude.marketplaces.push({ name: 'added', source: 'directory', path: b });
-    if (verb === 'marketplace' && a === 'remove') { claude.marketplaces = claude.marketplaces.filter(m => m.name !== b); claude.plugins = claude.plugins.filter(p => !p.id.endsWith(`@${b}`)); }
+    if (verb === 'marketplace' && a === 'remove') {
+      claude.marketplaces = claude.marketplaces.filter(m => m.name !== b); claude.plugins = claude.plugins.filter(p => !p.id.endsWith(`@${b}`));
+      // Like Claude: the declaration goes from every settings layer (unless a test keeps it).
+      if (!claude.twist.keepDeclarations) for (const file of [path.join(configDir, 'settings.json'), path.join(cwd, '.claude/settings.json'), path.join(cwd, '.claude/settings.local.json')]) {
+        const current = await fs.readFile(file, 'utf8').then(JSON.parse, () => null);
+        if (current?.extraKnownMarketplaces?.[b]) { delete current.extraKnownMarketplaces[b]; await write(file, current); }
+      }
+    }
     return { ok: true };
   };
   const gitCalls = [];
@@ -195,9 +202,14 @@ test('shared project settings need confirmation; a new local settings file asks 
   // The file exists now: no further question.
   const after = await w.object('plugins', 'demo');
   assert.match((await w.act({ action: 'plugin.toggle', id: after.id, enabled: true, scope: 'local', expectedRevision: after.revision })).message, /已在项目本地设置中启用 Claude 插件 demo/);
-  const confirmed = await w.object('plugins', 'demo');
-  await w.act({ action: 'plugin.toggle', id: confirmed.id, enabled: false, scope: 'project', confirm: true, expectedRevision: confirmed.revision });
-  assert.equal(w.claude.calls.at(-1).args.join(' '), 'plugin disable demo@m --scope project --json');
+  // The local settings decide now: the shared project settings would not take effect.
+  const confirmed = await w.object('plugins', 'demo'); const calls = w.claude.calls.length;
+  assert.equal((await w.act({ action: 'plugin.toggle', id: confirmed.id, enabled: false, scope: 'project', confirm: true, expectedRevision: confirmed.revision })).code, 'SCOPE_INEFFECTIVE');
+  assert.equal(w.claude.calls.length, calls);
+  // Where no higher layer decides, a confirmed write to the shared settings runs.
+  const proj = await w.object('plugins', 'proj');
+  await w.act({ action: 'plugin.toggle', id: proj.id, enabled: false, scope: 'project', confirm: true, expectedRevision: proj.revision });
+  assert.equal(w.claude.calls.at(-1).args.join(' '), 'plugin disable proj@m --scope project --json');
 });
 
 test('installing from a marketplace: preview, scope, revision and readback; skills cannot be picked for Claude', async t => {
@@ -275,6 +287,20 @@ test('removing a marketplace that the shared project settings declare, or that p
   assert.deepEqual(await removalRules(), ['affected-plugins', 'reload'], '只剩用户范围的安装');
   await write(path.join(w.project, '.claude/settings.json'), { extraKnownMarketplaces: { m: { source: { source: 'github', repo: 'o/m' } } } });
   assert.deepEqual(await removalRules(), ['affected-plugins', 'scope', 'reload'], '项目共享设置声明了它');
+  // Shared project settings that only hold an entry of a plugin from it change too.
+  await write(path.join(w.project, '.claude/settings.json'), { enabledPlugins: { 'demo@m': true } });
+  assert.deepEqual(await removalRules(), ['affected-plugins', 'scope', 'reload'], '项目共享设置中有从它安装的插件条目');
+  // A declaration left behind after the removal is not reported as done.
+  await write(path.join(w.project, '.claude/settings.json'), { extraKnownMarketplaces: { m: { source: { source: 'github', repo: 'o/m' } } } });
+  w.claude.twist = { keepDeclarations: true };
+  let current = (await w.snapshot()).marketplaces.find(item => item.id === 'claude:marketplace:m');
+  const left = await w.act({ action: 'marketplace.remove', id: current.id, expectedRevision: current.revision, confirm: true });
+  assert.equal(left.code, 'READBACK_FAILED'); assert.match(left.message, /仍有它的声明/);
+  w.claude.twist = {}; w.claude.marketplaces.push({ name: 'm', source: 'github', repo: 'o/m', installLocation: path.join(w.configDir, 'plugins/marketplaces/m') });
+  current = (await w.snapshot()).marketplaces.find(item => item.id === 'claude:marketplace:m');
+  assert.match((await w.act({ action: 'marketplace.remove', id: current.id, expectedRevision: current.revision, confirm: true })).message, /已从 Claude 中移除 marketplace m/);
+  assert.deepEqual(JSON.parse(await fs.readFile(path.join(w.project, '.claude/settings.json'), 'utf8')).extraKnownMarketplaces, {}, '声明已删除');
+  w.claude.marketplaces.push({ name: 'm', source: 'github', repo: 'o/m', installLocation: path.join(w.configDir, 'plugins/marketplaces/m') });
   // Declared by managed settings: not removable here.
   await write(path.join(w.root, 'no-managed/managed-settings.json'), { extraKnownMarketplaces: { m: { source: { source: 'github', repo: 'o/m' } } } });
   const managed = (await w.snapshot()).marketplaces.find(item => item.id === 'claude:marketplace:m');
@@ -289,9 +315,25 @@ test('switching a user installation that the project decides writes the local se
   assert.equal(demo.enablement.decidedBy, 'project');
   await w.act({ action: 'plugin.toggle', id: demo.id, enabled: false, expectedRevision: demo.revision, gitExclude: false });
   assert.deepEqual([w.claude.calls.at(-1).args.join(' '), w.claude.calls.at(-1).cwd], ['plugin disable demo@m --scope local --json', w.project]);
-  w.claude.noop = true; const again = await w.object('plugins', 'demo');
-  const failed = await w.act({ action: 'plugin.toggle', id: again.id, enabled: true, scope: 'user', expectedRevision: again.revision });
-  assert.equal(failed.code, 'READBACK_FAILED'); assert.match(failed.message, /已写入用户设置/);
+  // Writing the user settings explicitly cannot take effect while a project layer decides: refused, nothing runs.
+  const again = await w.object('plugins', 'demo'); const calls = w.claude.calls.length;
+  assert.equal((await w.act({ action: 'plugin.toggle', id: again.id, enabled: true, scope: 'user', expectedRevision: again.revision })).code, 'SCOPE_INEFFECTIVE');
+  assert.equal(w.claude.calls.length, calls);
+  // A readback failure names the layer written.
+  w.claude.noop = true;
+  const failed = await w.act({ action: 'plugin.toggle', id: again.id, enabled: true, expectedRevision: again.revision, gitExclude: false });
+  assert.equal(failed.code, 'READBACK_FAILED'); assert.match(failed.message, /已写入项目本地设置/);
+});
+
+test('a user installation that the local settings decide is switched there too', async t => {
+  const w = await world(t);
+  await write(path.join(w.project, '.claude/settings.local.json'), { enabledPlugins: { 'demo@m': false } });
+  w.claude.plugins.find(item => item.id === 'demo@m').enabled = false;
+  const demo = await w.object('plugins', 'demo');
+  assert.deepEqual([demo.enablement.decidedBy, demo.canToggle], ['local', true]);
+  await w.act({ action: 'plugin.toggle', id: demo.id, enabled: true, expectedRevision: demo.revision });
+  assert.equal(w.claude.calls.at(-1).args.join(' '), 'plugin enable demo@m --scope local --json');
+  assert.equal((await w.object('plugins', 'demo')).enabled, true);
 });
 
 test('every write reads back what it claims: installs, uninstalls, marketplace additions, refreshes and removals', async t => {

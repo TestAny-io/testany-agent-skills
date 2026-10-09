@@ -1326,5 +1326,25 @@
   "技能安装根指向插件或系统管理目录，不能写入。": {
     "en": "The skill installation root points into a plugin or system-managed directory and cannot be written.",
     "ja": "スキルのインストール先がプラグインまたはシステム管理のディレクトリを指しているため、書き込めません。"
+  },
+  "当前由更高优先级的设置层决定，写入所选的设置层不会生效；请改选那一层，或不指定作用域。": {
+    "en": "A higher-precedence settings layer decides this now, so writing the chosen layer would not take effect. Choose that layer, or leave the scope unset.",
+    "ja": "現在はより優先度の高い設定レイヤーで決まっているため、選んだレイヤーに書き込んでも反映されません。そのレイヤーを選ぶか、スコープを指定しないでください。"
+  },
+  "这个技能在 Claude 一侧还不能在这里切换（两侧共用技能的 Claude 一侧随后续版本提供）。": {
+    "en": "This skill cannot be switched on the Claude side here yet (the Claude side of skills both Agents share comes in a later version).",
+    "ja": "このスキルは Claude 側ではまだここで切り替えられません（両方の Agent が共有するスキルの Claude 側は今後のバージョンで提供します）。"
+  },
+  "marketplace 已从清单中移除，但设置中仍有它的声明，以后可能被重新添加；请刷新核实。": {
+    "en": "The marketplace is gone from the list, but settings still declare it, so it may be added again later. Refresh to check.",
+    "ja": "マーケットプレイスは一覧から消えましたが、設定にまだ宣言が残っているため、後で再び追加される可能性があります。更新して確認してください。"
+  },
+  "设置文件 {v0} 的链接层级过多，SkillDock 不会改写它。": {
+    "en": "The settings file {v0} goes through too many links; SkillDock does not rewrite it.",
+    "ja": "設定ファイル {v0} はリンクの段数が多すぎるため、SkillDock は書き換えません。"
+  },
+  "设置文件 {v0} 是指向不存在目录的链接，SkillDock 不会为它创建目录。": {
+    "en": "The settings file {v0} is a link into a directory that does not exist; SkillDock does not create it.",
+    "ja": "設定ファイル {v0} は存在しないディレクトリへのリンクのため、SkillDock はディレクトリを作成しません。"
   }
 }

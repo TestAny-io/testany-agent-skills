@@ -76,9 +76,11 @@ test('a middle visibility is confirmed before it is replaced; a project skill go
   await w.act({ action: 'skill.toggle', id: p1.id, enabled: false, expectedRevision: p1.revision });
   assert.deepEqual(await json(path.join(w.project, '.claude/settings.local.json')), { skillOverrides: { p1: 'off' } });
   assert.equal((await w.find('p1')).visibility, 'disabled');
-  // The shared project settings need confirmation.
+  // The local settings decide p1 now: the shared settings would not take effect. Elsewhere they need confirmation.
   const again = await w.find('p1');
-  assert.equal((await w.act({ action: 'skill.toggle', id: again.id, enabled: true, scope: 'project', expectedRevision: again.revision })).code, 'CONFIRMATION_REQUIRED');
+  assert.equal((await w.act({ action: 'skill.toggle', id: again.id, enabled: true, scope: 'project', expectedRevision: again.revision })).code, 'SCOPE_INEFFECTIVE');
+  const u3 = await w.find('u3');
+  assert.equal((await w.act({ action: 'skill.toggle', id: u3.id, enabled: false, scope: 'project', expectedRevision: u3.revision })).code, 'CONFIRMATION_REQUIRED');
 });
 
 test('when the project decides a personal skill, the local settings are written; managed settings lock it', async t => {
@@ -90,10 +92,11 @@ test('when the project decides a personal skill, the local settings are written;
   assert.deepEqual(await json(path.join(w.project, '.claude/settings.local.json')), { skillOverrides: { u3: 'on' } });
   assert.deepEqual(await json(path.join(w.project, '.claude/settings.json')), { skillOverrides: { u3: 'off' } }, '共享设置不变');
   assert.equal((await w.find('u3')).visibility, 'enabled');
-  // Asked to write the user settings anyway: the project still decides, and the readback says so.
+  // Asked to write the user settings anyway: the local settings decide now, so it is refused unwritten.
   const now = await w.find('u3');
-  const result = await w.act({ action: 'skill.toggle', id: now.id, enabled: false, scope: 'user', expectedRevision: now.revision });
-  assert.equal(result.code, 'READBACK_FAILED');
+  const before = await fs.readFile(path.join(w.configDir, 'settings.json'), 'utf8');
+  assert.equal((await w.act({ action: 'skill.toggle', id: now.id, enabled: false, scope: 'user', expectedRevision: now.revision })).code, 'SCOPE_INEFFECTIVE');
+  assert.equal(await fs.readFile(path.join(w.configDir, 'settings.json'), 'utf8'), before, '用户设置不变');
   const m1 = await w.find('m1');
   assert.deepEqual([m1.canToggle, m1.protection], [false, 'managed']); assert.match(m1.reason, /组织托管设置决定/);
   assert.equal((await w.act({ action: 'skill.toggle', id: m1.id, enabled: true, expectedRevision: m1.revision })).code, 'HOST_MANAGED');
@@ -123,15 +126,23 @@ test('a middle tier, the shared settings and same-named skills are confirmed tog
   assert.deepEqual([journal.restore.key, journal.restore.previous, journal.restore.created], ['p1', null, true]);
 });
 
-test('a middle tier in the very file written is not dropped unasked; the Claude side of a shared skill waits for 4c', async t => {
-  const w = await world(t);
-  // The user settings hold a middle tier, the project decides "on": writing the user layer explicitly asks first.
+test('a lower layer than the deciding one is refused unwritten; a middle tier and a new local file are confirmed together', async t => {
+  const w = await world(t, { repo: true });
+  await fs.mkdir(path.join(w.project, '.git/info'), { recursive: true });
+  // The user settings hold a middle tier, the project decides "on": the user layer cannot take effect.
   await write(path.join(w.project, '.claude/settings.json'), { skillOverrides: { u2: 'on' } });
   const u2 = await w.find('u2');
   assert.deepEqual([u2.visibility, u2.enablement.decidedBy], ['enabled', 'project']);
-  const ask = await w.act({ action: 'skill.toggle', id: u2.id, enabled: false, scope: 'user', expectedRevision: u2.revision });
-  assert.equal(ask.code, 'CONFIRMATION_REQUIRED'); assert.match(ask.nativeRules[0].message, /仅显示名称/);
-  assert.equal((await json(path.join(w.configDir, 'settings.json'))).skillOverrides.u2, 'name-only', '确认前不写');
+  assert.equal((await w.act({ action: 'skill.toggle', id: u2.id, enabled: false, scope: 'user', expectedRevision: u2.revision })).code, 'SCOPE_INEFFECTIVE');
+  assert.equal((await json(path.join(w.configDir, 'settings.json'))).skillOverrides.u2, 'name-only', '不写');
+  // A project skill whose shared entry is a middle tier, written to a new local file: one confirmation.
+  await write(path.join(w.project, '.claude/settings.json'), { skillOverrides: { p1: 'user-invocable-only' } });
+  const p1 = await w.find('p1');
+  const both = await w.act({ action: 'skill.toggle', id: p1.id, enabled: false, expectedRevision: p1.revision });
+  assert.deepEqual(both.nativeRules.map(rule => rule.kind), ['visibility', 'scope', 'reload'], '中间档与本地设置文件的选择一次确认');
+  await w.act({ action: 'skill.toggle', id: p1.id, enabled: false, confirm: true, gitExclude: false, expectedRevision: p1.revision });
+  assert.equal(await fs.stat(path.join(w.project, '.git/info/exclude')).then(() => true, () => false), false, '不同意时不写 exclude');
+  assert.equal((await w.find('p1')).visibility, 'disabled');
   // A Codex ID names a shared skill: its Claude side is not switched yet, and says so.
   assert.equal((await w.act({ action: 'skill.toggle', id: 'abcdef0123456789abcdef01', enabled: false })).code, 'UNSUPPORTED_FOR_AGENT');
 });
@@ -147,6 +158,17 @@ test('the settings patch keeps permissions, follows a dangling link, accepts any
   await fs.symlink(target, dangling); await fs.mkdir(path.dirname(target));
   await patchClaudeSetting(dangling, 'skillOverrides', 'x', 'off');
   assert.deepEqual([(await fs.lstat(dangling)).isSymbolicLink(), await json(target)], [true, { skillOverrides: { x: 'off' } }], '悬空链接写到它指向的位置');
+  // Two links, the last one dangling: written at the final place; links into a missing directory are refused.
+  const final = path.join(root, 'final/settings.json'); await fs.mkdir(path.dirname(final));
+  await fs.symlink(final, path.join(root, 'second.json')); await fs.symlink(path.join(root, 'second.json'), path.join(root, 'first.json'));
+  await patchClaudeSetting(path.join(root, 'first.json'), 'skillOverrides', 'y', 'on');
+  assert.deepEqual([(await fs.lstat(path.join(root, 'second.json'))).isSymbolicLink(), await json(final)], [true, { skillOverrides: { y: 'on' } }]);
+  await fs.symlink(path.join(root, 'missing/dir/settings.json'), path.join(root, 'nowhere.json'));
+  await assert.rejects(patchClaudeSetting(path.join(root, 'nowhere.json'), 'skillOverrides', 'z', 'on'), { code: 'SETTINGS_FORMAT' });
+  assert.equal(await fs.stat(path.join(root, 'missing')).then(() => true, () => false), false, '不创建目录');
+  // The caller's check on the entry as the patch reads it stops the write.
+  await assert.rejects(patchClaudeSetting(privateFile, 'skillOverrides', 'constructor', 'on', { beforeWrite: previous => { if (previous !== 'on') throw Object.assign(new Error('stale'), { code: 'SNAPSHOT_STALE' }); } }), { code: 'SNAPSHOT_STALE' });
+  assert.deepEqual(await json(privateFile), { skillOverrides: { constructor: 'off' } }, '核对不过不写');
   for (const [text, label] of [['[1]', '顶层不是对象'], ['{"skillOverrides":[]}', '条目段不是对象'], ['{"big": 12345678901234567890}', '超出安全范围的整数']]) {
     const file = path.join(root, `${label}.json`); await write(file, text);
     await assert.rejects(patchClaudeSetting(file, 'skillOverrides', 'x', 'off'), { code: 'SETTINGS_FORMAT' }, label);

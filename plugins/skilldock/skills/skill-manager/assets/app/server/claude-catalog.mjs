@@ -324,7 +324,11 @@ export async function claudeCatalog({ claudeRoot, project, cli, env = process.en
   plugins.push(...available);
   diagnostics.push(...problems.slice(1));
   const unconfirmed = !cli?.available ? null : problems.length ? `无法确认 Claude 中的插件状态：${problems[0]}` : null;
-  // Which settings layers declare each marketplace: removing one deletes every declaration (4a review P1-01).
-  const declarations = Object.fromEntries(marketplaces.map(market => [market.name, LAYERS.filter(layer => Object.hasOwn(layers[layer].extraKnownMarketplaces || {}, market.name))]));
-  return { skills, plugins, marketplaces, diagnostics, unconfirmed, evidence: installed ? 'cli' : record ? 'record' : 'none', listed: !!(cli?.available && rooted), declarations };
+  // Which settings layers declare each marketplace, listed or not (a removal must leave none
+  // behind), and whether the shared project settings hold entries of plugins from it: removing it
+  // changes them too (4a review P1-01; review r2 P3-04).
+  const declarations = {}; const projectEntries = {};
+  for (const layer of LAYERS) for (const name of Object.keys(layers[layer].extraKnownMarketplaces || {})) (declarations[name] ??= []).push(layer);
+  for (const key of Object.keys(layers.project.enabledPlugins || {})) { const market = key.split('@')[1]; if (market) projectEntries[market] = true; }
+  return { skills, plugins, marketplaces, diagnostics, unconfirmed, evidence: installed ? 'cli' : record ? 'record' : 'none', listed: !!(cli?.available && rooted), declarations, projectEntries };
 }

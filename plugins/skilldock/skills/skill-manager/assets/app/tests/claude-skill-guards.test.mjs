@@ -7,6 +7,7 @@ import assert from 'node:assert/strict';
 import fs from 'node:fs/promises';
 import os from 'node:os';
 import path from 'node:path';
+import { fileURLToPath } from 'node:url';
 import { createService } from '../server/service.mjs';
 import { writeGeneration } from '../server/generation.mjs';
 
@@ -20,7 +21,7 @@ async function world(t, { linkProject = false, projectInRepo = false, rootIntoPl
   let project = path.join(root, 'project'); await fs.mkdir(project, { recursive: true });
   if (projectInRepo) { await fs.mkdir(path.join(root, 'repo/.git'), { recursive: true }); project = path.join(root, 'repo/sub'); await fs.mkdir(project, { recursive: true }); await skillFile(path.join(root, 'repo/.claude/skills'), 'anc'); }
   if (linkProject) { await fs.symlink(project, path.join(root, 'project-link')); project = path.join(root, 'project-link'); }
-  if (rootIntoPluginCache) { await fs.mkdir(path.join(configDir, 'plugins/cache/x/skills'), { recursive: true }); await fs.symlink(path.join(configDir, 'plugins/cache/x/skills'), path.join(configDir, 'skills')); }
+  if (rootIntoPluginCache) { await skillFile(path.join(configDir, 'plugins/cache/x/skills'), 'cached'); await fs.symlink(path.join(configDir, 'plugins/cache/x/skills'), path.join(configDir, 'skills')); }
   else await skillFile(path.join(configDir, 'skills'), 'kept');
   const state = path.join(root, 'state'); await fs.mkdir(state); await writeGeneration(state, 2);
   const agentsFile = path.join(state, 'settings/agents.json');
@@ -146,6 +147,9 @@ test('only the personal skills directory and the current project are changed; a 
   const preview = (await cache.act({ action: 'skill.previewInstall', agent: 'claude', sourceType: 'local', source: path.join(cache.root, 'source/fresh') })).preview;
   assert.equal((await cache.act({ action: 'skill.install', agent: 'claude', previewId: preview.id })).code, 'TARGET_BOUNDARY');
   assert.equal(await exists(path.join(cache.configDir, 'plugins/cache/x/skills/fresh')), false);
+  const cached = await cache.claudeSkill('cached');
+  assert.equal((await cache.act({ action: 'skill.remove', agent: 'claude', id: cached.id, expectedRevision: cached.revision })).code, 'TARGET_BOUNDARY', '插件缓存中的技能不被移走');
+  assert.ok(await exists(path.join(cache.configDir, 'plugins/cache/x/skills/cached/SKILL.md')));
 });
 
 test('a source record is keyed by the real directory, also when the project path is a link', async t => {
@@ -155,5 +159,16 @@ test('a source record is keyed by the real directory, also when the project path
   await w.act({ action: 'skill.install', agent: 'claude', previewId: preview.id });
   const key = Object.keys((await w.registry()).claudeSources)[0];
   assert.equal(key, path.join(w.root, 'project/.claude/skills/fresh'), '键是真实目录，不是经过链接的路径');
-  assert.equal((await w.claudeSkill('fresh')).canUpdate, true);
+  const fresh = await w.claudeSkill('fresh');
+  assert.equal(fresh.canUpdate, true);
+  assert.equal((await w.act({ action: 'skill.checkUpdate', agent: 'claude', id: fresh.id, expectedRevision: fresh.revision })).update.available, false, '检查更新按同一个键找到来源');
+});
+
+test('SkillDock itself, seen as a Claude skill, is not offered for removal', async t => {
+  const w = await world(t);
+  const own = fileURLToPath(new URL('../../../', import.meta.url));
+  await fs.symlink(own, path.join(w.configDir, 'skills/own-skilldock'));
+  const self = (await w.snapshot()).skills.find(item => item.path === path.join(w.configDir, 'skills/own-skilldock/SKILL.md'));
+  assert.ok(self, 'SkillDock 的技能被 Claude 发现');
+  assert.equal(self.canRemove, false);
 });

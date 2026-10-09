@@ -117,6 +117,7 @@ test('a skill both Agents share is not removed from the Claude side yet (phase 4
   const w = await world(t);
   const shared = (await w.snapshot()).skills.find(item => item.name === 'shared');
   assert.equal(shared.agents.join(), 'codex,claude');
+  assert.deepEqual([shared.perAgent.claude.canToggle, shared.perAgent.claude.canRemove, shared.perAgent.claude.canUpdate], [false, false, false], 'Claude 一侧在 4c 之前标为不可修改');
   assert.equal((await w.act({ action: 'skill.remove', agent: 'claude', id: shared.id, expectedRevision: shared.revision })).code, 'UNSUPPORTED_FOR_AGENT');
   assert.ok(await fs.stat(path.join(w.codexHome, 'skills/shared/SKILL.md')));
 });

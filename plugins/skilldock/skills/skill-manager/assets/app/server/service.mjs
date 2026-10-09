@@ -334,7 +334,10 @@ export async function createService(options = {}) {
       // directory's skills belong to the repository and its other projects (4b review P3-04).
       if (path.dirname(directory) !== (skill.scope === 'user' ? roots.user : roots.project)) continue;
       // The same key as the operations: the directory's real path (P3-06).
-      const source = registry.claudeSources?.[await realDirectory(directory)];
+      const real = await realDirectory(directory);
+      // SkillDock itself and system content are never offered (review r2 P3-05), as the operations refuse them.
+      if (inside(real, fileURLToPath(import.meta.url)) || directory.split(path.sep).includes('.system')) continue;
+      const source = registry.claudeSources?.[real];
       const repository = await exists(path.join(directory, '.git'));
       Object.assign(skill, { canRemove: true, removeKind: skill.isLink ? 'link' : 'directory', canUpdate: !!source && !skill.isLink && !repository });
       if (skill.canToggle) delete skill.reason;

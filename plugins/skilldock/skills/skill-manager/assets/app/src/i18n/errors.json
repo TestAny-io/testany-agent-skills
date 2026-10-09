@@ -546,5 +546,25 @@
   "NODE_UNAVAILABLE": {
     "en": "The specified or detected Node.js cannot run SkillDock. Install Node.js 22.12 or later, or choose another path.",
     "ja": "指定または検出された Node.js では SkillDock を実行できません。Node.js 22.12 以降をインストールするか、別のパスを指定してください。"
+  },
+  "SNAPSHOT_STALE": {
+    "en": "The host changed since this page was loaded. Refresh and try again.",
+    "ja": "このページを読み込んだ後に変更がありました。更新してから再試行してください。"
+  },
+  "CONFIRMATION_REQUIRED": {
+    "en": "This change needs your confirmation first.",
+    "ja": "この変更には先に確認が必要です。"
+  },
+  "HOST_MANAGED": {
+    "en": "The host or your organization manages this; it cannot be changed here.",
+    "ja": "これはホストまたは組織が管理しているため、ここでは変更できません。"
+  },
+  "PROJECT_PATH_MISSING": {
+    "en": "The project directory of this installation does not exist, so it is read-only.",
+    "ja": "このインストールのプロジェクトディレクトリが存在しないため、読み取り専用です。"
+  },
+  "SCOPE_INEFFECTIVE": {
+    "en": "A higher-precedence settings layer decides this; writing the chosen layer would not take effect.",
+    "ja": "より優先度の高い設定レイヤーで決まっているため、選んだレイヤーに書き込んでも反映されません。"
   }
 }

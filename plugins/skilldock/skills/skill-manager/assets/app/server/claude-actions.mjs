@@ -15,6 +15,14 @@ export const CLAUDE_WRITES = new Set(['skill.toggle', 'plugin.toggle', 'plugin.p
 // Whole sentences per case, so that each translates as one message.
 const SETTINGS = { user: '用户设置', project: '项目共享设置', local: '项目本地设置' };
 const RELOAD_NOTE = '新会话生效，已打开的会话需要重载插件。';
+// Claude's precedence: managed > local > project > user. A write to a layer below the one that
+// decides now cannot take effect (review r2 P3-01).
+const RANK = { managed: 0, local: 1, project: 2, user: 3 };
+const ineffective = (layer, decided) => !!decided && decided !== 'default' && RANK[decided] < RANK[layer];
+const INEFFECTIVE = '当前由更高优先级的设置层决定，写入所选的设置层不会生效；请改选那一层，或不指定作用域。';
+const readEntry = async (file, section, key) => {
+  try { const data = JSON.parse(await fs.readFile(file, 'utf8')); return data?.[section] && Object.hasOwn(data[section], key) ? data[section][key] : undefined; } catch { return undefined; }
+};
 // A middle visibility is the user's own choice in Claude: turning it on or off drops it.
 const MIDDLE = {
   'name-only': { true: '这个技能当前为“仅显示名称”；设为可见后，这一档会被取消。', false: '这个技能当前为“仅显示名称”；关闭后，这一档会被取消。' },
@@ -82,7 +90,7 @@ export function createClaudeActions({ root, read, writer, journal, git, now = ()
     // HLD 3.4: a Claude skill's visibility is an entry in a settings file; Claude has no command for it.
     async 'skill.toggle'(request, state) {
       // The Claude side of a skill both Agents share is switched by 4c (36c §6); its ID is Codex's.
-      if (!request.id.startsWith('claude:')) fail(422, 'UNSUPPORTED_FOR_AGENT', '两侧共用的技能在 Claude 一侧的切换随后续版本提供。');
+      if (!request.id.startsWith('claude:')) fail(422, 'UNSUPPORTED_FOR_AGENT', '这个技能在 Claude 一侧还不能在这里切换（两侧共用技能的 Claude 一侧随后续版本提供）。');
       const skill = state.claude.skills.find(item => item.id === request.id);
       if (!skill) fail(404, 'NOT_FOUND', '未找到这个 Claude 技能，请刷新后重试。');
       targetName = skill.name;
@@ -92,27 +100,30 @@ export function createClaudeActions({ root, read, writer, journal, git, now = ()
       // Default layer: a personal skill in user settings, unless the project's settings decide
       // it now (local beats project and user, and is not shared); a project skill in local settings.
       const decided = skill.enablement?.decidedBy;
+      if (request.scope && ineffective(request.scope, decided)) fail(422, 'SCOPE_INEFFECTIVE', INEFFECTIVE);
       const layer = request.scope ?? (skill.scope === 'user' && !['local', 'project'].includes(decided) ? 'user' : 'local');
-      // Every rule the change touches is confirmed at once (4b review P2-01): a middle tier that
-      // is dropped, the shared project settings, and other skills with the same name, which
-      // share the entry (P3-03).
+      const project = layer === 'user' ? null : await projectFor(state.project);
+      const file = layer === 'user' ? path.join(state.claudeRoot.configDir, 'settings.json') : path.join(project, '.claude', layer === 'project' ? 'settings.json' : 'settings.local.json');
+      // Every rule the change touches is confirmed at once (4b review P2-01; review r2 P3-01,
+      // P3-05): a middle tier that is dropped (the deciding one, or one in the very file written),
+      // other skills with the same name, which share the entry (P3-03), the shared project
+      // settings, and a new local settings file Git does not ignore.
+      const entry = await readEntry(file, 'skillOverrides', skill.name);
       const sameName = state.claude.skills.filter(item => item.name === skill.name && item.id !== skill.id);
+      const middles = [...new Set([skill.visibility, entry].filter(tier => MIDDLE[tier]))];
+      const exposure = layer === 'local' ? await localSettingsExposure(project, gitOptions) : null;
       const rules = [
-        ...(MIDDLE[skill.visibility] ? [{ kind: 'visibility', message: MIDDLE[skill.visibility][request.enabled] }] : []),
+        ...middles.map(tier => ({ kind: 'visibility', message: MIDDLE[tier][request.enabled] })),
         ...(sameName.length ? [{ kind: 'visibility', message: '同名的其他 Claude 技能共用这一可见性条目，会一并改变：', items: sameName.map(item => item.path) }] : []),
         ...(layer === 'project' ? [SHARED] : []),
       ];
-      if (rules.length && !request.confirm) needConfirmation('修改这个技能的可见性前需要确认。', [...rules, RELOAD]);
-      const project = layer === 'user' ? null : await projectFor(state.project);
-      const exposure = await scopeChecks(layer, project ?? state.project, { ...request, confirm: true }, [...rules, RELOAD]);
-      const file = layer === 'user' ? path.join(state.claudeRoot.configDir, 'settings.json') : path.join(project, '.claude', layer === 'project' ? 'settings.json' : 'settings.local.json');
-      // The decision above came from an earlier read: the entry as the patch reads it must still
-      // agree (P3-02), and a middle tier in this very file is never dropped unasked (P3-08).
-      const expected = decided === layer ? { enabled: 'on', disabled: 'off' }[skill.visibility] ?? skill.visibility : undefined;
+      const choice = exposure && typeof request.gitExclude !== 'boolean'
+        ? [{ kind: 'scope', message: '项目本地设置只属于你；不忽略它可能被误提交。写入 .git/info/exclude 只影响本机，不改动受版本管理的 .gitignore。', items: [exposure.relative] }] : [];
+      if (rules.length && !request.confirm || choice.length) needConfirmation('修改这个技能的可见性前需要确认。', [...rules, ...choice, RELOAD]);
+      // The decision above came from an earlier read: the entry as the patch reads it must be the
+      // one read here (P3-02).
       const patch = await patchClaudeSetting(file, 'skillOverrides', skill.name, value, { beforeWrite: previous => {
-        if (expected !== undefined && (previous ?? 'on') !== expected) fail(409, 'SNAPSHOT_STALE', 'Claude 中已有改动，请刷新后重试。');
-        if (['name-only', 'user-invocable-only'].includes(previous) && !request.confirm)
-          needConfirmation('修改这个技能的可见性前需要确认。', [{ kind: 'visibility', message: MIDDLE[previous][request.enabled] }, RELOAD]);
+        if ((previous ?? null) !== (entry ?? null)) fail(409, 'SNAPSHOT_STALE', 'Claude 中已有改动，请刷新后重试。');
       } });
       const restore = { kind: 'claude-visibility', file: patch.file, section: 'skillOverrides', key: skill.name, previous: patch.previous ?? null, created: patch.created };
       const after = (await read()).claude.skills.find(item => item.id === skill.id);
@@ -137,6 +148,7 @@ export function createClaudeActions({ root, read, writer, journal, git, now = ()
       // directory, is switched in the current project (P3-06).
       const installScope = plugin.installation?.scope ?? 'user';
       const decided = plugin.enablement?.decidedBy;
+      if (request.scope && ineffective(request.scope, decided)) fail(422, 'SCOPE_INEFFECTIVE', INEFFECTIVE);
       const scope = request.scope ?? (installScope === 'user' && !['local', 'project'].includes(decided) ? 'user' : 'local');
       const home = plugin.installation?.projectPath ?? state.project;
       const cwd = scope === 'user' ? await userCwd(state) : await projectFor(installScope === 'user' ? state.project : home);
@@ -216,13 +228,16 @@ export function createClaudeActions({ root, read, writer, journal, git, now = ()
       const affected = [...new Set(installs.map(item => item.name))].sort();
       // Claude removes the declaration from every settings layer, and uninstalls what came from
       // it: the shared project settings change when they declare it or hold such an installation (4a review P1-01).
-      const shared = (state.claude.declarations?.[market.name] ?? []).includes('project') || installs.some(item => item.installation?.scope === 'project');
+      const shared = (state.claude.declarations?.[market.name] ?? []).includes('project') || !!state.claude.projectEntries?.[market.name] || installs.some(item => item.installation?.scope === 'project');
       const rules = [{ kind: 'affected-plugins', message: affected.length ? '移除后，从它安装的这些插件也会被卸载：' : '没有从它安装的插件。', ...(affected.length ? { items: affected } : {}) },
         ...(shared ? [{ kind: 'scope', message: '这会改动协作者共享的 .claude/settings.json：其中这个 marketplace 的声明或从它安装的插件条目会被删除。' }] : []), ...(affected.length ? [RELOAD] : [])];
       if (!request.confirm) needConfirmation(`移除 Claude 的 marketplace ${market.name} 前需要确认。`, rules);
-      await run(['plugin', 'marketplace', 'remove', market.name, '--json'], { cwd: state.project });
+      // The project's layers are reached from the project only: a missing project is said so (review r2 P3-05).
+      await run(['plugin', 'marketplace', 'remove', market.name, '--json'], { cwd: await projectFor(state.project) });
       const after = await read();
       if (after.claude.marketplaces.some(item => item.id === market.id)) readbackFailed('Claude 命令行已返回，但这个 marketplace 仍在清单中，请刷新核实。');
+      // A declaration left in a layer would bring it back (review r2 P3-04).
+      if ((after.claude.declarations?.[market.name] ?? []).some(layer => layer !== 'managed')) readbackFailed('marketplace 已从清单中移除，但设置中仍有它的声明，以后可能被重新添加；请刷新核实。');
       // Say only what the readback shows (P3-04).
       const remaining = installs.filter(item => after.claude.plugins.some(other => other.id === item.id && other.installed)).length;
       const removed = installs.length - remaining;

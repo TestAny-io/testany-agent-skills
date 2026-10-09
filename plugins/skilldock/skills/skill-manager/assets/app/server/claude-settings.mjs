@@ -31,13 +31,18 @@ async function readBytes(file) {
  */
 export async function patchClaudeSetting(file, section, key, value, { beforeWrite, beforeCommit } = {}) {
   if (!SAFE_KEY(section) || !SAFE_KEY(key)) fail(400, 'INVALID_SETTING', '设置条目的名称无效。');
-  // Write through a link to its target, the link itself stays; a dangling link is written at the
-  // place it names.
-  const target = await fs.realpath(file).catch(async error => {
-    if (error.code !== 'ENOENT') throw error;
-    const link = await fs.readlink(file).catch(() => null);
-    return link === null ? file : path.resolve(path.dirname(file), link);
-  });
+  // Write through links to the final target, the links themselves stay; a dangling link is
+  // written at the place it finally names, but never makes directories (review r2 P3-05).
+  let target = file; let dangling = false;
+  for (let hop = 0; ; hop++) {
+    if (hop > 40) fail(422, 'SETTINGS_FORMAT', `设置文件 ${file} 的链接层级过多，SkillDock 不会改写它。`);
+    const stat = await fs.lstat(target).catch(error => { if (error.code === 'ENOENT') return null; throw error; });
+    if (!stat) { dangling = target !== file; break; }
+    if (!stat.isSymbolicLink()) { target = await fs.realpath(target); break; }
+    target = path.resolve(path.dirname(target), await fs.readlink(target));
+  }
+  if (dangling && !await fs.stat(path.dirname(target)).then(item => item.isDirectory(), () => false))
+    fail(422, 'SETTINGS_FORMAT', `设置文件 ${file} 是指向不存在目录的链接，SkillDock 不会为它创建目录。`);
   const original = await readBytes(target);
   let data = {};
   if (original !== null) {
@@ -62,8 +67,8 @@ export async function patchClaudeSetting(file, section, key, value, { beforeWrit
   const temporary = path.join(directory, `.${path.basename(target)}.skilldock-${crypto.randomUUID()}.tmp`);
   try {
     await fs.writeFile(temporary, bytes, { mode, flag: 'wx' });
-    // The creation mode passes through the umask; the file keeps exactly its own mode.
-    await fs.chmod(temporary, mode);
+    // An existing file keeps exactly its own mode; a new one follows the umask (review r2 P3-02).
+    if (original !== null) await fs.chmod(temporary, mode);
     // Claude may have written in between: the digest read first must still hold.
     await beforeCommit?.();
     const current = await readBytes(target);
