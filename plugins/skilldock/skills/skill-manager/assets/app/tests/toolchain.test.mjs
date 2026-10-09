@@ -4,7 +4,7 @@ import fs from 'node:fs/promises';
 import path from 'node:path';
 import os from 'node:os';
 import crypto from 'node:crypto';
-import { execFile } from 'node:child_process';
+import { execFile, spawn } from 'node:child_process';
 import { promisify } from 'node:util';
 import { fileURLToPath } from 'node:url';
 import { resolveToolchain, hasLibraryRestriction, inspectNode, downloadVerified, installPrivateRuntime, buildEnvironment } from '../server/toolchain.mjs';
@@ -179,12 +179,72 @@ test('the guidance dialog runs in its own process with the command to re-check, 
     assert.equal(showNodeGuidance({ skillRoot, args, state: f.stateDir, env, platform, osascript }), false);
 });
 
-test('the shell entry without any usable Node exits 1 with guidance text and no dialog when headless', async t => {
-  if (await firstSystemNode()) return t.skip('本机固定系统位置有 Node，无法构造“找不到 Node”');
-  const f = await fixture(t); const launcher = fileURLToPath(new URL('../../../scripts/launch.sh', import.meta.url));
-  const env = { HOME: f.root, PATH: '/usr/bin:/bin', SKILLDOCK_CODEX_APP_DIR: path.join(f.root, 'none'), SKILLDOCK_WORKSPACE_RUNTIME: path.join(f.root, 'none'), SKILLDOCK_STATE_DIR: f.stateDir, SKILLDOCK_NO_DIALOG: '1' };
-  const result = await execute('/bin/sh', [launcher, 'start'], { env }).then(() => null, error => error);
-  assert.equal(result.code, 1); assert.match(result.stderr, /未找到可运行的 Node\.js 22\.12/); assert.doesNotMatch(result.stderr, /已显示安装引导/);
+// Shell-quoted, for paths written into a copied script (test paths have spaces and quotes).
+const quoted = value => `'${value.replaceAll("'", `'\\''`)}'`;
+
+// A copy of the shell entry whose fixed system locations and dialog program point into
+// the test world, so "no Node anywhere" can be built on any machine.
+async function shellEntryCopy(f) {
+  const scripts = path.join(f.root, 'skill/scripts'); await fs.mkdir(scripts, { recursive: true });
+  const osascript = path.join(f.root, 'osascript'); const marker = path.join(f.root, 'dialog.txt');
+  await fs.writeFile(osascript, `#!/bin/sh\n{ printf '%s\\n' "$@"; /bin/ps -o pgid= -p $$; } > "${marker}"\n/bin/sleep 3\n`, { mode: 0o755 });
+  const source = fileURLToPath(new URL('../../../scripts/', import.meta.url));
+  let text = await fs.readFile(path.join(source, 'launch.sh'), 'utf8');
+  for (const [from, to] of [['/opt/homebrew/bin/node', path.join(f.root, 'none/brew')], ['/usr/local/bin/node', path.join(f.root, 'none/local')],
+    ['/Applications/Codex.app', path.join(f.root, 'none/Codex.app')], ['/usr/bin/osascript', osascript]]) text = text.replaceAll(from, quoted(to));
+  await fs.writeFile(path.join(scripts, 'launch.sh'), text, { mode: 0o755 });
+  await fs.copyFile(path.join(source, 'node-guide.applescript'), path.join(scripts, 'node-guide.applescript'));
+  const env = { HOME: f.root, PATH: '/usr/bin:/bin', SKILLDOCK_CODEX_APP_DIR: path.join(f.root, 'none'), SKILLDOCK_WORKSPACE_RUNTIME: path.join(f.root, 'none'), SKILLDOCK_STATE_DIR: f.stateDir };
+  return { launcher: path.join(scripts, 'launch.sh'), marker, env };
+}
+
+test('the shell entry without any usable Node exits 1 with guidance; the dialog runs apart from the caller, never for restart jobs or headless runs', async t => {
+  const f = await fixture(t); const entry = await shellEntryCopy(f);
+  const run = (args, env = {}) => new Promise(resolve => {
+    const child = spawn('/bin/sh', [entry.launcher, ...args], { env: { ...entry.env, ...env }, detached: true, stdio: ['ignore', 'pipe', 'pipe'] });
+    let stdout = '', stderr = ''; const started = Date.now();
+    child.stdout.on('data', data => { stdout += data; }); child.stderr.on('data', data => { stderr += data; });
+    child.on('close', code => resolve({ code, stdout, stderr, pid: child.pid, elapsed: Date.now() - started }));
+  });
+  for (const [args, env] of [[['start'], { SKILLDOCK_NO_DIALOG: '1' }], [['restart'], { SKILLDOCK_RESTART_JOB: 'job' }], [['status'], {}]]) {
+    const result = await run(args, env);
+    assert.deepEqual([result.code, result.stdout], [1, ''], args[0]); assert.match(result.stderr, /未找到可运行的 Node\.js 22\.12/);
+    assert.doesNotMatch(result.stderr, /已显示安装引导/, args[0]);
+  }
+  await assert.rejects(fs.stat(entry.marker), { code: 'ENOENT' });
+  // An interactive start shows the dialog without waiting for it (the stand-in stays 3 s).
+  const result = await run(['start', '--project', f.root]);
+  assert.deepEqual([result.code, result.stdout], [1, '']); assert.match(result.stderr, /已显示安装引导/); assert.ok(result.elapsed < 2500, `${result.elapsed} ms`);
+  let lines = [];
+  for (let i = 0; i < 40 && lines.length < 2; i++) { lines = (await fs.readFile(entry.marker, 'utf8').catch(() => '')).trim().split('\n'); if (lines.length < 2) await new Promise(resolve => setTimeout(resolve, 50)); }
+  // The dialog re-runs the same call: the guide script, the settings, then the command.
+  assert.equal(path.basename(lines[0]), 'node-guide.applescript');
+  assert.deepEqual(lines.slice(1, 9), [`SKILLDOCK_STATE_DIR=${f.stateDir}`, 'PORT=4771', 'SKILLDOCK_PROJECT_DIR=', '/bin/sh', await fs.realpath(entry.launcher), 'start', '--project', f.root]);
+  // With the default shell (bash) the dialog has its own process group, apart from the call's.
+  if ((await fs.readlink('/private/var/select/sh').catch(() => '')).endsWith('bash')) assert.notEqual(Number(lines.at(-1)), result.pid);
+});
+
+test('the shell block takes the first location with a usable Node, and the highest version within it, under sh and dash', async t => {
+  const f = await fixture(t);
+  const stand = async (file, key) => { await fs.mkdir(path.dirname(file), { recursive: true }); await fs.writeFile(file, key ? `#!/bin/sh\n[ "$1" = -e ] && { printf '%s' ${key}; exit 0; }\nexit 1\n` : '#!/bin/sh\nexit 1\n', { mode: 0o755 }); return file; };
+  const nvm = path.join(f.root, 'nvm/versions/node');
+  await stand(path.join(nvm, 'v22.11.0/bin/node'));
+  await stand(path.join(nvm, 'v22.12.0/bin/node'), 22012000);
+  const nine = await stand(path.join(nvm, 'v24.9.0/bin/node'), 24009000);
+  const ten = await stand(path.join(nvm, 'v24.10.0/bin/node'), 24010000);
+  let block = shellBlock();
+  for (const [from, to] of [['/opt/homebrew/bin/node', path.join(f.root, 'none/brew')], ['/usr/local/bin/node', path.join(f.root, 'none/local')],
+    ['/Applications/Codex.app', path.join(f.root, 'none/Codex.app')]]) block = block.replaceAll(from, quoted(to));
+  const script = path.join(f.root, 'pick.sh'); await fs.writeFile(script, `set -eu\n${block}printf '%s' "$node_bin"\n`);
+  const env = { HOME: f.root, PATH: '/usr/bin:/bin', NVM_DIR: path.join(f.root, 'nvm'), SKILLDOCK_STATE_DIR: f.stateDir,
+    SKILLDOCK_CODEX_APP_DIR: path.join(f.root, 'none'), SKILLDOCK_WORKSPACE_RUNTIME: path.join(f.root, 'other-workspace') };
+  const shells = ['/bin/sh', ...(await fs.access('/bin/dash').then(() => ['/bin/dash'], () => []))];
+  const pick = async shell => (await execute(shell, [script], { env })).stdout;
+  for (const shell of shells) assert.equal(await pick(shell), ten, `${shell}：同一位置取最高版本（v24.10 高于 v24.9）`);
+  await stand(ten);
+  for (const shell of shells) assert.equal(await pick(shell), nine, `${shell}：最高版本不能运行时取次高`);
+  const workspace = await stand(path.join(f.root, 'other-workspace/dependencies/node/bin/node'), 22012000);
+  for (const shell of shells) assert.equal(await pick(shell), workspace, `${shell}：靠前的位置优先于版本更高的靠后位置`);
 });
 
 test('a Homebrew-style Node is paired with the npm under its prefix, or in libexec, without npm on PATH', async t => {

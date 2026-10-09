@@ -60,19 +60,31 @@ function shellWord(pattern) {
 
 /**
  * The shell block every entry embeds between its BEGIN/END node-candidates markers. It
- * sets `node_bin` to the first candidate that runs and is 22.12 or newer.
+ * sets `node_bin` to the first candidate location with a Node that runs and is 22.12 or
+ * newer; within one location (a version manager's versions) the highest version counts,
+ * as in the Node layer.
  */
 export function shellBlock() {
   const lines = ['# BEGIN node-candidates (generated from assets/app/server/node-candidates.mjs; run `node assets/app/scripts/node-candidates.mjs --write`)'];
   for (const [name, value] of VARIABLES) lines.push(`${name}=${value}`);
-  const words = CANDIDATES.map(item => shellWord(item.pattern));
   lines.push('node_bin=');
-  lines.push(`for candidate in ${words.join(' \\\n  ')}; do`);
-  lines.push('  case "$candidate" in /*) ;; *) continue ;; esac');
-  lines.push(`  if [ -x "$candidate" ] && "$candidate" -e 'const [a,b]=process.versions.node.split(".").map(Number);process.exit(a>22||a===22&&b>=12?0:1)' >/dev/null 2>&1; then`);
-  lines.push('    node_bin=$candidate; break');
-  lines.push('  fi');
-  lines.push('done');
+  lines.push('skilldock_node_version() {');
+  lines.push('  case "$1" in /*) ;; *) return 1 ;; esac');
+  lines.push('  [ -x "$1" ] || return 1');
+  lines.push(`  "$1" -e 'const v=process.versions.node.split(".").map(Number);if(v[0]>22||v[0]===22&&v[1]>=12)process.stdout.write(String(v[0]*1e6+v[1]*1e3+v[2]));else process.exit(1)' 2>/dev/null`);
+  lines.push('}');
+  lines.push('skilldock_pick() {');
+  lines.push('  [ -z "$node_bin" ] || return 0');
+  lines.push('  skilldock_best=; skilldock_best_version=0');
+  lines.push('  for skilldock_candidate in "$@"; do');
+  lines.push('    skilldock_version=$(skilldock_node_version "$skilldock_candidate") || continue');
+  lines.push('    case "$skilldock_version" in ""|*[!0-9]*) continue ;; esac');
+  lines.push('    if [ "$skilldock_version" -gt "$skilldock_best_version" ]; then skilldock_best=$skilldock_candidate; skilldock_best_version=$skilldock_version; fi');
+  lines.push('  done');
+  lines.push('  if [ -n "$skilldock_best" ]; then node_bin=$skilldock_best; fi');
+  lines.push('  return 0');
+  lines.push('}');
+  for (const item of CANDIDATES) lines.push(`skilldock_pick ${shellWord(item.pattern)}`);
   lines.push('# END node-candidates');
   return `${lines.join('\n')}\n`;
 }
