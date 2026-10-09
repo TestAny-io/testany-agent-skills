@@ -77,7 +77,8 @@ test('skills: visibility from the deciding layer by name, user and project roots
   assert.deepEqual([byName('u2').visibility, byName('u2').protection, byName('u2').enablement], ['disabled', 'managed', { decidedBy: 'managed', locked: true }], '托管追加目录中的设置');
   assert.deepEqual([byName('u3').visibility, byName('u3').enabled, byName('u3').enablement], ['enabled', true, { decidedBy: 'default' }]);
   assert.deepEqual([byName('p1').visibility, byName('p1').enabled, byName('p1').enablement], ['name-only', null, { decidedBy: 'local' }]);
-  assert.ok(skills.every(item => item.id.startsWith('claude:skill:') && !item.canToggle && item.reason));
+  // Phase 4b1: visibility can be written unless managed settings decide it (u2); removal and updates come later.
+  assert.ok(skills.every(item => item.id.startsWith('claude:skill:') && item.canToggle === (item.name !== 'u2') && !item.canRemove && !item.canUpdate && item.reason));
 });
 
 test('marketplaces: auto-update from settings, Claude\'s record or the default; plugin count and refresh time', async t => {

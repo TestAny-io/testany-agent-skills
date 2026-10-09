@@ -11,10 +11,7 @@ import { createService } from '../server/service.mjs';
 import { createApp } from '../server/index.mjs';
 import { writeGeneration } from '../server/generation.mjs';
 import { claudeWriteArgs, claudeWriter } from '../server/claude-writer.mjs';
-import { createRequire } from 'node:module';
-import { fileURLToPath } from 'node:url';
-import { runInNewContext } from 'node:vm';
-import { build } from 'esbuild';
+import { assertTranslated } from './i18n-helper.mjs';
 
 // Every message, native rule and reason the tests below see; checked for translations last.
 const seen = new Set();
@@ -115,8 +112,8 @@ test('while Claude is read-only, not installed, unconfirmed or without a command
   failing.options.claudeCatalog.listPlugins = async () => { throw new Error('stand-in list failure'); };
   assert.equal((await failing.act({ action: 'plugin.toggle', id: demo.id, enabled: false, expectedRevision: demo.revision })).code, 'AGENT_UNCONFIRMED');
   for (const w of [readOnly, noCli, failing]) assert.deepEqual(w.claude.calls, []);
-  // Skills are not writable yet (phase 4b).
-  assert.equal((await readOnly.act({ action: 'skill.toggle', id: 'claude:skill:user:000000000000', enabled: false })).code, 'UNSUPPORTED_FOR_AGENT');
+  // Skill visibility follows Claude management too (phase 4b1).
+  assert.equal((await readOnly.act({ action: 'skill.toggle', id: 'claude:skill:user:000000000000', enabled: false })).code, 'AGENT_READ_ONLY');
 });
 
 test('enabling and disabling: revision first, the installation scope by default, read back, journaled for Claude only', async t => {
@@ -246,24 +243,8 @@ test('the HTTP error body carries the native rules of a confirmation, and only o
 });
 
 test('every message, rule and reason seen above has a whole English and Japanese translation', async () => {
-  const app = fileURLToPath(new URL('../', import.meta.url));
-  const require = createRequire(new URL('../package.json', import.meta.url));
-  const bundle = await build({ stdin: { contents: 'export * from "./src/i18n"; export { setPreferences } from "./src/preferences";', resolveDir: app, loader: 'ts' },
-    bundle: true, platform: 'node', format: 'cjs', packages: 'external', jsx: 'automatic', write: false });
-  const translator = language => {
-    const module = { exports: {} }, storage = new Map();
-    runInNewContext(bundle.outputFiles[0].text, { module, exports: module.exports, require,
-      localStorage: { getItem: key => storage.get(key), setItem: (key, value) => storage.set(key, value) },
-      document: { documentElement: { dataset: {}, style: {} }, getElementById: () => null },
-      window: { matchMedia: () => ({ matches: false, addEventListener() {} }), addEventListener() {} } });
-    module.exports.setPreferences({ language }); return module.exports.t;
-  };
-  const en = translator('en'), ja = translator('ja');
   // Test-only inputs (a stand-in failure, a refused validation) are not product messages.
   const messages = [...seen].filter(text => /[一-鿿]/.test(text) && !/stand-in|不支持参数/.test(text));
   assert.ok(messages.length > 20, `${messages.length}`);
-  for (const text of messages) {
-    assert.equal(/[一-鿿]/.test(en(text)), false, `en: ${text}`);
-    assert.notEqual(ja(text), text, `ja: ${text}`);
-  }
+  await assertTranslated(messages);
 });

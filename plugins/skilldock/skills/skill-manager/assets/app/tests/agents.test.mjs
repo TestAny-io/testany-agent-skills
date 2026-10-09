@@ -76,7 +76,7 @@ test('Codex set read-only: its changes are refused with a standalone message and
   assert.notEqual((await w.act({ action: 'updates.run', targets: [{ kind: 'skill', id: demo.id }], autoApply: false })).run.items[0].reasonCode, 'AGENT_PAUSED');
 });
 
-test('Claude: an unavailable command line leaves it unconfirmed and enabling needs one; Claude objects cannot be changed yet', async t => {
+test('Claude: an unavailable command line leaves it unconfirmed and enabling needs one; a Codex object has no Claude side', async t => {
   const w = await world(t, { codex: true });
   w.status.claude = { available: false, error: 'stand-in: missing' };
   let claude = (await w.agents()).find(item => item.agent === 'claude');
@@ -87,7 +87,7 @@ test('Claude: an unavailable command line leaves it unconfirmed and enabling nee
   claude = (await w.agents()).find(item => item.agent === 'claude');
   assert.equal(claude.management, 'enabled');
   const demo = (await w.service.snapshot('local')).skills.find(item => item.name === 'demo');
-  assert.equal((await w.act({ action: 'skill.toggle', agent: 'claude', id: demo.id, enabled: false })).code, 'UNSUPPORTED_FOR_AGENT');
+  assert.equal((await w.act({ action: 'skill.toggle', agent: 'claude', id: demo.id, enabled: false })).code, 'NOT_FOUND', '只属于 Codex 的技能没有 Claude 一侧');
   assert.equal((await w.act({ action: 'agent.updateSkilldock', agent: 'claude' })).code, 'UNSUPPORTED_FOR_AGENT');
   assert.equal((await w.act({ action: 'agent.setManagement', management: 'enabled' })).code, 'INVALID_ACTION', 'agent.* 必须带 agent');
 });

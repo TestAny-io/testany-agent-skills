@@ -219,7 +219,7 @@ export interface NativeRule {
 | 字段 | 类型 | 说明 |
 |------|------|------|
 | `agent` | `Agent` | 对象所属的一侧。带 `agent` 的写请求按 2 版规则处理；2 版客户端的所有写请求都必须带（见第 6 节“2 版请求的判定”）。缺省为 Codex（1 版） |
-| `scope` | `"user" \| "project" \| "local"` | Claude 写入作用域；缺省 `user`，`plugin.toggle` 例外：缺省按安装范围，用户范围的安装为 `user`，project、local 范围的安装与项目范围的技能目录插件为 `local`（只写该项目的本地设置，不影响其他项目，HLD 3.3）。`project` 会改动协作者共享的设置，须同时带 `confirm: true`。写入 `local` 会在 Git 仓库中新建未被忽略的 `.claude/settings.local.json` 时，须带 `gitExclude`（`true` 或 `false`），否则返回 `CONFIRMATION_REQUIRED`，`nativeRules` 中一条 `kind: "scope"` 的 `items` 列出该文件 |
+| `scope` | `"user" \| "project" \| "local"` | Claude 写入作用域；缺省 `user`，`plugin.toggle` 例外：缺省按安装范围，用户范围的安装为 `user`，project、local 范围的安装与项目范围的技能目录插件为 `local`（只写该项目的本地设置，不影响其他项目，HLD 3.3）。`skill.toggle`（Claude 技能）缺省：个人技能为 `user`，当前由项目的本地或共享设置决定时为 `local`；项目技能为 `local`（HLD 3.4）。`project` 会改动协作者共享的设置，须同时带 `confirm: true`。写入 `local` 会在 Git 仓库中新建未被忽略的 `.claude/settings.local.json` 时，须带 `gitExclude`（`true` 或 `false`），否则返回 `CONFIRMATION_REQUIRED`，`nativeRules` 中一条 `kind: "scope"` 的 `items` 列出该文件 |
 | `confirm` | `boolean` | 用户已在确认框中同意本次需要确认的改动：共享作用域、可见性从“仅名称/仅用户可调用”改为开或关、卸载 Claude 插件（默认删除插件数据）、移除 Claude marketplace（会卸载从它安装的插件）、移走两侧共用的技能目录、移除或更新会改写另一侧插件目录内容的技能、批量移除中涉及上述两类的项、另一侧已启用管理时把这类技能加入或改入后台计划、把含这类技能的计划改为自动应用或启用自动应用的计划、在计划设置中确认待确认的这类目标（第 6 节“跨侧影响提示”）、清理 SkillDock 管理的本地 marketplace |
 | `gitExclude` | `boolean` | 新建的 `.claude/settings.local.json` 位于未忽略的 Git 仓库时，用户是否同意写入 `.git/info/exclude` |
 | `keepData` | `boolean` | 卸载 Claude 插件时保留插件数据 |

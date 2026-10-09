@@ -1130,5 +1130,89 @@
   "已在项目本地设置中停用 Claude 插件 {v0}。新会话生效，已打开的会话需要重载插件。": {
     "en": "Disabled Claude plugin {v0} in the project's local settings. New sessions use it; reload plugins in sessions that are already open.",
     "ja": "プロジェクトのローカル設定で Claude プラグイン {v0} を無効にしました。新しいセッションで有効になります。開いているセッションではプラグインを再読み込みしてください。"
+  },
+  "可见性由组织托管设置决定，不能在这里修改。": {
+    "en": "Organization-managed settings decide its visibility; it cannot be changed here.",
+    "ja": "表示状態は組織の管理設定で決まるため、ここでは変更できません。"
+  },
+  "这一版 SkillDock 还不能移除或更新 Claude 中的技能。": {
+    "en": "This version of SkillDock cannot remove or update Claude's skills yet.",
+    "ja": "このバージョンの SkillDock は、Claude のスキルをまだ削除・更新できません。"
+  },
+  "未找到这个 Claude 技能，请刷新后重试。": {
+    "en": "This Claude skill was not found. Refresh and try again.",
+    "ja": "この Claude スキルが見つかりません。更新してから再試行してください。"
+  },
+  "这个技能不支持切换。": {
+    "en": "This skill cannot be switched here.",
+    "ja": "このスキルはここで切り替えられません。"
+  },
+  "修改这个技能的可见性前需要确认。": {
+    "en": "Confirm before changing this skill's visibility.",
+    "ja": "このスキルの表示状態を変更する前に確認してください。"
+  },
+  "这个技能当前为“仅显示名称”；设为可见后，这一档会被取消。": {
+    "en": "This skill is set to \"name only\"; making it visible drops that setting.",
+    "ja": "このスキルは現在「名前のみ表示」です。表示にするとこの設定は解除されます。"
+  },
+  "这个技能当前为“仅显示名称”；关闭后，这一档会被取消。": {
+    "en": "This skill is set to \"name only\"; turning it off drops that setting.",
+    "ja": "このスキルは現在「名前のみ表示」です。オフにするとこの設定は解除されます。"
+  },
+  "这个技能当前为“仅用户调用”；设为可见后，这一档会被取消。": {
+    "en": "This skill is set to \"user-invocable only\"; making it visible drops that setting.",
+    "ja": "このスキルは現在「ユーザー呼び出しのみ」です。表示にするとこの設定は解除されます。"
+  },
+  "这个技能当前为“仅用户调用”；关闭后，这一档会被取消。": {
+    "en": "This skill is set to \"user-invocable only\"; turning it off drops that setting.",
+    "ja": "このスキルは現在「ユーザー呼び出しのみ」です。オフにするとこの設定は解除されます。"
+  },
+  "已写入 {v0}，但读回的可见性与预期不同：可能由更高层级的设置决定，请刷新核实。": {
+    "en": "Wrote {v0}, but the visibility read back differs from what was expected: a higher settings level may decide it. Refresh to check.",
+    "ja": "{v0} に書き込みましたが、読み戻した表示状態が想定と異なります。より上位の設定で決まっている可能性があります。更新して確認してください。"
+  },
+  "设置条目的名称无效。": {
+    "en": "The name of the settings entry is not valid.",
+    "ja": "設定項目の名前が無効です。"
+  },
+  "设置文件 {v0} 不是有效的 JSON，SkillDock 不会改写它。": {
+    "en": "The settings file {v0} is not valid JSON; SkillDock does not rewrite it.",
+    "ja": "設定ファイル {v0} は有効な JSON ではないため、SkillDock は書き換えません。"
+  },
+  "设置文件 {v0} 的格式未知，SkillDock 不会改写它。": {
+    "en": "The format of the settings file {v0} is unknown; SkillDock does not rewrite it.",
+    "ja": "設定ファイル {v0} の形式が不明なため、SkillDock は書き換えません。"
+  },
+  "设置文件 {v0} 中 {v1} 的格式未知，SkillDock 不会改写它。": {
+    "en": "The format of {v1} in the settings file {v0} is unknown; SkillDock does not rewrite it.",
+    "ja": "設定ファイル {v0} の {v1} の形式が不明なため、SkillDock は書き換えません。"
+  },
+  "设置文件 {v0} 在读取后被改动，请刷新后重试。": {
+    "en": "The settings file {v0} changed after it was read. Refresh and try again.",
+    "ja": "設定ファイル {v0} は読み取り後に変更されました。更新してから再試行してください。"
+  },
+  "已在用户设置中把 Claude 技能 {v0} 设为可见。新会话生效。": {
+    "en": "Set Claude skill {v0} to visible in user settings. New sessions use it.",
+    "ja": "ユーザー設定で Claude スキル {v0} を表示にしました。新しいセッションで有効になります。"
+  },
+  "已在用户设置中把 Claude 技能 {v0} 设为关闭。新会话生效。": {
+    "en": "Set Claude skill {v0} to off in user settings. New sessions use it.",
+    "ja": "ユーザー設定で Claude スキル {v0} をオフにしました。新しいセッションで有効になります。"
+  },
+  "已在项目共享设置中把 Claude 技能 {v0} 设为可见。新会话生效。": {
+    "en": "Set Claude skill {v0} to visible in the project's shared settings. New sessions use it.",
+    "ja": "プロジェクトの共有設定で Claude スキル {v0} を表示にしました。新しいセッションで有効になります。"
+  },
+  "已在项目共享设置中把 Claude 技能 {v0} 设为关闭。新会话生效。": {
+    "en": "Set Claude skill {v0} to off in the project's shared settings. New sessions use it.",
+    "ja": "プロジェクトの共有設定で Claude スキル {v0} をオフにしました。新しいセッションで有効になります。"
+  },
+  "已在项目本地设置中把 Claude 技能 {v0} 设为可见。新会话生效。": {
+    "en": "Set Claude skill {v0} to visible in the project's local settings. New sessions use it.",
+    "ja": "プロジェクトのローカル設定で Claude スキル {v0} を表示にしました。新しいセッションで有効になります。"
+  },
+  "已在项目本地设置中把 Claude 技能 {v0} 设为关闭。新会话生效。": {
+    "en": "Set Claude skill {v0} to off in the project's local settings. New sessions use it.",
+    "ja": "プロジェクトのローカル設定で Claude スキル {v0} をオフにしました。新しいセッションで有効になります。"
   }
 }

@@ -9,11 +9,17 @@ import crypto from 'node:crypto';
 import { AppError, fail } from './errors.mjs';
 import { acquireFileLock, operationLock } from './process-lock.mjs';
 import { localSettingsExposure, excludeLocalSettings } from './local-settings.mjs';
+import { patchClaudeSetting } from './claude-settings.mjs';
 
-export const CLAUDE_WRITES = new Set(['plugin.toggle', 'plugin.previewMarketplace', 'plugin.install', 'plugin.remove', 'marketplace.add', 'marketplace.refresh', 'marketplace.remove']);
+export const CLAUDE_WRITES = new Set(['skill.toggle', 'plugin.toggle', 'plugin.previewMarketplace', 'plugin.install', 'plugin.remove', 'marketplace.add', 'marketplace.refresh', 'marketplace.remove']);
 // Whole sentences per case, so that each translates as one message.
 const SETTINGS = { user: '用户设置', project: '项目共享设置', local: '项目本地设置' };
 const RELOAD_NOTE = '新会话生效，已打开的会话需要重载插件。';
+// A middle visibility is the user's own choice in Claude: turning it on or off drops it.
+const MIDDLE = {
+  'name-only': { true: '这个技能当前为“仅显示名称”；设为可见后，这一档会被取消。', false: '这个技能当前为“仅显示名称”；关闭后，这一档会被取消。' },
+  'user-invocable-only': { true: '这个技能当前为“仅用户调用”；设为可见后，这一档会被取消。', false: '这个技能当前为“仅用户调用”；关闭后，这一档会被取消。' },
+};
 const INSTALLED = { user: name => `已为当前用户安装 Claude 插件 ${name}。`, local: name => `已在当前项目中安装 Claude 插件 ${name}，只给你自己使用。`, project: name => `已在当前项目中为所有协作者安装 Claude 插件 ${name}。` };
 const RELOAD = { kind: 'reload', message: '新会话生效；已打开的 Claude 会话需要重载插件（/reload-plugins）。' };
 const SHARED = { kind: 'scope', message: '这会改动协作者共享的 .claude/settings.json。' };
@@ -69,6 +75,31 @@ export function createClaudeActions({ root, read, writer, journal, git, now = ()
   const readbackFailed = message => fail(502, 'READBACK_FAILED', message);
 
   const handlers = {
+    // HLD 3.4: a Claude skill's visibility is an entry in a settings file; Claude has no command for it.
+    async 'skill.toggle'(request, state) {
+      const skill = state.claude.skills.find(item => item.id === request.id);
+      if (!skill) fail(404, 'NOT_FOUND', '未找到这个 Claude 技能，请刷新后重试。');
+      if (!skill.canToggle) fail(403, skill.protection ? 'HOST_MANAGED' : 'PROTECTED_SKILL', skill.reason || '这个技能不支持切换。');
+      checkRevision(skill, request);
+      const value = request.enabled ? 'on' : 'off';
+      const rules = [];
+      if (MIDDLE[skill.visibility]) rules.push({ kind: 'visibility', message: MIDDLE[skill.visibility][request.enabled] });
+      if (rules.length && !request.confirm) needConfirmation('修改这个技能的可见性前需要确认。', [...rules, RELOAD]);
+      // Default layer: a personal skill in user settings, unless the project's settings decide
+      // it now (local beats project and user, and is not shared); a project skill in local settings.
+      const decided = skill.enablement?.decidedBy;
+      const layer = request.scope ?? (skill.scope === 'user' && !['local', 'project'].includes(decided) ? 'user' : 'local');
+      const project = layer === 'user' ? null : await projectFor(state.project);
+      const exposure = await scopeChecks(layer, project ?? state.project, request, [...rules, RELOAD]);
+      const file = layer === 'user' ? path.join(state.claudeRoot.configDir, 'settings.json') : path.join(project, '.claude', layer === 'project' ? 'settings.json' : 'settings.local.json');
+      const patch = await patchClaudeSetting(file, 'skillOverrides', skill.name, value);
+      const after = (await read()).claude.skills.find(item => item.id === skill.id);
+      if (!after || after.visibility !== (request.enabled ? 'enabled' : 'disabled'))
+        readbackFailed(`已写入 ${file}，但读回的可见性与预期不同：可能由更高层级的设置决定，请刷新核实。`);
+      return { message: `已在${SETTINGS[layer]}中把 Claude 技能 ${skill.name} 设为${request.enabled ? '可见' : '关闭'}。新会话生效。${await afterLocal(exposure, request)}`,
+        needsReload: true, agent: 'claude', target: skill.name, ...(rules.length ? { nativeRules: rules } : {}),
+        restore: { kind: 'claude-visibility', file: patch.file, section: 'skillOverrides', key: skill.name, previous: patch.previous ?? null, created: patch.created } };
+    },
     async 'plugin.toggle'(request, state, run) {
       const plugin = find(state.claude.plugins, request.id, 'plugin');
       if (!plugin.installed) fail(404, 'NOT_FOUND', '这个 Claude 插件尚未安装。');
@@ -172,8 +203,9 @@ export function createClaudeActions({ root, read, writer, journal, git, now = ()
     try {
       const state = await read();
       const result = await handler(request, state, writer(state));
-      const { target, ...visible } = result;
-      if (request.action !== 'plugin.previewMarketplace') await journal({ id, action: request.action, agent: 'claude', target: target ?? request.id ?? request.source, createdAt: now(), status: 'success', message: visible.message, canRestore: false });
+      // `restore` holds only the entry an undo needs; it never reaches a snapshot.
+      const { target, restore, ...visible } = result;
+      if (request.action !== 'plugin.previewMarketplace') await journal({ id, action: request.action, agent: 'claude', target: target ?? request.id ?? request.source, createdAt: now(), status: 'success', message: visible.message, canRestore: false, ...(restore ? { restore } : {}) });
       return visible;
     } catch (error) {
       if (!['CONFIRMATION_REQUIRED', 'SNAPSHOT_STALE', 'NOT_FOUND'].includes(error.code) && request.action !== 'plugin.previewMarketplace')
