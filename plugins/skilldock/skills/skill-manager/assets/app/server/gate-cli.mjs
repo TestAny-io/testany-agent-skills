@@ -47,7 +47,9 @@ export async function commandLineGateEvidence({ codexHome, claudeRoot, state, en
     if (!cli.available) notes.push('Codex 命令行不可用，以插件缓存为准。');
     else {
       try {
-        for (const plugin of await codexInstalled(cli.path, codexHome, env, timeout)) {
+        const installed = await codexInstalled(cli.path, codexHome, env, timeout);
+        notes.push(`已用 Codex 命令行 ${cli.path}（${cli.version}）确认插件清单。`);
+        for (const plugin of installed) {
           if (plugin?.name !== 'skilldock' || !parseVersion(plugin.version) || atLeast(plugin.version, GATE_MINIMUM)) continue;
           blockers.push({ agent: 'codex', marketplace: plugin.marketplaceName, version: plugin.version, evidence: 'Codex 命令行插件清单', config: path.join(codexHome, 'config.toml') });
         }
@@ -56,9 +58,12 @@ export async function commandLineGateEvidence({ codexHome, claudeRoot, state, en
   }
   if (claudeRoot?.configDir && await exists(claudeRoot.configDir)) {
     const cli = await resolveClaudeCli({ state, env, home, claudeRoot, save: false });
-    let entries = null;
+    let entries = null; let evidence = 'Claude 安装记录';
     if (cli.available) {
-      try { entries = (await listClaudePlugins(cli.path, { env, claudeRoot, timeout })).map(item => ({ id: item.id, installPath: item.installPath })); }
+      try {
+        entries = (await listClaudePlugins(cli.path, { env, claudeRoot, timeout })).map(item => ({ id: item.id, installPath: item.installPath }));
+        notes.push(`已用 Claude 命令行 ${cli.path}（${cli.version}）确认插件清单。`); evidence = 'Claude 命令行插件清单';
+      }
       catch (error) { notes.push(`${error.message}，改用安装记录。`); }
     } else notes.push('Claude 命令行不可用，改用安装记录。');
     entries ??= await claudeInstallRecord(claudeRoot.configDir);
@@ -66,7 +71,7 @@ export async function commandLineGateEvidence({ codexHome, claudeRoot, state, en
       if (typeof id !== 'string' || !id.startsWith('skilldock@')) continue;
       const version = await claudeAppVersion(installPath);
       if (!parseVersion(version) || atLeast(version, GATE_MINIMUM)) continue;
-      blockers.push({ agent: 'claude', marketplace: id.slice('skilldock@'.length), version, directory: installPath, evidence: cli.available ? 'Claude 命令行插件清单' : 'Claude 安装记录',
+      blockers.push({ agent: 'claude', marketplace: id.slice('skilldock@'.length), version, directory: installPath, evidence,
         config: path.join(claudeRoot.configDir, 'plugins/installed_plugins.json') });
     }
   }

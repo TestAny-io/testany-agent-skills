@@ -12,7 +12,7 @@ import { MARKET, fixture, listen, installedVersion } from './helpers/launcher-fi
 import { captureSource } from '../scripts/source-bundle.mjs';
 import { prepareRuntime } from '../server/runtime.mjs';
 import { backgroundPaths, runScript } from '../server/background.mjs';
-import { migrationGate } from '../server/migration.mjs';
+import { migrationGate, writeMigrationFailure } from '../server/migration.mjs';
 import { agentRoots } from '../server/installs.mjs';
 import { runBackground } from '../server/background-worker.mjs';
 import { restoreMissingRecord } from '../server/launcher-record.mjs';
@@ -59,6 +59,14 @@ async function legacyData(f, record) {
 }
 
 const changeApp = appDir => fs.appendFile(path.join(appDir, 'README.md'), '\n0.11');
+
+// A stand-in Codex command line: records its arguments, lists SkillDock at `versions`.
+async function codexStandIn(f, versions = []) {
+  const file = path.join(f.root, 'codex-stand-in'); const calls = path.join(f.root, 'codex-calls');
+  const installed = JSON.stringify({ installed: versions.map(version => ({ name: 'skilldock', marketplaceName: MARKET, version })) });
+  await fs.writeFile(file, `#!/bin/sh\necho "$*" >> "${calls}"\ncase "$1 $2" in\n"--version ") echo "codex-cli 0.200.0" ;;\n"plugin --help") echo "list marketplace" ;;\n"plugin list") echo '${installed}' ;;\nesac\n`, { mode: 0o755 });
+  return { file, calls: async () => (await fs.readFile(calls, 'utf8').catch(() => '')).split('\n').filter(Boolean) };
+}
 
 test('gate: an older SkillDock in any Agent stops the takeover before anything 0.10.x reads is written', async t => {
   const f = await fixture(t); const port = await freePort();
@@ -173,6 +181,32 @@ test('a failed takeover restores every file and the old instance; restart jobs f
     assert.equal(retried.migrated, true);
     assert.equal(await exists(path.join(old.state, 'compat/migration-failure.json')), false);
   } finally { await launch('stop', { ...f, port }); }
+});
+
+test('the command lines confirm what the file evidence lets through; refused jobs and confirmed launches do not ask again (36b 7.4)', async t => {
+  const f = await fixture(t); const port = await freePort();
+  const next = { ...await installedVersion(f, '0.10.3'), port };
+  const options = { ...f, port, codexHome: next.codexHome };
+  const codex = await codexStandIn(f, ['0.10.2']); const env = { ...f.env, SKILLDOCK_CODEX_BIN: codex.file };
+  // The cache shows 0.10.3 only; Codex itself still reports 0.10.2.
+  const blocked = await launch('start', { ...options, env }).then(() => null, error => error);
+  assert.equal(blocked?.exitCode, 4);
+  assert.deepEqual(blocked.output.blockers.map(item => [item.agent, item.version, item.evidence]), [['codex', '0.10.2', 'Codex 命令行插件清单']]);
+  for (const name of ['launcher.json', 'restart.json', 'local', 'background', 'generation.json']) assert.equal(await exists(path.join(f.stateDir, name)), false, name);
+  assert.ok((await codex.calls()).includes('plugin list --json'));
+  // A restart job after a failed takeover is refused before any command line runs.
+  await fs.mkdir(f.stateDir, { recursive: true }); const state = await fs.realpath(f.stateDir);
+  await writeMigrationFailure(state, { appDir: await fs.realpath(f.appDir), version: '0.0.0' });
+  await fs.rm(path.join(f.root, 'codex-calls'), { force: true });
+  await codexStandIn(f, []);
+  await assert.rejects(launch('restart', { ...options, env, restartJob: 'job' }), error => error.code === 'MIGRATION_FAILED_BEFORE');
+  assert.deepEqual(await codex.calls(), [], '快速拒绝之前不运行任何命令行');
+  // Once the bootstrap confirmed (SKILLDOCK_GATE_CHECKED), the launcher reads the files only.
+  const started = await launch('start', { ...options, env: { ...env, SKILLDOCK_GATE_CHECKED: '1' } });
+  try {
+    assert.equal(started.migrated, true);
+    assert.equal((await codex.calls()).includes('plugin list --json'), false, '启动器不再运行插件清单');
+  } finally { await launch('stop', { ...options, env }); }
 });
 
 test('a 0.10.x restart job migrates and is closed as ready with the executor mark (G-08)', async t => {
@@ -351,4 +385,14 @@ test('a record from an unseen Claude configuration is refused with its reason; a
   assert.deepEqual([refused?.exitCode, refused.output.status], [4, 'migration-blocked']);
   assert.match(refused.message, /SkillDock 0\.0\.0（低于 0\.10\.3）/);
   assert.deepEqual([await listing(), await fs.readFile(path.join(old.state, 'launcher.json'))], [before, bytes]);
+  // A package that cannot be read: its version is unknown, and the first step is the permission.
+  if (process.getuid?.() !== 0) {
+    const pkg = path.join(realCustom, 'plugins/cache', MARKET, 'skilldock/sha-old/skills/skill-manager/assets/app/package.json');
+    await fs.chmod(pkg, 0o000);
+    refused = await launch('status', { ...next, env: { ...next.env, CLAUDE_CONFIG_DIR: custom } }).then(() => null, error => error).finally(() => fs.chmod(pkg, 0o600));
+    assert.deepEqual([refused?.exitCode, refused.output.unreadable], [1, [{ path: pkg, error: 'UNREADABLE' }]]);
+    assert.ok(refused.message.startsWith(`无法读取 ${pkg}`));
+    assert.equal(refused.output.steps[0], `为当前用户开放 ${pkg} 的读取权限后重试。`);
+    assert.deepEqual([await listing(), await fs.readFile(path.join(old.state, 'launcher.json'))], [before, bytes]);
+  }
 });

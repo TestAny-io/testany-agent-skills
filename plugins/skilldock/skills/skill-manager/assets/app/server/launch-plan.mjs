@@ -110,13 +110,19 @@ export function delegationTarget(context, { action, env = process.env, restartJo
  * of a target whose migration failed before. Returns the error to stop with, or null.
  * A restart job gets no guidance object: it is not interactive.
  */
-export async function migrationCheck({ state, context, restartJob, env = process.env, home = os.homedir(), codexHome, commandLines = true }) {
+export async function migrationCheck({ state, context, restartJob, env = process.env, home = os.homedir(), codexHome, commandLines = true,
+  log = note => process.stderr.write(`SkillDock：${note}\n`) }) {
   if (await readGeneration(state) >= CURRENT_GENERATION) return null;
   const gate = await migrationGate(context.roots);
+  // 36b §7.4: a restart job for a target whose takeover failed is refused before any
+  // Agent command line runs (0.10.x coordinators retry and wait on every attempt).
+  const failure = gate.passed && restartJob && await repeatedFailure(state, { appDir: context.own.appPath, version: context.own.version });
+  if (failure) return Object.assign(new Error(`上次迁移到 SkillDock ${failure.version} 失败，已恢复旧版本；后台重启不再自动重试。请从 SkillDock 入口重新打开以重试。`), { code: 'MIGRATION_FAILED_BEFORE', exitCode: EXIT_MIGRATION_BLOCKED });
   // File evidence first; the command lines confirm only what it lets through (36b §7.4).
   if (gate.passed && commandLines) {
     const confirmed = await commandLineGateEvidence({ codexHome: codexHome ?? context.roots.caches.find(cache => cache.agent === 'codex')?.home,
       claudeRoot: context.claudeRoot, state, env, home });
+    for (const note of confirmed.notes) log(note);
     gate.blockers.push(...confirmed.blockers);
     gate.passed = !gate.blockers.length;
   }
@@ -124,8 +130,6 @@ export async function migrationCheck({ state, context, restartJob, env = process
     const guidance = gateGuidance(gate);
     return Object.assign(new Error(guidance.message), { code: 'MIGRATION_BLOCKED', exitCode: EXIT_MIGRATION_BLOCKED, ...(restartJob ? {} : { output: guidance }) });
   }
-  const failure = restartJob && await repeatedFailure(state, { appDir: context.own.appPath, version: context.own.version });
-  if (failure) return Object.assign(new Error(`上次迁移到 SkillDock ${failure.version} 失败，已恢复旧版本；后台重启不再自动重试。请从 SkillDock 入口重新打开以重试。`), { code: 'MIGRATION_FAILED_BEFORE', exitCode: EXIT_MIGRATION_BLOCKED });
   return null;
 }
 
