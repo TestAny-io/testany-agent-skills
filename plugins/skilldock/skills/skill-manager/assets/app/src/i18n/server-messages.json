@@ -1346,5 +1346,49 @@
   "设置文件 {v0} 是指向不存在目录的链接，SkillDock 不会为它创建目录。": {
     "en": "The settings file {v0} is a link into a directory that does not exist; SkillDock does not create it.",
     "ja": "設定ファイル {v0} は存在しないディレクトリへのリンクのため、SkillDock はディレクトリを作成しません。"
+  },
+  "这个技能在 Codex 或 Claude 中已有改动，请刷新后重试。": {
+    "en": "This skill changed in Codex or Claude since this page was loaded. Refresh and try again.",
+    "ja": "このスキルは Codex または Claude で変更がありました。更新してから再試行してください。"
+  },
+  "这会移走两侧共用的技能目录：Codex 与 Claude 中都会失去这个技能（可从操作记录恢复）。": {
+    "en": "This moves away the skill directory both sides share: Codex and Claude both lose this skill (it can be restored from the activity log).",
+    "ja": "両側が共有するスキルディレクトリを移動します。Codex と Claude の両方からこのスキルがなくなります（操作履歴から復元できます）。"
+  },
+  "这个技能的内容在 {v0} 插件的目录中，这次改动会改写这些插件：": {
+    "en": "This skill's content lies in the directory of a {v0} plugin; this change rewrites these plugins:",
+    "ja": "このスキルの内容は {v0} のプラグインのディレクトリにあり、この変更で次のプラグインが書き換わります："
+  },
+  "这次改动会影响另一侧，请确认后重试。": {
+    "en": "This change affects the other side. Confirm and try again.",
+    "ja": "この変更はもう一方にも影響します。確認してから再試行してください。"
+  },
+  "另一侧（{v0}）已关联到不同的来源 {v1}；请在这一侧选择相同的来源，或在另一侧重新关联到这个来源。": {
+    "en": "The other side ({v0}) is linked to a different source, {v1}. Choose the same source on this side, or relink the other side to this one.",
+    "ja": "もう一方（{v0}）は別の更新元 {v1} に関連付けられています。こちら側で同じ更新元を選ぶか、もう一方をこの更新元に関連付け直してください。"
+  },
+  "这个技能目录由 Codex 与 Claude 共用，两侧看到的内容都会改变。": {
+    "en": "Codex and Claude share this skill directory; the content both sides see changes.",
+    "ja": "このスキルディレクトリは Codex と Claude が共有しており、両側から見える内容が変わります。"
+  },
+  "未找到这个技能在 Claude 一侧的对象，请刷新后重试。": {
+    "en": "The Claude side of this skill was not found. Refresh and try again.",
+    "ja": "このスキルの Claude 側が見つかりません。更新してから再試行してください。"
+  },
+  "这个技能在 Claude 一侧没有可以修改的对象。": {
+    "en": "This skill has nothing on the Claude side that can be changed.",
+    "ja": "このスキルには、Claude 側で変更できる対象がありません。"
+  },
+  "Codex 与 Claude 两侧为这个技能关联了不同的来源（{v0}、{v1}），两侧都不能更新；请在一侧重新关联到相同的来源。": {
+    "en": "Codex and Claude link this skill to different sources ({v0}, {v1}), so neither side can update it. Relink one side to the same source.",
+    "ja": "Codex と Claude はこのスキルを別々の更新元（{v0}、{v1}）に関連付けているため、どちらも更新できません。一方を同じ更新元に関連付け直してください。"
+  },
+  "由 Codex 侧的来源记录管理更新。": {
+    "en": "Updates follow the Codex side's source record.",
+    "ja": "更新は Codex 側の更新元の記録に従います。"
+  },
+  "这个技能在 Claude 一侧不能在这里修改。": {
+    "en": "The Claude side of this skill cannot be changed here.",
+    "ja": "このスキルの Claude 側はここでは変更できません。"
   }
 }

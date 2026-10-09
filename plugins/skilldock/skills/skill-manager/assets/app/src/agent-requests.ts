@@ -19,12 +19,15 @@ export function requestAgent(request: Omit<ActionRequest, "mode">, snapshot: Pic
   return agents.includes("codex") ? "codex" : agents[0];
 }
 
-/** 36c 7.1: a write to a single Claude object carries the revision the page showed. */
+/**
+ * 36c 7.1: a write to a single Claude object, or to a skill both Agents share, carries the
+ * revision the page showed (for a shared skill, the one that covers both sides).
+ */
 export function requestRevision(request: Omit<ActionRequest, "mode">, snapshot: Pick<Snapshot, "skills" | "plugins" | "marketplaces"> | null): string | undefined {
   if (request.expectedRevision !== undefined || !snapshot) return request.expectedRevision;
   const id = request.id ?? request.target?.id;
   const object = id ? [...snapshot.skills, ...snapshot.plugins, ...snapshot.marketplaces].find(item => item.id === id) : undefined;
-  return object && !(object.agents ?? ["codex"]).includes("codex") ? object.revision : undefined;
+  return object && (object.agents ?? ["codex"]).includes("claude") ? object.revision : undefined;
 }
 
 /**

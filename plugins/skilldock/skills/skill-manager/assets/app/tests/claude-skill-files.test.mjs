@@ -113,15 +113,6 @@ test('linking a source, checking for an update, updating and restoring the updat
   assert.doesNotMatch(await fs.readFile(path.join(w.configDir, 'skills/kept/SKILL.md'), 'utf8'), /v2/, '恢复到更新前');
 });
 
-test('a skill both Agents share is not removed from the Claude side yet (phase 4c)', async t => {
-  const w = await world(t);
-  const shared = (await w.snapshot()).skills.find(item => item.name === 'shared');
-  assert.equal(shared.agents.join(), 'codex,claude');
-  assert.deepEqual([shared.perAgent.claude.canToggle, shared.perAgent.claude.canRemove, shared.perAgent.claude.canUpdate], [false, false, false], 'Claude 一侧在 4c 之前标为不可修改');
-  assert.equal((await w.act({ action: 'skill.remove', agent: 'claude', id: shared.id, expectedRevision: shared.revision })).code, 'UNSUPPORTED_FOR_AGENT');
-  assert.ok(await fs.stat(path.join(w.codexHome, 'skills/shared/SKILL.md')));
-});
-
 test('every message seen above has a whole English and Japanese translation', async () => {
   const messages = [...seen].filter(text => /[一-鿿]/.test(text));
   assert.ok(messages.length > 6, `${messages.length}`);

@@ -132,7 +132,8 @@ test('writes to a Claude object carry its revision; a confirmation is sent again
   const snapshot = { skills: [{ id: 'shared', agents: ['codex', 'claude'], revision: 'aa' }], plugins: [{ id: 'claude:plugin:x@m:user', agents: ['claude'], revision: 'bb' }], marketplaces: [{ id: 'claude:marketplace:m', agents: ['claude'], revision: 'cc' }] };
   assert.equal(requestRevision({ action: 'plugin.toggle', id: 'claude:plugin:x@m:user' }, snapshot), 'bb');
   assert.equal(requestRevision({ action: 'marketplace.refresh', id: 'claude:marketplace:m' }, snapshot), 'cc');
-  assert.equal(requestRevision({ action: 'skill.toggle', id: 'shared' }, snapshot), undefined, '共用技能的规则随阶段 4c');
+  assert.equal(requestRevision({ action: 'skill.toggle', id: 'shared' }, snapshot), 'aa', '共用技能带两侧共同的修订号');
+  assert.equal(requestRevision({ action: 'skill.toggle', id: 'codex-only' }, { ...snapshot, skills: [{ id: 'codex-only', agents: ['codex'], revision: 'zz' }] }), undefined, '只属于 Codex 的对象保持 1 版语义');
   assert.equal(requestRevision({ action: 'plugin.toggle', id: 'claude:plugin:x@m:user', expectedRevision: 'dd' }, snapshot), 'dd');
   assert.equal(requestRevision({ action: 'updates.run' }, snapshot), undefined);
   const removal = { request: { action: 'plugin.remove', id: 'claude:plugin:x@m:user' }, message: 'm', rules: [{ kind: 'data-removal', message: 'd' }, { kind: 'reload', message: 'r' }] };

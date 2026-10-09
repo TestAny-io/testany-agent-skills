@@ -36,13 +36,13 @@
     "src/UpdateProgress.tsx": "1971aeaa605ff45fe8dcb80c61e67c365123462a154375236739e73ef88d9f65",
     "src/UpdatesWorkspace.css": "a8d5d4cd67a68ecc46a73bfdcaf623410f242fb8e4caf6ca69d670a98a101fa9",
     "src/UpdatesWorkspace.tsx": "37a9d6759adcd5a89d83a56a43888226e85f18d5d54ea340fcdd6306a2550842",
-    "src/agent-requests.ts": "5640850517dd48de21306a6445d8ca34bcdbc2fa857876430f62a9445f242897",
+    "src/agent-requests.ts": "ed972505424fb9a792277f4bae49e3f5512f6e002af702e14ebc0dfee9becddb",
     "src/brand-wordmark.svg": "789e0b992714535d5b223f764808de60f66c36728bd9871ee1db1f4d51135932",
     "src/desktop.css": "15814dc52392f308d2afa57b9c076d9149e22e06228e3424264984d939ec03ce",
     "src/i18n.tsx": "a2327d918accb6e9114e8779c7b6b74e5bd7db3ce4489adb1f8aba74da09c6a4",
     "src/i18n/errors.json": "c00b868b1f842b880328226d37e6aedeac847c39b9c91b62dea60575158ce148",
     "src/i18n/messages.json": "42966789c761fcd73bef0b461319591eb1dba0268a544f7614e408d514cccc0a",
-    "src/i18n/server-messages.json": "f64c34df094de6b4c58609e144424b8724eb8611447b1eb9920de5d6f0d31f1d",
+    "src/i18n/server-messages.json": "6da1f23f607165af2cc27e782aa3cf9be12fde93c48b4688358be6ea84d0af35",
     "src/main.tsx": "0b17df37f3ddac17ba356b85184252cd545e0afa93a2246a8202b30b8a879fff",
     "src/native-icon.svg": "9b7d7c19189c56b43fe691c0cb01e19b1f88abc61d1d130c974c5f5411b7288c",
     "src/plugin-presentation.ts": "f221117671d3b93250a16e6e54326879e6ae1a6aaf3e50dea401e8fdfb86dadf",
@@ -55,7 +55,7 @@
   },
   "artifacts": {
     "server.mjs": "70aa636d69c178cf496ea1a6c0fb870e83dec0776b87410542fcec30a432ec1d",
-    "ui.html": "7b06c0529b2de76e7815077ca3950dc2ffdd0997a7640f14acc2bb50d37a667a",
+    "ui.html": "0c32b34d07500b4ea1916b6e670c7100eaf8e6e0054fd58aeb18e5537b9c4b38",
     "icon.svg": "9b7d7c19189c56b43fe691c0cb01e19b1f88abc61d1d130c974c5f5411b7288c",
     "THIRD_PARTY_NOTICES.txt": "0580c525bbaf94d006050bf773e482a470c9f983971e23b26e8048505e11bd4f"
   }
