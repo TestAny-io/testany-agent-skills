@@ -86,7 +86,10 @@ export function createAgentLayer({ stateDir, home, codexHome, appDir, env = proc
   function effective(agent, found, unconfirmed) {
     const stored = found.stored[agent]?.management === 'enabled' ? 'enabled' : 'read-only';
     if (!found.installed[agent]) return { management: stored };
-    const reason = agent === 'claude' && !found.cli.claude.available ? `未找到可用的 Claude 命令行（${found.cli.claude.error || '无法运行'}），无法确认 Claude 中的插件状态。` : unconfirmed?.(agent);
+    const error = found.cli.claude.error;
+    const reason = agent === 'claude' && !found.cli.claude.available
+      ? !error || error === '未找到可用的 Claude 命令行。' ? '未找到可用的 Claude 命令行，无法确认 Claude 中的插件状态。' : `未找到可用的 Claude 命令行（${error}），无法确认 Claude 中的插件状态。`
+      : unconfirmed?.(agent);
     return reason ? { management: 'unconfirmed', reason } : { management: stored };
   }
 

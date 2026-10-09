@@ -13,6 +13,8 @@ const messageSlots: Record<string, string> = {
   "缓存 {v0}：{v1}": "v1",
   "无法读取状态文件 {v0}：{v1}": "v1",
   "比 {v0} 中的 SkillDock {v1} 旧。{v2}": "v2",
+  "无法确认 Claude 中的插件状态：{v0}": "v0",
+  "{v0} Codex 为只读，这次检查没有刷新来源，结果以本机现有的 marketplace 副本为准。": "v0",
 };
 const escapeRegex = (text: string) =>
   text.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");

@@ -22,16 +22,17 @@ async function world(t, { codex = true, claude = true } = {}) {
     claude: claude ? { available: true, version: '2.1.288', path: '/stand-in/claude' } : { available: false, error: 'stand-in: none' } };
   // A 0.11 service runs on migrated (generation 2) data, where locking never creates the Codex root.
   const state = path.join(root, 'state'); await fs.mkdir(state); await writeGeneration(state, 2);
+  const lists = { fail: null };
   const options = { home, codexHome, projectDir: home, stateDir: state, background: false,
     adapter: { list: async () => ({ plugins: [], marketplaces: [], diagnostics: [], cli: status.codex }) },
     claudeCli: async () => status.claude, env: { HOME: home },
-    claudeCatalog: { managedDir: path.join(root, 'no-managed'), listPlugins: async () => [], listMarketplaces: async () => [] } };
+    claudeCatalog: { managedDir: path.join(root, 'no-managed'), listPlugins: async () => { if (lists.fail) throw new Error(lists.fail); return []; }, listMarketplaces: async () => [] } };
   const service = await createService(options);
   t.after(async () => { await service.close(); await fs.rm(root, { recursive: true, force: true }); });
   const act = request => service.action({ mode: 'local', ...request }).then(result => result, error => error);
   const agents = async () => (await service.snapshot('local', true, { multiAgent: true })).agents;
   const stored = async () => JSON.parse(await fs.readFile(path.join(state, 'settings/agents.json'), 'utf8')).agents;
-  return { root, home, codexHome, claudeConfig, state, status, service, act, agents, stored };
+  return { root, home, codexHome, claudeConfig, state, status, lists, service, act, agents, stored };
 }
 
 test('first appearance: the Agent with SkillDock installed is enabled, the other read-only; Codex keeps 0.10.2 behaviour', () => {
@@ -132,3 +133,46 @@ test('the native entry passes multiAgent=1 and agent=codex|claude only (36c §9)
   assert.equal(readRoute('/api/updates/progress?mode=local&agent=codex'), '/api/updates/progress?mode=local&agent=codex');
   for (const route of ['/api/state?multiAgent=true', '/api/skill?id=x&agent=other', '/api/health?agent=codex']) assert.throws(() => readRoute(route), route);
 });
+
+test('a read-only Codex refuses every host change, but not SkillDock\'s own data; the multi-agent snapshot shows it', async t => {
+  const w = await world(t, { claude: false });
+  const demo = (await w.service.snapshot('local', true)).skills.find(item => item.name === 'demo');
+  await w.act({ action: 'agent.setManagement', agent: 'codex', management: 'read-only' });
+  const writes = [
+    { action: 'skill.toggle', id: demo.id, enabled: false }, { action: 'skill.install', previewId: 'p' }, { action: 'skill.update', id: demo.id, previewId: 'p' },
+    { action: 'skill.remove', id: demo.id }, { action: 'skill.removeSelected', previewId: 'p' }, { action: 'activity.restore', id: 'a' },
+    { action: 'plugin.install', id: 'x@m' }, { action: 'plugin.installSource', previewId: 'p' }, { action: 'plugin.remove', id: 'x@m' },
+    { action: 'plugin.toggle', id: 'x@m', enabled: false }, { action: 'marketplace.add', sourceType: 'git', source: 'https://github.com/o/r' },
+    { action: 'marketplace.refresh', id: 'm' }, { action: 'marketplace.remove', id: 'm' }, { action: 'update.apply', target: { kind: 'skill', id: demo.id }, previewId: 'p' },
+  ];
+  for (const request of writes) assert.equal((await w.act(request)).code, 'AGENT_READ_ONLY', request.action);
+  assert.notEqual((await w.act({ action: 'tags.set', target: { kind: 'skill', id: demo.id }, tags: ['x'] })).code, 'AGENT_READ_ONLY', '标签是 SkillDock 自己的数据');
+  const multi = (await w.service.snapshot('local', true, { multiAgent: true })).skills.find(item => item.name === 'demo');
+  assert.deepEqual([multi.canToggle, multi.canRemove, multi.canUpdate], [false, false, false]); assert.match(multi.reason, /只读/);
+  const plain = (await w.service.snapshot('local', true)).skills.find(item => item.name === 'demo');
+  assert.equal(plain.canToggle, true, '1 版快照保持 0.10.2 行为');
+});
+
+test('requests for the Claude side are refused in this version, except where agent only marks a version-2 request', async t => {
+  const w = await world(t);
+  const demo = (await w.service.snapshot('local', true)).skills.find(item => item.name === 'demo');
+  for (const request of [{ action: 'skill.previewInstall', sourceType: 'local', source: w.root }, { action: 'plugin.previewInstall', sourceType: 'local', source: w.root },
+    { action: 'skill.previewSource', id: demo.id, sourceType: 'local', source: w.root }, { action: 'update.check', target: { kind: 'skill', id: demo.id } },
+    { action: 'tags.set', target: { kind: 'skill', id: demo.id }, tags: ['x'] }, { action: 'marketplace.add', sourceType: 'git', source: 'https://github.com/o/r' }])
+    assert.equal((await w.act({ ...request, agent: 'claude' })).code, 'UNSUPPORTED_FOR_AGENT', request.action);
+  assert.notEqual((await w.act({ action: 'updates.run', agent: 'claude', targets: [], autoApply: false })).code, 'UNSUPPORTED_FOR_AGENT');
+});
+
+test('enabling needs readable main evidence; an uninstalled environment can be turned off, a never-enabled one is not listed', async t => {
+  const w = await world(t);
+  w.lists.fail = 'Claude 命令行 plugin list 失败：stand-in';
+  const refused = await w.act({ action: 'agent.setManagement', agent: 'claude', management: 'enabled' });
+  assert.equal(refused.code, 'AGENT_UNCONFIRMED'); assert.match(refused.message, /stand-in/);
+  assert.equal((await w.stored()).claude.management, 'read-only', '没有写入启用');
+  w.lists.fail = null;
+  await w.act({ action: 'agent.setManagement', agent: 'claude', management: 'enabled' });
+  await fs.rm(w.claudeConfig, { recursive: true }); w.status.claude = { available: false, error: 'stand-in: none' };
+  assert.match((await w.act({ action: 'agent.setManagement', agent: 'claude', management: 'read-only' })).message, /只读/);
+  assert.deepEqual((await w.agents()).map(item => item.agent), ['codex'], '已卸载且只读的环境不再列出');
+});
+

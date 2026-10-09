@@ -90,6 +90,7 @@ import { InstallDialog } from "./InstallDialog";
 import { LibraryFilters, ViewSwitch, CollectionFooter } from "./LibraryUI";
 import { AgentFilter, AgentBadges, ClaudePluginFacts, ClaudeSkillFacts, MarketAutoUpdate, matchesAgent, showsAgents, objectAgents, type AgentFilterValue } from "./AgentUI";
 import { AgentEnvironments } from "./AgentEnvironments";
+import { requestAgent, stateUrl } from "./agent-requests";
 
 type Page = "skills" | "plugins" | "markets" | "updates" | "activity" | "agents";
 type Metric = "all" | "enabled" | "standalone" | "attention";
@@ -463,7 +464,7 @@ export default function App() {
       const health = await api<{ apiVersion?: number }>("/api/health").catch(() => null);
       multiAgentRef.current = (health?.apiVersion ?? 1) >= 2;
       if (health && !multiAgentRef.current) setToast({ kind: "error", message: t("SkillDock 服务版本较旧，请更新。") });
-      const result = await api<Snapshot>(`/api/state?mode=${targetMode}${multiAgentRef.current ? "&multiAgent=1" : ""}`);
+      const result = await api<Snapshot>(stateUrl(targetMode, health?.apiVersion));
       if (seq === requestSeq.current && modeRef.current === targetMode) {
         setSnapshot(result);
         setInspection(current => current && (current.kind === "skill" ? result.skills : result.plugins).some(item => item.id === current.id) ? current : null);
@@ -535,7 +536,7 @@ export default function App() {
           "Content-Type": "application/json",
           "X-SkillDock-Token": tokenRef.current,
         },
-        body: JSON.stringify({ ...request, ...(multiAgentRef.current && !request.agent ? { agent: "codex" } : {}), mode: capturedMode }),
+        body: JSON.stringify({ ...request, ...(multiAgentRef.current ? { agent: requestAgent(request, snapshot) } : {}), mode: capturedMode }),
       });
       if (modeRef.current !== capturedMode) return undefined;
       if (result.update && request.id)
@@ -706,7 +707,7 @@ export default function App() {
     const { kind, item } = menu.subject;
     const common: DesktopCommand[] = [
       { label: t("查看详情"), icon: <Info size={15} />, run: () => setInspection({ kind, id: item.id }) },
-      { label: t("编辑标签"), icon: <Tag size={15} />, disabled: !!busy, run: () => editTags(kind, item) },
+      { label: t("编辑标签"), icon: <Tag size={15} />, disabled: !!busy || !objectAgents(item).includes("codex"), run: () => editTags(kind, item) },
       { label: t(item.enabled ? "禁用" : "启用"), icon: <CircleCheck size={15} />, disabled: !item.canToggle || !!busy || paused, run: () => run({ action: kind === "skill" ? "skill.toggle" : "plugin.toggle", id: item.id, enabled: !item.enabled }) },
       { label: t("管理更新"), icon: <RefreshCw size={15} />, run: () => { navigate("updates"); setUpdateFocus(item.id); } },
     ];
@@ -1009,7 +1010,7 @@ export default function App() {
                                   )}
                               </p>
                             </button>
-                            <TagStrip subject={{ ...skill, kind: "skill" }} disabled={!!busy} onEdit={() => editTags("skill", skill)} />
+                            <TagStrip subject={{ ...skill, kind: "skill" }} disabled={!!busy || !objectAgents(skill).includes("codex")} onEdit={() => editTags("skill", skill)} />
                             {(showAgentDimension || skill.visibility || skill.perAgent) && <div className="agent-line">{showAgentDimension && <AgentBadges agents={skill.agents} />}<ClaudeSkillFacts skill={skill} /></div>}
                             {!!skill.duplicateNames?.length && <code className="skill-instance-path">{skill.path}</code>}
                             <SkillReason
@@ -1541,7 +1542,7 @@ function PluginCard({ plugin, busy, onToggle, onInstall, onDetails, onEditTags, 
       <div className="skill-card-heading"><ProviderIcon icon={plugin.icon} className="skill-icon tone-2"><Blocks size={21} strokeWidth={1.6} /></ProviderIcon><div><h3>{pluginTitle(plugin)}</h3><span className="skill-kind">{plugin.version || t("版本未提供")} · {t(plugin.installed ? "已安装" : "未安装")}</span></div><ChevronRight className="card-chevron" size={17} /></div>
       <p className="skill-description">{plugin.description || t("这个插件尚未提供描述。请根据来源与附带技能判断是否适合你的工作流。")}</p>
     </button>
-    <TagStrip subject={{ ...plugin, name: pluginTitle(plugin), kind: "plugin" }} disabled={!!busy} onEdit={onEditTags} />
+    <TagStrip subject={{ ...plugin, name: pluginTitle(plugin), kind: "plugin" }} disabled={!!busy || !objectAgents(plugin).includes("codex")} onEdit={onEditTags} />
     {(showAgents || plugin.installation) && <div className="agent-line">{showAgents && <AgentBadges agents={plugin.agents} />}<ClaudePluginFacts plugin={plugin} /></div>}
     {plugin.enabled === null && plugin.installed && <div className="skill-reason skill-reason-attention"><CircleAlert size={13} /><span>{t("安装或启用状态尚未核实。")}</span></div>}
     <div className="skill-card-footer"><span className="source-tag" title={plugin.marketplace}><Globe2 size={12} />{plugin.directSource ? t("单插件来源") : plugin.marketplace}</span><div className="card-status">
@@ -1558,9 +1559,10 @@ function PluginDetail({ plugin, skills, busy, onClose, onToggle, onRemove, onIns
       {plugin.installed && <div className="inline-toggle"><Toggle checked={plugin.enabled} disabled={!plugin.canToggle || !!busy} label={`${plugin.enabled ? t("禁用") : t("启用")} ${pluginTitle(plugin)}`} onChange={onToggle} /><span>{t(plugin.enabled === null ? "状态待确认" : plugin.enabled ? "已启用" : "已禁用")}</span></div>}
       {plugin.reason && <div className="dialog-note"><ServiceMessage value={plugin.reason} /></div>}
       {plugin.directory?.installUrl && plugin.installed && <div className="dialog-note"><ExternalLink href={plugin.directory.installUrl} target="_blank" rel="noopener noreferrer">{t('查看官方详情与授权')}</ExternalLink><span>{t(plugin.directory.connected ? '应用连接可用' : '请完成或核实账号授权')}</span></div>}
-      {plugin.installed && <div className="install-components"><strong>{t("附带技能（{v0}）", { v0: skills.length })}</strong><div className="plugin-skill-list">{skills.map(skill => <button className="text-button" key={skill.id} onClick={() => onSkill(skill)}><ProviderIcon icon={skill.icon}><Sparkles size={15} /></ProviderIcon>{skill.name}<ChevronRight size={14} /></button>)}</div></div>}
+      {plugin.installed && plugin.installation && <div className="install-components"><strong>{t("附带技能（{v0}）", { v0: plugin.skillCount })}</strong><p className="field-hint">{t("这一版只读取 Claude 插件，附带技能不单独列出。")}</p></div>}
+      {plugin.installed && !plugin.installation && <div className="install-components"><strong>{t("附带技能（{v0}）", { v0: skills.length })}</strong><div className="plugin-skill-list">{skills.map(skill => <button className="text-button" key={skill.id} onClick={() => onSkill(skill)}><ProviderIcon icon={skill.icon}><Sparkles size={15} /></ProviderIcon>{skill.name}<ChevronRight size={14} /></button>)}</div></div>}
       <p className="field-hint">{t("插件附带的技能与组件一起安装、更新和卸载。")}</p>
-    </div><div className="modal-footer">{plugin.installed ? <><Button variant="danger" disabled={!plugin.canRemove || !!busy} onClick={onRemove}><Trash2 size={15} />{t("卸载")}</Button><Button disabled={!!busy} onClick={onUpdates}><RefreshCw size={15} />{t("管理更新")}</Button></> : <><Button onClick={onClose}>{t("关闭")}</Button><Button variant="primary" disabled={!plugin.canInstall || !!busy} onClick={onInstall}>{t("安装插件")}</Button></>}</div>
+    </div><div className="modal-footer">{plugin.installed ? <><Button variant="danger" disabled={!plugin.canRemove || !!busy} onClick={onRemove}><Trash2 size={15} />{t("卸载")}</Button>{!plugin.installation && <Button disabled={!!busy} onClick={onUpdates}><RefreshCw size={15} />{t("管理更新")}</Button>}</> : <><Button onClick={onClose}>{t("关闭")}</Button><Button variant="primary" disabled={!plugin.canInstall || !!busy} onClick={onInstall}>{t("安装插件")}</Button></>}</div>
   </Inspector>;
 }
 function MarketCard({

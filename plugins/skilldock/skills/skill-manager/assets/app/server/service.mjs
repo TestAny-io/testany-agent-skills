@@ -28,7 +28,7 @@ import { officialAppUrl } from './app-directory.mjs';
 import { createDirectoryIcons } from './directory-icons.mjs';
 import { createAgentLayer, readManagement, writeManagement, AGENT_NAME } from './agents.mjs';
 import { claudeCatalog } from './claude-catalog.mjs';
-import { mergeClaude } from './multi-agent.mjs';
+import { mergeClaude, markReadOnly } from './multi-agent.mjs';
 import { writeClaudeRoot } from './claude-root.mjs';
 import { inspectNode, findNpm, resolveToolchain } from './toolchain.mjs';
 import { writeSavedNode } from './node-candidates.mjs';
@@ -51,10 +51,16 @@ const ACTION_FIELDS = {
   'update.check': ['target'], 'update.apply': ['target', 'previewId'], 'updates.run': ['targets', 'autoApply'], 'schedule.configure': ['schedule'],
   'agent.setManagement': ['management'], 'agent.updateSkilldock': [], 'settings.setClaudeRoot': ['claudeRoot'], 'settings.setNodePath': ['nodePath'], 'settings.redetectNode': [],
 };
-// Actions that change an Agent's skills, plugins or marketplaces (36c §5: refused while that
-// environment is read-only); previews, tags, sources and settings change SkillDock data only.
+// Actions that change an Agent's skills, plugins or marketplaces: they edit its files or
+// configuration, or run a mutating command (plugin add/remove, marketplace add/upgrade/remove).
+// 36c §5: refused while that environment is read-only. Previews, tags, sources and settings
+// change SkillDock's own data only; a plugin update check is kept read-only separately (it
+// would otherwise upgrade the marketplace first).
 const HOST_WRITES = new Set(['skill.toggle', 'skill.install', 'skill.update', 'skill.remove', 'skill.removeSelected', 'activity.restore',
   'plugin.install', 'plugin.installSource', 'plugin.remove', 'plugin.toggle', 'marketplace.add', 'marketplace.refresh', 'marketplace.remove', 'update.apply']);
+// Global and multi-target actions: `agent` only marks a version-2 request (36c §6).
+const AGENT_FLAG_ONLY = new Set(['schedule.configure', 'updates.run', 'skill.previewRemoval', 'skill.removeSelected', 'project.select', 'project.chooseDirectory']);
+export const CODEX_READ_ONLY_REASON = 'Codex 环境当前为只读；在 SkillDock 的“Agent 环境”页启用 Codex 管理后才能修改。';
 const validPath = value => typeof value === 'string' && path.isAbsolute(value) && value.length <= 2000 && !/[\x00-\x1f]/.test(value);
 export function validateAction(input) {
   if (!input || typeof input !== 'object' || Array.isArray(input)) fail(400, 'INVALID_ACTION', '请求需要 JSON 对象。');
@@ -253,6 +259,7 @@ export async function createService(options = {}) {
       const found = await agentLayer.discover({ force });
       const claude = found.installed.claude ? await claudeFor(found, env.project, force) : null;
       mergeClaude(result, claude ?? { skills: [], plugins: [], marketplaces: [], diagnostics: [] });
+      if (found.stored.codex?.management === 'read-only') markReadOnly(result, 'codex', CODEX_READ_ONLY_REASON);
       result.agents = await agentLayer.environments({ found, unconfirmed: agent => agent === 'claude' ? claude?.unconfirmed : null });
     } else if (multiAgent) {
       mergeClaude(result, { skills: [], plugins: [], marketplaces: [], diagnostics: [] }); result.agents = [];
@@ -1017,11 +1024,13 @@ export async function createService(options = {}) {
   // 36c §5, §8: a read-only Codex refuses changes, with a message that also stands alone in
   // 0.10.x interfaces. Claude objects are read-only in this version.
   async function assertAgentWritable(request) {
-    if (request.mode !== 'local' || !HOST_WRITES.has(request.action)) return;
-    if (request.agent === 'claude') fail(422, 'UNSUPPORTED_FOR_AGENT', '这一版 SkillDock 只读取 Claude 中的技能和插件，暂不能在这里修改它们。');
-    if ((await readManagement(stateDir)).codex?.management === 'read-only')
+    if (request.mode !== 'local') return;
+    if (request.agent === 'claude' && !AGENT_FLAG_ONLY.has(request.action)) fail(422, 'UNSUPPORTED_FOR_AGENT', '这一版 SkillDock 只读取 Claude 中的技能和插件，暂不能在这里修改它们。');
+    if (!HOST_WRITES.has(request.action)) return;
+    if (await codexReadOnly())
       fail(409, 'AGENT_READ_ONLY', 'Codex 环境当前为只读，SkillDock 不会修改 Codex 中的技能和插件。请在 SkillDock 的“Agent 环境”页启用 Codex 管理后重试。');
   }
+  const codexReadOnly = async () => (await readManagement(stateDir)).codex?.management === 'read-only';
   // HLD 3.8: targets of an Agent that is not managed (read-only, unconfirmed or gone) pause.
   async function pausedTarget(mode, target) {
     if (mode !== 'local') return null;
@@ -1062,10 +1071,13 @@ export async function createService(options = {}) {
   // HLD 3.6, 6.4: enabling checks the main evidence first and reads the state back.
   async function setManagement(agent, management) {
     const found = await agentLayer.discover({ force: true });
-    if (!found.installed[agent]) fail(404, 'AGENT_NOT_INSTALLED', `本机未找到 ${AGENT_NAME[agent]}。`);
+    // Turning management off needs no installation: an environment enabled before can be turned off after it is gone.
+    if (!found.installed[agent] && (management === 'enabled' || !found.stored[agent])) fail(404, 'AGENT_NOT_INSTALLED', `本机未找到 ${AGENT_NAME[agent]}。`);
     if (management === 'enabled') {
-      if (!found.cli[agent].available) fail(422, 'CLI_UNAVAILABLE', `未找到可用的 ${AGENT_NAME[agent]} 命令行，不能启用管理：${found.cli[agent].error || '无法运行'}。`);
-      const state = agentLayer.effective(agent, found);
+      if (!found.cli[agent].available) fail(422, 'CLI_UNAVAILABLE', `未找到可用的 ${AGENT_NAME[agent]} 命令行，不能启用管理。`);
+      // The main evidence must be readable now, not only the command line (36c 7.2).
+      const claude = agent === 'claude' ? await claudeFor(found, project, true) : null;
+      const state = agentLayer.effective(agent, found, side => side === 'claude' ? claude?.unconfirmed : null);
       if (state.management === 'unconfirmed') fail(409, 'AGENT_UNCONFIRMED', state.reason);
     }
     const stored = await readManagement(stateDir);
@@ -1123,7 +1135,13 @@ export async function createService(options = {}) {
       }
       if (target?.kind === 'plugin' && !applying) await scheduler.reconcileBinding(mode, target);
       const binding = target && (applying || target.kind === 'plugin') ? await scheduler.beforeOwnUpdate(mode, target) : null;
-      const result = await executeAction(translated);
+      // PH3-P1-01: refreshing a marketplace changes Codex; a read-only Codex is checked against its current copy.
+      const keepCodex = translated.action === 'plugin.checkUpdate' && mode === 'local' && await codexReadOnly();
+      const result = await executeAction(translated, keepCodex ? { pluginCheckOptions: { refreshMarketplace: false } } : {});
+      if (keepCodex) {
+        const note = `${result.message} Codex 为只读，这次检查没有刷新来源，结果以本机现有的 marketplace 副本为准。`;
+        result.message = note; if (result.updateItem) result.updateItem.message = note;
+      }
       if (target && applying) await scheduler.afterOwnUpdate(mode, target, binding);
       else if (target) {
         let updateItem = result.updateItem;

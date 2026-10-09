@@ -153,3 +153,19 @@ for (const changed of ['source', 'installed']) test(`reconciliation stops if ${c
   assert.deepEqual((await f.registry()).pluginBaselines[f.target.id], baseline); assert.deepEqual((await f.state()).bindings[f.key], binding);
   assert.deepEqual(await fs.readdir(path.join(f.stateDir, 'local/staging')), [], 'failed verification must clean its staging data');
 });
+
+test('a read-only Codex is checked against its current marketplace copy: no command that changes Codex runs (PH3-P1-01)', async t => {
+  const f = await fixture(t, { git: true });
+  assert.equal((await f.check()).status, 'current'); assert.equal(f.commands.length, 1, '可管理时照常先刷新 Git marketplace');
+  f.commands.length = 0;
+  assert.match((await f.act('agent.setManagement', { agent: 'codex', management: 'read-only' })).message, /只读/);
+  for (const request of [{}, { agent: 'codex' }]) {
+    const result = await f.act('update.check', { target: f.target, ...request });
+    assert.equal(result.updateItem.status, 'current');
+    assert.match(result.message, /没有刷新来源/);
+    assert.deepEqual(f.commands, [], '只读的 Codex 不执行 marketplace upgrade');
+  }
+  await assert.rejects(f.act('marketplace.refresh', { id: f.market.id }), error => error.code === 'AGENT_READ_ONLY');
+  assert.equal(await fs.readFile(path.join(f.codexHome, 'config.toml'), 'utf8'), f.config);
+});
+

@@ -12,7 +12,7 @@ const require = createRequire(new URL('../package.json', import.meta.url));
 const { createElement } = require('react');
 const { renderToStaticMarkup } = require('react-dom/server');
 const bundle = await build({
-  stdin: { contents: 'export * from "./src/AgentUI"; export * from "./src/AgentEnvironments"; export { setPreferences } from "./src/preferences";', resolveDir: app, loader: 'ts' },
+  stdin: { contents: 'export * from "./src/AgentUI"; export * from "./src/AgentEnvironments"; export * from "./src/agent-requests"; export { setPreferences } from "./src/preferences";', resolveDir: app, loader: 'ts' },
   bundle: true, platform: 'node', format: 'cjs', packages: 'external', jsx: 'automatic', write: false, loader: { '.css': 'empty' },
 });
 function ui(language = 'zh') {
@@ -76,3 +76,19 @@ test('the new texts are translated (en)', () => {
   assert.match(render(ClaudePluginFacts, { plugin: { installation: { scope: 'user' }, enabled: false, enablement: { decidedBy: 'user' } } }), /Install scope: User.*Set by user settings: Disabled/);
   assert.equal(/[一-鿿]/.test(html), false, '英文界面不残留中文');
 });
+
+test('requests: the multi-agent snapshot only from API version 2; a write names the side of its object', () => {
+  const { stateUrl, requestAgent } = ui();
+  assert.equal(stateUrl('local', 2), '/api/state?mode=local&multiAgent=1');
+  assert.equal(stateUrl('local', 1), '/api/state?mode=local'); assert.equal(stateUrl('local', undefined), '/api/state?mode=local');
+  const snapshot = { skills: [{ id: 'shared', agents: ['codex', 'claude'] }, { id: 'claude:skill:user:a', agents: ['claude'] }, { id: 'plain' }],
+    plugins: [{ id: 'claude:plugin:x@m:user', agents: ['claude'] }], marketplaces: [{ id: 'claude:marketplace:m', agents: ['claude'] }] };
+  assert.equal(requestAgent({ action: 'skill.toggle', id: 'shared' }, snapshot), 'codex', '共用对象作用于 Codex 一侧');
+  assert.equal(requestAgent({ action: 'skill.toggle', id: 'claude:skill:user:a' }, snapshot), 'claude');
+  assert.equal(requestAgent({ action: 'plugin.toggle', id: 'claude:plugin:x@m:user' }, snapshot), 'claude');
+  assert.equal(requestAgent({ action: 'update.check', target: { kind: 'plugin', id: 'claude:plugin:x@m:user' } }, snapshot), 'claude');
+  assert.equal(requestAgent({ action: 'skill.toggle', id: 'plain' }, snapshot), 'codex', '缺省为 Codex');
+  assert.equal(requestAgent({ action: 'updates.run' }, snapshot), 'codex');
+  assert.equal(requestAgent({ action: 'agent.setManagement', agent: 'claude' }, snapshot), 'claude');
+});
+

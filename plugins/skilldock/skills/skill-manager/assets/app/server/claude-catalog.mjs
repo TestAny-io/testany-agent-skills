@@ -7,7 +7,7 @@ import path from 'node:path';
 import crypto from 'node:crypto';
 import { execFile } from 'node:child_process';
 import { claudeCliEnvironment } from './process-env.mjs';
-import { metadata, redact } from './files.mjs';
+import { metadata, redact, publicSource } from './files.mjs';
 
 const SETTINGS_KEYS = ['enabledPlugins', 'skillOverrides', 'extraKnownMarketplaces'];
 /** Highest first (Claude: managed > local > project > user; command-line flags are per session). */
@@ -21,6 +21,7 @@ const officialDefault = name => name === 'claude-plugins-official' || (name.star
 const digest = value => crypto.createHash('sha256').update(value).digest('hex').slice(0, 12);
 const revision = value => crypto.createHash('sha256').update(JSON.stringify(value)).digest('hex').slice(0, 16);
 const exists = async file => !!(await fs.lstat(file).catch(() => null));
+const isDirectory = async directory => (await fs.stat(directory).catch(() => null))?.isDirectory() ?? false;
 const READ_ONLY = '这一版 SkillDock 只读取 Claude 中的对象，暂不能在这里修改。';
 
 /** 36c §6: Claude object IDs are derived from the installation identity; clients never parse them. */
@@ -30,15 +31,16 @@ export const claudeIds = {
   marketplace: name => `claude:marketplace:${name}`,
 };
 
+// Problems are complete sentences: they become the reason Claude is unconfirmed.
 async function readLayer(file) {
   let text;
-  try { text = await fs.readFile(file, 'utf8'); } catch (error) { if (error.code === 'ENOENT' || error.code === 'ENOTDIR') return { file, values: {} }; return { file, error: error.code || 'UNREADABLE' }; }
+  try { text = await fs.readFile(file, 'utf8'); } catch (error) { if (error.code === 'ENOENT' || error.code === 'ENOTDIR') return { file, values: {} }; return { file, error: `设置文件 ${file} 无法读取（${error.code || 'UNREADABLE'}）。` }; }
   let data;
-  try { data = JSON.parse(text); } catch { return { file, error: '不是有效的 JSON' }; }
-  if (!data || typeof data !== 'object' || Array.isArray(data)) return { file, error: '格式未知' };
+  try { data = JSON.parse(text); } catch { return { file, error: `设置文件 ${file} 不是有效的 JSON。` }; }
+  if (!data || typeof data !== 'object' || Array.isArray(data)) return { file, error: `设置文件 ${file} 的格式未知。` };
   const values = {};
   for (const key of SETTINGS_KEYS) if (data[key] !== undefined) {
-    if (!data[key] || typeof data[key] !== 'object' || Array.isArray(data[key])) return { file, error: `${key} 的格式未知` };
+    if (!data[key] || typeof data[key] !== 'object' || Array.isArray(data[key])) return { file, error: `设置文件 ${file} 中 ${key} 的格式未知。` };
     values[key] = data[key];
   }
   return { file, values };
@@ -52,13 +54,16 @@ export async function readClaudeSettings({ configDir, project, managedDir = MANA
   for (const layer of LAYERS) {
     if (layer === 'project' && userIsProject) { layers.project = {}; continue; }
     const read = await readLayer(files[layer]);
-    if (read.error) { problems.push(`${read.file}：${read.error}`); layers[layer] = {}; } else layers[layer] = read.values;
+    if (read.error) { problems.push(read.error); layers[layer] = {}; } else layers[layer] = read.values;
   }
   // Managed drop-in files merge over managed-settings.json in name order.
   const dropIn = path.join(managedDir, 'managed-settings.d');
-  for (const name of (await fs.readdir(dropIn).catch(() => [])).filter(item => item.endsWith('.json')).sort()) {
+  let names = [];
+  try { names = await fs.readdir(dropIn); }
+  catch (error) { if (error.code !== 'ENOENT' && error.code !== 'ENOTDIR') problems.push(`托管设置目录 ${dropIn} 无法读取（${error.code || 'UNREADABLE'}）。`); }
+  for (const name of names.filter(item => item.endsWith('.json')).sort()) {
     const read = await readLayer(path.join(dropIn, name));
-    if (read.error) { problems.push(`${read.file}：${read.error}`); continue; }
+    if (read.error) { problems.push(read.error); continue; }
     for (const [key, value] of Object.entries(read.values)) layers.managed[key] = { ...layers.managed[key], ...value };
   }
   return { files, layers, problems };
@@ -86,8 +91,9 @@ function run(cli, args, { env, claudeRoot, cwd, timeout }) {
   return new Promise((resolve, reject) => {
     execFile(cli, args, { timeout, maxBuffer: 8 * 1024 * 1024, cwd, shell: false,
       env: { ...claudeCliEnvironment(env, claudeRoot), CLAUDE_CODE_DISABLE_NONESSENTIAL_TRAFFIC: '1' } }, (error, stdout) => {
-      if (error) return reject(new Error(`claude ${args.slice(0, 2).join(' ')} 失败：${redact(String(error.message).split('\n')[0])}`));
-      try { resolve(JSON.parse(String(stdout))); } catch { reject(new Error(`claude ${args.slice(0, 2).join(' ')} 的输出无法解析`)); }
+      const command = args.filter(arg => !arg.startsWith('--')).join(' ');
+      if (error) return reject(new Error(`Claude 命令行 ${command} 失败：${redact(String(error.message).split('\n')[0])}`));
+      try { resolve(JSON.parse(String(stdout))); } catch { reject(new Error(`Claude 命令行 ${command} 的输出无法解析。`)); }
     });
   });
 }
@@ -144,7 +150,7 @@ async function projectSkillRoots(project) {
 // When the project is the home directory its `.claude` is the user configuration itself.
 const sameDirectory = async (a, b) => (await fs.realpath(a).catch(() => path.resolve(a))) === (await fs.realpath(b).catch(() => path.resolve(b)));
 
-async function scanSkills({ roots, layers, diagnostics }) {
+async function scanSkills({ roots, layers, diagnostics, problems }) {
   const skills = []; const plugins = [];
   for (const { directory: root, scope } of roots) {
     let entries;
@@ -161,14 +167,15 @@ async function scanSkills({ roots, layers, diagnostics }) {
       catch (error) { diagnostics.push(`${directory}：${redact(error.message)}`); continue; }
       const { source, value } = enablement(layers, 'skillOverrides', detail.name, (a, b) => a === b);
       const visibility = VISIBILITY[value ?? 'on'];
-      if (!visibility) { diagnostics.push(`技能 ${detail.name} 的可见性设置 ${String(value)} 无法识别。`); }
-      const state = { visibility: visibility || 'enabled', source };
+      // An unknown value is an unknown format (HLD 3.2): the environment is unconfirmed.
+      const unknown = !visibility ? `技能 ${detail.name} 的可见性设置 ${String(value)} 无法识别。` : null;
+      if (unknown) problems.push(unknown);
       skills.push({
         agents: ['claude'], id: claudeIds.skill(scope, directory), name: detail.name, description: detail.description, path: path.join(directory, 'SKILL.md'), realPath: real,
-        scope, sourceLabel: scope === 'user' ? 'Claude 个人技能' : 'Claude 项目技能', enabled: state.visibility === 'enabled' ? true : state.visibility === 'disabled' ? false : null,
-        visibility: state.visibility, enablement: source, ...(source.locked ? { protection: 'managed' } : {}), managed: !!source.locked, isLink,
-        canToggle: false, canRemove: false, canUpdate: false, reason: READ_ONLY, statusEvidence: 'Claude 技能目录 + 设置中的技能可见性', updatedAt: detail.updatedAt,
-        revision: revision({ real, visibility: state.visibility, source }),
+        scope, sourceLabel: scope === 'user' ? 'Claude 个人技能' : 'Claude 项目技能', enabled: visibility === 'enabled' ? true : visibility === 'disabled' ? false : null,
+        ...(visibility ? { visibility } : {}), enablement: source, ...(source.locked ? { protection: 'managed' } : {}), managed: !!source.locked, isLink,
+        canToggle: false, canRemove: false, canUpdate: false, reason: unknown ?? READ_ONLY, statusEvidence: 'Claude 技能目录 + 设置中的技能可见性', updatedAt: detail.updatedAt,
+        revision: revision({ real, visibility: visibility ?? String(value), source }),
       });
     }
   }
@@ -187,24 +194,28 @@ export async function claudeCatalog({ claudeRoot, project, cli, env = process.en
   const { layers } = settings;
   const options = { env, claudeRoot, cwd: project, timeout };
   let installed = null; let markets = null;
-  if (cli?.available) {
+  // Listing creates Claude's configuration when it is missing (HLD 3.1, 3.7): without the
+  // root there is nothing installed, and nothing is run.
+  const rooted = await isDirectory(configDir);
+  if (cli?.available && rooted) {
     try {
       const value = await (listPlugins ? listPlugins() : run(cli.path, ['plugin', 'list', '--json'], options));
-      if (!Array.isArray(value) || !value.every(pluginShape)) throw new Error('claude plugin list 的输出形状未知');
+      if (!Array.isArray(value) || !value.every(pluginShape)) throw new Error('Claude 命令行 plugin list 的输出形状未知。');
       installed = value;
     } catch (error) { problems.push(error.message); }
     try {
       const value = await (listMarketplaces ? listMarketplaces() : run(cli.path, ['plugin', 'marketplace', 'list', '--json'], options));
-      if (!Array.isArray(value) || !value.every(marketShape)) throw new Error('claude plugin marketplace list 的输出形状未知');
+      if (!Array.isArray(value) || !value.every(marketShape)) throw new Error('Claude 命令行 plugin marketplace list 的输出形状未知。');
       markets = value;
     } catch (error) { problems.push(error.message); }
   }
   // Fast path and fallback (HLD 3.2): Claude's own records, shown as unconfirmed evidence.
   const record = installed ? null : await installRecord(configDir);
   const known = await knownMarketplaces(configDir);
+  // Skills-directory plugins are identified by their directory below; the lists only give their state.
   const pluginList = (installed ?? record ?? []).filter(item => {
     const [name, market] = item.id.split('@');
-    return name && market;
+    return name && market && market !== 'skills-dir';
   });
   const plugins = [];
   for (const item of pluginList) {
@@ -237,12 +248,11 @@ export async function claudeCatalog({ claudeRoot, project, cli, env = process.en
   const userSkills = { directory: path.join(configDir, 'skills'), scope: 'user' };
   const roots = [userSkills];
   for (const directory of await projectSkillRoots(project)) if (!await sameDirectory(directory, userSkills.directory)) roots.push({ directory, scope: 'project' });
-  const { skills, skillDirectoryPlugins } = await scanSkills({ roots, layers, diagnostics });
+  const { skills, skillDirectoryPlugins } = await scanSkills({ roots, layers, diagnostics, problems });
   for (const { directory, manifest, scope } of skillDirectoryPlugins) {
     const name = typeof manifest.name === 'string' ? manifest.name : path.basename(directory);
     const id = `${name}@skills-dir`;
-    if (plugins.some(item => item.name === name && item.marketplace === 'skills-dir')) continue;
-    const listed = (installed ?? []).find(item => item.id === id);
+    const listed = (installed ?? []).find(item => item.id === id && (item.scope === scope || !item.scope));
     const { source } = enablement(layers, 'enabledPlugins', id, (a, b) => a === b);
     plugins.push({ agents: ['claude'], id: claudeIds.plugin(id, scope, directory), name, description: typeof manifest.description === 'string' ? manifest.description : '', marketplace: 'skills-dir',
       version: typeof manifest.version === 'string' ? manifest.version : undefined, installed: true, enabled: listed ? listed.enabled : null, skillCount: await countSkills(directory),
@@ -263,10 +273,11 @@ export async function claudeCatalog({ claudeRoot, project, cli, env = process.en
       try { const catalog = JSON.parse(await fs.readFile(path.join(location, '.claude-plugin/marketplace.json'), 'utf8')); pluginCount = Array.isArray(catalog.plugins) ? catalog.plugins.length : 0; } catch { /* unknown */ }
     }
     const sourceText = item.repo || item.url || item.path || entry.source?.repo || entry.source?.url || entry.source?.path || item.source;
-    marketplaces.push({ agents: ['claude'], id: claudeIds.marketplace(item.name), name: item.name, source: String(sourceText), type: item.source, pluginCount, autoUpdate,
+    marketplaces.push({ agents: ['claude'], id: claudeIds.marketplace(item.name), name: item.name, source: publicSource(String(sourceText)), type: item.source, pluginCount, autoUpdate,
       ...(typeof entry.lastUpdated === 'string' ? { refreshedAt: entry.lastUpdated } : {}), canRemove: false, canRefresh: false, reason: READ_ONLY,
       revision: revision({ name: item.name, autoUpdate, plugins: plugins.filter(plugin => plugin.marketplace === item.name).map(plugin => plugin.id).sort() }) });
   }
-  const unconfirmed = !cli?.available ? null : problems.length ? `无法确认 Claude 中的插件状态：${problems.join('；')}。` : null;
-  return { skills, plugins, marketplaces, diagnostics, unconfirmed, evidence: installed ? 'cli' : record ? 'record' : 'none' };
+  diagnostics.push(...problems.slice(1));
+  const unconfirmed = !cli?.available ? null : problems.length ? `无法确认 Claude 中的插件状态：${problems[0]}` : null;
+  return { skills, plugins, marketplaces, diagnostics, unconfirmed, evidence: installed ? 'cli' : record ? 'record' : 'none', listed: !!(cli?.available && rooted) };
 }

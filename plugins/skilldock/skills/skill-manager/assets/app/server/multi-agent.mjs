@@ -42,3 +42,20 @@ export function mergeClaude(result, claude) {
   result.diagnostics.push(...claude.diagnostics);
   return result;
 }
+
+/**
+ * Multi-agent snapshots only (PRD 5.1.4, AC-001): objects of an Agent that is not managed
+ * offer no changes and say why; version-1 snapshots keep 0.10.2 behaviour.
+ */
+export function markReadOnly(result, agent, reason) {
+  const off = item => Object.assign(item, { reason });
+  for (const skill of result.skills) {
+    if (!(skill.agents ?? ['codex']).includes(agent)) continue;
+    if (skill.perAgent?.[agent]) Object.assign(skill.perAgent[agent], { canToggle: false, canRemove: false, canUpdate: false, reason });
+    if (agent === 'codex' || !(skill.agents ?? []).includes('codex')) off(Object.assign(skill, { canToggle: false, canRemove: false, canUpdate: false }));
+  }
+  for (const plugin of result.plugins) if ((plugin.agents ?? ['codex']).includes(agent)) off(Object.assign(plugin, { canToggle: false, canRemove: false, canInstall: false }));
+  for (const market of result.marketplaces) if ((market.agents ?? ['codex']).includes(agent)) off(Object.assign(market, { canRemove: false, canRefresh: false }));
+  return result;
+}
+

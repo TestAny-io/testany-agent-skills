@@ -727,10 +727,6 @@
     "en": "The project directory {v0} does not exist, so this installation is read-only.",
     "ja": "プロジェクトディレクトリ {v0} が存在しないため、このインストールは読み取り専用です。"
   },
-  "无法确认 Claude 中的插件状态：{v0}。": {
-    "en": "Cannot confirm the plugin state in Claude: {v0}.",
-    "ja": "Claude のプラグイン状態を確認できません：{v0}。"
-  },
   "从 Claude 桌面应用打开的会话不会自动更新插件；终端中的会话按这个开关更新。": {
     "en": "Sessions opened from the Claude desktop app do not auto-update plugins; terminal sessions follow this switch.",
     "ja": "Claude デスクトップアプリから開いたセッションはプラグインを自動更新しません。ターミナルのセッションはこの設定に従います。"
@@ -738,5 +734,73 @@
   "技能 {v0} 的可见性设置 {v1} 无法识别。": {
     "en": "The visibility setting {v1} of skill {v0} is not recognized.",
     "ja": "スキル {v0} の表示設定 {v1} を認識できません。"
+  },
+  "未找到可用的 Codex CLI。": {
+    "en": "No working Codex CLI was found.",
+    "ja": "使用できる Codex CLI が見つかりません。"
+  },
+  "未找到可用的 Claude 命令行。": {
+    "en": "No working Claude command line was found.",
+    "ja": "使用できる Claude のコマンドラインが見つかりません。"
+  },
+  "未找到可用的 Claude 命令行，无法确认 Claude 中的插件状态。": {
+    "en": "No working Claude command line was found, so the plugin state in Claude cannot be confirmed.",
+    "ja": "使用できる Claude のコマンドラインが見つからないため、Claude のプラグイン状態を確認できません。"
+  },
+  "Codex 环境当前为只读；在 SkillDock 的“Agent 环境”页启用 Codex 管理后才能修改。": {
+    "en": "The Codex environment is read-only. Turn on Codex management on the Agent environments page in SkillDock to make changes.",
+    "ja": "Codex 環境は読み取り専用です。変更するには、SkillDock の「エージェント環境」ページで Codex の管理を有効にしてください。"
+  },
+  "未找到可用的 {v0} 命令行，不能启用管理。": {
+    "en": "No working {v0} command line was found, so management cannot be turned on.",
+    "ja": "使用できる {v0} のコマンドラインが見つからないため、管理を有効にできません。"
+  },
+  "本机未找到 {v0}。": {
+    "en": "{v0} was not found on this Mac.",
+    "ja": "この Mac に {v0} が見つかりません。"
+  },
+  "{v0} Codex 为只读，这次检查没有刷新来源，结果以本机现有的 marketplace 副本为准。": {
+    "en": "{v0} Codex is read-only, so this check did not refresh the source; the result is based on the marketplace copy already on this Mac.",
+    "ja": "{v0} Codex は読み取り専用のため、今回の確認ではソースを更新していません。結果はこの Mac にある既存のマーケットプレイスのコピーに基づきます。"
+  },
+  "无法确认 Claude 中的插件状态：{v0}": {
+    "en": "Cannot confirm the plugin state in Claude: {v0}",
+    "ja": "Claude のプラグイン状態を確認できません：{v0}"
+  },
+  "设置文件 {v0} 无法读取（{v1}）。": {
+    "en": "The settings file {v0} cannot be read ({v1}).",
+    "ja": "設定ファイル {v0} を読み取れません（{v1}）。"
+  },
+  "设置文件 {v0} 不是有效的 JSON。": {
+    "en": "The settings file {v0} is not valid JSON.",
+    "ja": "設定ファイル {v0} は有効な JSON ではありません。"
+  },
+  "设置文件 {v0} 的格式未知。": {
+    "en": "The settings file {v0} has an unknown format.",
+    "ja": "設定ファイル {v0} の形式が不明です。"
+  },
+  "设置文件 {v0} 中 {v1} 的格式未知。": {
+    "en": "{v1} in the settings file {v0} has an unknown format.",
+    "ja": "設定ファイル {v0} の {v1} の形式が不明です。"
+  },
+  "托管设置目录 {v0} 无法读取（{v1}）。": {
+    "en": "The managed settings directory {v0} cannot be read ({v1}).",
+    "ja": "管理設定ディレクトリ {v0} を読み取れません（{v1}）。"
+  },
+  "Claude 命令行 {v0} 失败：{v1}": {
+    "en": "The Claude command line {v0} failed: {v1}",
+    "ja": "Claude のコマンドライン {v0} が失敗しました：{v1}"
+  },
+  "Claude 命令行 {v0} 的输出无法解析。": {
+    "en": "The output of the Claude command line {v0} cannot be parsed.",
+    "ja": "Claude のコマンドライン {v0} の出力を解析できません。"
+  },
+  "Claude 命令行 {v0} 的输出形状未知。": {
+    "en": "The output of the Claude command line {v0} has an unknown shape.",
+    "ja": "Claude のコマンドライン {v0} の出力形式が不明です。"
+  },
+  "这一版 SkillDock 只读取 Claude 中的技能和插件，暂不能在这里修改它们。": {
+    "en": "This version of SkillDock only reads skills and plugins in Claude and cannot change them here yet.",
+    "ja": "このバージョンの SkillDock は Claude のスキルとプラグインを読み取るだけで、ここではまだ変更できません。"
   }
 }

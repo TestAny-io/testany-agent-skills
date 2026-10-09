@@ -2374,5 +2374,33 @@
   "Claude 技能目录 + 设置中的技能可见性": {
     "en": "Claude skills directory + skill visibility in settings",
     "ja": "Claude のスキルディレクトリ + 設定のスキル表示"
+  },
+  "配置根：{v0}": {
+    "en": "Configuration root: {v0}",
+    "ja": "設定ルート：{v0}"
+  },
+  "个人技能：{v0}": {
+    "en": "Personal skills: {v0}",
+    "ja": "個人スキル：{v0}"
+  },
+  "插件缓存：{v0}": {
+    "en": "Plugin cache: {v0}",
+    "ja": "プラグインキャッシュ：{v0}"
+  },
+  "当前项目的 .claude/settings.json 与 .claude/settings.local.json（只在你选择项目范围时）": {
+    "en": "The current project's .claude/settings.json and .claude/settings.local.json (only when you choose a project scope)",
+    "ja": "現在のプロジェクトの .claude/settings.json と .claude/settings.local.json（プロジェクト範囲を選んだ場合のみ）"
+  },
+  "这一版 SkillDock 只读取 Claude 中的对象；启用后，后续版本才能按你的操作修改 Claude 中的技能、插件和 marketplace，并把它们加入后台更新计划。这不会改动 Claude 自身的设置。": {
+    "en": "This version of SkillDock only reads items in Claude. Once on, later versions can change skills, plugins and marketplaces in Claude when you ask them to, and add them to background update plans. This does not change Claude's own settings.",
+    "ja": "このバージョンの SkillDock は Claude の項目を読み取るだけです。有効にすると、以降のバージョンで、操作に応じて Claude のスキル・プラグイン・マーケットプレイスを変更し、バックグラウンド更新プランに追加できるようになります。Claude 自体の設定は変更しません。"
+  },
+  "这一版只读取 Claude；启用管理后，修改功能会在后续版本开放。": {
+    "en": "This version only reads Claude; with management on, changes become available in a later version.",
+    "ja": "このバージョンは Claude を読み取るだけです。管理を有効にすると、変更機能は以降のバージョンで使えるようになります。"
+  },
+  "这一版只读取 Claude 插件，附带技能不单独列出。": {
+    "en": "This version only reads Claude plugins; their skills are not listed one by one.",
+    "ja": "このバージョンは Claude のプラグインを読み取るだけで、付属スキルは個別に表示しません。"
   }
 }

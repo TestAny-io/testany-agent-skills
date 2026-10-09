@@ -97,6 +97,7 @@ test('a failing list or an unknown settings format leaves Claude unconfirmed; it
   assert.match(shape.unconfirmed, /形状未知/);
   await write(path.join(w.project, '.claude/settings.local.json'), { skillOverrides: ['p1'] });
   assert.match((await claudeCatalog(w.base)).unconfirmed, /settings\.local\.json.*skillOverrides 的格式未知/);
+  await write(path.join(w.project, '.claude/settings.local.json'), { skillOverrides: { p1: 'name-only' } });
   await write(path.join(w.configDir, 'settings.json'), '{ not json');
   assert.match((await claudeCatalog(w.base)).unconfirmed, /settings\.json.*不是有效的 JSON/);
   // Without a command line the environment layer decides; the record is still shown.
@@ -117,7 +118,9 @@ test('settings: only the three relevant keys are read; a home-directory project 
 test('the command lines run with the allowed variables, Claude\'s root and the project as working directory', async t => {
   const w = await world(t);
   const seen = path.join(w.root, 'seen');
+  const argv = path.join(w.root, 'argv');
   const cli = await write(path.join(w.root, 'claude'), `#!/bin/sh
+echo "$*" >> "${argv}"
 { pwd; /usr/bin/env | /usr/bin/cut -d= -f1; } > "${seen}-$2"
 case "$2" in
 list) echo '[{"id":"a@m","scope":"user","enabled":true,"version":"abc"}]' ;;
@@ -133,4 +136,54 @@ esac`);
     for (const key of ['CLAUDE_CONFIG_DIR', 'DISABLE_AUTOUPDATER', 'CLAUDE_CODE_DISABLE_NONESSENTIAL_TRAFFIC']) assert.ok(keys.includes(key), `${name} ${key}`);
     for (const key of ['CLAUDECODE', 'ANTHROPIC_API_KEY']) assert.equal(keys.includes(key), false, `${name} ${key}`);
   }
+  // Exactly the two lists: never `--available` (it downloads the plugin directory) or any update.
+  assert.deepEqual((await fs.readFile(argv, 'utf8')).trim().split('\n').sort(), ['plugin list --json', 'plugin marketplace list --json']);
+  // Without Claude's configuration root nothing runs: listing would create it (PH3-P1-02).
+  await fs.rm(argv); await fs.rm(w.configDir, { recursive: true });
+  const rootless = await claudeCatalog({ ...w.base, listPlugins: undefined, listMarketplaces: undefined, cli: { available: true, path: cli }, env: { HOME: w.home, PATH: '/usr/bin:/bin' } });
+  assert.deepEqual([rootless.unconfirmed, rootless.evidence, rootless.plugins.length, rootless.listed], [null, 'none', 0, false]);
+  await assert.rejects(fs.stat(argv), { code: 'ENOENT' }); await assert.rejects(fs.stat(w.configDir), { code: 'ENOENT' });
+});
+
+test('precedence and scope: local over project, skills by their name, nothing above the repository root', async t => {
+  const w = await world(t);
+  await write(path.join(w.project, '.claude/settings.json'), { enabledPlugins: { 'b@m': false } });
+  await write(path.join(w.project, '.claude/settings.local.json'), { enabledPlugins: { 'b@m': true }, skillOverrides: { renamed: 'off' } });
+  await write(path.join(w.project, '.claude/skills/folder/SKILL.md'), '---\nname: renamed\ndescription: Name differs from its folder.\n---\n');
+  await skill(path.join(w.root, '.claude/skills'), 'above-repo');
+  const catalog = await claudeCatalog(w.base);
+  assert.deepEqual(catalog.plugins.find(item => item.name === 'b').enablement, { decidedBy: 'local', overriddenBy: 'local' }, '本地设置覆盖项目设置');
+  assert.deepEqual([catalog.skills.find(item => item.name === 'renamed').visibility], ['disabled'], '按技能名（frontmatter）匹配');
+  assert.equal(catalog.skills.some(item => item.name === 'above-repo'), false, '仓库根以上不再查找');
+});
+
+test('unknown formats leave Claude unconfirmed: a visibility value, an unreadable managed drop-in directory', async t => {
+  const w = await world(t);
+  await write(path.join(w.configDir, 'settings.json'), { skillOverrides: { u3: 'sometimes' } });
+  const unknown = await claudeCatalog(w.base);
+  assert.match(unknown.unconfirmed, /技能 u3 的可见性设置 sometimes 无法识别/);
+  const u3 = unknown.skills.find(item => item.name === 'u3');
+  assert.deepEqual([u3.enabled, 'visibility' in u3], [null, false]);
+  if (process.getuid?.() !== 0) {
+    await write(path.join(w.configDir, 'settings.json'), {});
+    const dropIn = path.join(w.managedDir, 'managed-settings.d'); await fs.chmod(dropIn, 0o000);
+    const blocked = await claudeCatalog(w.base).finally(() => fs.chmod(dropIn, 0o755));
+    assert.match(blocked.unconfirmed, /托管设置目录 .*managed-settings\.d 无法读取/);
+  }
+});
+
+test('skills-directory plugins are identified by their directory; same names in user and project both stay', async t => {
+  const w = await world(t);
+  await write(path.join(w.project, '.claude/skills/sd/.claude-plugin/plugin.json'), { name: 'sd' });
+  const catalog = await claudeCatalog({ ...w.base, listPlugins: async () => [{ id: 'sd@skills-dir', scope: 'user', enabled: false }] });
+  const sds = catalog.plugins.filter(item => item.name === 'sd');
+  assert.deepEqual(sds.map(item => [item.installation.scope, item.installation.skillsDir, item.enabled]).sort(),
+    [['project', path.join(w.project, '.claude/skills'), null], ['user', path.join(w.configDir, 'skills'), false]]);
+  assert.notEqual(sds[0].id, sds[1].id);
+});
+
+test('marketplace addresses never carry credentials', async t => {
+  const w = await world(t);
+  const catalog = await claudeCatalog({ ...w.base, listMarketplaces: async () => [{ name: 'private', source: 'git', url: 'https://user:secret@git.example.com/o/r.git?token=abc' }] });
+  assert.equal(catalog.marketplaces[0].source, 'https://git.example.com/o/r.git');
 });
