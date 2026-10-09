@@ -1286,7 +1286,7 @@ export default function App() {
               {page === "agents" && (
                 <AgentEnvironments environments={data.agents ?? []} skills={data.skills} plugins={data.plugins} busy={!!busy || paused}
                   onRun={request => run(request)}
-                  onConfirm={spec => setDialog({ type: "confirm", target: spec.request.agent ?? "agents", ...spec })} />
+                  onConfirm={spec => setDialog({ type: "confirm", ...spec })} />
               )}
               {page === "activity" && (
                 <>

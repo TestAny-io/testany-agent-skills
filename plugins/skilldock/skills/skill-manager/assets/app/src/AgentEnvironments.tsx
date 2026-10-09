@@ -6,7 +6,7 @@ import { t } from "./i18n";
 import { AGENT_LABEL } from "./AgentUI";
 
 type Request = Omit<ActionRequest, "mode">;
-export interface ConfirmSpec { title: string; description: string; request: Request; danger?: boolean; label: string }
+export interface ConfirmSpec { title: string; description: string; target: string; request: Request; danger?: boolean; label: string }
 
 const STATE: Record<AgentEnvironment["management"], { label: string; tone: string }> = {
   enabled: { label: "已启用管理", tone: "badge-green" },
@@ -28,10 +28,10 @@ function EnvironmentCard({ environment, skills, plugins, busy, onRun, onConfirm 
   const state = environment.installed ? STATE[environment.management] : { label: "未找到", tone: "" };
   const enable = () => onConfirm({ title: t("启用 {v0} 管理？", { v0: name }),
     description: t("启用后，SkillDock 可以按你的操作修改 {v0} 中的技能、插件和 marketplace，并可以把它们加入后台更新计划。这不会改动 {v0} 自身的设置。", { v0: name }),
-    request: { action: "agent.setManagement", agent: environment.agent, management: "enabled" }, label: t("启用管理") });
+    target: name, request: { action: "agent.setManagement", agent: environment.agent, management: "enabled" }, label: t("启用管理") });
   const disable = () => onConfirm({ title: t("停用 {v0} 管理？", { v0: name }),
     description: t("停用后 {v0} 回到只读：SkillDock 只显示其中的对象，不再修改它们；更新计划中属于 {v0} 的项暂停，重新启用后恢复。", { v0: name }),
-    request: { action: "agent.setManagement", agent: environment.agent, management: "read-only" }, label: t("停用管理"), danger: true });
+    target: name, request: { action: "agent.setManagement", agent: environment.agent, management: "read-only" }, label: t("停用管理"), danger: true });
   return (
     <section className="agent-card" aria-label={name}>
       <header>

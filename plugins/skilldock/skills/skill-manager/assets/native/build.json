@@ -9,10 +9,10 @@
     "server/native-backend.mjs": "a88ef1ae81ab28487b4792f1a4f9e104c6b7351ae8d3ada48914a709b83a7d9f",
     "server/native-server.mjs": "73306e0d9a5a7b89642e98a71525ac0ee69a2dd8a0a10e20b076902c80ee77b4",
     "server/process-lock.mjs": "2978f4ffe74d6d2c12980b03e5a28d4f00a4f7e559e6c46b3e1d5917960352c7",
-    "src/AgentEnvironments.tsx": "5f4a1ee85aaefb18189d7fde19395b45eed93936b9db7033fff151e6f1ba8c99",
+    "src/AgentEnvironments.tsx": "f1454f2b5571518d21566d80e9d16d1a98dadf792759ce613623f494c30ba3fe",
     "src/AgentUI.css": "8eb92c58d070ee0552fca91e24d6320a50f22ec96186eb2d04d30a41dc03e292",
     "src/AgentUI.tsx": "543a7b805036824335b93783cc4ffa1d43ae971c80f099d8671b87ab037739f2",
-    "src/App.tsx": "6d8a309f4bf98290d76662269a4df089a21e4323dadc30290a37566921308e52",
+    "src/App.tsx": "4f84940254a568cea1de7fab0bae1b73508b1ab5f574aceddc6d9f2adfc7cd72",
     "src/CompatibilityWarnings.tsx": "dc7f57da6a06829e5e24fc6149535f69bd6128bd0cbae93e10ee423a623d1f62",
     "src/DesktopUI.tsx": "a827ba36401fa368b332297efea7dc1d0a8151844b4179e0d7eae189fb99d063",
     "src/DiffBrowser.css": "42fb14f283c1be1c73ce375286f9cc29259351dc129a730a4643ebb4afacac94",
@@ -53,7 +53,7 @@
   },
   "artifacts": {
     "server.mjs": "b1067621bebba924955a3f1be05145f144a7c17eb0afa20b3b9aba16be6e9f71",
-    "ui.html": "18e7d5802a92f7080f0520b0260712307a35a37f70682b494966e54b23cd70e6",
+    "ui.html": "77f58f934825f0b74e0b3c82974360bebfd0878780035bb9cd4bb9dcbc786211",
     "icon.svg": "9b7d7c19189c56b43fe691c0cb01e19b1f88abc61d1d130c974c5f5411b7288c",
     "THIRD_PARTY_NOTICES.txt": "0580c525bbaf94d006050bf773e482a470c9f983971e23b26e8048505e11bd4f"
   }
