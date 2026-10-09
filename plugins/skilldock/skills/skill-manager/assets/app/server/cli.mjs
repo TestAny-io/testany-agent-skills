@@ -107,15 +107,20 @@ export class CodexAdapter {
     // readback after an operation checks only these for its own target (unrelated problems stay
     // diagnostics). A dropped record without any identity could be the target itself.
     const listed = { plugins: false, marketplaces: false };
-    const dropped = { plugins: [], marketplaces: [], unidentified: { plugins: false, marketplaces: false } };
+    const dropped = { plugins: [], pluginNames: [], marketplaces: [], unidentified: { plugins: false, marketplaces: false } };
     await this.probe();
     if (!this.info.available) return { plugins, marketplaces, diagnostics: [this.info.error], listed, dropped, cli: this.info };
     const dropPlugin = record => {
-      const identities = [record?.pluginId, typeof record?.name === 'string' && typeof record?.marketplaceName === 'string' ? `${record.name}@${record.marketplaceName}` : undefined].filter(value => typeof value === 'string');
+      // Only <name>@<marketplace> (split at the last '@') can match an object; a record with no
+      // such identity could be any object, the target included.
+      const identities = [record?.pluginId, typeof record?.name === 'string' && typeof record?.marketplaceName === 'string' ? `${record.name}@${record.marketplaceName}` : undefined]
+        .filter(value => typeof value === 'string' && /^[\s\S]+@[^@]+$/.test(value));
       dropped.plugins.push(...identities);
-      if (!identities.length) { dropped.unidentified.plugins = true; diagnostics.push('CLI 返回了一条没有插件身份的记录，已忽略。'); return; }
+      if (typeof record?.name === 'string') dropped.pluginNames.push(record.name);
+      if (!identities.length) dropped.unidentified.plugins = true;
       // Name the record so it can be found; control and format characters never reach the page.
-      diagnostics.push(`CLI 返回了无法安全使用的插件记录 ${redact(identities[0].replace(/\p{C}/gu, '').slice(0, 80))}，已忽略。`);
+      const label = [...identities, record?.pluginId, record?.name].map(value => typeof value === 'string' ? value.replace(/\p{C}/gu, '').trim() : '').find(Boolean);
+      diagnostics.push(label ? `CLI 返回了无法安全使用的插件记录 ${redact(label.slice(0, 80))}，已忽略。` : 'CLI 返回了一条没有插件身份的记录，已忽略。');
     };
     const results = await Promise.allSettled([this.command(['plugin', 'list', '--available', '--json']), this.command(['plugin', 'marketplace', 'list', '--json'])]);
     if (results[0].status === 'fulfilled') {

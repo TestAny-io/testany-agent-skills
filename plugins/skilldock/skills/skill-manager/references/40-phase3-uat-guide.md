@@ -9,7 +9,7 @@
 > - Claude 卡片上注明：桌面应用为会话自带的插件（例如内置浏览器、电脑操作）不在此列。
 >
 > **同日第二批修正**（同样需要 `restart`）：
-> - 提示区里“被忽略的插件记录”会写出是哪一条（例如某个名称带空格的插件）。
+> - 提示区里“被忽略的插件记录”会写出是哪一条。
 > - 插件页的计数跟随顶部的 Agent 选择；选“全部”时，标题旁分别显示 Codex 与 Claude 的已安装数量。
 > - Agent 标识改为图标：Claude 用它的标志；Codex 暂用一个通用的终端图标（使用 OpenAI 的标志需要 OpenAI 许可）。把鼠标停在图标上会显示名称。
 
@@ -65,6 +65,8 @@ SKILLDOCK_STATE_DIR="$HOME/.local/share/skilldock-uat" PORT=4781 /bin/sh "/Users
 7. **语言**：在偏好设置中切到英文或日文，新页面与提示不应残留中文。
 
 ## 4. 已知限制（这一版）
+
+- 界面问题不再零碎修改：Owner 决定在 Claude 版完成后整体重新设计，已知问题见 [41-ui-redesign-backlog.md](41-ui-redesign-backlog.md)。
 
 - Claude 中的技能、插件、marketplace 都只读：不能安装、启停、更新、移除，也不能加标签或加入更新计划，随阶段 4、5 开放。
 - Claude 的“未安装”插件清单取自 Claude 在本机保存的 marketplace 副本，新旧程度与该 marketplace 的“最近刷新”时间一致。从终端打开的 Claude Code 会按“自动更新”开关在启动时刷新；桌面应用的会话不会刷新。在 SkillDock 中刷新 Claude marketplace 随阶段 4 开放。

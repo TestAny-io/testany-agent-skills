@@ -830,5 +830,9 @@
   "marketplace {v0} 的本机副本无法读取，插件数与其中未安装的插件暂不显示。": {
     "en": "The local copy of marketplace {v0} cannot be read, so its plugin count and the plugins not installed from it are not shown.",
     "ja": "マーケットプレイス {v0} のローカルコピーを読み取れないため、プラグイン数と未インストールのプラグインは表示されません。"
+  },
+  "marketplace {v0} 的名称无法用作插件身份，未列出其中未安装的插件。": {
+    "en": "The name of marketplace {v0} cannot be used in a plugin identity, so the plugins not installed from it are not listed.",
+    "ja": "マーケットプレイス {v0} の名前はプラグインの識別子に使えないため、未インストールのプラグインは表示されません。"
   }
 }

@@ -111,6 +111,10 @@ test('an unrelated unusable record does not block a confirmed install; a dropped
   assert.ok((await f.service.snapshot('local')).diagnostics.includes('CLI 返回了无法安全使用的插件记录 bad@elsewhere，已忽略。'), '提示指名被忽略的记录');
   const g = await serviceFixture(t); g.state.dropAfterAdd = true;
   await assert.rejects(g.act('plugin.install', { previewId: (await g.act('plugin.previewMarketplace')).pluginPreview.id }), { code: 'READBACK_FAILED' });
+  // The target installed and listed normally, but a dropped record without identity could be it.
+  const h = await serviceFixture(t);
+  const previewId = (await h.act('plugin.previewMarketplace')).pluginPreview.id; h.state.extra = [null];
+  await assert.rejects(h.act('plugin.install', { previewId }), { code: 'READBACK_FAILED' });
 });
 
 test('CLI failures do not retry installation and leave a status-check path', async t => {

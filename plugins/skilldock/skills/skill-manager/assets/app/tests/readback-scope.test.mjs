@@ -24,6 +24,32 @@ test('listCovers: the target list read in full, the target record kept, no recor
   assert.equal(listCovers({ diagnostics: [] }, 'plugins', 'demo@m'), true);
 });
 
+test('dropped records: identities must read <name>@<marketplace>; named once, without control characters', async () => {
+  const adapter = new CodexAdapter({ codexHome: '/unused' });
+  adapter.probe = async () => (adapter.info = { available: true, path: '/stand-in/codex' });
+  let records = [];
+  adapter.command = async args => args[1] === 'marketplace' ? { marketplaces: [] } : { installed: [], available: records };
+  const bad = { pluginId: 'bad@x', name: '../bad', marketplaceName: 'x' };
+  records = [bad, { ...bad }, { pluginId: 'e\u202Evil@x', name: 'e\u202Evil', marketplaceName: 'x' }];
+  const named = await adapter.list();
+  assert.equal(named.diagnostics.filter(item => item.includes('bad@x')).length, 1, '相同的提示合并');
+  assert.ok(named.diagnostics.includes('CLI 返回了无法安全使用的插件记录 evil@x，已忽略。'), '去掉方向控制字符');
+  assert.equal(named.dropped.unidentified.plugins, false);
+  // An identity of another shape cannot be matched: the record could be the target (review r2 D, E).
+  for (const record of [{ pluginId: 'market/demo', name: 'demo' }, { pluginId: '', name: 'demo' }, { name: 'demo' }]) {
+    records = [record];
+    const result = await adapter.list();
+    assert.equal(result.dropped.unidentified.plugins, true, JSON.stringify(record));
+    assert.equal(listCovers(result, 'plugins', 'demo@market'), false, JSON.stringify(record));
+  }
+  records = [{ pluginId: '', name: '', marketplaceName: '' }];
+  assert.ok((await adapter.list()).diagnostics.includes('CLI 返回了一条没有插件身份的记录，已忽略。'));
+  // A name with '@' still splits at the last '@'.
+  records = [{ pluginId: '@scope/tool@market', name: '@scope/tool', marketplaceName: 'market' }];
+  const scoped = await adapter.list();
+  assert.deepEqual([scoped.dropped.unidentified.plugins, listCovers(scoped, 'plugins', 'demo@market'), listCovers(scoped, 'plugins', '@scope/tool@market')], [false, true, false]);
+});
+
 /**
  * A stand-in Codex command line. `state.after` is applied by the next mutating command, so a
  * test decides what the readback sees: `noop` (the command changed nothing), `demo` (how the
@@ -52,6 +78,7 @@ const record = (name, installed) => {
   if (state.demo === 'unsafeVersion') value.version = '../1';
   if (state.demo === 'noPluginId') delete value.pluginId;
   if (state.demo === 'renamedId') value.pluginId = 'market/demo';
+  if (state.demo === 'otherMarket') Object.assign(value, { pluginId: 'demo@other', marketplaceName: 'other', version: '../1' });
   return value;
 };
 const unsafe = { pluginId: 'bad@elsewhere', name: '../bad', marketplaceName: 'elsewhere' };
@@ -119,7 +146,7 @@ test('the background worker keeps its task unless the full list proves SkillDock
   const w = await world(t);
   const context = id => ({ installation: { kind: 'plugin', codexHome: w.codexHome, marketplace: 'market', plugin: id, appPath: 'app' } });
   assert.equal(await resolveBackgroundSource(context('missing'), w.adapter), null, '完整清单中没有它：已卸载');
-  for (const [demo, label] of [['noPluginId', '缺少插件 ID'], ['renamedId', '插件 ID 换了写法'], ['unsafeVersion', '版本不安全']]) {
+  for (const [demo, label] of [['noPluginId', '缺少插件 ID'], ['renamedId', '插件 ID 换了写法'], ['unsafeVersion', '版本不安全'], ['otherMarket', '被忽略的记录只是同名']]) {
     await w.setState({ demo });
     await assert.rejects(resolveBackgroundSource(context('demo'), w.adapter), /可能正是 SkillDock/, label);
   }

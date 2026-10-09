@@ -104,7 +104,7 @@ test('the new notes and diagnostics are translated (en, ja)', () => {
     const { t } = translatorFor(language);
     for (const text of ['Claude 桌面应用为会话自带的插件（例如内置浏览器、电脑操作）不安装在 Claude 配置目录中，这里不列出。', '这一版 SkillDock 只列出 Claude 中可安装的插件，暂不能在这里安装；可以在 Claude Code 中用 /plugin 安装。',
       '未安装：Claude 已添加的 Marketplace 中尚未安装的插件，取自 Claude 在本机保存的副本；这一版只能查看。', 'CLI 返回了无法安全使用的插件记录 bad@elsewhere，已忽略。', 'marketplace broken 的本机副本无法读取，插件数与其中未安装的插件暂不显示。',
-      'CLI 返回了一条没有插件身份的记录，已忽略。', '无法确认 SkillDock 安装状态：Codex 返回的插件记录中有无法安全使用的项，可能正是 SkillDock；未删除后台任务。']) {
+      'CLI 返回了一条没有插件身份的记录，已忽略。', 'marketplace odd:name 的名称无法用作插件身份，未列出其中未安装的插件。', '无法确认 SkillDock 安装状态：Codex 返回的插件记录中有无法安全使用的项，可能正是 SkillDock；未删除后台任务。']) {
       const translated = t(text);
       assert.notEqual(translated, text, text);
       if (language === 'en') assert.equal(/[一-鿿]/.test(translated), false, translated);
