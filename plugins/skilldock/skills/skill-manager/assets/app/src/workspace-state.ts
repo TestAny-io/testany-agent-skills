@@ -1,4 +1,4 @@
-export type WorkspacePage = "skills" | "plugins" | "markets" | "updates" | "activity";
+export type WorkspacePage = "skills" | "plugins" | "markets" | "updates" | "activity" | "agents";
 export type Inspection = { kind: "skill" | "plugin"; id: string } | null;
 export interface WorkspaceState {
   page: WorkspacePage;
@@ -16,7 +16,7 @@ export interface WorkspaceState {
   sidebarCollapsed: boolean;
 }
 const key = "skilldock.workspace.v1";
-const pages: WorkspacePage[] = ["skills", "plugins", "markets", "updates", "activity"];
+const pages: WorkspacePage[] = ["skills", "plugins", "markets", "updates", "activity", "agents"];
 export function loadWorkspace(): WorkspaceState {
   let saved: Partial<WorkspaceState> = {};
   try { saved = JSON.parse(localStorage.getItem(key) || "{}") || {}; } catch { /* Optional view state. */ }

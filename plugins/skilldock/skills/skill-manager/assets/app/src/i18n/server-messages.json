@@ -646,5 +646,97 @@
   "未找到 npm，请使用 /bin/sh scripts/launch.sh 自动选择运行环境。": {
     "en": "npm was not found. Use /bin/sh scripts/launch.sh to select a runtime automatically.",
     "ja": "npm が見つかりません。/bin/sh scripts/launch.sh で実行環境を自動選択してください。"
+  },
+  "在 Codex 的插件页更新 SkillDock，或运行 codex plugin add skilldock@{v0}。": {
+    "en": "Update SkillDock on the Codex plugins page, or run codex plugin add skilldock@{v0}.",
+    "ja": "Codex のプラグインページで SkillDock を更新するか、codex plugin add skilldock@{v0} を実行してください。"
+  },
+  "在 Claude 中用 /plugin 更新 SkillDock，或在终端运行 claude plugin update skilldock@{v0}，然后重载插件。": {
+    "en": "Update SkillDock with /plugin in Claude, or run claude plugin update skilldock@{v0} in a terminal, then reload plugins.",
+    "ja": "Claude で /plugin から SkillDock を更新するか、ターミナルで claude plugin update skilldock@{v0} を実行してから、プラグインを再読み込みしてください。"
+  },
+  "比 {v0} 中的 SkillDock {v1} 旧。{v2}": {
+    "en": "Older than SkillDock {v1} in {v0}. {v2}",
+    "ja": "{v0} の SkillDock {v1} より古いバージョンです。{v2}"
+  },
+  "未找到可用的 Claude 命令行（{v0}），无法确认 Claude 中的插件状态。": {
+    "en": "No working Claude command line was found ({v0}), so the plugin state in Claude cannot be confirmed.",
+    "ja": "使用できる Claude のコマンドラインが見つからないため（{v0}）、Claude のプラグイン状態を確認できません。"
+  },
+  "本机未找到 {v0}；之前启用的管理状态保留，恢复后继续生效。": {
+    "en": "{v0} was not found on this Mac. Its earlier management setting is kept and applies again when it returns.",
+    "ja": "この Mac に {v0} が見つかりません。以前の管理設定は保持され、戻ると再び有効になります。"
+  },
+  "从 Claude 桌面应用打开的会话不会自动更新插件（桌面应用为会话关闭了自动更新）；可在 SkillDock 或终端中手动更新。": {
+    "en": "Sessions opened from the Claude desktop app do not auto-update plugins (the app turns auto-update off for them). Update them manually in SkillDock or a terminal.",
+    "ja": "Claude デスクトップアプリから開いたセッションはプラグインを自動更新しません（アプリがセッションの自動更新を無効にしています）。SkillDock またはターミナルで手動更新してください。"
+  },
+  "最近一次从 Claude 打开 SkillDock 时，Claude 使用的配置目录是 {v0}，与这里保存的 {v1} 不同；如需改用，请在下方切换 Claude 根目录。": {
+    "en": "When SkillDock was last opened from Claude, Claude used the configuration directory {v0}, not {v1} saved here. To use it, change the Claude root below.",
+    "ja": "前回 Claude から SkillDock を開いたとき、Claude の設定ディレクトリは {v0} で、ここに保存された {v1} とは異なりました。切り替える場合は、下で Claude のルートを変更してください。"
+  },
+  "{v0} 管理未启用，计划中的这一项暂停；在 SkillDock 的“Agent 环境”页启用后恢复。": {
+    "en": "{v0} management is off, so this plan item is paused. It resumes after you turn it on on the Agent environments page in SkillDock.",
+    "ja": "{v0} の管理が無効なため、このプラン項目は一時停止しています。SkillDock の「エージェント環境」ページで有効にすると再開します。"
+  },
+  "Claude 中的对象暂不能由更新计划处理，这一项暂停。": {
+    "en": "Items in Claude cannot be handled by update plans yet; this item is paused.",
+    "ja": "Claude の項目はまだ更新プランで処理できないため、この項目は一時停止しています。"
+  },
+  "已切换 Claude 根目录为 {v0}。": {
+    "en": "Switched the Claude root to {v0}.",
+    "ja": "Claude のルートを {v0} に切り替えました。"
+  },
+  "已改用 Node {v0}（{v1}）；下次启动 SkillDock 时生效。": {
+    "en": "Now using Node {v0} ({v1}); it takes effect the next time SkillDock starts.",
+    "ja": "Node {v0}（{v1}）に切り替えました。次回 SkillDock の起動時に有効になります。"
+  },
+  "检测到 Node {v0}（{v1}）；下次启动 SkillDock 时使用。": {
+    "en": "Found Node {v0} ({v1}); SkillDock uses it the next time it starts.",
+    "ja": "Node {v0}（{v1}）を検出しました。次回 SkillDock の起動時に使用します。"
+  },
+  "已启用 {v0} 管理。": {
+    "en": "Turned on {v0} management.",
+    "ja": "{v0} の管理を有効にしました。"
+  },
+  "已把 {v0} 设为只读；SkillDock 不再修改其中的技能和插件，计划中的相关项暂停。": {
+    "en": "{v0} is now read-only. SkillDock no longer changes its skills and plugins, and the related plan items pause.",
+    "ja": "{v0} を読み取り専用にしました。SkillDock はそのスキルとプラグインを変更しなくなり、関連するプラン項目は一時停止します。"
+  },
+  "无法读取 Claude 环境：{v0}": {
+    "en": "Cannot read the Claude environment: {v0}",
+    "ja": "Claude 環境を読み取れません：{v0}"
+  },
+  "这一版 SkillDock 只读取 Claude 中的对象，暂不能在这里修改。": {
+    "en": "This version of SkillDock only reads items in Claude and cannot change them here yet.",
+    "ja": "このバージョンの SkillDock は Claude の項目を読み取るだけで、ここではまだ変更できません。"
+  },
+  "由 claude.ai 同步的插件由组织管理，不能在这里修改。": {
+    "en": "Plugins synced from claude.ai are managed by your organization and cannot be changed here.",
+    "ja": "claude.ai から同期されたプラグインは組織が管理しているため、ここでは変更できません。"
+  },
+  "设置文件中是停用，但 Claude 实际启用了它：由设置文件之外的更高层级（例如组织托管设置）决定。": {
+    "en": "The settings files turn it off, but Claude has it on: a higher level outside the settings files (such as organization-managed settings) decides.",
+    "ja": "設定ファイルでは無効ですが、Claude では有効になっています。設定ファイル以外の上位レベル（組織の管理設定など）で決まっています。"
+  },
+  "设置文件中是启用，但 Claude 实际停用了它：由设置文件之外的更高层级（例如组织托管设置）决定。": {
+    "en": "The settings files turn it on, but Claude has it off: a higher level outside the settings files (such as organization-managed settings) decides.",
+    "ja": "設定ファイルでは有効ですが、Claude では無効になっています。設定ファイル以外の上位レベル（組織の管理設定など）で決まっています。"
+  },
+  "项目目录 {v0} 不存在，这条安装只读。": {
+    "en": "The project directory {v0} does not exist, so this installation is read-only.",
+    "ja": "プロジェクトディレクトリ {v0} が存在しないため、このインストールは読み取り専用です。"
+  },
+  "无法确认 Claude 中的插件状态：{v0}。": {
+    "en": "Cannot confirm the plugin state in Claude: {v0}.",
+    "ja": "Claude のプラグイン状態を確認できません：{v0}。"
+  },
+  "从 Claude 桌面应用打开的会话不会自动更新插件；终端中的会话按这个开关更新。": {
+    "en": "Sessions opened from the Claude desktop app do not auto-update plugins; terminal sessions follow this switch.",
+    "ja": "Claude デスクトップアプリから開いたセッションはプラグインを自動更新しません。ターミナルのセッションはこの設定に従います。"
+  },
+  "技能 {v0} 的可见性设置 {v1} 无法识别。": {
+    "en": "The visibility setting {v1} of skill {v0} is not recognized.",
+    "ja": "スキル {v0} の表示設定 {v1} を認識できません。"
   }
 }

@@ -526,5 +526,25 @@
   "TARGET_MISSING": {
     "en": "The original target no longer exists. Select it again to include it in the schedule.",
     "ja": "元の対象が存在しません。スケジュールに含めるには再選択してください。"
+  },
+  "AGENT_READ_ONLY": {
+    "en": "This agent environment is read-only, so SkillDock will not change it. Turn on its management on the Agent environments page in SkillDock and try again.",
+    "ja": "このエージェント環境は読み取り専用のため、SkillDock は変更しません。SkillDock の「エージェント環境」ページで管理を有効にしてから再試行してください。"
+  },
+  "AGENT_UNCONFIRMED": {
+    "en": "SkillDock cannot confirm this agent environment, so changes are disabled. Refresh after fixing the cause shown.",
+    "ja": "このエージェント環境を確認できないため、変更は無効になっています。表示された原因を解消してから更新してください。"
+  },
+  "AGENT_NOT_INSTALLED": {
+    "en": "This agent was not found on this Mac.",
+    "ja": "このエージェントはこの Mac に見つかりません。"
+  },
+  "UNSUPPORTED_FOR_AGENT": {
+    "en": "This action is not available for this agent in this version of SkillDock.",
+    "ja": "このバージョンの SkillDock では、このエージェントに対してこの操作は使用できません。"
+  },
+  "NODE_UNAVAILABLE": {
+    "en": "The specified or detected Node.js cannot run SkillDock. Install Node.js 22.12 or later, or choose another path.",
+    "ja": "指定または検出された Node.js では SkillDock を実行できません。Node.js 22.12 以降をインストールするか、別のパスを指定してください。"
   }
 }

@@ -229,7 +229,7 @@ export async function claudeCatalog({ claudeRoot, project, cli, env = process.en
       installation, enablement: source, manifests, ...(synced ? { protection: 'synced' } : source.locked ? { protection: 'managed' } : {}),
       canInstall: false, canRemove: false, canToggle: false,
       reason: synced ? '由 claude.ai 同步的插件由组织管理，不能在这里修改。' : enabled !== null && typeof fromFiles === 'boolean' && fromFiles !== enabled
-        ? `设置文件写的是${fromFiles ? '启用' : '停用'}，Claude 实际${enabled ? '启用' : '停用'}：由设置文件之外的更高层级（例如组织托管设置）决定。` : READ_ONLY,
+        ? enabled ? '设置文件中是停用，但 Claude 实际启用了它：由设置文件之外的更高层级（例如组织托管设置）决定。' : '设置文件中是启用，但 Claude 实际停用了它：由设置文件之外的更高层级（例如组织托管设置）决定。' : READ_ONLY,
       revision: revision({ id: item.id, scope: item.scope, projectPath, version: item.version, enabled, source }),
     });
   }

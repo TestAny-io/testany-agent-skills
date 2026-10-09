@@ -12,6 +12,7 @@ const messageSlots: Record<string, string> = {
   "插件 {v0}：{v1}": "v1",
   "缓存 {v0}：{v1}": "v1",
   "无法读取状态文件 {v0}：{v1}": "v1",
+  "比 {v0} 中的 SkillDock {v1} 旧。{v2}": "v2",
 };
 const escapeRegex = (text: string) =>
   text.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");

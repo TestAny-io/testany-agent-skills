@@ -2114,5 +2114,265 @@
   "安装路径": {
     "en": "Installation path",
     "ja": "インストール先"
+  },
+  "Agent 环境": {
+    "en": "Agent environments",
+    "ja": "エージェント環境"
+  },
+  "Claude 配置目录": {
+    "en": "Claude configuration directory",
+    "ja": "Claude 設定ディレクトリ"
+  },
+  "Node 路径": {
+    "en": "Node path",
+    "ja": "Node のパス"
+  },
+  "SkillDock 服务版本较旧，请更新。": {
+    "en": "The SkillDock service is out of date. Please update it.",
+    "ja": "SkillDock サービスが古いバージョンです。更新してください。"
+  },
+  "SkillDock 用本机的 Node.js 22.12 或更新版本构建和运行；两侧入口与后台任务共用这里保存的选择。": {
+    "en": "SkillDock builds and runs with Node.js 22.12 or later on this Mac. Both entries and background tasks use the choice saved here.",
+    "ja": "SkillDock はこの Mac の Node.js 22.12 以降でビルド・実行します。両方の入口とバックグラウンドタスクは、ここに保存された選択を共有します。"
+  },
+  "{v0}（默认）": {
+    "en": "{v0} (default)",
+    "ja": "{v0}（既定）"
+  },
+  "仅显示名称": {
+    "en": "Name only",
+    "ja": "名前のみ"
+  },
+  "仅用户调用": {
+    "en": "User-invocable only",
+    "ja": "ユーザー呼び出しのみ"
+  },
+  "使用这个 Node": {
+    "en": "Use this Node",
+    "ja": "この Node を使用"
+  },
+  "保存并切换": {
+    "en": "Save and switch",
+    "ja": "保存して切り替え"
+  },
+  "停用 {v0} 管理？": {
+    "en": "Turn off {v0} management?",
+    "ja": "{v0} の管理を無効にしますか？"
+  },
+  "停用后 {v0} 回到只读：SkillDock 只显示其中的对象，不再修改它们；更新计划中属于 {v0} 的项暂停，重新启用后恢复。": {
+    "en": "{v0} becomes read-only: SkillDock still shows its items but no longer changes them. Update-plan items for {v0} pause and resume when you turn management back on.",
+    "ja": "{v0} は読み取り専用に戻ります。SkillDock は項目を表示するだけで変更しません。更新プランの {v0} の項目は一時停止し、再度有効にすると再開します。"
+  },
+  "停用管理": {
+    "en": "Turn off management",
+    "ja": "管理を無効にする"
+  },
+  "全部": {
+    "en": "All",
+    "ja": "すべて"
+  },
+  "切换 Claude 根目录": {
+    "en": "Change Claude root",
+    "ja": "Claude のルートを切り替え"
+  },
+  "切换前会先核验新目录；之后 Codex 入口、Claude 入口和后台任务都使用这里保存的目录。": {
+    "en": "The new directories are checked before switching. Afterwards the Codex entry, the Claude entry and background tasks all use the directories saved here.",
+    "ja": "切り替え前に新しいディレクトリを確認します。以後、Codex の入口、Claude の入口、バックグラウンドタスクはすべてここに保存したディレクトリを使います。"
+  },
+  "只读": {
+    "en": "Read-only",
+    "ja": "読み取り専用"
+  },
+  "可见": {
+    "en": "Visible",
+    "ja": "表示"
+  },
+  "启用 {v0} 管理？": {
+    "en": "Turn on {v0} management?",
+    "ja": "{v0} の管理を有効にしますか？"
+  },
+  "启用后可更新插件与技能、加入后台计划。": {
+    "en": "Turn it on to update plugins and skills and add them to background plans.",
+    "ja": "有効にすると、プラグインとスキルの更新やバックグラウンドプランへの追加ができます。"
+  },
+  "启用后，SkillDock 可以按你的操作修改 {v0} 中的技能、插件和 marketplace，并可以把它们加入后台更新计划。这不会改动 {v0} 自身的设置。": {
+    "en": "Once on, SkillDock can change skills, plugins and marketplaces in {v0} when you ask it to, and can add them to background update plans. This does not change {v0}'s own settings.",
+    "ja": "有効にすると、SkillDock は操作に応じて {v0} のスキル・プラグイン・マーケットプレイスを変更し、バックグラウンド更新プランに追加できます。{v0} 自体の設定は変更しません。"
+  },
+  "启用管理": {
+    "en": "Turn on management",
+    "ja": "管理を有効にする"
+  },
+  "命令行": {
+    "en": "Command line",
+    "ja": "コマンドライン"
+  },
+  "安装范围：{v0}": {
+    "en": "Install scope: {v0}",
+    "ja": "インストール範囲：{v0}"
+  },
+  "已停用": {
+    "en": "Disabled",
+    "ja": "無効"
+  },
+  "已关闭": {
+    "en": "Off",
+    "ja": "オフ"
+  },
+  "已启用管理": {
+    "en": "Managed",
+    "ja": "管理中"
+  },
+  "手动指定": {
+    "en": "Set manually",
+    "ja": "手動で指定"
+  },
+  "托管": {
+    "en": "Managed",
+    "ja": "管理対象"
+  },
+  "按 Agent 筛选": {
+    "en": "Filter by agent",
+    "ja": "エージェントで絞り込み"
+  },
+  "收起路径": {
+    "en": "Hide paths",
+    "ja": "パスを隠す"
+  },
+  "无法确认": {
+    "en": "Unconfirmed",
+    "ja": "確認できません"
+  },
+  "无法运行": {
+    "en": "Cannot run",
+    "ja": "実行できません"
+  },
+  "未找到": {
+    "en": "Not found",
+    "ja": "見つかりません"
+  },
+  "未找到：{v0}": {
+    "en": "Not found: {v0}",
+    "ja": "見つかりません：{v0}"
+  },
+  "本地": {
+    "en": "Local",
+    "ja": "ローカル"
+  },
+  "本地设置": {
+    "en": "local settings",
+    "ja": "ローカル設定"
+  },
+  "本机没有发现 Codex 或 Claude。": {
+    "en": "Neither Codex nor Claude was found on this Mac.",
+    "ja": "この Mac には Codex も Claude も見つかりませんでした。"
+  },
+  "来自 Agent 会话": {
+    "en": "From an agent session",
+    "ja": "エージェントのセッションから"
+  },
+  "查看本机的 Agent 环境与 SkillDock 对它们的管理": {
+    "en": "See the agents on this Mac and how SkillDock manages them",
+    "ja": "この Mac のエージェント環境と SkillDock による管理を確認"
+  },
+  "查看本机的 Agent 环境与 SkillDock 对它们的管理。": {
+    "en": "See the agents on this Mac and how SkillDock manages them.",
+    "ja": "この Mac のエージェント環境と SkillDock による管理を確認します。"
+  },
+  "查看路径": {
+    "en": "Show paths",
+    "ja": "パスを表示"
+  },
+  "状态未知": {
+    "en": "Unknown state",
+    "ja": "状態不明"
+  },
+  "用户": {
+    "en": "User",
+    "ja": "ユーザー"
+  },
+  "用户设置": {
+    "en": "user settings",
+    "ja": "ユーザー設定"
+  },
+  "由 claude.ai 同步": {
+    "en": "Synced from claude.ai",
+    "ja": "claude.ai から同期"
+  },
+  "由{v0}决定：{v1}": {
+    "en": "Set by {v0}: {v1}",
+    "ja": "{v0}で決定：{v1}"
+  },
+  "由组织托管": {
+    "en": "Managed by your organization",
+    "ja": "組織が管理"
+  },
+  "组织托管设置": {
+    "en": "organization-managed settings",
+    "ja": "組織の管理設定"
+  },
+  "自动更新：关": {
+    "en": "Auto-update: off",
+    "ja": "自動更新：オフ"
+  },
+  "自动更新：开": {
+    "en": "Auto-update: on",
+    "ja": "自動更新：オン"
+  },
+  "配置根": {
+    "en": "Configuration root",
+    "ja": "設定ルート"
+  },
+  "配置根 {v0} · 技能 {v1} 个 · 插件 {v2} 个": {
+    "en": "Configuration root {v0} · {v1} skills · {v2} plugins",
+    "ja": "設定ルート {v0} · スキル {v1} 件 · プラグイン {v2} 件"
+  },
+  "重新检测": {
+    "en": "Detect again",
+    "ja": "再検出"
+  },
+  "项目": {
+    "en": "Project",
+    "ja": "プロジェクト"
+  },
+  "项目设置": {
+    "en": "project settings",
+    "ja": "プロジェクト設定"
+  },
+  "默认位置": {
+    "en": "Default location",
+    "ja": "既定の場所"
+  },
+  "（正在运行）": {
+    "en": " (running)",
+    "ja": "（実行中）"
+  },
+  "（覆盖了较低层级的设置）": {
+    "en": " (overrides a lower-level setting)",
+    "ja": "（下位の設定を上書き）"
+  },
+  "（默认）": {
+    "en": " (default)",
+    "ja": "（既定）"
+  },
+  "Codex：{v0}": {
+    "en": "Codex: {v0}",
+    "ja": "Codex：{v0}"
+  },
+  "Claude：{v0}": {
+    "en": "Claude: {v0}",
+    "ja": "Claude：{v0}"
+  },
+  "Claude 个人技能": {
+    "en": "Claude personal skills",
+    "ja": "Claude の個人スキル"
+  },
+  "Claude 项目技能": {
+    "en": "Claude project skills",
+    "ja": "Claude のプロジェクトスキル"
+  },
+  "Claude 技能目录 + 设置中的技能可见性": {
+    "en": "Claude skills directory + skill visibility in settings",
+    "ja": "Claude のスキルディレクトリ + 設定のスキル表示"
   }
 }
