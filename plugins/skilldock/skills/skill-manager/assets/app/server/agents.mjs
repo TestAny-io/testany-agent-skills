@@ -117,6 +117,8 @@ export function createAgentLayer({ stateDir, home, codexHome, appDir, env = proc
       const notes = [];
       if (agent === 'claude') {
         notes.push('从 Claude 桌面应用打开的会话不会自动更新插件（桌面应用为会话关闭了自动更新）；可在 SkillDock 或终端中手动更新。');
+        // These plugins live in the desktop app's own session data, not in the Claude root.
+        notes.push('Claude 桌面应用为会话自带的插件（例如内置浏览器、电脑操作）不安装在 Claude 配置目录中，这里不列出。');
         const session = found.session;
         if (session && (session.configDir !== found.claudeRoot.configDir || session.pluginCacheDir !== found.claudeRoot.pluginCacheDir))
           notes.push(`最近一次从 Claude 打开 SkillDock 时，Claude 使用的配置目录是 ${session.configDir}，与这里保存的 ${found.claudeRoot.configDir} 不同；如需改用，请在下方切换 Claude 根目录。`);

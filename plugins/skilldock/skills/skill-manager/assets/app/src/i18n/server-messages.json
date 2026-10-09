@@ -810,5 +810,13 @@
   "{v0} Codex 为只读：这次检查没有改动 Codex；如有新版本，需要启用 Codex 管理后才能更新。": {
     "en": "{v0} Codex is read-only: this check did not change Codex. If there is a new version, turn on Codex management to update.",
     "ja": "{v0} Codex は読み取り専用です。今回の確認では Codex を変更していません。新しいバージョンがある場合は、Codex の管理を有効にしてから更新してください。"
+  },
+  "Claude 桌面应用为会话自带的插件（例如内置浏览器、电脑操作）不安装在 Claude 配置目录中，这里不列出。": {
+    "en": "Plugins the Claude desktop app provides with its sessions (such as the built-in browser and computer use) are not installed in the Claude configuration directory and are not listed here.",
+    "ja": "Claude デスクトップアプリがセッションに付属させるプラグイン（内蔵ブラウザやコンピューター操作など）は Claude の設定ディレクトリにインストールされないため、ここには表示されません。"
+  },
+  "这一版 SkillDock 只列出 Claude 中可安装的插件，暂不能在这里安装；可以在 Claude Code 中用 /plugin 安装。": {
+    "en": "This version of SkillDock only lists the plugins you can install in Claude; it cannot install them yet. Install them in Claude Code with /plugin.",
+    "ja": "このバージョンの SkillDock は Claude にインストールできるプラグインを表示するだけで、ここからはまだインストールできません。Claude Code で /plugin を使ってインストールしてください。"
   }
 }

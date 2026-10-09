@@ -52,6 +52,7 @@ test('environments are found without creating any Agent root; only multi-agent c
   assert.deepEqual([claude.agent, claude.installed, claude.management, claude.roots.config, claude.roots.origin, claude.cli.available],
     ['claude', true, 'read-only', w.claudeConfig, 'default', true]);
   assert.ok(claude.notes.some(note => note.includes('桌面应用')));
+  assert.ok(claude.notes.some(note => note.includes('桌面应用为会话自带的插件')), '桌面应用自带的插件不在此列');
   await assert.rejects(fs.stat(w.codexHome), { code: 'ENOENT' }, '发现过程不创建 Codex 根目录');
   assert.deepEqual([(await w.stored()).claude.management, (await w.stored()).claude.origin, (await w.stored()).codex], ['read-only', 'default', undefined]);
   assert.equal(JSON.parse(await fs.readFile(path.join(w.state, 'agents/claude-root.json'), 'utf8')).configDir, w.claudeConfig, 'Claude 根目录首次发现时保存');

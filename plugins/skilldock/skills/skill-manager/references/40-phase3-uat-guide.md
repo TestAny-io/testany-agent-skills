@@ -2,6 +2,11 @@
 
 > 适用分支：`feature/skilldock-0.11-cross-agent`（本地，未推送），提交 `ab66271` 及之后
 > 目的：在独立的数据目录中试用跨 Agent 的只读清单与“Agent 环境”页，不影响正在使用的 SkillDock（端口 4771、数据目录 `~/.local/share/skilldock`）。
+>
+> **2026-10-09 第一次试用后的修正**（需重启试用实例才生效，见第 2 节）：
+> - Codex 中安装、卸载插件和刷新、移除 marketplace 后，只核实这次操作的对象。其他插件的问题（例如某个插件的来源目录失效）照常显示为提示，但不再让成功的操作报“无法确认终态”。
+> - Claude 中未安装、但已添加的 marketplace 里有的插件，会出现在插件页的“未安装”中。内容读自 Claude 在本机保存的 marketplace 副本，不联网。
+> - Claude 卡片上注明：桌面应用为会话自带的插件（例如内置浏览器、电脑操作）不在此列。
 
 ## 1. 试用前提
 
@@ -20,6 +25,12 @@ SKILLDOCK_STATE_DIR="$HOME/.local/share/skilldock-uat" PORT=4781 /bin/sh "/Users
 
 成功后会输出 `http://127.0.0.1:4781`。在浏览器中打开它。
 
+试用实例已经在运行时，更新代码后用 `restart` 代替 `start` 重启（其余参数相同）：
+
+```bash
+SKILLDOCK_STATE_DIR="$HOME/.local/share/skilldock-uat" PORT=4781 /bin/sh "/Users/kailaichen/Downloads/source code/testany-agent-skills/plugins/skilldock/skills/skill-manager/scripts/launch.sh" restart --project "$HOME"
+```
+
 ## 3. 建议核对的内容
 
 1. **侧栏的“Agent 环境”页**
@@ -35,6 +46,8 @@ SKILLDOCK_STATE_DIR="$HOME/.local/share/skilldock-uat" PORT=4781 /bin/sh "/Users
 3. **插件**
    - Claude 插件显示安装范围（用户、项目、本地）和“由哪一层设置决定”。
    - 由 claude.ai 同步或组织托管的插件显示锁形标识。
+   - 切到“未安装”并选 Claude：应看到各 marketplace 中尚未安装的插件（例如 `claude-plugins-official` 中除已装的 context7、playwright 以外的条目）。安装按钮不可用，详情中说明“这一版只列出，可以在 Claude Code 中用 /plugin 安装”。
+   - Codex 中某个插件的来源有问题时（提示区可见），对其他插件或 marketplace 的操作应照常成功。
 4. **市场来源**
    - Claude 的 marketplace 显示“自动更新：开/关”，以及是否为默认值、插件数和最近刷新时间。
 5. **启用 Claude 管理（可选）**
@@ -48,6 +61,8 @@ SKILLDOCK_STATE_DIR="$HOME/.local/share/skilldock-uat" PORT=4781 /bin/sh "/Users
 ## 4. 已知限制（这一版）
 
 - Claude 中的技能、插件、marketplace 都只读：不能安装、启停、更新、移除，也不能加标签或加入更新计划，随阶段 4、5 开放。
+- Claude 的“未安装”插件清单取自 Claude 在本机保存的 marketplace 副本，新旧程度与该 marketplace 的“最近刷新”时间一致。从终端打开的 Claude Code 会按“自动更新”开关在启动时刷新；桌面应用的会话不会刷新。在 SkillDock 中刷新 Claude marketplace 随阶段 4 开放。
+- Claude 桌面应用为会话自带的插件（例如内置浏览器、电脑操作）不安装在 Claude 配置目录中，SkillDock 不列出。
 - 两边共用的技能被移除或更新时，还不会提示“会同时影响 Codex 与 Claude”（随阶段 4 实现）。移除的内容照常进入可恢复区，可以在操作记录中恢复。
 - “一键更新另一侧的 SkillDock”还没有实现；版本落后时只显示手动更新的步骤。
 - 只读状态下的检查结果会保留到下一次检查；重新启用 Codex 管理后，请重新检查一次。

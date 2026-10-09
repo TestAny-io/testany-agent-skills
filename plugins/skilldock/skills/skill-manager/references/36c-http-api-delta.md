@@ -209,7 +209,7 @@ export interface NativeRule {
 
 对象 ID：
 - Codex 对象沿用现有 ID，不加前缀（MR-SDX-001）。
-- Claude 对象 ID 以 `claude:` 开头，由对象类型与安装身份派生，例如 `claude:plugin:<名称>@<marketplace>:<作用域>[:<项目路径摘要>]`、`claude:skill:<作用域>:<技能目录摘要>`。摘要为规范路径的 sha256 前 12 位。客户端不得解析 ID 的内部结构。
+- Claude 对象 ID 以 `claude:` 开头，由对象类型与安装身份派生，例如 `claude:plugin:<名称>@<marketplace>:<作用域>[:<项目路径摘要>]`、`claude:skill:<作用域>:<技能目录摘要>`。摘要为规范路径的 sha256 前 12 位。客户端不得解析 ID 的内部结构。尚未在任何作用域安装的 Claude 插件还没有安装身份，ID 为 `claude:plugin:<名称>@<marketplace>`。
 - 共用状态变化（例如只属于 Claude 的技能后来也被 Codex 发现）会改变对象 ID。服务端为计划目标、来源记录与操作记录另存真实路径，按真实路径把旧 ID 解析到当前对象，据此继续关联。解析不到时（目录已不存在），这些记录显示为“无法解析”并保留，不静默丢弃。
 
 ## 7. 操作（`POST /api/actions`）

@@ -92,7 +92,7 @@ test('a failing list or an unknown settings format leaves Claude unconfirmed; it
   const w = await world(t);
   const failing = await claudeCatalog({ ...w.base, listPlugins: async () => { throw new Error('claude plugin list 失败：stand-in'); } });
   assert.match(failing.unconfirmed, /无法确认.*stand-in/); assert.equal(failing.evidence, 'record');
-  assert.deepEqual(failing.plugins.filter(item => item.marketplace === 'm').map(item => [item.name, item.enabled]), [['a', null]]);
+  assert.deepEqual(failing.plugins.filter(item => item.marketplace === 'm' && item.installed).map(item => [item.name, item.enabled]), [['a', null]]);
   const shape = await claudeCatalog({ ...w.base, listMarketplaces: async () => [{ unexpected: true }] });
   assert.match(shape.unconfirmed, /形状未知/);
   await write(path.join(w.project, '.claude/settings.local.json'), { skillOverrides: ['p1'] });
@@ -103,6 +103,23 @@ test('a failing list or an unknown settings format leaves Claude unconfirmed; it
   // Without a command line the environment layer decides; the record is still shown.
   const none = await claudeCatalog({ ...w.base, cli: null });
   assert.deepEqual([none.unconfirmed, none.evidence], [null, 'record']);
+});
+
+test('installable plugins come from the marketplace copy on disk: not installed, read-only, listed once', async t => {
+  const w = await world(t);
+  const marketDir = path.join(w.configDir, 'plugins/marketplaces/m');
+  const revision = (await claudeCatalog(w.base)).marketplaces.find(item => item.name === 'm').revision;
+  await write(path.join(marketDir, '.claude-plugin/marketplace.json'), { name: 'm', plugins: [{ name: 'a' }, { name: 'd', displayName: 'Dee', description: 'Plugin D.', version: '2.0.0' }, { name: 'd' }, { name: '../e' }, { name: 'f@g' }, null] });
+  const catalog = await claudeCatalog(w.base);
+  const available = catalog.plugins.filter(item => !item.installed);
+  assert.deepEqual(available.map(item => [item.id, item.name, item.displayName, item.description, item.version, item.marketplace]), [['claude:plugin:d@m', 'd', 'Dee', 'Plugin D.', '2.0.0', 'm']], '已安装的、重复的与不安全的名称都不列出');
+  assert.deepEqual([available[0].enabled, available[0].canInstall, available[0].agents.join()], [null, false, 'claude']);
+  assert.match(available[0].reason, /只列出 Claude 中可安装的插件/);
+  assert.equal(catalog.marketplaces.find(item => item.name === 'm').revision, revision, '市场的修订号只随已安装插件变化');
+  // Claude's install record is enough evidence; without any evidence an entry might be installed.
+  assert.deepEqual((await claudeCatalog({ ...w.base, cli: null })).plugins.filter(item => !item.installed).map(item => item.name), ['d']);
+  await fs.rm(path.join(w.configDir, 'plugins/installed_plugins.json'));
+  assert.deepEqual((await claudeCatalog({ ...w.base, cli: null })).plugins.filter(item => !item.installed), []);
 });
 
 test('settings: only the three relevant keys are read; a home-directory project is not counted twice', async t => {

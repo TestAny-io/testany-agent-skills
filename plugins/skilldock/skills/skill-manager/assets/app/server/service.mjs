@@ -6,7 +6,7 @@ import crypto from 'node:crypto';
 import { fileURLToPath } from 'node:url';
 import { AppError, fail, exists, inside, identity, hash, now, metadata, inspectTree, copySkill, objectFingerprint, diffFiles, readJson, writeJson, safeName, safeSegment, redact, captureDirectoryRoot, verifyDirectoryRoot, verifyDescendantDirectory } from './files.mjs';
 import { toggleConfig, toggleSkillConfigs, readConfig } from './config.mjs';
-import { CodexAdapter, validateSource, validateSubpath, validateRef, checkoutGit, readMarketplace, readComponentEntry, readPluginManifest, readPluginDefinition, discoverSkillRoots } from './cli.mjs';
+import { CodexAdapter, listCovers, validateSource, validateSubpath, validateRef, checkoutGit, readMarketplace, readComponentEntry, readPluginManifest, readPluginDefinition, discoverSkillRoots } from './cli.mjs';
 import { initializeSandbox, emptyRegistry } from './fixtures.mjs';
 import { scan, sandboxCatalog, rootsFor } from './scanner.mjs';
 import { pluginCacheRoot, pluginPath, verifyPluginPath, protectedRoots, skillLocation } from './paths.mjs';
@@ -855,7 +855,7 @@ export async function createService(options = {}) {
             catch (error) { throw new AppError(error.status || 502, 'REMOTE_INSTALL_UNCONFIRMED', '安装结果尚未确认。请先刷新安装状态，必要时完成官方授权，再决定是否重试。'); }
             const readback = await adapter.list(); cachedCatalog = readback; catalogTime = Date.now();
             const installed = readback.plugins.find(item => item.id === plugin.id);
-            if (readback.diagnostics.length || !installed?.directory) fail(502, 'READBACK_FAILED', 'CLI 操作已返回，但无法确认安装终态；请刷新官方清单后再操作。');
+            if (!listCovers(readback, 'plugins', plugin.id) || !installed?.directory) fail(502, 'READBACK_FAILED', 'CLI 操作已返回，但无法确认安装终态；请刷新官方清单后再操作。');
             pluginCatalogPreviews.delete(request.previewId);
             result = remoteInstallationResult(installed); break;
           }
@@ -897,7 +897,7 @@ export async function createService(options = {}) {
             await verifyPluginPath(env, plugin.version ? pluginPath(env.codexHome, plugin.marketplace, plugin.name, plugin.version) : pluginCacheRoot(env.codexHome));
             await adapter.command(['plugin', installing ? 'add' : 'remove', plugin.id, '--json'], { mutation: true });
             const readback = await adapter.list(); cachedCatalog = readback; catalogTime = Date.now();
-            if (readback.diagnostics.length || readback.plugins.some(item => item.id === plugin.id && item.installed) !== installing) fail(502, 'READBACK_FAILED', 'CLI 操作已返回，但无法确认安装终态；请刷新官方清单后再操作。');
+            if (!listCovers(readback, 'plugins', plugin.id) || readback.plugins.some(item => item.id === plugin.id && item.installed) !== installing) fail(502, 'READBACK_FAILED', 'CLI 操作已返回，但无法确认安装终态；请刷新官方清单后再操作。');
           }
           if (installing && request.previewId) pluginCatalogPreviews.delete(request.previewId);
           result = { message: `已${installing ? '安装' : '卸载'}插件 ${target}，请在新会话中确认能力。`, needsReload: true }; break;
@@ -937,7 +937,7 @@ export async function createService(options = {}) {
             await verifyPluginPath(env, pluginCacheRoot(env.codexHome));
             await adapter.command(['plugin', 'marketplace', removing ? 'remove' : 'upgrade', market.name, '--json'], { mutation: true });
             const readback = await adapter.list(); cachedCatalog = readback; catalogTime = Date.now();
-            if (readback.diagnostics.length || readback.marketplaces.some(item => item.id === market.id) === removing) fail(502, 'READBACK_FAILED', 'CLI 未能确认市场操作终态，请刷新核实。');
+            if (!listCovers(readback, 'marketplaces', market.name) || readback.marketplaces.some(item => item.id === market.id) === removing) fail(502, 'READBACK_FAILED', 'CLI 未能确认市场操作终态，请刷新核实。');
           }
           target = market.name; result = { message: removing ? `已移除市场来源 ${target}；已安装插件保留。` : market.direct ? '已刷新单插件来源，可以检查插件更新。' : `已刷新 Git 市场 ${target}；这不表示已安装插件全部更新。` }; break;
         }

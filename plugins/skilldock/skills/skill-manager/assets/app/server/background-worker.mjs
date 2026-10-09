@@ -7,7 +7,7 @@ import { readJson, writeJson, redact, safeSegment } from './files.mjs';
 import { acquireFileLock, operationLock } from './process-lock.mjs';
 import { instanceLock } from './state-locks.mjs';
 import { createBackgroundManager, backgroundPaths, normalizeBackgroundStatus } from './background.mjs';
-import { CodexAdapter } from './cli.mjs';
+import { CodexAdapter, listCovers } from './cli.mjs';
 import { installationIdentity, sameInstallation } from './installation.mjs';
 import { captureSource } from '../scripts/source-bundle.mjs';
 import { prepareRuntime } from './runtime.mjs';
@@ -34,9 +34,10 @@ export async function resolveBackgroundSource(context, adapter) {
   }
   const catalog = await adapter.list();
   const identity = context.installation;
-  const installed = catalog.plugins.find(plugin => plugin.installed && plugin.id === `${identity.plugin}@${identity.marketplace}`);
+  const id = `${identity.plugin}@${identity.marketplace}`;
+  const installed = catalog.plugins.find(plugin => plugin.installed && plugin.id === id);
   if (!installed) {
-    if (!catalog.cli.available || catalog.diagnostics.length) throw new Error('无法确认 SkillDock 安装状态；未删除后台任务，请恢复 Codex CLI 后重试。');
+    if (!catalog.cli.available || !listCovers(catalog, 'plugins', id)) throw new Error('无法确认 SkillDock 安装状态；未删除后台任务，请恢复 Codex CLI 后重试。');
     return null;
   }
   if (installed.enabled === false) return null;

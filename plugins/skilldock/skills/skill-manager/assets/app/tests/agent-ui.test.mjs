@@ -87,6 +87,17 @@ test('the new texts are translated (en)', () => {
   assert.equal(/[一-鿿]/.test(html), false, '英文界面不残留中文');
 });
 
+test('the notes about desktop-app plugins and installable Claude plugins are translated (en, ja)', () => {
+  for (const language of ['en', 'ja']) {
+    const { t } = translatorFor(language);
+    for (const text of ['Claude 桌面应用为会话自带的插件（例如内置浏览器、电脑操作）不安装在 Claude 配置目录中，这里不列出。', '这一版 SkillDock 只列出 Claude 中可安装的插件，暂不能在这里安装；可以在 Claude Code 中用 /plugin 安装。']) {
+      const translated = t(text);
+      assert.notEqual(translated, text, text);
+      if (language === 'en') assert.equal(/[一-鿿]/.test(translated), false, translated);
+    }
+  }
+});
+
 test('requests: the multi-agent snapshot only from API version 2; a write names the side of its object', () => {
   const { stateUrl, requestAgent } = ui();
   assert.equal(stateUrl('local', 2), '/api/state?mode=local&multiAgent=1');

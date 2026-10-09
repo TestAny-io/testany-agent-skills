@@ -230,6 +230,12 @@ test('self-update resolves the installed version instead of retaining a deleted 
   assert.equal(await resolveBackgroundSource(context, latest), path.join(newRoot, identity.appPath));
   await assert.rejects(resolveBackgroundSource(context, { list: async () => ({ ...await adapter.list(), diagnostics: ['CLI failed'] }) }), /无法确认/);
   assert.equal(await resolveBackgroundSource(context, adapter), null);
+  // A full plugin list with a problem in an unrelated record still proves SkillDock is gone;
+  // a list that was not read, or SkillDock's own record dropped, does not.
+  const read = (listed, dropped = []) => ({ list: async () => ({ ...await adapter.list(), diagnostics: ['unrelated record'], listed: { plugins: listed, marketplaces: true }, dropped: { plugins: dropped, marketplaces: [] } }) });
+  assert.equal(await resolveBackgroundSource(context, read(true)), null);
+  await assert.rejects(resolveBackgroundSource(context, read(false)), /无法确认/);
+  await assert.rejects(resolveBackgroundSource(context, read(true, ['skilldock@test-market'])), /无法确认/);
 });
 
 test('a disabled plan performs no update, and plist values safely quote special characters', async t => {
