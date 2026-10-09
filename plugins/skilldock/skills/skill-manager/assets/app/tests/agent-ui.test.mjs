@@ -26,6 +26,16 @@ function ui(language = 'zh') {
   module.exports.setPreferences({ language }); return module.exports;
 }
 const render = (component, props) => renderToStaticMarkup(createElement(component, props));
+const i18nBundle = await build({ stdin: { contents: 'export * from "./src/i18n"; export { setPreferences } from "./src/preferences";', resolveDir: app, loader: 'ts' },
+  bundle: true, platform: 'node', format: 'cjs', packages: 'external', jsx: 'automatic', write: false });
+function translatorFor(language) {
+  const module = { exports: {} }, storage = new Map();
+  runInNewContext(i18nBundle.outputFiles[0].text, { module, exports: module.exports, require,
+    localStorage: { getItem: key => storage.get(key), setItem: (key, value) => storage.set(key, value) },
+    document: { documentElement: { dataset: {}, style: {} }, getElementById: () => null },
+    window: { matchMedia: () => ({ matches: false, addEventListener() {} }), addEventListener() {} } });
+  module.exports.setPreferences({ language }); return module.exports;
+}
 const environment = (agent, management, extra = {}) => ({ agent, installed: true, management, roots: { config: `/home/.${agent}`, pluginCache: `/home/.${agent}/plugins/cache`, skills: `/home/.${agent}/skills`, origin: 'default' },
   cli: { available: true, version: '1.0.0', path: `/bin/${agent}` }, ...extra });
 
@@ -90,5 +100,12 @@ test('requests: the multi-agent snapshot only from API version 2; a write names 
   assert.equal(requestAgent({ action: 'skill.toggle', id: 'plain' }, snapshot), 'codex', '缺省为 Codex');
   assert.equal(requestAgent({ action: 'updates.run' }, snapshot), 'codex');
   assert.equal(requestAgent({ action: 'agent.setManagement', agent: 'claude' }, snapshot), 'claude');
+});
+
+test('nested service messages translate both the outer and the inner sentence (en)', () => {
+  const { t } = translatorFor('en');
+  assert.equal(t('无法确认 Claude 中的插件状态：设置文件 /x/settings.json 不是有效的 JSON。'), 'Cannot confirm the plugin state in Claude: The settings file /x/settings.json is not valid JSON.');
+  assert.equal(t('未找到可用的 Codex CLI。 Codex 为只读：这次检查没有改动 Codex；如有新版本，需要启用 Codex 管理后才能更新。'),
+    'No working Codex CLI was found. Codex is read-only: this check did not change Codex. If there is a new version, turn on Codex management to update.');
 });
 

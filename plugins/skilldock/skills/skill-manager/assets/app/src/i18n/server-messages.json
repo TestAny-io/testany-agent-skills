@@ -806,5 +806,9 @@
   "技能目录 {v0} 无法读取（{v1}）。": {
     "en": "The skills directory {v0} cannot be read ({v1}).",
     "ja": "スキルディレクトリ {v0} を読み取れません（{v1}）。"
+  },
+  "{v0} Codex 为只读：这次检查没有改动 Codex；如有新版本，需要启用 Codex 管理后才能更新。": {
+    "en": "{v0} Codex is read-only: this check did not change Codex. If there is a new version, turn on Codex management to update.",
+    "ja": "{v0} Codex は読み取り専用です。今回の確認では Codex を変更していません。新しいバージョンがある場合は、Codex の管理を有効にしてから更新してください。"
   }
 }

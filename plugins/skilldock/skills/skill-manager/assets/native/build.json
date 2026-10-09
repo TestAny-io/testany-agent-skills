@@ -38,10 +38,10 @@
     "src/agent-requests.ts": "8802b09dd9f5898f2e30822ebe2c19603c1068959d3fc6a071098867705b0fef",
     "src/brand-wordmark.svg": "789e0b992714535d5b223f764808de60f66c36728bd9871ee1db1f4d51135932",
     "src/desktop.css": "15814dc52392f308d2afa57b9c076d9149e22e06228e3424264984d939ec03ce",
-    "src/i18n.tsx": "d4dfa79ff1cb6340f247901152f33fec1c4cc92d7abcf0169afe701e1b59f8fd",
+    "src/i18n.tsx": "4b108b7ca620c3013d2118ad0b2b6ffd963d391fcf17a67c7ae4d4a3869bbf82",
     "src/i18n/errors.json": "c5b132a42055099209988fbcc5b4ea2a003a86b3cf0f2d370cdf26b9937e4efc",
     "src/i18n/messages.json": "a499b1839a7fa90c9105253c5f824a194a8f0417578f5ccf7f67c69ba25f2560",
-    "src/i18n/server-messages.json": "1fdbc8dd80b03cead02fbb60707f204f2fe4edd0621915d8e494112ce48e2b20",
+    "src/i18n/server-messages.json": "92e85bedecaed603f04180c0929872fa5d936bc5cf1a445621d4376624e465fb",
     "src/main.tsx": "0b17df37f3ddac17ba356b85184252cd545e0afa93a2246a8202b30b8a879fff",
     "src/native-icon.svg": "9b7d7c19189c56b43fe691c0cb01e19b1f88abc61d1d130c974c5f5411b7288c",
     "src/plugin-presentation.ts": "f221117671d3b93250a16e6e54326879e6ae1a6aaf3e50dea401e8fdfb86dadf",
@@ -54,7 +54,7 @@
   },
   "artifacts": {
     "server.mjs": "b1067621bebba924955a3f1be05145f144a7c17eb0afa20b3b9aba16be6e9f71",
-    "ui.html": "4c9415ac543c8c85c54d260cc0a44381cf5999303dcca5df1c1bbd8e743da658",
+    "ui.html": "dcc1908010e5f77ef04ca6694672966ad05c04b561541a50b1ca2ec63aa36232",
     "icon.svg": "9b7d7c19189c56b43fe691c0cb01e19b1f88abc61d1d130c974c5f5411b7288c",
     "THIRD_PARTY_NOTICES.txt": "0580c525bbaf94d006050bf773e482a470c9f983971e23b26e8048505e11bd4f"
   }

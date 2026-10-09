@@ -168,6 +168,11 @@ test('a read-only Codex is checked against its current marketplace copy: no comm
     assert.match(result.message, /没有刷新来源，也没有改动 Codex/);
     assert.deepEqual(f.commands, [], '只读的 Codex 不执行 marketplace upgrade');
   }
+  // A newer version found while read-only is reported but cannot be applied.
+  await writeJson(path.join(f.source, '.codex-plugin/plugin.json'), { name: 'example', version: '2.4.2' });
+  const newer = await f.act('update.check', { target: f.target });
+  assert.deepEqual([newer.updateItem.status, newer.updateItem.canApply, newer.updateItem.canAutoApply], ['available', false, false]);
+  assert.deepEqual(f.commands, []);
   await assert.rejects(f.act('marketplace.refresh', { id: f.market.id }), error => error.code === 'AGENT_READ_ONLY');
   assert.equal(await fs.readFile(path.join(f.codexHome, 'config.toml'), 'utf8'), f.config);
 });

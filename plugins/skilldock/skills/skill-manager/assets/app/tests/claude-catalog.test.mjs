@@ -190,6 +190,8 @@ test('marketplace addresses never carry credentials', async t => {
 
 test('an unreadable skills root leaves Claude unconfirmed; a managed value overrides a different local one', async t => {
   const w = await world(t);
+  // Only the local layer disagrees with the managed one, so the override comes from it alone.
+  await write(path.join(w.configDir, 'settings.json'), {}); await write(path.join(w.project, '.claude/settings.json'), {});
   await write(path.join(w.managedDir, 'managed-settings.json'), { enabledPlugins: { 'b@m': true } });
   await write(path.join(w.project, '.claude/settings.local.json'), { enabledPlugins: { 'b@m': false } });
   assert.deepEqual((await claudeCatalog(w.base)).plugins.find(item => item.name === 'b').enablement, { decidedBy: 'managed', overriddenBy: 'managed', locked: true });

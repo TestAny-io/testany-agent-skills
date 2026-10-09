@@ -14,6 +14,7 @@ const messageSlots: Record<string, string> = {
   "无法读取状态文件 {v0}：{v1}": "v1",
   "比 {v0} 中的 SkillDock {v1} 旧。{v2}": "v2",
   "无法确认 Claude 中的插件状态：{v0}": "v0",
+  "{v0} Codex 为只读：这次检查没有改动 Codex；如有新版本，需要启用 Codex 管理后才能更新。": "v0",
   "{v0} Codex 为只读：这次检查没有刷新来源，也没有改动 Codex；如有新版本，需要启用 Codex 管理后才能更新。": "v0",
 };
 const escapeRegex = (text: string) =>

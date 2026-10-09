@@ -1143,10 +1143,12 @@ export async function createService(options = {}) {
       const result = await executeAction(translated);
       // PH3-P1-01: a check of a read-only Codex changed nothing, and its result cannot be applied.
       if (!applying && request.action === 'update.check' && mode === 'local' && await codexReadOnly()) {
-        const note = `${result.message} Codex 为只读：这次检查没有刷新来源，也没有改动 Codex；如有新版本，需要启用 Codex 管理后才能更新。`;
+        // A plugin check skipped the marketplace refresh; a skill check read its source as usual.
+        const note = translated.action === 'plugin.checkUpdate'
+          ? `${result.message} Codex 为只读：这次检查没有刷新来源，也没有改动 Codex；如有新版本，需要启用 Codex 管理后才能更新。`
+          : `${result.message} Codex 为只读：这次检查没有改动 Codex；如有新版本，需要启用 Codex 管理后才能更新。`;
         result.message = note;
         if (result.updateItem) Object.assign(result.updateItem, { message: note, canApply: false, canAutoApply: false });
-        if (result.update) result.update.available = false;
       }
       if (target && applying) await scheduler.afterOwnUpdate(mode, target, binding);
       else if (target) {
