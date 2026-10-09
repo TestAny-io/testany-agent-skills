@@ -12,7 +12,7 @@
     "src/AgentEnvironments.tsx": "9c91fb1827597c7c4e6c332265c96d90eccd6c72a3d8338c291595f5a1c6476c",
     "src/AgentUI.css": "f1c5a1009ed5518a61634a0a42da6c0b917c07f7285aee447c5e984dca7ce8c2",
     "src/AgentUI.tsx": "7fa0d0ba3e0ba4790132838106688ed417d4a61e0e62ff94e538d2ce83df7747",
-    "src/App.tsx": "58e16d06558bc892ffe141531f10bda7c988d2aee138d214438105c802c2e778",
+    "src/App.tsx": "b8f9ead23465a20bb10350db42084d6e11a35bfb0f15ed07caeacf68d044c3d9",
     "src/CompatibilityWarnings.tsx": "dc7f57da6a06829e5e24fc6149535f69bd6128bd0cbae93e10ee423a623d1f62",
     "src/ConfirmDialog.tsx": "cf838a952b8c17690d1e54ad1538326a372890f5ca921efffe18635b04a790bc",
     "src/DesktopUI.tsx": "a827ba36401fa368b332297efea7dc1d0a8151844b4179e0d7eae189fb99d063",
@@ -43,7 +43,7 @@
     "src/i18n.tsx": "dc09254cbb69d72741c0975ce96e70e8b3bf0c56332757833f6effbab0d51a7b",
     "src/i18n/errors.json": "c00b868b1f842b880328226d37e6aedeac847c39b9c91b62dea60575158ce148",
     "src/i18n/messages.json": "28a1f14c3708362e1d55708a24ed9ab6ac27c0e1a897cfe3e2c23f8f805d50c9",
-    "src/i18n/server-messages.json": "12a45be88e5eb17e018ed470b04bdbdd18fcef6ea6401ad286e5cc14218a5772",
+    "src/i18n/server-messages.json": "fd0938cd1c22c1a805a2749640d2907f4f2e2cd4f83b5d5dfe651504fd04df3d",
     "src/main.tsx": "0b17df37f3ddac17ba356b85184252cd545e0afa93a2246a8202b30b8a879fff",
     "src/native-icon.svg": "9b7d7c19189c56b43fe691c0cb01e19b1f88abc61d1d130c974c5f5411b7288c",
     "src/plugin-presentation.ts": "f221117671d3b93250a16e6e54326879e6ae1a6aaf3e50dea401e8fdfb86dadf",
@@ -56,7 +56,7 @@
   },
   "artifacts": {
     "server.mjs": "70aa636d69c178cf496ea1a6c0fb870e83dec0776b87410542fcec30a432ec1d",
-    "ui.html": "0c03cc9370569632aa02b16fe5090c270879f3ababd5244aa865d954bad556c6",
+    "ui.html": "f40cc38454da127638d23a4ae4a17ea67c35ddd2c25bde3b187a56b69e79917d",
     "icon.svg": "9b7d7c19189c56b43fe691c0cb01e19b1f88abc61d1d130c974c5f5411b7288c",
     "THIRD_PARTY_NOTICES.txt": "0580c525bbaf94d006050bf773e482a470c9f983971e23b26e8048505e11bd4f"
   }

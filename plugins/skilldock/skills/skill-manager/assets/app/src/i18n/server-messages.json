@@ -1554,5 +1554,21 @@
   "SkillDock 生成的本地 marketplace {v0} 不在 Claude 中，已删除它的本地文件。": {
     "en": "The local marketplace {v0} SkillDock generated is not in Claude; its local files were deleted.",
     "ja": "SkillDock が生成したローカル marketplace {v0} は Claude にないため、ローカルファイルを削除しました。"
+  },
+  "另一侧（{v0}）已关联到来源 {v1}；只有关联到相同的来源，这一侧才能关联。": {
+    "en": "The other side ({v0}) is linked to the source {v1}; this side can be linked only to the same source.",
+    "ja": "もう一方（{v0}）はソース {v1} に関連付けられています。こちら側は同じソースにのみ関連付けられます。"
+  },
+  "Codex 命令行不可用，无法确认 Codex 中的插件状态。": {
+    "en": "The Codex command line is unavailable, so the state of plugins in Codex cannot be confirmed.",
+    "ja": "Codex コマンドラインが使えないため、Codex のプラグインの状態を確認できません。"
+  },
+  "同名技能清单已变化，请重新选择。": {
+    "en": "The list of skills with this name has changed; choose again.",
+    "ja": "同じ名前のスキルの一覧が変わりました。もう一度選んでください。"
+  },
+  "选中的技能在预览后发生变化，请重新选择。": {
+    "en": "A selected skill changed after the preview; choose again.",
+    "ja": "選んだスキルがプレビュー後に変わりました。もう一度選んでください。"
   }
 }

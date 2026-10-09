@@ -8,8 +8,8 @@
 | 项目 | 内容 |
 |------|------|
 | 契约 | API-SDX-001-C HTTP 接口增量 |
-| 版本 | 0.16 |
-| 状态 | 第 12 轮契约复核 APPROVED（v0.12）。v0.13 处理第 12 轮的 P2；v0.14 为阶段 3 试用与阶段 4a、4b 实现中的澄清（索引 0.15），v0.15 为阶段 4d 实现中的澄清（索引 0.16），v0.16 处理阶段 4d 代码评审（索引 0.17），均待增量复核。第 4、5 节随 0.10.3 冻结（HLD 11A 条件 1a，0.10.3 已发布）；其余各节属条件 1b |
+| 版本 | 0.17 |
+| 状态 | 第 12 轮契约复核 APPROVED（v0.12）。v0.13 处理第 12 轮的 P2；v0.14 为阶段 3 试用与阶段 4a、4b 实现中的澄清（索引 0.15），v0.15 为阶段 4d 实现中的澄清（索引 0.16），v0.16 处理阶段 4d 代码评审（索引 0.17），v0.17 处理阶段 4c 代码评审（索引 0.18），均待增量复核。第 4、5 节随 0.10.3 冻结（HLD 11A 条件 1a，0.10.3 已发布）；其余各节属条件 1b |
 | Owner | SkillDock 维护者（产品 Owner：用户） |
 | 服务方 | SkillDock 0.11.x 本机服务（仅监听 `127.0.0.1`） |
 | 消费方 | 0.11.x 浏览器界面与原生界面；0.10.2、0.10.3 的原生界面（经各自原生入口代理）；0.10.2 启动器与原生入口、0.10.3 转交链（只读健康检查） |
@@ -107,7 +107,7 @@ export interface AgentEnvironment {
   cli: { available: boolean; version?: string; path?: string; error?: string };
   /** 该 Agent 中安装的 SkillDock；没有安装时省略。 */
   skilldock?: { version: string; running: boolean; canUpdate: boolean; reason?: string };
-  /** 宿主层面的已知行为说明（例如 Claude 桌面应用会话整体禁用自动更新，PRD 附录 A）。 */
+  /** 宿主层面的已知行为说明（例如 Claude 桌面应用会话整体禁用自动更新，PRD 附录 A）；Codex 命令行不可用时，Codex 保持存储的管理状态，这一事实写在这里（MR-SDX-001：只显示、不禁用写操作）。 */
   notes?: string[];
 }
 
@@ -192,17 +192,17 @@ export interface NativeRule {
 - **启禁**按侧执行：服务端按请求一侧的 `SkillSide` 判断能否操作、是否需要确认；结果的 `ActionResult.agent` 为该侧。
 - **移除**按请求的一侧作用于**该侧的发现路径**，沿用 0.10.2 与 AC-005：该侧是链接（`removeKind: "link"`）就只移除链接，只影响该侧；该侧发现路径就是真实目录（`removeKind: "directory"`）时移走目录，另一侧随之失效。后一种情况下，2 版请求未带 `confirm: true` 时返回 `CONFIRMATION_REQUIRED`，`nativeRules` 中一条 `kind: "scope"` 说明会同时影响 Codex 与 Claude。`ActionResult.agent` 为请求的一侧。
 - **恢复**（`activity.restore`）按操作记录还原到原发现路径，作用的一侧取自操作记录（`Activity.agent`），与请求中的 `agent` 无关；`ActionResult.agent` 为记录中的一侧。
-- **批量移除**（同名副本：`skill.previewRemoval`、`skill.removeSelected`）：2 版请求的 `ids` 可以包含 Claude 对象 ID；预览中任何一项的移除会移走两侧共用的真实目录，或改动另一侧插件的内容时，预览结果带相应的 `nativeRules`，执行时须带 `confirm: true`，否则返回 `CONFIRMATION_REQUIRED`。批量中的共用对象一律作用于 Codex 侧的发现路径（与 1 版一致）。整批仍保持 0.10.2 的原子语义：整组签名与任一项的核对（含 Claude 对象与共用技能的状态）失败都整批拒绝（`REMOVAL_CHANGED`），一份都不移。1 版请求保持 0.10.2 行为。
+- **批量移除**（同名副本：`skill.previewRemoval`、`skill.removeSelected`）：2 版请求的 `ids` 可以包含 Claude 对象 ID；预览中任何一项的移除会移走两侧共用的真实目录，或改动另一侧插件的内容时，预览结果带相应的 `nativeRules`，执行时须带 `confirm: true`，否则返回 `CONFIRMATION_REQUIRED`。批量中的共用对象一律作用于 Codex 侧的发现路径（与 1 版一致）。整批仍保持 0.10.2 的原子语义：整组签名与任一项的核对（含 Claude 对象与共用技能的状态：各副本由哪些 Agent 看到、各侧的移除方式）失败都整批拒绝（`REMOVAL_CHANGED`），一份都不移。2 版执行的环境检查按各项所属的一侧：含 Codex 项时 Codex 只读才拒绝（`AGENT_READ_ONLY`），只含 Claude 项时不看 Codex 的状态。1 版请求保持 0.10.2 行为。
 - **更新**作用于真实目录，只能经 `canUpdate` 为真的一侧发起，`UpdateTarget.agent` 取该侧；预览带一条 `kind: "scope"` 的 `NativeRule`，说明两侧看到的内容都会改变。`canUpdate` 的规则：
   - 一侧可更新，须该侧发现路径就是真实目录（技能根本身可以是链接），且该侧分区有来源记录；
-  - 两侧都满足时（例如两侧的技能根都链接到同一目录），以 **Codex 侧**为准，Claude 侧 `canUpdate` 为假，`reason` 说明“由 Codex 侧的来源记录管理”；两侧来源记录指向不同来源时，两侧都不可更新，`reason` 说明冲突；
-  - 关联来源（`skill.previewSource`、`skill.connectSource`）写入请求一侧的分区；2 版请求遇到另一侧已有指向不同来源的记录时拒绝，返回 `SOURCE_CONFLICT`，`message` 说明怎样解除（例如在另一侧重新关联到相同来源）；1 版请求不做冲突检查，照 0.10.2 写入，冲突状态按上一条处理（两侧都不可更新）。经一侧更新后，另一侧的同源记录同步刷新内容指纹；恢复一次更新（`activity.restore`）时，另一侧的同源记录同样还原为更新前的指纹。两者都是为了避免日后误报本地修改。
-- **跨侧影响提示**：Codex 侧独立技能的真实路径位于某个 Claude 插件的目录内（含 Claude 技能目录插件 `名称@skills-dir`）时，虽然不合并，2 版请求对它的移除与更新在会移走或改写插件目录内的内容时同样要求确认（只移除指向插件目录的链接不需要），`nativeRules` 中一条 `kind: "affected-plugins"` 列出受影响的 Claude 插件；反之亦然（AC-003）。只在另一侧环境已被发现时提示；确认后，操作的效果与不提示时相同。后台计划的确认门槛与此不同，是“另一侧已启用管理”：单次操作的提示只是界面中多一次确认，计划的确认会改变后台结果，须守住 MR-SDX-001，两者有意不统一。后台计划中的这类技能：
+  - 两侧都满足时（例如两侧的技能根都链接到同一目录），以 **Codex 侧**为准，Claude 侧 `canUpdate` 为假，`reason` 说明“由 Codex 侧的来源记录管理”；两侧来源记录指向不同来源时，两侧都不可更新，`reason` 说明冲突，2 版的检查更新与更新返回 `SOURCE_CONFLICT`（1 版保持 0.10.2）；
+  - 关联来源（`skill.previewSource`、`skill.connectSource`）写入请求一侧的分区；2 版请求遇到另一侧已有指向不同来源的记录时拒绝，返回 `SOURCE_CONFLICT`，`message` 说明怎样解除（例如在另一侧重新关联到相同来源）；预览时即在结果中带一条 `kind: "scope"` 的说明，关联时才拒绝；本地目录按真实路径比较，子目录或 ref 不同即为不同来源；1 版请求不做冲突检查，照 0.10.2 写入，冲突状态按上一条处理（两侧都不可更新）。经一侧更新后，另一侧的同源记录同步刷新内容指纹；恢复一次更新（`activity.restore`）时，另一侧的同源记录同样还原为更新前的指纹。两者都是为了避免日后误报本地修改。
+- **跨侧影响提示**：Codex 侧独立技能的真实路径位于某个 Claude 插件的目录内（含 Claude 技能目录插件 `名称@skills-dir`）时，虽然不合并，2 版请求对它的移除与更新在会移走或改写插件目录内的内容时同样要求确认（只移除指向插件目录的链接不需要），`nativeRules` 中一条 `kind: "affected-plugins"` 列出受影响的 Claude 插件；反之亦然（AC-003）。更新页的 `update.check`、`update.apply` 以技能为目标时，同样按本节核对共用修订号、来源冲突与跨侧确认，说明随结果返回。只在另一侧环境已被发现时提示；确认后，操作的效果与不提示时相同。后台计划的确认门槛与此不同，是“另一侧已启用管理”：单次操作的提示只是界面中多一次确认，计划的确认会改变后台结果，须守住 MR-SDX-001，两者有意不统一。后台计划中的这类技能：
   - 另一侧已启用管理时，2 版 `schedule.configure` 新增这类目标、改变其安装身份，或把计划改为自动应用、启用一个自动应用的已停用计划（这两种计划级改动会开始自动应用；启用仅检查的计划不需要确认），都须对其中的这类目标带 `confirm: true`，否则返回 `CONFIRMATION_REQUIRED`；确认记在计划内容中（36a 第 2 节由 0.11.x 自定），重新提交计划时保留已有确认；原样重新提交的目标保持原状态，不算修改；2 版 `schedule.configure` 带 `confirm: true` 时，计划中全部待确认的这类目标都记为已确认（“在计划设置中确认”即这一请求），不带时保持原状态；返回 `CONFIRMATION_REQUIRED` 时，`nativeRules` 覆盖带 `confirm` 后将被确认的全部这类目标（本次新增或改变的，以及原有待确认的），界面主动发起确认时同样列出，确认范围与确认框所列一致；
   - 经 2 版请求保存、但在另一侧已启用管理时尚未确认的这类目标（例如保存之后才启用另一侧管理），后台照常检查、不自动应用，结果的 `message` 说明须先在 0.11.x 界面的计划设置中确认（0.10.x 界面无法确认）；
   - 经 1 版请求保存的目标、从 0.10.x 继承且尚未在 0.11.x 界面中新增或改变的目标，以及另一侧未启用管理时的全部目标，保持 0.10.2 行为，照常检查与应用（MR-SDX-001）；
   - 1 版请求整份保存计划时，只替换 Codex 侧目标；它看不到的 Claude 侧目标与已有确认原样保留；目标的来源按“原样保存保持原状态”判定，与 2 版的规则一致（原本经 2 版保存、未确认的目标被 1 版原样保存后仍是未确认，不会因此变成自动应用）；
-  - 保存校验：“启用计划时每个目标都须可检查”（7.1）照 0.10.2 校验请求中的目标——1 版请求中的目标一律照 0.10.2 校验（有不能检查的目标时仍整体返回 `TARGET_NOT_READY`）；暂停豁免只适用于请求之外保留下来的目标，以及 2 版请求中所属 Agent 已暂停的目标：它们连同绑定原样保留，不阻断保存，恢复后重新纳入（HLD 3.6、3.8；MR-SDX-001）。“暂停”指所属 Agent 被停用管理、未安装或处于无法确认（HLD 3.8“某个 Agent 不可用”）。
+  - 保存校验：“启用计划时每个目标都须可检查”（7.1）照 0.10.2 校验请求中的目标——1 版请求中的目标一律照 0.10.2 校验（有不能检查的目标时仍整体返回 `TARGET_NOT_READY`）；暂停豁免只适用于请求之外保留下来的目标，以及 2 版请求中所属 Agent 已暂停的目标：它们连同绑定原样保留，不阻断保存，恢复后重新纳入（HLD 3.6、3.8；MR-SDX-001）。“暂停”指所属 Agent 被停用管理、未安装或处于无法确认（HLD 3.8“某个 Agent 不可用”）；Claude 已启用管理时，Codex 未安装则其目标全部暂停，Codex 命令行不可用则只暂停其插件目标（Codex 环境本身保持存储的状态，只附说明）；只管理 Codex 时保持 0.10.2 行为。
 - **手动批量执行中的这类技能**：手动 `updates.run`（用户在场）不看计划中的确认，门槛与单次操作相同（另一侧已被发现）：2 版请求中这类目标按请求的 `confirm` 处理，未带的只检查、不应用，单独说明原因，不影响其他目标（与 7.1 的逐目标失败一致）；1 版请求保持 0.10.2 行为。
 - **并行改动核对**：2 版请求对共用对象的单对象写请求都带顶层 `revision`（覆盖两侧状态）作为 `expectedRevision`；1 版请求免带。多目标操作的处理见 7.1 的 `expectedRevision`。
 - 插件与 marketplace 由各宿主分别安装与登记，两侧各是一个对象，`agents` 只含一侧，不使用 `perAgent`；同源归组（REQ-SDX-010）在 M4 另行增补。
@@ -248,9 +248,9 @@ export interface NativeRule {
 | `plugin.remove` | 卸载，`keepData` 决定是否保留数据。技能目录插件位于个人技能目录或当前项目的 `.claude/skills` 时，确认后移到可恢复区，可经 `activity.restore` 恢复；指向其内容的 Codex 独立技能在确认的 `nativeRules` 中列出（`kind: "scope"`）；其他位置的不可移除（`canRemove` 为假并说明原因） |
 | `marketplace.add`、`marketplace.refresh`、`marketplace.remove` | 经 Claude 命令行；移除前在确认框列出从该 marketplace 安装的插件。`marketplace.add` 的 `scope` 决定声明写在哪一层设置（缺省 `user`）；Claude 侧不支持 `ref`（`UNSUPPORTED_FOR_AGENT`）；新 marketplace 按添加前后清单的差异读回。`marketplace.remove` 由 Claude 从所有设置层删除声明并卸载从它安装的插件：项目共享设置声明了它、或其中有 project 范围的安装时，确认的 `nativeRules` 另有一条 `kind: "scope"` 说明会改动协作者共享的 `.claude/settings.json`；组织托管设置声明的不可移除（`HOST_MANAGED`）；结果只说读回证实的卸载数 |
 | `plugin.previewMarketplace` | Claude 中未安装的插件：返回 `PluginInstallPreview`（`agent`、`scopes`、`defaultScope`、`nativeRules`；`canSelectSkills` 为假），不保存预览；随后的 `plugin.install` 以 `expectedRevision` 绑定所见的插件，`previewId` 不作校验 |
-| `skill.toggle` | 写技能可见性条目；当前值（决定层的或写入层中的）为后两档时须 `confirm: true`；同名的其他 Claude 技能共用这一条目，会一并改变，须 `confirm: true`（`nativeRules` 列出它们）；这些确认与共享设置、本地设置文件的选择一次给出。两侧共用技能的 Claude 一侧在阶段 4c 之前返回 `UNSUPPORTED_FOR_AGENT` |
+| `skill.toggle` | 写技能可见性条目；当前值（决定层的或写入层中的）为后两档时须 `confirm: true`；同名的其他 Claude 技能共用这一条目，会一并改变，须 `confirm: true`（`nativeRules` 列出它们）；这些确认与共享设置、本地设置文件的选择一次给出。两侧共用技能的 Claude 一侧按 Claude 自己的条目写入，核对两侧共同的修订号（第 6 节）；只属于 Codex 的技能以 `agent: "claude"` 切换返回 `UNSUPPORTED_FOR_AGENT` |
 | `skill.install`、`skill.update`、`skill.remove`、`activity.restore` | 复用现有文件事务，目标为 Claude 个人根或项目的 `.claude/skills`；`activity.restore` 作用于操作记录中的一侧 |
-| `skill.previewRemoval`、`skill.removeSelected` | 同名副本的批量移除，`ids` 可含 Claude 对象 ID；涉及两侧共用目录或另一侧插件内容时须确认（第 6 节） |
+| `skill.previewRemoval`、`skill.removeSelected` | 同名副本的批量移除，`ids` 可含 Claude 对象 ID；涉及两侧共用目录或另一侧插件内容时须确认；环境检查按各项所属的一侧（第 6 节） |
 | `skill.previewSource`、`skill.connectSource` | 写入请求一侧的来源记录分区；与另一侧不同来源的记录冲突时返回 `SOURCE_CONFLICT` |
 | `update.check`、`update.apply`、`updates.run`、`schedule.configure` | 目标带 `agent`；Claude 插件按 HLD 3.3A 的候选内容与读回规则 |
 

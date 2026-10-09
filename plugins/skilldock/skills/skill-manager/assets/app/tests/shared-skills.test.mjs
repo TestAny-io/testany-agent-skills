@@ -18,7 +18,7 @@ const exists = file => fs.lstat(file).then(() => true, () => false);
 const seen = new Set();
 const see = value => { for (const text of [value?.message, value?.reason, ...(value?.nativeRules ?? []).map(rule => rule.message)]) if (typeof text === 'string') seen.add(text); return value; };
 
-async function world(t, { claudeOwns = false, codexIntoPlugin = false, bothRoots = false } = {}) {
+async function world(t, { claudeOwns = false, codexIntoPlugin = false, codexLinkIntoPlugin = false, bothRoots = false, codexReadOnly = false, managed } = {}) {
   const root = await fs.realpath(await fs.mkdtemp(path.join(os.tmpdir(), 'skilldock-shared-')));
   const home = path.join(root, 'home'); const codexHome = path.join(home, '.codex'); const configDir = path.join(home, '.claude'); const project = path.join(root, 'project');
   await fs.mkdir(project, { recursive: true });
@@ -27,7 +27,12 @@ async function world(t, { claudeOwns = false, codexIntoPlugin = false, bothRoots
     await skillFile(path.join(root, 'common/skills'), 'shared'); await fs.mkdir(codexHome, { recursive: true }); await fs.mkdir(configDir, { recursive: true });
     await fs.symlink(path.join(root, 'common/skills'), path.join(codexHome, 'skills')); await fs.symlink(path.join(root, 'common/skills'), path.join(configDir, 'skills'));
   } else await fs.mkdir(path.join(configDir, 'skills'), { recursive: true });
-  if (bothRoots) {} else if (codexIntoPlugin) {
+  if (bothRoots) {} else if (codexLinkIntoPlugin) {
+    // A Codex skill that is a link into a Claude skills-directory plugin.
+    await write(path.join(configDir, 'skills/sd/.claude-plugin/plugin.json'), { name: 'sd', description: 'Skills-dir plugin.' });
+    await skillFile(path.join(configDir, 'skills/sd/skills'), 'inner');
+    await fs.mkdir(path.join(codexHome, 'skills'), { recursive: true }); await fs.symlink(path.join(configDir, 'skills/sd/skills/inner'), path.join(codexHome, 'skills/inner'));
+  } else if (codexIntoPlugin) {
     // Codex's skills root is a link into a Claude skills-directory plugin.
     await write(path.join(configDir, 'skills/sd/.claude-plugin/plugin.json'), { name: 'sd', description: 'Skills-dir plugin.' });
     await skillFile(path.join(configDir, 'skills/sd/skills'), 'inner');
@@ -40,12 +45,16 @@ async function world(t, { claudeOwns = false, codexIntoPlugin = false, bothRoots
     await fs.symlink(path.join(codexHome, 'skills/shared'), path.join(configDir, 'skills/shared'));
   }
   const state = path.join(root, 'state'); await fs.mkdir(state); await writeGeneration(state, 2);
-  await write(path.join(state, 'settings/agents.json'), { format: 1, agents: { claude: { management: 'enabled', origin: 'user', changedAt: '2026-10-09T00:00:00.000Z' } } });
-  const listed = codexIntoPlugin ? [{ id: 'sd@skills-dir', scope: 'user', enabled: true }] : [];
+  await write(path.join(state, 'settings/agents.json'), { format: 1, agents: { claude: { management: 'enabled', origin: 'user', changedAt: '2026-10-09T00:00:00.000Z' },
+    ...(codexReadOnly ? { codex: { management: 'read-only', origin: 'user', changedAt: '2026-10-09T00:00:00.000Z' } } : {}) } });
+  if (managed) await write(path.join(root, 'no-managed/managed-settings.json'), managed);
+  const listed = codexIntoPlugin || codexLinkIntoPlugin ? [{ id: 'sd@skills-dir', scope: 'user', enabled: true }] : [];
+  // Whether the Claude lock was held each time Claude was read.
+  const locks = []; const lockHeld = () => fs.stat(path.join(configDir, '.skilldock-operation.lock')).then(() => true, () => false);
   const service = await createService({ home, codexHome, projectDir: project, stateDir: state, background: false, env: { HOME: home },
     adapter: { list: async () => ({ plugins: [], marketplaces: [], diagnostics: [], listed: { plugins: true, marketplaces: true }, cli: { available: true, version: 'codex-cli 0.200.0', path: '/stand-in/codex' } }) },
     claudeCli: async () => ({ available: true, version: '2.1.288', path: '/stand-in/claude' }),
-    claudeCatalog: { managedDir: path.join(root, 'no-managed'), listPlugins: async () => listed, listMarketplaces: async () => [] },
+    claudeCatalog: { managedDir: path.join(root, 'no-managed'), listPlugins: async () => { locks.push(await lockHeld()); return listed; }, listMarketplaces: async () => [] },
     claudeWriter: () => async () => { throw new Error('no command line'); }, claudeGit: async () => { throw new Error('not a repository'); } });
   t.after(async () => { await service.close(); await fs.rm(root, { recursive: true, force: true }); });
   const snapshot = () => service.snapshot('local', true, { multiAgent: true });
@@ -59,7 +68,7 @@ async function world(t, { claudeOwns = false, codexIntoPlugin = false, bothRoots
     const preview = answer.sourcePreview;
     return act({ action: 'skill.connectSource', agent, id: skill.id, expectedRevision: skill.revision, previewId: preview.id });
   };
-  return { root, home, codexHome, configDir, project, service, snapshot, shared, act, registry, link };
+  return { root, home, codexHome, configDir, project, service, snapshot, shared, act, registry, link, locks };
 }
 
 test('the Claude side of a shared skill: a link is removed and restored on its own side; its visibility is its own', async t => {
@@ -178,6 +187,125 @@ test('batch removal of copies of a name: Claude copies in version 2, a shared di
   assert.ok(await exists(path.join(w.codexHome, 'skills/shared/SKILL.md')), '确认前不动');
   await w.act({ action: 'skill.removeSelected', agent: 'codex', previewId: again.removalPreview.id, confirm: true });
   assert.equal(await exists(path.join(w.codexHome, 'skills/shared')), false);
+});
+
+test('the updates page meets the same rules as the card: the note, the revision, a conflict, the cross-side confirmation', async t => {
+  const w = await world(t, { bothRoots: true });
+  await skillFile(path.join(w.root, 'upstream'), 'shared');
+  await w.link('codex', path.join(w.root, 'upstream/shared'));
+  await skillFile(path.join(w.root, 'upstream'), 'shared', 'v2\n');
+  let skill = await w.shared(); const target = { kind: 'skill', id: skill.id };
+  const check = await w.act({ action: 'update.check', agent: 'codex', target, expectedRevision: skill.revision });
+  assert.deepEqual(check.nativeRules?.map(rule => rule.kind), ['scope'], '更新页的检查同样说明两侧都会变');
+  const previewId = check.updateItem.previewId;
+  assert.equal((await w.act({ action: 'update.apply', agent: 'codex', target, previewId, expectedRevision: 'ffff' })).code, 'SNAPSHOT_STALE');
+  assert.match((await w.act({ action: 'update.apply', agent: 'codex', target, previewId, expectedRevision: skill.revision })).message, /已更新 shared/);
+  // Different sources on the two sides: neither the card nor the updates page checks or updates (4c review P2-02).
+  const registry = await w.registry(); const real = await fs.realpath(path.join(w.root, 'common/skills/shared'));
+  const own = { ...registry.claudeSources?.[real] ?? registry.sources[skill.id], source: path.join(w.root, 'elsewhere/shared') };
+  registry.claudeSources = { [real]: own };
+  await fs.writeFile(w.service.environments.local.registryFile, JSON.stringify(registry));
+  skill = await w.shared();
+  assert.equal((await w.act({ action: 'skill.checkUpdate', agent: 'codex', id: skill.id })).code, 'SOURCE_CONFLICT');
+  assert.equal((await w.act({ action: 'update.check', agent: 'codex', target })).code, 'SOURCE_CONFLICT');
+  // Version 1 keeps 0.10.2, and its update leaves the other side's different record alone.
+  await skillFile(path.join(w.root, 'upstream'), 'shared', 'v3\n');
+  const plain = await w.act({ action: 'skill.checkUpdate', id: skill.id });
+  assert.equal(plain.update?.available, true);
+  await w.act({ action: 'skill.update', id: skill.id, previewId: plain.update.id });
+  assert.deepEqual((await w.registry()).claudeSources[real], own, '来源不同时不同步另一侧的记录');
+  // Cross-side content from the updates page is confirmed with the plugin named.
+  const v = await world(t, { codexIntoPlugin: true });
+  const inner = (await v.snapshot()).skills.find(item => item.name === 'inner' && item.agents?.includes('codex'));
+  await skillFile(path.join(v.root, 'up'), 'inner');
+  const source = await v.act({ action: 'skill.previewSource', agent: 'codex', id: inner.id, sourceType: 'local', source: path.join(v.root, 'up/inner') });
+  await v.act({ action: 'skill.connectSource', agent: 'codex', id: inner.id, previewId: source.sourcePreview.id });
+  await skillFile(path.join(v.root, 'up'), 'inner', 'v2\n');
+  const innerCheck = await v.act({ action: 'update.check', agent: 'codex', target: { kind: 'skill', id: inner.id } });
+  const ask = await v.act({ action: 'update.apply', agent: 'codex', target: { kind: 'skill', id: inner.id }, previewId: innerCheck.updateItem.previewId });
+  assert.equal(ask.code, 'CONFIRMATION_REQUIRED'); assert.deepEqual(ask.nativeRules[0].items, ['sd']);
+});
+
+test('sources: a preview names the other side\'s source early; a link to the same directory is the same; a different subpath is not; a revision is needed', async t => {
+  const w = await world(t, { bothRoots: true });
+  await skillFile(path.join(w.root, 'first'), 'shared'); await skillFile(path.join(w.root, 'second'), 'shared');
+  await fs.symlink(path.join(w.root, 'first'), path.join(w.root, 'alias'));
+  await w.link('codex', path.join(w.root, 'first/shared'));
+  const skill = await w.shared();
+  const early = await w.act({ action: 'skill.previewSource', agent: 'claude', id: skill.id, expectedRevision: skill.revision, sourceType: 'local', source: path.join(w.root, 'second/shared') });
+  assert.match(early.nativeRules?.[0]?.message ?? '', /另一侧（Codex）已关联到来源/);
+  const sub = await w.act({ action: 'skill.previewSource', agent: 'claude', id: skill.id, expectedRevision: skill.revision, sourceType: 'local', source: path.join(w.root, 'first'), subpath: 'shared' });
+  assert.equal((await w.act({ action: 'skill.connectSource', agent: 'claude', id: skill.id, expectedRevision: skill.revision, previewId: sub.sourcePreview.id })).code, 'SOURCE_CONFLICT', '子目录不同即冲突');
+  const alias = await w.act({ action: 'skill.previewSource', agent: 'claude', id: skill.id, expectedRevision: skill.revision, sourceType: 'local', source: path.join(w.root, 'alias/shared') });
+  assert.equal(alias.nativeRules, undefined, '经链接指向同一目录不算不同');
+  const codexSide = await w.act({ action: 'skill.previewSource', agent: 'codex', id: skill.id, sourceType: 'local', source: path.join(w.root, 'first/shared') });
+  assert.equal((await w.act({ action: 'skill.connectSource', agent: 'codex', id: skill.id, previewId: codexSide.sourcePreview.id })).code, 'SNAPSHOT_STALE', '共用技能的关联须带修订号');
+  assert.match((await w.act({ action: 'skill.connectSource', agent: 'claude', id: skill.id, expectedRevision: skill.revision, previewId: alias.sourcePreview.id })).message, /已/);
+});
+
+test('removing a link that points into the other side\'s plugin needs no confirmation; a managed Claude side is not removed here', async t => {
+  const w = await world(t, { codexLinkIntoPlugin: true });
+  const inner = (await w.snapshot()).skills.find(item => item.name === 'inner' && item.agents?.includes('codex'));
+  assert.equal(inner.removeKind, 'link');
+  assert.match((await w.act({ action: 'skill.remove', agent: 'codex', id: inner.id })).message, /已将 inner 移至可恢复区/);
+  assert.ok(await exists(path.join(w.configDir, 'skills/sd/skills/inner/SKILL.md')), '插件内容不变');
+  const v = await world(t, { managed: { skillOverrides: { shared: 'off' } } });
+  const skill = await v.shared();
+  assert.deepEqual([skill.perAgent.claude.protection, skill.perAgent.claude.canRemove, skill.perAgent.claude.canUpdate], ['managed', false, false]);
+});
+
+test('Claude skill installation refuses the local scope before the source is staged', async t => {
+  const w = await world(t);
+  await skillFile(path.join(w.root, 'bad name'), 'bad name');
+  assert.equal((await w.act({ action: 'skill.previewInstall', agent: 'claude', sourceType: 'local', source: path.join(w.root, 'bad name/bad name'), scope: 'local' })).code, 'INVALID_ACTION');
+});
+
+test('batch removal checks each copy by its side, holds the Claude lock, and stops when a copy became shared after the preview', async t => {
+  // Codex read-only; only Claude copies are removed (4c review P2-03).
+  const w = await world(t, { codexReadOnly: true });
+  await skillFile(path.join(w.configDir, 'skills'), 'dup'); await skillFile(path.join(w.project, '.claude/skills'), 'dup');
+  const group = (await w.snapshot()).skills.filter(item => item.name === 'dup');
+  const projectCopy = group.find(item => item.path.startsWith(w.project));
+  // A source on the Claude copy is dropped with it and comes back with it.
+  await skillFile(path.join(w.root, 'src'), 'dup');
+  const source = await w.act({ action: 'skill.previewSource', agent: 'claude', id: projectCopy.id, expectedRevision: projectCopy.revision, sourceType: 'local', source: path.join(w.root, 'src/dup') });
+  await w.act({ action: 'skill.connectSource', agent: 'claude', id: projectCopy.id, expectedRevision: projectCopy.revision, previewId: source.sourcePreview.id });
+  const real = await fs.realpath(path.join(w.project, '.claude/skills/dup'));
+  assert.ok((await w.registry()).claudeSources[real]);
+  const preview = await w.act({ action: 'skill.previewRemoval', agent: 'codex', groupName: 'dup', ids: [projectCopy.id] });
+  w.locks.length = 0;
+  assert.match((await w.act({ action: 'skill.removeSelected', agent: 'codex', previewId: preview.removalPreview.id })).message, /已移除选中的 1 份同名技能/);
+  assert.equal(w.locks.at(-1), true, '移动前在 Claude 锁下重读');
+  assert.equal((await w.registry()).claudeSources[real], undefined);
+  const record = (await w.snapshot()).activity.find(item => item.agent === 'claude' && item.action === 'skill.remove');
+  await w.act({ action: 'activity.restore', id: record.id });
+  assert.ok((await w.registry()).claudeSources[real], '恢复时来源记录还原');
+  // A copy that became shared after the preview stops the batch (4c review P2-04).
+  const v = await world(t);
+  await skillFile(path.join(v.codexHome, 'skills'), 'dup2'); await skillFile(path.join(v.configDir, 'skills'), 'dup2');
+  const codexCopy = (await v.snapshot()).skills.find(item => item.name === 'dup2' && item.agents.join() === 'codex');
+  const before = await v.act({ action: 'skill.previewRemoval', agent: 'codex', groupName: 'dup2', ids: [codexCopy.id] });
+  assert.equal(before.nativeRules, undefined);
+  await fs.mkdir(path.join(v.project, '.claude/skills'), { recursive: true });
+  await fs.symlink(path.join(v.codexHome, 'skills/dup2'), path.join(v.project, '.claude/skills/dup2'));
+  assert.equal((await v.snapshot()).skills.find(item => item.id === codexCopy.id).agents.join(), 'codex,claude', '预览之后变成共用');
+  assert.equal((await v.act({ action: 'skill.removeSelected', agent: 'codex', previewId: before.removalPreview.id })).code, 'REMOVAL_CHANGED');
+  assert.ok(await exists(path.join(v.codexHome, 'skills/dup2/SKILL.md')));
+});
+
+test('batch removal: content inside the other side\'s plugin is confirmed; version 1 asks nothing for a shared directory', async t => {
+  const w = await world(t, { codexIntoPlugin: true });
+  await skillFile(path.join(w.project, '.claude/skills'), 'inner');
+  const inner = (await w.snapshot()).skills.find(item => item.name === 'inner' && item.agents?.includes('codex'));
+  const preview = await w.act({ action: 'skill.previewRemoval', agent: 'codex', groupName: 'inner', ids: [inner.id] });
+  assert.deepEqual(preview.nativeRules?.map(rule => rule.kind), ['affected-plugins']);
+  assert.equal((await w.act({ action: 'skill.removeSelected', agent: 'codex', previewId: preview.removalPreview.id })).code, 'CONFIRMATION_REQUIRED');
+  const v = await world(t);
+  await skillFile(path.join(v.project, '.codex/skills'), 'shared');
+  const shared = (await v.service.snapshot('local', true)).skills.find(item => item.name === 'shared' && item.path.startsWith(v.codexHome));
+  const plain = await v.act({ action: 'skill.previewRemoval', groupName: 'shared', ids: [shared.id] });
+  assert.equal(plain.nativeRules, undefined);
+  assert.match((await v.act({ action: 'skill.removeSelected', previewId: plain.removalPreview.id })).message, /已移除选中的 1 份同名技能/);
 });
 
 test('every message seen above has a whole English and Japanese translation', async () => {

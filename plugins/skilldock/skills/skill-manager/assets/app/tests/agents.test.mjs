@@ -169,11 +169,12 @@ test('Claude-side requests: later-phase actions are not offered yet; the others 
   assert.notEqual((await w.act({ action: 'updates.run', agent: 'claude', targets: [], autoApply: false })).code, 'UNSUPPORTED_FOR_AGENT');
 });
 
-test('Codex without a command line is shown as unconfirmed, still writable; with Claude managed its plugin targets pause', async t => {
+test('Codex without a command line keeps its state with a note, still writable; with Claude managed its plugin targets pause', async t => {
   const w = await world(t);
   w.status.codex = { available: false, error: 'stand-in: none' };
+  // Shown, not enforced (MR-SDX-001): its state, its writes and the switch that turns them off stay (4c review P2-05).
   const codex = (await w.agents()).find(item => item.agent === 'codex');
-  assert.equal(codex.management, 'unconfirmed'); assert.match(codex.reason, /Codex 命令行不可用/);
+  assert.equal(codex.management, 'enabled'); assert.equal(codex.reason, undefined); assert.match(codex.notes[0], /Codex 命令行不可用.*技能照常管理/);
   const demo = (await w.service.snapshot('local', true)).skills.find(item => item.name === 'demo');
   assert.notEqual((await w.act({ action: 'skill.toggle', id: demo.id, enabled: false })).code, 'AGENT_UNCONFIRMED', '技能照常管理（MR-SDX-001）');
   const reasons = async () => (await w.act({ action: 'updates.run', targets: [{ kind: 'skill', id: demo.id }, { kind: 'plugin', id: 'gone@market' }], autoApply: false })).run.items.map(item => item.reasonCode);
@@ -183,6 +184,14 @@ test('Codex without a command line is shown as unconfirmed, still writable; with
   const paused = await reasons();
   assert.notEqual(paused[0], 'AGENT_PAUSED', '技能目标不需要 Codex 命令行');
   assert.equal(paused[1], 'AGENT_PAUSED', '插件目标暂停');
+});
+
+test('with Claude managed and Codex gone, every Codex target pauses', async t => {
+  const w = await world(t, { codex: false });
+  await fs.mkdir(path.join(w.state, 'settings'), { recursive: true });
+  await fs.writeFile(path.join(w.state, 'settings/agents.json'), JSON.stringify({ format: 1, agents: { claude: { management: 'enabled', origin: 'user', changedAt: '2026-10-09T00:00:00.000Z' } } }));
+  const run = await w.act({ action: 'updates.run', targets: [{ kind: 'skill', id: 'a'.repeat(24) }, { kind: 'plugin', id: 'gone@market' }], autoApply: false });
+  assert.deepEqual(run.run.items.map(item => item.reasonCode), ['AGENT_PAUSED', 'AGENT_PAUSED']);
 });
 
 test('enabling needs readable main evidence; an uninstalled environment can be turned off, a never-enabled one is not listed', async t => {

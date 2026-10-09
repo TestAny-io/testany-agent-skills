@@ -102,8 +102,9 @@ export function createClaudeActions({ root, read, writer, journal, git, removeSk
   const handlers = {
     // HLD 3.4: a Claude skill's visibility is an entry in a settings file; Claude has no command for it.
     async 'skill.toggle'(request, state) {
-      // The Claude side of a skill both Agents share is switched by 4c (36c §6); its ID is Codex's.
-      if (!request.id.startsWith('claude:')) fail(422, 'UNSUPPORTED_FOR_AGENT', '这个技能在 Claude 一侧还不能在这里切换（两侧共用技能的 Claude 一侧随后续版本提供）。');
+      // The Claude side of a shared skill arrives here under its Claude ID (36c §6); a Codex ID means
+      // a Codex-only skill, which has nothing on the Claude side.
+      if (!request.id.startsWith('claude:')) fail(422, 'UNSUPPORTED_FOR_AGENT', '这个技能在 Claude 一侧没有可以修改的对象。');
       const skill = state.claude.skills.find(item => item.id === request.id);
       if (!skill) fail(404, 'NOT_FOUND', '未找到这个 Claude 技能，请刷新后重试。');
       targetName = skill.name;

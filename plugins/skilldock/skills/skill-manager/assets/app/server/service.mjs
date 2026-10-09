@@ -28,7 +28,7 @@ import { pluginContents } from './plugin-contents.mjs';
 import { officialAppUrl } from './app-directory.mjs';
 import { createDirectoryIcons } from './directory-icons.mjs';
 import { createAgentLayer, readManagement, writeManagement, AGENT_NAME } from './agents.mjs';
-import { claudeCatalog } from './claude-catalog.mjs';
+import { claudeCatalog, claudeIds } from './claude-catalog.mjs';
 import { claudeWriter } from './claude-writer.mjs';
 import { createClaudeActions, CLAUDE_WRITES } from './claude-actions.mjs';
 import { mergeClaude, markReadOnly } from './multi-agent.mjs';
@@ -280,8 +280,12 @@ export async function createService(options = {}) {
       if (claudeState.management !== 'enabled') markReadOnly(result, 'claude', claudeState.management === 'unconfirmed' && claudeState.reason ? claudeState.reason : CLAUDE_READ_ONLY_REASON);
       // Codex is shown as unconfirmed when its command line cannot list its plugins; its writes keep
       // 0.10.2 behaviour (MR-SDX-001), so this is shown, not enforced.
-      const codexUnconfirmed = found.installed.codex && !result.cli?.available ? 'Codex 命令行不可用，无法确认 Codex 中的插件状态；技能照常管理，插件操作需要可用的 Codex 命令行。' : null;
-      result.agents = await agentLayer.environments({ found, unconfirmed: agent => agent === 'claude' ? claude?.unconfirmed : codexUnconfirmed });
+      result.agents = await agentLayer.environments({ found, unconfirmed: agent => agent === 'claude' ? claude?.unconfirmed : null });
+      // Shown, not enforced (4c review P2-05): Codex keeps its stored state, so its writes and the
+      // switch that turns them off stay offered; the missing command line is a note.
+      const codexEnvironment = result.agents.find(item => item.agent === 'codex');
+      if (codexEnvironment?.installed && !result.cli?.available) (codexEnvironment.notes ??= []).unshift(codexEnvironment.management === 'enabled'
+        ? 'Codex 命令行不可用，无法确认 Codex 中的插件状态；技能照常管理，插件操作需要可用的 Codex 命令行。' : 'Codex 命令行不可用，无法确认 Codex 中的插件状态。');
     } else if (multiAgent) {
       mergeClaude(result, { skills: [], plugins: [], marketplaces: [], diagnostics: [] }); result.agents = [];
     }
@@ -348,13 +352,15 @@ export async function createService(options = {}) {
     const inRoot = path.dirname(directory) === (claude.scope === 'user' ? roots.user : roots.project) && !directory.split(path.sep).includes('.system') && !inside(real, fileURLToPath(import.meta.url));
     const claudeSource = registry.claudeSources?.[real]; const codexSource = registry.sources?.[skill.id];
     const repository = await exists(path.join(real, '.git'));
-    Object.assign(claude, { canRemove: inRoot, ...(inRoot ? { removeKind: isLink ? 'link' : 'directory' } : {}), canUpdate: false });
-    if (claudeSource && codexSource && !sameSource(claudeSource, codexSource)) {
+    // Organisation-managed settings hold the Claude side as they hold a Claude-only skill (4c review P3-05).
+    const open = inRoot && !claude.protection;
+    Object.assign(claude, { canRemove: open, ...(open ? { removeKind: isLink ? 'link' : 'directory' } : {}), canUpdate: false });
+    if (claudeSource && codexSource && !await sameSourceAt(claudeSource, codexSource)) {
       const reason = `Codex 与 Claude 两侧为这个技能关联了不同的来源（${codexSource.source}、${claudeSource.source}），两侧都不能更新；请在一侧重新关联到相同的来源。`;
       Object.assign(skill, { canUpdate: false, reason }); Object.assign(codex, { canUpdate: false, reason }); claude.reason = reason;
     } else if (codex.canUpdate) {
       if (claudeSource) claude.reason = '由 Codex 侧的来源记录管理更新。';
-    } else if (claudeSource && !isLink && inRoot && !repository) claude.canUpdate = true;
+    } else if (claudeSource && !isLink && open && !repository) claude.canUpdate = true;
     if (!claude.canToggle && !claude.reason) claude.reason = claude.protection ? '可见性由组织托管设置决定，不能在这里修改。' : '这个技能在 Claude 一侧不能在这里修改。';
     if (claude.canToggle && claude.canRemove && claude.reason === undefined) delete claude.reason;
   }
@@ -431,6 +437,8 @@ export async function createService(options = {}) {
       agent: 'claude', sources: (registry.claudeSources ??= {}), tag: { agent: 'claude' }, linkKeepsSource: true,
       async record(id, capability) { const { record, directory, boundary, key } = await claudeSkillRecord(id, capability, request); return { record, directory, key, boundaries: [boundary] }; },
       installKey: target => realDirectory(target),
+      // Checked before the source is staged, as before the merge (4c review P3-04).
+      validateInstall(input) { if ((input.scope ?? 'user') === 'local') fail(400, 'INVALID_ACTION', 'Claude 技能只能安装到个人技能目录或项目的 .claude/skills。'); },
       async installTarget(input, name) {
         const scope = input.scope ?? 'user';
         if (scope === 'local') fail(400, 'INVALID_ACTION', 'Claude 技能只能安装到个人技能目录或项目的 .claude/skills。');
@@ -482,6 +490,7 @@ export async function createService(options = {}) {
         return { result: { message: side.messages.linked(record.name), ...side.tag }, target: record.name, consumed: preview };
       }
       case 'skill.previewInstall': {
+        side.validateInstall?.(request);
         const staged = await stageSource(env, request); const name = request.name || staged.detail.name;
         if (!safeName(name)) { await side.dropStaging(staged.staging); fail(422, 'INVALID_NAME', '技能 name 不适合作为安装目录，请在请求中指定有效 name。'); }
         let place;
@@ -523,7 +532,7 @@ export async function createService(options = {}) {
         const other = await side.otherRecord(record, directory); let sync;
         if (other) {
           const partition = other.partition === 'claude' ? (registry.claudeSources ??= {}) : registry.sources; const before = partition[other.key];
-          if (sameSource(before, previousSource)) { partition[other.key] = { ...before, fingerprint: preview.tree.fingerprint, files: preview.tree.entries }; sync = { partition: other.partition, key: other.key, previous: before }; }
+          if (await sameSourceAt(before, previousSource)) { partition[other.key] = { ...before, fingerprint: preview.tree.fingerprint, files: preview.tree.entries }; sync = { partition: other.partition, key: other.key, previous: before }; }
         }
         const restore = { kind: 'update', ...side.tag, directory, backup, ...parent, expectedFingerprint: preview.tree.fingerprint, priorFingerprint: preview.baseline, source: previousSource, ...(side.agent === 'claude' ? { sourceKey: key } : {}), ...(sync ? { sync } : {}), skillId: record.id };
         return { result: { message: side.messages.updated(record.name), needsReload: true, ...side.tag }, target: record.name, restore, consumed: preview };
@@ -574,6 +583,9 @@ export async function createService(options = {}) {
   // 0.10.2 behaviour (MR-SDX-001).
   const SHARED_GATED = new Set(['skill.toggle', 'skill.remove', 'skill.update', 'skill.connectSource', 'skill.checkUpdate', 'skill.previewSource']);
   const sameSource = (a, b) => !!a && !!b && a.source === b.source && (a.subpath ?? '.') === (b.subpath ?? '.') && (a.ref ?? '') === (b.ref ?? '');
+  // Local directories compare by their real path, so a link to the same directory is the same source (4c review P3-01).
+  const sameSourceAt = async (a, b) => sameSource(a, b) || !!a && !!b && path.isAbsolute(a.source ?? '') && path.isAbsolute(b.source ?? '')
+    && (a.subpath ?? '.') === (b.subpath ?? '.') && (a.ref ?? '') === (b.ref ?? '') && await realDirectory(a.source) === await realDirectory(b.source);
   const BOTH_SEE = { kind: 'scope', message: '这个技能目录由 Codex 与 Claude 共用，两侧看到的内容都会改变。' };
   async function sharedSkillGate(request) {
     const pass = { request, notes: [] };
@@ -598,20 +610,26 @@ export async function createService(options = {}) {
     }
     if (rules.length && !request.confirm) throw new AppError(409, 'CONFIRMATION_REQUIRED', '这次改动会影响另一侧，请确认后重试。', { nativeRules: rules });
     if (!shared) return { request, notes: rules };
+    const registry = await registryFor(environment('local'));
+    const records = { codex: registry.sources[record.id], claude: registry.claudeSources?.[await realDirectory(path.dirname(record.perAgent.claude.path))] };
+    const other = records[request.agent === 'codex' ? 'claude' : 'codex']; const otherName = AGENT_NAME[request.agent === 'codex' ? 'claude' : 'codex'];
     if (request.action === 'skill.connectSource') {
       const preview = previews.get(request.previewId);
-      const other = request.agent === 'codex' ? (await registryFor(environment('local'))).claudeSources?.[await realDirectory(path.dirname(record.perAgent.claude.path))]
-        : (await registryFor(environment('local'))).sources[record.id];
-      if (preview && other && !sameSource(other, preview))
-        fail(409, 'SOURCE_CONFLICT', `另一侧（${AGENT_NAME[request.agent === 'codex' ? 'claude' : 'codex']}）已关联到不同的来源 ${other.source}；请在这一侧选择相同的来源，或在另一侧重新关联到这个来源。`);
+      if (preview && other && !await sameSourceAt(other, preview))
+        fail(409, 'SOURCE_CONFLICT', `另一侧（${otherName}）已关联到不同的来源 ${other.source}；请在这一侧选择相同的来源，或在另一侧重新关联到这个来源。`);
     }
+    // Said before the preview is made, so a conflict is known early (4c review P3-01).
+    if (request.action === 'skill.previewSource' && other && !await sameSourceAt(other, request))
+      rules.push({ kind: 'scope', message: `另一侧（${otherName}）已关联到来源 ${other.source}；只有关联到相同的来源，这一侧才能关联。`, items: [other.source] });
+    // 36c §6: records naming different sources leave neither side able to update (4c review P2-02).
+    if (['skill.checkUpdate', 'skill.update'].includes(request.action) && records.codex && records.claude && !await sameSourceAt(records.codex, records.claude))
+      fail(409, 'SOURCE_CONFLICT', `Codex 与 Claude 两侧为这个技能关联了不同的来源（${records.codex.source}、${records.claude.source}），两侧都不能更新；请在一侧重新关联到相同的来源。`);
     const notes = [...rules, ...(['skill.checkUpdate', 'skill.update'].includes(request.action) ? [BOTH_SEE] : [])];
-    // The Claude side of a shared skill is switched through Claude's own object, against its own revision.
+    // The Claude side of a shared skill is switched through Claude's own object, against the
+    // revision of the same snapshot (4c review P3-02).
     if (request.agent === 'claude' && request.action === 'skill.toggle') {
-      const found = await agentLayer.discover();
-      const own = (await claudeFor(found, project, true)).skills.find(item => item.path === record.perAgent.claude.path);
-      if (!own) fail(404, 'NOT_FOUND', '未找到这个技能在 Claude 一侧的对象，请刷新后重试。');
-      return { request: { ...request, id: own.id, expectedRevision: own.revision }, notes };
+      const view = record.perAgent.claude;
+      return { request: { ...request, id: claudeIds.skill(view.scope, path.dirname(view.path)), expectedRevision: view.revision }, notes };
     }
     return { request, notes };
   }
@@ -844,7 +862,9 @@ export async function createService(options = {}) {
     if (capability === 'canUpdate' && await exists(path.join(directory, '.git'))) fail(422, 'GIT_OWNER_MANAGED', '该目录本身是 Git 仓库，SkillDock 不替换工作树或 .git 元数据。');
     return { record, directory };
   }
-  const removalGroupSignature = group => JSON.stringify(group.map(record => ({ id: record.id, name: record.name, path: record.path, canRemove: record.canRemove, pluginId: record.pluginId, aliases: record.aliases, isLink: record.isLink })).sort((a, b) => a.id.localeCompare(b.id)));
+  // Who sees each copy, and how each side would lose it, are part of it (4c review P2-04).
+  const removalGroupSignature = group => JSON.stringify(group.map(record => ({ id: record.id, name: record.name, path: record.path, canRemove: record.canRemove, pluginId: record.pluginId, aliases: record.aliases, isLink: record.isLink,
+    agents: record.agents, removeKind: record.removeKind, sides: record.perAgent && Object.fromEntries(Object.entries(record.perAgent).map(([agent, view]) => [agent, view.removeKind ?? null])) })).sort((a, b) => a.id.localeCompare(b.id)));
   async function removalIdentity(directory) {
     const stat = await fs.lstat(directory);
     return { dev: String(stat.dev), ino: String(stat.ino), real: await fs.realpath(directory), fingerprint: await objectFingerprint(directory), ...await parentIdentity(directory) };
@@ -1305,6 +1325,8 @@ export async function createService(options = {}) {
           if (preview.rules?.length && !request.confirm) throw new AppError(409, 'CONFIRMATION_REQUIRED', '这次批量移除会影响另一侧，请确认后重试。', { nativeRules: preview.rules });
           const current = await snapshot(env.mode, true, { multiAgent: !!preview.multiAgent }); const group = current.skills.filter(record => record.name === target);
           if (removalGroupSignature(group) !== preview.group) fail(409, 'REMOVAL_CHANGED', '同名技能清单已变化，请重新选择。');
+          if (preview.multiAgent && preview.selected.some(item => item.agent === 'codex') && await codexReadOnly())
+            fail(409, 'AGENT_READ_ONLY', 'Codex 环境当前为只读，SkillDock 不会修改 Codex 中的技能和插件。请在 SkillDock 的“Agent 环境”页启用 Codex 管理后重试。');
           // Check the whole selection before moving any directory.
           for (const item of preview.selected) await verifyRemovalItem(env, item, current, preview.multiAgent);
           await assertRemovalIsolation(preview.selected, current);
@@ -1562,6 +1584,8 @@ export async function createService(options = {}) {
       return;
     }
     if (!HOST_WRITES.has(request.action)) return;
+    // 36c §6: a version-2 batch removal names each copy's side; its items are checked one by one (4c review P2-03).
+    if (request.action === 'skill.removeSelected' && request.agent !== undefined) return;
     if (await codexReadOnly())
       fail(409, 'AGENT_READ_ONLY', 'Codex 环境当前为只读，SkillDock 不会修改 Codex 中的技能和插件。请在 SkillDock 的“Agent 环境”页启用 Codex 管理后重试。');
   }
@@ -1728,6 +1752,12 @@ export async function createService(options = {}) {
           return { message: updateItem.message, updateItem };
         }
         translated = { mode, action: `${target.kind}.${applying ? 'update' : 'checkUpdate'}`, id: target.id, ...(applying ? { previewId: request.previewId } : {}) };
+        // AC-003: a skill checked or updated from the updates page meets the same shared-skill and
+        // cross-side rules as from its card (4c review P2-01).
+        if (!internal && request.agent !== undefined && target.kind === 'skill') {
+          const gated = await sharedSkillGate({ ...translated, agent: 'codex', ...(request.expectedRevision !== undefined ? { expectedRevision: request.expectedRevision } : {}), ...(request.confirm !== undefined ? { confirm: request.confirm } : {}) });
+          context.notes.push(...gated.notes);
+        }
       } else if (['skill.checkUpdate', 'skill.update'].includes(request.action)) {
         target = { kind: 'skill', id: request.id }; applying = request.action === 'skill.update';
       }

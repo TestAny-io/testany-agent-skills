@@ -90,7 +90,7 @@ import { TagStrip, TagFilter, TagsDialog, matchesTags, type TagSubject } from ".
 import { ProjectPicker, ProjectDialog } from "./ProjectControls";
 import { InstallDialog } from "./InstallDialog";
 import { LibraryFilters, ViewSwitch, CollectionFooter } from "./LibraryUI";
-import { NativeConfirmDialog, type NativeConfirmation } from "./NativeConfirm";
+import { NativeConfirmDialog, NativeRuleList, type NativeConfirmation } from "./NativeConfirm";
 import { AgentFilter, AgentBadges, AgentSplit, ClaudePluginFacts, ClaudeSkillFacts, MarketAutoUpdate, matchesAgent, showsAgents, objectAgents, type AgentFilterValue } from "./AgentUI";
 import { AgentEnvironments } from "./AgentEnvironments";
 import { creationAgent, requestAgent, requestRevision, stateUrl } from "./agent-requests";
@@ -105,7 +105,7 @@ type Dialog =
   | { type: "market"; fromInstall?: boolean }
   | { type: "preferences" }
   | { type: "project" }
-  | { type: "update"; preview: UpdatePreview }
+  | { type: "update"; preview: UpdatePreview; rules?: NativeRule[] }
   | { type: "native-confirm"; confirmation: NativeConfirmation }
   | ({ type: "confirm" } & ConfirmContent);
 type Toast = { kind: "success" | "error"; message: string };
@@ -630,7 +630,8 @@ export default function App() {
         action: "skill.checkUpdate",
         id: skill.id,
       });
-      if (result?.update) setDialog({ type: "update", preview: result.update });
+      // What the change does to both sides (36c §6) is shown with the preview (4c review P2-01).
+      if (result?.update) setDialog({ type: "update", preview: result.update, rules: result.nativeRules });
     } catch {
       /* shown in live notification */
     }
@@ -1482,6 +1483,7 @@ export default function App() {
       {dialog?.type === "update" && (
         <UpdateDialog
           preview={dialog.preview}
+          rules={dialog.rules}
           busy={busy}
           action={action}
           onClose={() =>
@@ -2026,11 +2028,13 @@ function MarketDialog({
 }
 function UpdateDialog({
   preview,
+  rules,
   busy,
   action,
   onClose,
 }: {
   preview: UpdatePreview;
+  rules?: NativeRule[];
   busy: string | null;
   action: ActionHandler;
   onClose: () => void;
@@ -2072,6 +2076,7 @@ function UpdateDialog({
             <ServiceMessage value={preview.message} />
           </div>
         </div>
+        {!!rules?.length && <NativeRuleList rules={rules} />}
         {preview.changes.length > 0 && (
           <div className="change-list">
             {preview.changes.map((change) => (
