@@ -22,7 +22,7 @@ import { instanceLock } from './state-locks.mjs';
 import { createBackgroundManager, backgroundPaths } from './background.mjs';
 import { readGeneration, CURRENT_GENERATION } from './generation.mjs';
 import { projectCatalog, createProjectIntegration } from './projects.mjs';
-import { inspectPlugin, directLocation, writeDirectMarketplace, decorateDirectCatalog, inspectClaudePlugin, claudeDirectLocation, writeClaudeDirectMarketplace, decorateClaudeDirect } from './direct-plugins.mjs';
+import { inspectPlugin, directLocation, writeDirectMarketplace, decorateDirectCatalog, inspectClaudePlugin, claudeDirectLocation, writeClaudeDirectMarketplace, decorateClaudeDirect, ownClaudeDirect, claudeDirectRoot } from './direct-plugins.mjs';
 import { localSettingsExposure, excludeLocalSettings } from './local-settings.mjs';
 import { pluginContents } from './plugin-contents.mjs';
 import { officialAppUrl } from './app-directory.mjs';
@@ -306,14 +306,19 @@ export async function createService(options = {}) {
       return { claude: await claudeFor(found, project, true), claudeRoot: found.claudeRoot, cli: found.cli.claude, project };
     },
     writer: state => options.claudeWriter ? options.claudeWriter(state) : claudeWriter({ cli: state.cli, claudeRoot: state.claudeRoot, env: agentEnv }),
-    journal: async entry => {
+    journal: async (entry, change) => {
       const env = environment('local'); await verifyDirectoryRoot(env.stateBoundary); const registry = await registryFor(env);
-      registry.activity.unshift(entry);
+      change?.(registry); registry.activity.unshift(entry);
       await writeJson(env.registryFile, registry);
     },
     ...(options.claudeGit ? { git: options.claudeGit } : {}),
     removeSkillsDir: plugin => removeSkillsDirPlugin(plugin),
     cleanupDirect: market => cleanupClaudeDirect(market),
+    // Codex standalone skills whose content lies in a directory (36c §6 cross-side prompts; 4d review P3-04).
+    dependents: async directory => {
+      const real = await fs.realpath(directory).catch(() => directory);
+      return (await snapshot('local')).skills.filter(item => !item.pluginId && inside(real, path.dirname(item.realPath ?? item.path))).map(item => item.path);
+    },
   });
   // Phase 4b2 (HLD 3.4; 36c 7.3): Claude skills reuse the file transactions — staging, guarded
   // moves, the restorable area and source records — inside Claude's own skill roots. Their source
@@ -620,7 +625,7 @@ export async function createService(options = {}) {
   async function claudePluginSourceAction(request) {
     const env = environment('local'); const roots = await claudeSkillRoots(); const { found } = roots;
     const release = await fs.stat(found.claudeRoot.configDir).then(stat => stat.isDirectory(), () => false) ? acquireFileLock(operationLock(found.claudeRoot.configDir)) : () => {};
-    let registry; let original; const undo = []; const activityId = crypto.randomUUID(); let target = request.source ?? 'plugin';
+    let registry; let original; const undo = []; const activityId = crypto.randomUUID(); let target = request.source ?? 'plugin'; let directMarket;
     moveWarnings.length = 0;
     try {
       await verifyDirectoryRoot(env.stateBoundary); registry = await registryFor(env); original = structuredClone(registry);
@@ -645,6 +650,7 @@ export async function createService(options = {}) {
           manifests: detail.manifests, scopes: detail.mode === 'skills-dir' ? ['user', 'project'] : ['user', 'local'], defaultScope: 'user', nativeRules: rules } };
       }
       // plugin.installSource
+      if (request.enabledSkills !== undefined) fail(422, 'UNSUPPORTED_FOR_AGENT', 'Claude 插件不能只启用部分技能。');
       const staged = await assertPreview(env, request.previewId, 'claude-plugin-install', 'claude'); const detail = staged.detail; target = detail.name;
       const scope = request.scope ?? 'user';
       let result;
@@ -658,7 +664,11 @@ export async function createService(options = {}) {
         (registry.claudeSources ??= {})[await realDirectory(destination)] = provenance(staged, destination);
         const after = await claudeFor(found, project, true);
         if (!after.plugins.some(item => item.marketplace === 'skills-dir' && item.installedPath === destination)) fail(502, 'READBACK_FAILED', '插件目录已放入，但 Claude 的清单中没有读到它，请刷新核实。');
-        result = { message: scope === 'user' ? `已把 Claude 插件 ${detail.name} 放入个人技能目录。新会话生效，已打开的会话需要重载插件。` : `已把 Claude 插件 ${detail.name} 放入当前项目的 .claude/skills。Claude 信任该项目后加载；已打开的会话需要重载插件。`, needsReload: true, agent: 'claude' };
+        // A same-named plugin in the personal directory hides a project one (HLD 3.3): said as it is (4d review P3-08).
+        const shadowed = scope === 'project' && after.plugins.some(item => item.marketplace === 'skills-dir' && item.name === detail.name && item.installation?.scope === 'user');
+        result = { message: scope === 'user' ? `已把 Claude 插件 ${detail.name} 放入个人技能目录。新会话生效，已打开的会话需要重载插件。`
+          : shadowed ? `已把 Claude 插件 ${detail.name} 放入当前项目的 .claude/skills；个人技能目录中有同名插件，它会遮蔽这一个，这一个不会加载。`
+          : `已把 Claude 插件 ${detail.name} 放入当前项目的 .claude/skills。Claude 信任该项目后加载；已打开的会话需要重载插件。`, needsReload: !shadowed, agent: 'claude' };
       } else {
         if (scope === 'project') fail(422, 'UNSUPPORTED_FOR_AGENT', '不带 Claude manifest 的来源只能安装给当前用户或当前项目的本地设置：项目共享设置会引用只在本机存在的 marketplace。');
         if (!found.cli.claude.available) fail(422, 'CLI_UNAVAILABLE', '未找到可用的 Claude 命令行，暂不能修改 Claude。');
@@ -668,16 +678,30 @@ export async function createService(options = {}) {
           throw new AppError(409, 'CONFIRMATION_REQUIRED', `这次会新建 ${exposure.relative}，它不在 Git 的忽略规则中；请选择是否把它写入本机的 .git/info/exclude。`,
             { nativeRules: [{ kind: 'scope', message: '项目本地设置只属于你；不忽略它可能被误提交。写入 .git/info/exclude 只影响本机，不改动受版本管理的 .gitignore。', items: [exposure.relative] }] });
         const location = claudeDirectLocation(env, staged); const { market, root, pluginId } = location;
+        // A same-named marketplace that is not this one is the user's: never installed from (4d review P3-01).
+        const listedMarket = claude.marketplaces.find(item => item.name === market);
+        if (listedMarket && !ownClaudeDirect(listedMarket, { root }, env)) fail(409, 'MARKETPLACE_EXISTS', '安装来源名称已被另一个目录使用，未修改该来源。');
         const destination = path.join(root, 'plugins', detail.name);
         await verifyDescendantDirectory(env.stateBoundary, destination);
         if (await exists(destination)) {
-          if ((await inspectTree(destination)).fingerprint !== staged.tree.fingerprint) fail(409, 'TARGET_EXISTS', '之前为 Claude 生成的同一来源目录仍然存在且内容不同，请先核对。');
+          const tree = await inspectTree(destination);
+          if (tree.fingerprint !== staged.tree.fingerprint) {
+            // What an earlier attempt left is replaced when it is what the record says, or Claude does
+            // not read it, as on the Codex side (4d review P2-03).
+            const previous = registry.claudeDirectPlugins?.[market];
+            if (listedMarket && !(previous?.root === root && previous.name === detail.name && previous.fingerprint === tree.fingerprint))
+              fail(409, 'TARGET_EXISTS', '之前为 Claude 生成的同一来源目录仍然存在且内容不同，请先核对；不再需要时，可在 Marketplace 页移除这个 marketplace 后重试。');
+            const backup = path.join(staged.staging, 'previous');
+            await move(destination, backup);
+            try { await copySkill(staged.candidate, destination); }
+            catch (error) { await fs.rm(destination, { recursive: true, force: true }); await move(backup, destination); throw error; }
+          }
         } else { await fs.mkdir(path.dirname(destination), { recursive: true }); await copySkill(staged.candidate, destination); }
         await writeClaudeDirectMarketplace(env, staged, location);
         // Kept even if the command line fails: Claude may already have registered the marketplace.
         const tracked = { root, name: detail.name, source: staged.source, sourceType: staged.sourceType, subpath: staged.subpath, ref: staged.ref, commit: staged.commit, fingerprint: staged.tree.fingerprint };
         (registry.claudeDirectPlugins ??= {})[market] = tracked; (original.claudeDirectPlugins ??= {})[market] = tracked;
-        await writeJson(env.registryFile, registry);
+        await writeJson(env.registryFile, registry); directMarket = market;
         const run = claudeRunner(found);
         if (!claude.marketplaces.some(item => item.name === market)) {
           await run(['plugin', 'marketplace', 'add', root, '--scope', 'user', '--json'], { cwd });
@@ -702,6 +726,11 @@ export async function createService(options = {}) {
       let rollbackError;
       for (const reverse of undo.reverse()) try { await reverse(); } catch (e) { rollbackError = e; }
       let message = redact(error.message); if (rollbackError) message += `；自动恢复未完成：${redact(rollbackError.message)}，请保留备份区。`;
+      // A failed install takes back the marketplace it generated, unless something is installed from it (4d review P2-03).
+      if (directMarket) {
+        try { if (await cleanupClaudeDirect(directMarket) === 'removed') { delete original.claudeDirectPlugins[directMarket]; message += '\n已撤销这次生成的本地 marketplace。'; } }
+        catch (cleanupError) { message += `\nSkillDock 生成的本地 marketplace ${directMarket} 未能清理：${redact(cleanupError.message)}可在 Marketplace 页移除它，或停用 Claude 管理时一并清理。`; }
+      }
       if (original && request.action === 'plugin.installSource' && !['CONFIRMATION_REQUIRED', 'STALE_PREVIEW'].includes(error.code)) {
         original.activity.unshift({ id: activityId, action: request.action, agent: 'claude', target, createdAt: now(), status: 'error', message, reasonCode: error.code || 'OPERATION_FAILED', canRestore: false });
         try { await writeJson(env.registryFile, original); } catch { message += '；操作记录无法写入。'; }
@@ -711,7 +740,8 @@ export async function createService(options = {}) {
   }
   /**
    * A skills-directory plugin leaves the Claude skills directory by the file transaction (to the
-   * restorable area), like a skill; returns what the Claude write path journals.
+   * restorable area), like a skill. The source record changes in the same write as the activity
+   * record (`change`); if that write fails, `undo` moves the directory back (4d review P3-02).
    */
   async function removeSkillsDirPlugin(plugin) {
     const env = environment('local'); const roots = await claudeSkillRoots();
@@ -721,27 +751,43 @@ export async function createService(options = {}) {
     if ((await claudeProtectedRoots(roots)).some(root => inside(root, boundary.real))) fail(403, 'TARGET_BOUNDARY', 'Claude 的技能根指向插件或系统管理目录，不能修改其中的内容。');
     const isLink = (await fs.lstat(directory)).isSymbolicLink();
     if (!isLink && !inside(boundary.real, await fs.realpath(directory))) fail(403, 'ROOT_BOUNDARY', '插件目录的实际位置越出 Claude 的技能根。');
-    const registry = await registryFor(env); const sources = (registry.claudeSources ??= {}); const key = await realDirectory(directory);
+    const sources = (await registryFor(env)).claudeSources ?? {}; const key = await realDirectory(directory);
     const fingerprint = await objectFingerprint(directory); const parent = await parentIdentity(directory);
     const backup = path.join(env.root, 'quarantine', crypto.randomUUID());
     await move(directory, backup, [boundary]);
     const restore = { kind: 'remove', agent: 'claude', plugin: true, directory, backup, ...parent, priorFingerprint: fingerprint, skillId: plugin.id, ...(isLink ? { link: true } : { source: sources[key], sourceKey: key }) };
-    if (!isLink) { delete sources[key]; await writeJson(env.registryFile, registry); }
-    return { restore, activityPath: directory };
+    return { restore, activityPath: directory, change: registry => { if (!isLink && registry.claudeSources) delete registry.claudeSources[key]; },
+      undo: () => move(backup, directory, [boundary]) };
   }
   /**
-   * A marketplace SkillDock wrote leaves Claude with its last plugin, and its files with it
-   * (HLD 3.3). Returns whether it was cleaned up.
+   * A marketplace SkillDock wrote leaves Claude once nothing is installed from it — by the command
+   * line's list or by Claude's own record, which also lists other projects (4d review P2-04) — and
+   * its files with it (HLD 3.3). Only the marketplace that is this record's is removed from Claude,
+   * with a readback (P2-01, P3-01). Returns 'removed', 'elsewhere' (still installed in a project
+   * the list does not show), or null.
    */
   async function cleanupClaudeDirect(market) {
-    const env = environment('local'); const registry = await registryFor(env); const tracked = registry.claudeDirectPlugins?.[market];
-    if (!tracked) return false;
+    const env = environment('local'); const tracked = (await registryFor(env)).claudeDirectPlugins?.[market];
+    if (!tracked) return null;
     const found = await agentLayer.discover(); const claude = await claudeFor(found, project, true);
-    if (claude.plugins.some(item => item.installed && item.marketplace === market)) return false;
-    if (claude.marketplaces.some(item => item.name === market)) await claudeRunner(found)(['plugin', 'marketplace', 'remove', market, '--json'], { cwd: await fs.stat(project).then(() => project, () => path.dirname(found.claudeRoot.configDir)) });
-    if (inside(path.join(env.root, 'claude-direct-plugins'), tracked.root)) { await verifyDescendantDirectory(env.stateBoundary, tracked.root); await fs.rm(tracked.root, { recursive: true, force: true }); }
-    delete registry.claudeDirectPlugins[market]; await writeJson(env.registryFile, registry);
-    return true;
+    // An unreadable Claude is not an empty one.
+    if (claude.unconfirmed) fail(409, 'AGENT_UNCONFIRMED', claude.unconfirmed);
+    const listed = claude.marketplaces.find(item => item.name === market); const own = ownClaudeDirect(listed, tracked, env);
+    if (own && claude.plugins.some(item => item.installed && item.marketplace === market)) return null;
+    if (own && claude.recordedInstalls?.some(item => item.id.endsWith(`@${market}`))) return 'elsewhere';
+    if (own) {
+      await claudeRunner(found)(['plugin', 'marketplace', 'remove', market, '--json'], { cwd: await fs.stat(project).then(() => project, () => path.dirname(found.claudeRoot.configDir)) });
+      const after = await claudeFor(found, project, true);
+      if (after.marketplaces.some(item => item.name === market)) fail(502, 'READBACK_FAILED', 'Claude 命令行已返回，但这个 marketplace 仍在清单中，请刷新核实。');
+      if ((after.declarations?.[market] ?? []).some(layer => layer !== 'managed')) fail(502, 'READBACK_FAILED', 'marketplace 已从清单中移除，但设置中仍有它的声明，以后可能被重新添加；请刷新核实。');
+    }
+    await dropClaudeDirectFiles(env, market, tracked);
+    return 'removed';
+  }
+  /** SkillDock's own files and record for a generated marketplace; only its own directory. */
+  async function dropClaudeDirectFiles(env, market, tracked) {
+    if (tracked.root === claudeDirectRoot(env, market)) { await verifyDescendantDirectory(env.stateBoundary, tracked.root); await fs.rm(tracked.root, { recursive: true, force: true }); }
+    const registry = await registryFor(env); delete registry.claudeDirectPlugins?.[market]; await writeJson(env.registryFile, registry);
   }
   async function claudeSkillAction(request) {
     const env = environment('local'); const roots = await claudeSkillRoots();
@@ -903,7 +949,10 @@ export async function createService(options = {}) {
       const realRoot = await fs.realpath(sourceRoot); const directory = path.resolve(realRoot, subpath);
       if (!inside(realRoot, directory) || !(await exists(directory)) || !inside(realRoot, await fs.realpath(directory))) fail(422, 'SOURCE_BOUNDARY', '子路径不存在或越出来源根目录。');
       const candidate = path.join(staging, 'candidate'); const tree = await copySkill(directory, candidate);
-      const detail = kind === 'plugin' ? await inspectPlugin(candidate) : kind === 'claude-plugin' ? await inspectClaudePlugin(candidate) : await metadata(candidate);
+      // A Claude plugin without any manifest is named after its source: the directory, the Git
+      // subpath, or the repository (4d review P1-01).
+      const sourceName = () => request.sourceType !== 'git' ? path.basename(directory) : subpath !== '.' ? path.basename(subpath) : source.replace(/\/+$/, '').replace(/\.git$/, '').split(/[/:]/).pop();
+      const detail = kind === 'plugin' ? await inspectPlugin(candidate) : kind === 'claude-plugin' ? await inspectClaudePlugin(candidate, sourceName()) : await metadata(candidate);
       if (kind === 'skill') { const icons = createIconCatalog(); detail.icon = await icons.skill(candidate); detail.iconAssets = icons.assets; }
       return { staging, candidate, source, sourceType: request.sourceType, subpath, ref, commit, originalDirectory: directory, detail, tree };
     } catch (e) { await fs.rm(staging, { recursive: true, force: true }); throw e; }
@@ -1585,23 +1634,35 @@ export async function createService(options = {}) {
   /**
    * HLD 3.3: turning Claude management off says which marketplaces SkillDock wrote are still in
    * Claude, and with the user's confirmation removes them first, through the ordinary removal
-   * (it uninstalls what came from them and reads back). A failure leaves management on.
+   * (it uninstalls what came from them and reads back). Records Claude no longer has lose only
+   * SkillDock's own files, under the Claude lock and journaled. Only an enabled Claude is written
+   * (4d review P3-05); a failure leaves management on.
    */
   async function claudeDirectBeforeDisabling(found, cleanup) {
-    const tracked = (await registryFor(environment('local'))).claudeDirectPlugins ?? {};
+    const env = environment('local'); const tracked = (await registryFor(env)).claudeDirectPlugins ?? {};
     if (!Object.keys(tracked).length) return '';
-    const claude = found.installed.claude ? await claudeFor(found, project, true) : null;
-    const listed = Object.keys(tracked).filter(name => !claude || claude.unconfirmed || claude.marketplaces.some(item => item.name === name));
+    const claude = found.installed.claude ? await claudeFor(found, project, true) : { marketplaces: [], plugins: [] };
+    const listed = name => claude.marketplaces.find(item => item.name === name);
+    // Without a confirmed Claude every record may still be in it.
+    const inClaude = Object.keys(tracked).filter(name => claude.unconfirmed || ownClaudeDirect(listed(name), tracked[name], env));
     const label = names => names.map(name => `${name}（${tracked[name].name}）`).join('、');
-    if (!cleanup) return listed.length ? `\nSkillDock 生成的本地 marketplace 仍登记在 Claude 中：${label(listed)}。需要清理时，重新启用管理后再停用，并勾选一并清理。` : '';
-    if (claude?.unconfirmed) fail(409, 'AGENT_UNCONFIRMED', claude.unconfirmed);
-    if (listed.length && !found.cli.claude.available) fail(422, 'CLI_UNAVAILABLE', '未找到可用的 Claude 命令行，暂不能修改 Claude。');
+    if (!cleanup) return inClaude.length ? `\nSkillDock 生成的本地 marketplace 仍登记在 Claude 中：${label(inClaude)}。需要清理时，重新启用管理后再停用，并勾选一并清理。` : '';
+    if ((await readManagement(stateDir)).claude?.management !== 'enabled') fail(409, 'AGENT_READ_ONLY', 'Claude 当前为只读，SkillDock 不修改其中的对象；需要清理时先启用管理。');
+    if (claude.unconfirmed) fail(409, 'AGENT_UNCONFIRMED', claude.unconfirmed);
+    if (inClaude.length && !found.cli.claude.available) fail(422, 'CLI_UNAVAILABLE', '未找到可用的 Claude 命令行，暂不能修改 Claude。');
     for (const name of Object.keys(tracked)) {
-      const market = claude?.marketplaces.find(item => item.name === name);
-      if (market) await claudeAction({ mode: 'local', action: 'marketplace.remove', agent: 'claude', id: market.id, expectedRevision: market.revision, confirm: true });
-      else await cleanupClaudeDirect(name);
+      if (inClaude.includes(name)) { const market = listed(name); await claudeAction({ mode: 'local', action: 'marketplace.remove', agent: 'claude', id: market.id, expectedRevision: market.revision, confirm: true }); continue; }
+      const release = await fs.stat(found.claudeRoot.configDir).then(stat => stat.isDirectory(), () => false) ? acquireFileLock(operationLock(found.claudeRoot.configDir)) : () => {};
+      try {
+        // Claude may have gained it meanwhile: then it is left for the check below.
+        if (found.installed.claude && ownClaudeDirect((await claudeFor(found, project, true)).marketplaces.find(item => item.name === name), tracked[name], env)) continue;
+        await dropClaudeDirectFiles(env, name, tracked[name]);
+        const registry = await registryFor(env);
+        registry.activity.unshift({ id: crypto.randomUUID(), action: 'marketplace.remove', agent: 'claude', target: name, createdAt: now(), status: 'success', message: `SkillDock 生成的本地 marketplace ${name} 不在 Claude 中，已删除它的本地文件。`, canRestore: false });
+        await writeJson(env.registryFile, registry);
+      } finally { release(); }
     }
-    const left = Object.keys((await registryFor(environment('local'))).claudeDirectPlugins ?? {});
+    const left = Object.keys((await registryFor(env)).claudeDirectPlugins ?? {});
     if (left.length) fail(502, 'READBACK_FAILED', `SkillDock 生成的本地 marketplace 未能全部清理：${label(left)}；管理保持启用，请在 Marketplace 页核实后重试。`);
     return `\n已清理 SkillDock 生成的本地 marketplace：${label(Object.keys(tracked))}。`;
   }

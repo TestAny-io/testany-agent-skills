@@ -418,10 +418,10 @@ waivers: []
 |------|------|
 | 关联 PRD | [PRD-SKILLDOCK-002 v0.9（已批准；0.9 为 Owner 批准的有限修订）](34-cross-agent-prd.md) |
 | API 契约 | [API-SDX-001 跨 Agent 管理接口契约](36-cross-agent-api-contract.md)（索引；分册 [36a 跨版本文件格式](36a-cross-version-file-formats.md)、[36b 启动脚本与转交协议](36b-launcher-handover-protocol.md)、[36c HTTP 接口增量](36c-http-api-delta.md)）。跨版本冻结面与字段级定义以该契约为准；`assets/app/shared/contracts.ts` 仍是 HTTP wire 类型的代码事实源，按 36c 同步并随代码评审 |
-| 版本 | 1.17 |
+| 版本 | 1.18 |
 | 作者 | Claude（起草） |
 | 创建日期 | 2026-10-07 |
-| 状态 | 已批准（产品 Owner：用户，2026-10-08）；v1.17 为阶段 4a、4b 实现中的有限修订（见末尾“阶段 4a、4b 实现中的有限修订”），待增量复核。历经多轮独立评审（截至 v1.15 共 23 轮）：第 6 轮（[报告](35-cross-agent-hld-review-r6.md)）对 v0.8 签发带条件的 HLD 准出证书，第 7 轮（[报告](35-cross-agent-hld-review-r7.md)）延续到 v0.9；v1.0 按第 7 轮 P2 修订并写入批准，第 8 轮（[报告](35-cross-agent-hld-review-r8.md)）核对后重新绑定；v1.1 修掉第 8 轮的 5 项 P2，并落地 Owner“不写 LLD”的决定，第 9 轮（[报告](35-cross-agent-hld-review-r9.md)）核对后重新绑定；v1.2 落实第 9 轮 P2 与 Owner“实例运行中切换项目”的决定，并改为引用 API 契约，经第 10 轮（[报告](35-cross-agent-hld-review-r10.md)，与契约首轮评审合并）核对后重新绑定；v1.3 落实契约首轮评审涉及 HLD 的部分、Owner 两项决定（DG-NO-RECORD、DG-BACKOFF）与第 10 轮 P2，经第 11 轮（[报告](35-cross-agent-hld-review-r11.md)，与契约第 2 轮复审合并）核对后重新绑定；v1.4 修第 11 轮 P2 并同步契约 0.3 涉及 HLD 的义务，经第 12 轮（[报告](35-cross-agent-hld-review-r12.md)，与契约第 3 轮复审合并）核对后重新绑定；v1.5 拆分 11A 条件 1（Owner 决定）并修第 12 轮 P2，经第 13 轮（[报告](35-cross-agent-hld-review-r13.md)，与契约第 4 轮复审合并）核对后重新绑定；0.10.3 已于 2026-10-08 发布；v1.6 修第 13 轮 P2 与 FLOW-SDX-006 的过时描述，经第 14 轮（[报告](35-cross-agent-hld-review-r14.md)，与契约 v0.6 复核合并）核对后重新绑定；v1.7 写入 V11～V14 实测结果并修第 14 轮 P2，经第 15 轮（[报告](35-cross-agent-hld-review-r15.md)，与契约 v0.7 复核合并）核对后重新绑定；v1.8 修第 15 轮 P2，经第 16 轮（[报告](35-cross-agent-hld-review-r16.md)，与契约 v0.8 复核合并）核对后重新绑定；v1.9 修第 16 轮 P2，经第 17 轮（[报告](35-cross-agent-hld-review-r17.md)，与契约 v0.9 复核合并）核对后重新绑定；v1.10 修第 17 轮 P2，经第 18 轮（[报告](35-cross-agent-hld-review-r18.md)，与契约 v0.10 复核合并）核对后重新绑定；v1.11 修第 18 轮 P2 与阶段 1 代码复核的文字同步，经第 19 轮（[报告](35-cross-agent-hld-review-r19.md)，与契约 v0.11 复核合并）核对后重新绑定；v1.12 修第 19 轮 P2 与归属判定的死路（有限增量），经第 20 轮（[报告](35-cross-agent-hld-review-r20.md)）核对后重新绑定；v1.13 修第 20 轮 P2，经第 21 轮（[报告](35-cross-agent-hld-review-r21.md)，与契约 v0.13 复核及阶段 1 代码复核第 4 轮合并）核对后重新绑定；v1.14 修第 21 轮 P2，经第 22 轮（[报告](35-cross-agent-hld-review-r22.md)，与契约 v0.14 复核合并）核对后重新绑定；v1.15 修第 22 轮编辑性 P2，并按阶段 2 代码评审（[报告](38-cross-agent-phase2-code-review.md)）写明进程环境的范围、Claude 命令行发现中保存值的位置、门槛的执行顺序与 Node 选择的保存时机，经第 23 轮（[报告](35-cross-agent-hld-review-r23.md)，与阶段 2 代码复核第 2 轮合并）核对后重新绑定；v1.16 修第 23 轮两处措辞，待增量复审。证书条件见 11A |
+| 状态 | 已批准（产品 Owner：用户，2026-10-08）；v1.17 为阶段 4a、4b 实现中的有限修订（见末尾“阶段 4a、4b 实现中的有限修订”），v1.18 为阶段 4d 实现中的有限修订（见末尾“阶段 4d 实现中的有限修订”），均待增量复核。历经多轮独立评审（截至 v1.15 共 23 轮）：第 6 轮（[报告](35-cross-agent-hld-review-r6.md)）对 v0.8 签发带条件的 HLD 准出证书，第 7 轮（[报告](35-cross-agent-hld-review-r7.md)）延续到 v0.9；v1.0 按第 7 轮 P2 修订并写入批准，第 8 轮（[报告](35-cross-agent-hld-review-r8.md)）核对后重新绑定；v1.1 修掉第 8 轮的 5 项 P2，并落地 Owner“不写 LLD”的决定，第 9 轮（[报告](35-cross-agent-hld-review-r9.md)）核对后重新绑定；v1.2 落实第 9 轮 P2 与 Owner“实例运行中切换项目”的决定，并改为引用 API 契约，经第 10 轮（[报告](35-cross-agent-hld-review-r10.md)，与契约首轮评审合并）核对后重新绑定；v1.3 落实契约首轮评审涉及 HLD 的部分、Owner 两项决定（DG-NO-RECORD、DG-BACKOFF）与第 10 轮 P2，经第 11 轮（[报告](35-cross-agent-hld-review-r11.md)，与契约第 2 轮复审合并）核对后重新绑定；v1.4 修第 11 轮 P2 并同步契约 0.3 涉及 HLD 的义务，经第 12 轮（[报告](35-cross-agent-hld-review-r12.md)，与契约第 3 轮复审合并）核对后重新绑定；v1.5 拆分 11A 条件 1（Owner 决定）并修第 12 轮 P2，经第 13 轮（[报告](35-cross-agent-hld-review-r13.md)，与契约第 4 轮复审合并）核对后重新绑定；0.10.3 已于 2026-10-08 发布；v1.6 修第 13 轮 P2 与 FLOW-SDX-006 的过时描述，经第 14 轮（[报告](35-cross-agent-hld-review-r14.md)，与契约 v0.6 复核合并）核对后重新绑定；v1.7 写入 V11～V14 实测结果并修第 14 轮 P2，经第 15 轮（[报告](35-cross-agent-hld-review-r15.md)，与契约 v0.7 复核合并）核对后重新绑定；v1.8 修第 15 轮 P2，经第 16 轮（[报告](35-cross-agent-hld-review-r16.md)，与契约 v0.8 复核合并）核对后重新绑定；v1.9 修第 16 轮 P2，经第 17 轮（[报告](35-cross-agent-hld-review-r17.md)，与契约 v0.9 复核合并）核对后重新绑定；v1.10 修第 17 轮 P2，经第 18 轮（[报告](35-cross-agent-hld-review-r18.md)，与契约 v0.10 复核合并）核对后重新绑定；v1.11 修第 18 轮 P2 与阶段 1 代码复核的文字同步，经第 19 轮（[报告](35-cross-agent-hld-review-r19.md)，与契约 v0.11 复核合并）核对后重新绑定；v1.12 修第 19 轮 P2 与归属判定的死路（有限增量），经第 20 轮（[报告](35-cross-agent-hld-review-r20.md)）核对后重新绑定；v1.13 修第 20 轮 P2，经第 21 轮（[报告](35-cross-agent-hld-review-r21.md)，与契约 v0.13 复核及阶段 1 代码复核第 4 轮合并）核对后重新绑定；v1.14 修第 21 轮 P2，经第 22 轮（[报告](35-cross-agent-hld-review-r22.md)，与契约 v0.14 复核合并）核对后重新绑定；v1.15 修第 22 轮编辑性 P2，并按阶段 2 代码评审（[报告](38-cross-agent-phase2-code-review.md)）写明进程环境的范围、Claude 命令行发现中保存值的位置、门槛的执行顺序与 Node 选择的保存时机，经第 23 轮（[报告](35-cross-agent-hld-review-r23.md)，与阶段 2 代码复核第 2 轮合并）核对后重新绑定；v1.16 修第 23 轮两处措辞，待增量复审。证书条件见 11A |
 | 目标版本 | `skilldock` 0.10.3（过渡版，先发布）→ 0.11.0 |
 
 ## PRD↔HLD 需求映射表
@@ -578,7 +578,7 @@ graph TB
 | 信息 | 主证据 | 补充证据 |
 |------|--------|----------|
 | 已安装插件、版本、作用域、启用状态、安装位置 | 命令行插件列表（含 `installed` / `available`） | 缓存目录内容（技能清单、manifest、图标） |
-| 可安装插件 | 命令行列表中的 `available` | marketplace 副本中的条目 |
+| 可安装插件 | marketplace 副本中的条目（0.11 不调用联网的 `available` 列表；刷新 marketplace 即更新副本，见 v1.18 修订） | — |
 | marketplace | 命令行 marketplace 列表 | Claude 记录中的自动更新开关与上次刷新时间（只读） |
 | 启用状态的决定来源 | 设置文件中的启用条目（user / project / local / managed） | — |
 | 技能可见性 | 设置文件中的技能可见性条目 | — |
@@ -605,7 +605,7 @@ graph TB
 - **进程环境**（DEC-SDX-024）：服务与命令行子进程只继承白名单变量——HOME、USER、LOGNAME、语言与区域、TMPDIR、按规则构造的 PATH、SSH_AUTH_SOCK 与 `GIT_SSH_COMMAND`（Git 通过 SSH 访问私仓需要）、代理变量、TLS 信任变量（`NODE_EXTRA_CA_CERTS`、`SSL_CERT_FILE`、`SSL_CERT_DIR`、`GIT_SSL_CAINFO`，企业代理环境需要）、SkillDock 自身的设置变量，以及保存的 `CODEX_HOME` 与 Claude 根目录。Claude 与 Codex 的会话变量（如 `CLAUDECODE`、`CLAUDE_CODE_*`、`ANTHROPIC_*`）一律剔除。调用 Claude 命令行时附加禁止其自身更新的变量，避免管理命令顺带升级命令行。
   - 范围包括启动器与引导程序派生的服务、Codex 与 Claude 命令行（含探测、诊断与透传），以及依赖安装与构建（`npm ci`、`npm run build`，会运行第三方代码）。启动链自身的进程除外：引导程序运行启动器、转交给另一安装的启动器（按 36b 原样传递调用方环境，由被调用的启动器再按白名单构造），以及核验 Node/npm 版本的短命令。依赖安装与构建另外保留 npm 自身的配置变量（`npm_config_*`，如镜像源），仍不含会话变量。命令行候选按调用方原来的 PATH 顺序发现，运行时只给白名单变量。
   - PATH 的构造规则：所选 Node 所在目录，固定系统目录（`/usr/bin`、`/bin`、`/usr/sbin`、`/sbin`、`/opt/homebrew/bin`、`/usr/local/bin`），再接调用方 PATH 中的绝对路径（相对路径丢弃）。与 0.10.x 后台入口的顺序一致。
-- **白名单子命令**：插件 list / install / update / uninstall / enable / disable；marketplace list / add / remove / update；一律带机器可读输出参数。带 `--available` 的列表会联网并在 Claude 配置目录写入缓存，只在用户打开“可安装插件”时调用，不放在首屏。
+- **白名单子命令**：插件 list / install / update / uninstall / enable / disable；marketplace list / add / remove / update；一律带机器可读输出参数。带 `--available` 的列表会联网并在 Claude 配置目录写入缓存，0.11 不调用（v1.18 修订）：可安装插件取自 marketplace 副本。
 - **作用域**：安装默认当前用户；启禁默认按安装范围与决定层：用户范围的安装写用户设置，但当前由项目的本地或共享设置决定其启用状态时，写该项目的本地设置（写用户设置不会生效，还会改变其他项目）；project、local 范围的安装写该安装所在项目的本地设置，技能目录插件写当前项目的本地设置（`--scope local`，与下文技能目录插件的规则一致）。显式指定的写入层低于当前决定它的层时不写入、直接拒绝（写入不会生效）。写项目共享范围需用户逐次选择（Q3），并在确认中说明会改动协作者共享的设置文件。
 - **从本地目录或 Git 安装**（DEC-SDX-025）：
   - 来源带 Claude manifest：经现有来源预览（Git 固定到预览提交）后，用文件事务原子放入目标技能目录——用户范围为 Claude 配置根下的 `skills`，项目范围为所选项目的 `.claude/skills`（确认中说明：项目范围的技能目录插件只在 Claude 以该目录为工作目录并已信任时加载）。更新、移除、恢复复用独立技能的来源追踪与隔离区。不在 Claude 设置中留下指向 SkillDock 数据目录的条目。
@@ -1553,6 +1553,17 @@ sequenceDiagram
 | 个人技能可见性的写入层 | 个人技能当前由项目的本地或共享设置决定时改写本地设置；依据：按优先级（托管 > 本地 > 项目 > 用户），写用户设置不会生效 | 3.4 启禁 |
 | 技能文件事务的复用方式 | 4b 先复用底层原语，编排另写一份；4c 开头已合并为按侧参数化的一份（`skillOperation` 与两个侧对象），3.4“完全复用现有文件事务”成立（4b 评审 P2-04） | 3.4 |
 | Codex 环境的“无法确认” | Codex 命令行不可用时，“Agent 环境”页把 Codex 显示为“无法确认”并说明原因，但不拒绝 Codex 的写操作（技能不依赖命令行；插件操作本来就需要命令行）；计划中的 Codex 目标只在 Claude 已启用管理时按可用性暂停（Codex 未安装：全部暂停；命令行不可用：插件目标暂停），只管理 Codex 时保持 0.10.2 行为（MR-SDX-001） | 3.6、3.8 |
+
+### 阶段 4d 实现中的有限修订（v1.18）
+
+不是评审轮次的处理，待下一轮增量复核：
+
+| 事项 | 处理 | 位置 |
+|------|------|------|
+| 可安装插件的来源 | 0.11 不调用联网的 `--available` 列表：可安装插件只取 Claude 在本机保存的 marketplace 副本，刷新 marketplace 即更新副本。依据：该列表会联网下载约 3 MB 并在 Claude 配置目录写入缓存；副本已含可安装条目，未安装插件的去重另参照 Claude 的安装记录。这改变了 DEC-SDX-004 对“可安装插件”一项的主证据（其余各项不变）。状态：实现中的决定，2026-10-09 已向产品 Owner 说明，**待 Owner 确认**（4d 评审 P2-05） | 3.2、3.3、DEC-SDX-004 |
+| 无 manifest 来源的命名 | 来源既没有 Claude manifest 也没有 Codex manifest 时，插件名取来源本身：本地目录取目录名，Git 来源取子路径末段，子路径为根时取仓库名；不合规时拒绝（4d 评审 P1-01） | 3.3 从本地目录或 Git 安装 |
+| SkillDock 管理的本地 marketplace 的生命周期 | 细化 3.3 的生命周期：安装失败时撤销这次生成的 marketplace（仍有从它安装的插件时保留）；“最后一个插件”同时看命令行清单与 Claude 的安装记录（后者含其他项目），记录中仍有安装时保留并说明；只移除名称、Claude 读取的目录与数据目录中的位置三者都对得上的那一个，同名而指向别处的视为用户自己的，安装时拒绝、清理时不动，删除只限它自己的目录；清理经 `marketplace remove` 并读回；清理失败不改变已完成的卸载或移除，单独记录并说明出路；同一来源内容变了再装时，与 Codex 侧一致备份后替换；停用 Claude 管理时的一键清理只在管理已启用时执行，任何一项未清完则管理保持启用，Claude 中已没有的登记只删 SkillDock 自己的文件并留记录（4d 评审 P2-01～04、P3-01、P3-05～07） | 3.3 |
+| 技能目录插件的移除与刷新的含义 | 个人技能目录与当前项目 `.claude/skills` 中的技能目录插件可移到可恢复区并恢复；指向其内容的 Codex 独立技能在确认中列出（36c 第 6 节“跨侧影响提示”）。这两类插件的更新随阶段 5；SkillDock 生成的 marketplace 在 Claude 中“刷新”只重读数据目录中的副本，不从原始来源取新内容（4d 评审 P3-04、P3-10） | 3.3 |
 
 ## 附录：取证记录
 

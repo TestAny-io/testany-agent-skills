@@ -286,7 +286,8 @@ export async function claudeCatalog({ claudeRoot, project, cli, env = process.en
   const marketplaces = []; const available = [];
   // Installed in any scope, by the command line or Claude's own record (which also lists
   // installs in other projects), is not "not installed".
-  const listedIds = new Set([...pluginList, ...(installed ? await installRecord(configDir) ?? [] : [])].map(item => item.id));
+  const records = installed ? await installRecord(configDir) ?? [] : record ?? [];
+  const listedIds = new Set([...pluginList, ...records].map(item => item.id));
   for (const item of markets ?? Object.entries(known).map(([name, entry]) => ({ name, source: entry?.source?.source ?? 'unknown', installLocation: entry?.installLocation }))) {
     const entry = known[item.name] || {};
     const declared = decidedBy(layers, 'extraKnownMarketplaces', item.name).value;
@@ -333,5 +334,7 @@ export async function claudeCatalog({ claudeRoot, project, cli, env = process.en
   const declarations = {}; const projectEntries = {};
   for (const layer of LAYERS) for (const name of Object.keys(layers[layer].extraKnownMarketplaces || {})) (declarations[name] ??= []).push(layer);
   for (const key of Object.keys(layers.project.enabledPlugins || {})) { const market = key.split('@')[1]; if (market) projectEntries[market] = true; }
-  return { skills, plugins, marketplaces, diagnostics, unconfirmed, evidence: installed ? 'cli' : record ? 'record' : 'none', listed: !!(cli?.available && rooted), declarations, projectEntries };
+  // Claude's own install record, in every project: whether a marketplace is still in use (4d review P2-04).
+  const recordedInstalls = records.map(({ id, scope, projectPath }) => ({ id, scope, ...(projectPath ? { projectPath } : {}) }));
+  return { skills, plugins, marketplaces, diagnostics, unconfirmed, evidence: installed ? 'cli' : record ? 'record' : 'none', listed: !!(cli?.available && rooted), declarations, projectEntries, recordedInstalls };
 }

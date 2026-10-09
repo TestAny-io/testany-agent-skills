@@ -2482,5 +2482,21 @@
   "一并清理：卸载从它们安装的插件，再从 Claude 移除这些 marketplace": {
     "en": "Clean up as well: uninstall the plugins installed from them, then remove these marketplaces from Claude",
     "ja": "あわせてクリーンアップ：そこからインストールしたプラグインをアンインストールし、これらの marketplace を Claude から削除します"
+  },
+  "专用 manifest：{v0}": {
+    "en": "Agent-specific manifest: {v0}",
+    "ja": "専用 manifest：{v0}"
+  },
+  "无": {
+    "en": "None",
+    "ja": "なし"
+  },
+  "将安装这个插件及其附带组件。安装后可在插件详情中启停或卸载；更新随后续版本提供。": {
+    "en": "This installs the plugin and its components. Afterwards you can turn it on or off or uninstall it from the plugin details; updates come in a later version.",
+    "ja": "このプラグインと付属コンポーネントをインストールします。インストール後はプラグインの詳細で有効化・無効化やアンインストールができます。更新は今後のバージョンで提供します。"
+  },
+  "选择单个插件的目录：带 Claude 的 plugin.json 时放入技能目录；否则只要含 skills 或 commands，SkillDock 会生成一个本地 marketplace 再安装。": {
+    "en": "Choose a single plugin's directory: with a Claude plugin.json it goes into a skills directory; otherwise, as long as it has skills or commands, SkillDock generates a local marketplace and installs from it.",
+    "ja": "単一プラグインのディレクトリを選んでください。Claude の plugin.json があればスキルディレクトリに置きます。ない場合でも skills か commands があれば、SkillDock がローカル marketplace を生成してからインストールします。"
   }
 }

@@ -6,8 +6,8 @@
 |------|------|
 | 契约 ID | API-SDX-001 |
 | 系统 | SkillDock（`plugins/skilldock`） |
-| 版本 | 0.16 |
-| 状态 | 第 13 轮契约复核 APPROVED（[r13](36-cross-agent-api-contract-review-r13.md)）。0.10.3 已于 2026-10-08 发布（PR #54）。0.14 处理第 13 轮的 P2，只涉及条件 1b；0.15、0.16 为阶段 3 试用与阶段 4 实现中的澄清（见第 10 节），均待增量复核。按 HLD 11A：条件 1a 覆盖随 0.10.3 冻结的条文；条件 1b 覆盖 0.11.0 HTTP 字段形态、操作与错误码、36b 6.3 与 7.4 的 0.11.x 义务，以及附录 A.5 的 0.11.0 关口用例，在实现 0.11.0 相应部分前通过评审 |
+| 版本 | 0.17 |
+| 状态 | 第 13 轮契约复核 APPROVED（[r13](36-cross-agent-api-contract-review-r13.md)）。0.10.3 已于 2026-10-08 发布（PR #54）。0.14 处理第 13 轮的 P2，只涉及条件 1b；0.15～0.17 为阶段 3 试用与阶段 4 实现中的澄清（见第 10 节），均待增量复核。按 HLD 11A：条件 1a 覆盖随 0.10.3 冻结的条文；条件 1b 覆盖 0.11.0 HTTP 字段形态、操作与错误码、36b 6.3 与 7.4 的 0.11.x 义务，以及附录 A.5 的 0.11.0 关口用例，在实现 0.11.0 相应部分前通过评审 |
 | Owner | SkillDock 维护者；产品 Owner：用户 |
 | 消费方 | 0.10.2 冻结代码（启动器、原生入口、自更新、后台）；0.10.3（过渡版）；0.11.x 的启动器、服务、后台任务、浏览器界面与原生界面 |
 | PRD 引用 | [PRD-SKILLDOCK-002 v0.9](34-cross-agent-prd.md)（已批准；0.9 为 Owner 批准的有限修订） |
@@ -47,7 +47,7 @@
 |------|------|------|--------|----------|
 | 文件格式 | [36a 跨版本文件格式](36a-cross-version-file-formats.md) | 0.2 | 0.10.2、0.10.3、0.11.x | REQ-SDX-007、MR-SDX-002 |
 | 进程间 / 命令行 | [36b 启动脚本与转交协议](36b-launcher-handover-protocol.md)（含附录 A 期望结果表） | 0.14 | 0.10.2 原生入口、技能入口、0.10.3、0.11.x | REQ-SDX-007、008、009 |
-| HTTP | [36c HTTP 接口增量](36c-http-api-delta.md) | 0.14 | 0.11.x 界面；0.10.x 原生界面；0.10.2 启动器、0.10.3 转交链（健康检查） | REQ-SDX-001～006、009、012、015～017 |
+| HTTP | [36c HTTP 接口增量](36c-http-api-delta.md) | 0.16 | 0.11.x 界面；0.10.x 原生界面；0.10.2 启动器、0.10.3 转交链（健康检查） | REQ-SDX-001～006、009、012、015～017 |
 
 ## 5. 共享数据模型
 
@@ -142,6 +142,7 @@
 | 0.14 | 2026-10-08 | 处理第 13 轮 P2（APIR13-P2-01）与代码复核 r4、HLD 第 21 轮的联动：6.3 括号补“或其 `package.json` 读不出”；G-18 第一种结果写明处理步骤的来源（代号 1 下由门槛给出，读不出时为权限步骤），不是 JSON 时不算安装，“配置目录不可见”的判定与旧服务仍在运行时先给停止步骤。处理对照见第 22 节 |
 | 0.15 | 2026-10-09 | 阶段 3 试用与阶段 4a、4b 实现中的澄清（36c 升为 0.14，待增量复核）：第 6 节补未安装 Claude 插件的 ID 写法；第 10 节写明快照中的未安装插件取自本机 marketplace 副本、1 版快照不含 Claude 的操作记录；7.1 `scope` 写明 `plugin.toggle` 缺省按安装范围、Claude 技能 `skill.toggle` 的缺省写入层与 `skill.previewInstall` 的取值、新建未被忽略的本地设置文件须带 `gitExclude`；7.3 写明 Claude 侧 `marketplace.add` 不支持 `ref`、`plugin.previewMarketplace` 的 Claude 形态、`marketplace.remove` 涉及项目共享设置时的确认、`needsReload` 的适用范围与几种错误码（阶段 4a 评审）；第 8 节新增 `SCOPE_INEFFECTIVE`，7.3 补 `skill.toggle` 的同名条目与一次确认（阶段 4a、4b 合并复审） |
 | 0.16 | 2026-10-09 | 阶段 4d 实现中的澄清（36c 升为 0.15，待增量复核）：7.1 `scope` 写明 Claude `plugin.installSource` 的两种来源各自接受的作用域；7.2 `agent.setManagement` 写明停用 Claude 管理时本地 marketplace 的提示与 `confirm: true` 一并清理（失败则管理保持启用）；7.3 拆分 `plugin.install` 与从本地目录或 Git 安装，写明两种方式、预览形态与清理时机，`plugin.remove` 补技能目录插件的可恢复移除；第 10 节改为 0.11 不调用联网的 `--available` 清单 |
+| 0.17 | 2026-10-09 | 处理阶段 4d 代码评审（[报告](46-cross-agent-phase4d-code-review.md)）涉及契约的部分（36c 升为 0.16，待增量复核）：7.3 写明无 manifest 来源的命名、同名而指向别处的 marketplace 返回 `MARKETPLACE_EXISTS`、`enabledSkills` 不支持、安装失败时撤销、“最后一个插件”也看 Claude 的安装记录、清理读回与清理失败的处理、生成的 marketplace 刷新的含义，以及移除技能目录插件时列出指向它的 Codex 技能；7.2 `agent.setManagement` 只在管理已启用时清理（否则 `AGENT_READ_ONLY`），每项清理留记录；7.3 通则注明 `agent.setManagement` 的 `confirm` 例外；7.1 `scope` 中“`project` 改动共享设置须确认”限于写设置的操作；第 10 节删去“单独请求”的旧说法 |
 
 ## 11. 首轮契约评审意见处理（v0.2）
 

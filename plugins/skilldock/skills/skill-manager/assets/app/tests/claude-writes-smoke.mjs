@@ -24,6 +24,8 @@ await write(path.join(market, 'plugins/smoke-plugin/skills/hello/SKILL.md'), '--
 // Phase 4d sources: one with only a Codex manifest, one with a Claude manifest.
 await write(path.join(root, 'plain-src/.codex-plugin/plugin.json'), { name: 'plain-plugin', version: '2.0.0', description: 'No Claude manifest.' });
 await write(path.join(root, 'plain-src/skills/plain/SKILL.md'), '---\nname: plain\ndescription: Plain skill.\n---\n');
+// No manifest at all: named after its directory (4d review P1-01).
+await write(path.join(root, 'bare-src/skills/bare/SKILL.md'), '---\nname: bare\ndescription: Bare skill.\n---\n');
 await write(path.join(root, 'dir-src/.claude-plugin/plugin.json'), { name: 'dir-plugin', version: '1.0.0', description: 'Skills-directory plugin.' });
 await write(path.join(root, 'dir-src/skills/inside/SKILL.md'), '---\nname: inside\ndescription: Inside skill.\n---\n');
 const state = path.join(root, 'state'); await fs.mkdir(state); await writeGeneration(state, 2);
@@ -97,6 +99,14 @@ try {
   assert.match(off.message, /已清理 SkillDock 生成的本地 marketplace/);
   assert.deepEqual([await named('plain-plugin'), await declared()], [undefined, []]);
   await act('重新启用 Claude 管理', { action: 'agent.setManagement', management: 'enabled' });
+  const barePreview = (await act('无任何 manifest 来源：预览', { action: 'plugin.previewInstall', sourceType: 'local', source: path.join(root, 'bare-src') })).pluginPreview;
+  assert.equal(barePreview.name, 'bare-src');
+  await act('无任何 manifest 来源：安装（用户）', { action: 'plugin.installSource', previewId: barePreview.id });
+  const bare = await named('bare-src');
+  assert.ok(bare?.marketplace.startsWith('skilldock-'), 'Claude 以来源目录名读到它');
+  steps.push(`无任何 manifest 来源：Claude 读到 ${bare.name}@${bare.marketplace.slice(0, 18)}…，技能 ${bare.skillCount} 个`);
+  await act('无任何 manifest 来源：卸载', { action: 'plugin.remove', id: bare.id, expectedRevision: bare.revision, confirm: true });
+  assert.deepEqual(await declared(), [], '卸载后 marketplace 与声明一并删除');
   // Phase 4d: a source with a Claude manifest becomes a skills-directory plugin.
   const dirPreview = (await act('带 manifest 来源：预览', { action: 'plugin.previewInstall', sourceType: 'local', source: path.join(root, 'dir-src') })).pluginPreview;
   await act('带 manifest 来源：放入个人技能目录', { action: 'plugin.installSource', previewId: dirPreview.id });

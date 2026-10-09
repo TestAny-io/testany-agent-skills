@@ -98,13 +98,14 @@ export function InstallDialog({ kind, data, initialPlugin, initialMarket = false
           </section>}
           {claudePreview && <div className="scope-choice" role="radiogroup" aria-label={t("安装范围")}>
             {(direct?.scopes ?? ["user"]).filter((item): item is "user" | "project" | "local" => item !== "managed").map(item => <label key={item}><input type="radio" name="claude-scope" checked={scope === item} onChange={() => setScope(item)} />{t(direct?.scopes?.includes("local") === false && item === "project" ? "当前项目（.claude/skills）" : { user: "当前用户（所有项目）", local: "当前项目，只给自己（本地设置）", project: "当前项目，所有协作者（共享设置，需要确认）" }[item])}</label>)}
+            {direct?.manifests && <p className="field-hint">{t("专用 manifest：{v0}", { v0: direct.manifests.length ? direct.manifests.map(item => item === "claude" ? "Claude" : "Codex").join(" · ") : t("无") })}</p>}
             {direct?.nativeRules?.map(rule => <p key={rule.message} className="field-hint"><ServiceMessage value={rule.message} /></p>)}
           </div>}
           {direct && !direct.remote && !claudePreview && <><PluginSkillPicker preview={direct} selected={enabledSkills} onChange={setEnabledSkills} disabled={!!busy} /><div className="install-components">
             {!!direct.components.length && <p>{t("其他组件")}: {direct.components.map(item => t({ commands: "命令", agents: "代理", hooks: "Hooks", mcp: "MCP 服务器", apps: "应用连接" }[item] || item)).join(" · ")}</p>}
             {!!direct.duplicates.length && <p className="field-error">{t("已有同名插件，将作为另一个来源单独安装：")}{direct.duplicates.join(", ")}</p>}
           </div></>}
-          <div className="dialog-note"><ShieldCheck size={16} /><p>{t(direct?.remote ? '安装后会核对官方清单。插件安装与账号连接会分别显示状态。' : plugin ? "将安装这个插件及其附带组件。安装后可在插件详情统一管理、更新或卸载。" : "安装前会再次核验文件。已存在的同名目录会保留，不会被覆盖。")}</p></div>
+          <div className="dialog-note"><ShieldCheck size={16} /><p>{t(direct?.remote ? '安装后会核对官方清单。插件安装与账号连接会分别显示状态。' : plugin ? claudePreview ? "将安装这个插件及其附带组件。安装后可在插件详情中启停或卸载；更新随后续版本提供。" : "将安装这个插件及其附带组件。安装后可在插件详情统一管理、更新或卸载。" : "安装前会再次核验文件。已存在的同名目录会保留，不会被覆盖。")}</p></div>
         </> : <>
           <div className={`source-choice ${plugin ? "source-choice-three" : ""}`}>
             {([{ id: "local", label: "本地目录", icon: FolderOpen }, { id: "git", label: "Git 仓库", icon: GitBranch }, ...(plugin ? [{ id: "market", label: "Marketplace", icon: Globe2 }] : [])] as const).map(item => <button type="button" key={item.id} aria-label={t(item.label)} disabled={!!busy} className={sourceType === item.id ? "selected" : ""} aria-pressed={sourceType === item.id} onClick={() => { setType(item.id as typeof sourceType); setSource(""); setSubpath(""); setRef(""); setError(""); }}><item.icon size={19} /><strong>{t(item.label)}</strong></button>)}
@@ -126,7 +127,7 @@ export function InstallDialog({ kind, data, initialPlugin, initialMarket = false
               : <p className="field-hint">{t("将安装到 {v0}。", { v0: "Claude" })}</p>}
             {agent === "claude" && kind === "skill" && (["user", "project"] as const).map(item => <label key={item}><input type="radio" name="skill-scope" checked={skillScope === item} onChange={() => setSkillScope(item)} />{t(item === "user" ? "个人技能（所有项目）" : "当前项目（.claude/skills）")}</label>)}
           </div>}</>}{sourceType === "market" ? null : sourceType === "git" ? <GitSourceFields kind={kind} source={source} subpath={subpath} gitRef={gitRef} setSource={setSource} setSubpath={setSubpath} setRef={setRef} /> : <label className="field"><span>{t(plugin ? "插件目录路径" : "技能目录路径")}</span><input required value={source} disabled={!!busy} autoComplete="off" placeholder={plugin ? "/Users/you/plugins/my-plugin" : "/Users/you/skills/my-skill"} onChange={e => setSource(e.target.value)} /></label>}
-          {plugin && sourceType !== "market" && <p className="field-hint">{t("选择单个插件的目录，内含 plugin.json。无需先添加 Marketplace；SkillDock 会记录来源，供后续更新使用。")}</p>}
+          {plugin && sourceType !== "market" && <p className="field-hint">{t("agent" in side ? "选择单个插件的目录：带 Claude 的 plugin.json 时放入技能目录；否则只要含 skills 或 commands，SkillDock 会生成一个本地 marketplace 再安装。" : "选择单个插件的目录，内含 plugin.json。无需先添加 Marketplace；SkillDock 会记录来源，供后续更新使用。")}</p>}
         </>}
         {error && <div className="field-error" role="alert"><ServiceMessage value={error} error /></div>}
         {attempted && !remoteResult && <Button onClick={() => void checkConnection()} busy={!!busy}><RefreshCw size={15} />{t('刷新安装状态')}</Button>}

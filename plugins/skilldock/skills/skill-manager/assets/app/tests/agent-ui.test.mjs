@@ -26,6 +26,23 @@ function ui(language = 'zh') {
   module.exports.setPreferences({ language }); return module.exports;
 }
 const render = (component, props) => renderToStaticMarkup(createElement(component, props));
+// The confirmation dialog alone; its portal Modal cannot render on a server, so its body renders in place.
+const confirmBundle = await build({
+  stdin: { contents: 'export * from "./src/ConfirmDialog"; export { setPreferences } from "./src/preferences";', resolveDir: app, loader: 'ts' },
+  bundle: true, platform: 'node', format: 'cjs', packages: 'external', jsx: 'automatic', write: false, loader: { '.css': 'empty' },
+  plugins: [{ name: 'modal-in-place', setup(build) {
+    build.onResolve({ filter: /^\.\/Modal$/ }, () => ({ path: 'modal', namespace: 'in-place' }));
+    build.onLoad({ filter: /.*/, namespace: 'in-place' }, () => ({ contents: 'export function Modal({ children }) { return children; }', loader: 'js' }));
+  } }],
+});
+function confirmUi(language = 'zh') {
+  const module = { exports: {} }, storage = new Map();
+  runInNewContext(confirmBundle.outputFiles[0].text, { module, exports: module.exports, require,
+    localStorage: { getItem: key => storage.get(key), setItem: (key, value) => storage.set(key, value) },
+    document: { documentElement: { dataset: {}, style: {} }, getElementById: () => null },
+    window: { matchMedia: () => ({ matches: false, addEventListener() {} }), addEventListener() {} } });
+  module.exports.setPreferences({ language }); return module.exports;
+}
 const i18nBundle = await build({ stdin: { contents: 'export * from "./src/i18n"; export { setPreferences } from "./src/preferences";', resolveDir: app, loader: 'ts' },
   bundle: true, platform: 'node', format: 'cjs', packages: 'external', jsx: 'automatic', write: false });
 function translatorFor(language) {
@@ -65,6 +82,20 @@ test('the Agent environments page offers what each state allows and opens a conf
   assert.match(html, /桌面应用/); assert.match(html, /无法确认 Claude 中的插件状态：stand-in。/);
   assert.equal((html.match(/>启用管理</g) || []).length, 1, '无法确认的环境不提供启用');
   assert.match(html, /切换 Claude 根目录/); assert.match(html, /Node\.js/);
+});
+
+test('turning Claude management off offers the clean-up only for marketplaces SkillDock generated, unticked at first', () => {
+  const { disableConfirmation } = ui();
+  const claude = environment('claude', 'enabled');
+  const plain = disableConfirmation(claude, [{ agents: ['claude'], name: 'm' }]);
+  assert.deepEqual([plain.option, plain.affected, plain.request.confirm], [undefined, undefined, undefined], '没有生成的 marketplace 时不出现');
+  const spec = disableConfirmation(claude, [{ agents: ['claude'], name: 'skilldock-0a', displayName: 'helper', direct: true }, { agents: ['codex'], name: 'direct-codex', direct: true }]);
+  assert.deepEqual(spec.affected, ['skilldock-0a（helper）'], '只列 Claude 一侧的');
+  assert.deepEqual([spec.request.confirm, spec.option.request.confirm, spec.option.request.management], [undefined, true, 'read-only']);
+  assert.equal(disableConfirmation(environment('codex', 'enabled'), [{ agents: ['codex'], name: 'direct-codex', direct: true }]).option, undefined, 'Codex 不提供');
+  const html = render(confirmUi().ConfirmDialog, { dialog: spec, busy: null, action: async () => undefined, onClose() {} });
+  assert.match(html, /<input type="checkbox"\/>一并清理/, '默认不勾选');
+  assert.equal(render(confirmUi().ConfirmDialog, { dialog: plain, busy: null, action: async () => undefined, onClose() {} }).includes('checkbox'), false);
 });
 
 test('Agents are shown by their marks, named for screen readers and tooltips; the split counts each side', () => {

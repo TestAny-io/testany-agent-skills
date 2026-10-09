@@ -1455,10 +1455,6 @@
     "en": "A source without a Claude manifest can be installed only for the current user or in the current project's local settings: shared project settings would point to a marketplace that exists only on this computer.",
     "ja": "Claude manifest のないソースは、現在のユーザーか現在のプロジェクトのローカル設定にのみインストールできます。プロジェクトの共有設定は、このコンピューターにしかない marketplace を参照してしまうためです。"
   },
-  "之前为 Claude 生成的同一来源目录仍然存在且内容不同，请先核对。": {
-    "en": "The directory generated earlier for Claude from the same source still exists with different contents; check it first.",
-    "ja": "以前 Claude 用に同じソースから生成したディレクトリが残っており、内容が異なります。先に確認してください。"
-  },
   "未能确认 SkillDock 生成的 marketplace 已登记到 Claude，请刷新核实。": {
     "en": "Could not confirm that the marketplace SkillDock generated is registered with Claude; refresh to check.",
     "ja": "SkillDock が生成した marketplace が Claude に登録されたことを確認できませんでした。更新して確認してください。"
@@ -1514,5 +1510,49 @@
   "SkillDock 为它生成的本地文件已一并删除。": {
     "en": "The local files SkillDock generated for it were deleted as well.",
     "ja": "SkillDock がこの marketplace 用に生成したローカルファイルも削除しました。"
+  },
+  "插件名称只能包含字母、数字、点、下划线与连字符。": {
+    "en": "A plugin name may contain only letters, digits, dots, underscores and hyphens.",
+    "ja": "プラグイン名に使えるのは英字、数字、ドット、アンダースコア、ハイフンだけです。"
+  },
+  "同名安装目录已存在，不能覆盖。": {
+    "en": "An installation directory with the same name already exists and is not overwritten.",
+    "ja": "同じ名前のインストール先ディレクトリがすでにあるため、上書きしません。"
+  },
+  "已把 Claude 插件 {v0} 放入当前项目的 .claude/skills；个人技能目录中有同名插件，它会遮蔽这一个，这一个不会加载。": {
+    "en": "Placed Claude plugin {v0} in the current project's .claude/skills; a plugin with the same name in your personal skills directory hides it, so this one does not load.",
+    "ja": "Claude プラグイン {v0} を現在のプロジェクトの .claude/skills に置きました。個人のスキルディレクトリに同じ名前のプラグインがあり、そちらが優先されるため、このプラグインは読み込まれません。"
+  },
+  "安装来源名称已被另一个目录使用，未修改该来源。": {
+    "en": "The source name is already used by another directory; that source was not changed.",
+    "ja": "このソース名はすでに別のディレクトリで使われているため、そのソースは変更していません。"
+  },
+  "之前为 Claude 生成的同一来源目录仍然存在且内容不同，请先核对；不再需要时，可在 Marketplace 页移除这个 marketplace 后重试。": {
+    "en": "The directory generated earlier for Claude from the same source still exists with different contents; check it first. If it is no longer needed, remove this marketplace on the Marketplace page and try again.",
+    "ja": "以前 Claude 用に同じソースから生成したディレクトリが残っており、内容が異なります。先に確認してください。不要であれば、Marketplace ページでこの marketplace を削除してから再試行してください。"
+  },
+  "已撤销这次生成的本地 marketplace。": {
+    "en": "The local marketplace generated for this attempt was taken back.",
+    "ja": "今回生成したローカル marketplace は取り消しました。"
+  },
+  "SkillDock 生成的本地 marketplace {v0} 未能清理：{v1}可在 Marketplace 页移除它，或停用 Claude 管理时一并清理。": {
+    "en": "The local marketplace {v0} SkillDock generated could not be cleaned up: {v1} You can remove it on the Marketplace page, or clean it up when turning Claude management off.",
+    "ja": "SkillDock が生成したローカル marketplace {v0} をクリーンアップできませんでした：{v1} Marketplace ページで削除するか、Claude の管理を無効にするときにあわせてクリーンアップできます。"
+  },
+  "其他项目中仍有从 SkillDock 生成的本地 marketplace {v0} 安装的插件，它保留在 Claude 中。": {
+    "en": "Other projects still have plugins installed from the local marketplace {v0} SkillDock generated, so it stays in Claude.",
+    "ja": "他のプロジェクトに、SkillDock が生成したローカル marketplace {v0} からインストールしたプラグインがまだあるため、Claude に残しています。"
+  },
+  "Codex 中的这些技能指向这个插件目录中的内容，移除后会失效（恢复插件后复原）：": {
+    "en": "These Codex skills point to content in this plugin directory and stop working once it is removed (they work again when the plugin is restored):",
+    "ja": "次の Codex スキルはこのプラグイン ディレクトリ内の内容を参照しているため、削除すると使えなくなります（プラグインを復元すると元に戻ります）："
+  },
+  "Claude 当前为只读，SkillDock 不修改其中的对象；需要清理时先启用管理。": {
+    "en": "Claude is read-only, so SkillDock does not change its objects; to clean up, enable management first.",
+    "ja": "Claude は読み取り専用のため、SkillDock はそのオブジェクトを変更しません。クリーンアップするには、先に管理を有効にしてください。"
+  },
+  "SkillDock 生成的本地 marketplace {v0} 不在 Claude 中，已删除它的本地文件。": {
+    "en": "The local marketplace {v0} SkillDock generated is not in Claude; its local files were deleted.",
+    "ja": "SkillDock が生成したローカル marketplace {v0} は Claude にないため、ローカルファイルを削除しました。"
   }
 }

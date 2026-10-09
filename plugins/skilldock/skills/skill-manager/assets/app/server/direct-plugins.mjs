@@ -47,8 +47,10 @@ export async function decorateDirectCatalog(catalog, registry, env) {
  * A plugin source for Claude (HLD 3.3, DEC-SDX-025): with a Claude manifest it is a
  * skills-directory plugin; without one Claude still loads its skills and commands (9.3 V6)
  * through a marketplace SkillDock writes. A source with nothing Claude can load is refused.
+ * Without any manifest the name is the source's own (`fallbackName`), never the staging
+ * directory's (4d review P1-01).
  */
-export async function inspectClaudePlugin(directory) {
+export async function inspectClaudePlugin(directory, fallbackName) {
   const read = async file => { try { const value = JSON.parse(await fs.readFile(path.join(directory, file), 'utf8')); return value && typeof value === 'object' && !Array.isArray(value) ? value : null; } catch { return null; } };
   const claude = await read('.claude-plugin/plugin.json'); const codex = await read('.codex-plugin/plugin.json');
   const entries = async folder => fs.readdir(path.join(directory, folder), { withFileTypes: true }).catch(() => []);
@@ -57,7 +59,7 @@ export async function inspectClaudePlugin(directory) {
   const commands = (await entries('commands')).filter(entry => entry.isFile() && entry.name.endsWith('.md')).length;
   if (!claude && !skills.length && !commands) fail(422, 'UNSUPPORTED_FOR_AGENT', '这个来源没有 Claude 能加载的内容（Claude 的 plugin.json、skills 或 commands），不能安装到 Claude。');
   const manifest = claude ?? codex ?? {};
-  const name = typeof manifest.name === 'string' ? manifest.name : path.basename(directory);
+  const name = typeof manifest.name === 'string' ? manifest.name : fallbackName ?? path.basename(directory);
   if (!/^[A-Za-z0-9][A-Za-z0-9._-]{0,127}$/.test(name)) fail(422, 'INVALID_NAME', '插件名称只能包含字母、数字、点、下划线与连字符。');
   return { name, version: typeof manifest.version === 'string' ? manifest.version : '', description: typeof manifest.description === 'string' ? manifest.description : '',
     mode: claude ? 'skills-dir' : 'marketplace', manifests: [...(claude ? ['claude'] : []), ...(codex ? ['codex'] : [])].sort(), skills: skills.sort(), commands };
@@ -70,14 +72,25 @@ export function claudeDirectLocation(env, staged) {
   return { market, root: path.join(env.root, 'claude-direct-plugins', key), pluginId: `${staged.detail.name}@${market}` };
 }
 
+/** The one directory a generated marketplace may have: `claude-direct-plugins/<its key>`. */
+export function claudeDirectRoot(env, name) {
+  return /^skilldock-[a-f0-9]{20}$/.test(name) ? path.join(env.root, 'claude-direct-plugins', name.slice('skilldock-'.length)) : null;
+}
+
 /**
- * A marketplace SkillDock wrote for a Claude source shows that source; only one whose name and
- * directory both match the record, so a same-named marketplace of the user's is never taken for it.
+ * Whether the marketplace Claude lists under this name is the one SkillDock wrote for the record:
+ * the name, the directory Claude reads and the record's place in SkillDock's data all match, so
+ * a same-named marketplace of the user's is never taken for it (4d review P3-01).
  */
+export function ownClaudeDirect(listed, tracked, env) {
+  return !!listed && !!tracked && tracked.root === claudeDirectRoot(env, listed.name) && listed.source === publicSource(tracked.root);
+}
+
+/** A marketplace SkillDock wrote for a Claude source shows that source. */
 export function decorateClaudeDirect(claude, registry, env) {
   for (const [name, tracked] of Object.entries(registry.claudeDirectPlugins || {})) {
     const market = claude.marketplaces.find(item => item.name === name);
-    if (!market || market.source !== publicSource(tracked.root) || !inside(path.join(env.root, 'claude-direct-plugins'), tracked.root)) continue;
+    if (!ownClaudeDirect(market, tracked, env)) continue;
     market.displayName = tracked.name; market.source = publicSource(tracked.source); market.type = tracked.sourceType;
     market.reason = '由单个插件安装自动登记的来源。'; market.direct = true;
     for (const plugin of claude.plugins.filter(item => item.marketplace === name))
