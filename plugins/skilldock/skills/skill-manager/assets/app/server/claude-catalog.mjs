@@ -24,7 +24,7 @@ const exists = async file => !!(await fs.lstat(file).catch(() => null));
 const isDirectory = async directory => (await fs.stat(directory).catch(() => null))?.isDirectory() ?? false;
 // Capabilities below are what Claude's native rules allow; the service marks every Claude
 // object read-only while Claude management is not enabled (36c §5).
-const READ_ONLY = '这一版 SkillDock 还不能移除或更新 Claude 中的技能。';
+// Removal and updates come from SkillDock's own records; the service adds them (phase 4b2).
 const SKILLS_DIR_REMOVAL = '技能目录插件的移除随后续版本提供；可以在 Claude 的技能目录中手动删除。';
 // Plugin and marketplace names as Claude writes them (letters, digits, '.', '_', '-'), so an
 // ID made from them stays unambiguous and carries no control characters.
@@ -185,7 +185,7 @@ async function scanSkills({ roots, layers, diagnostics, problems }) {
         ...(visibility ? { visibility } : {}), enablement: source, ...(source.locked ? { protection: 'managed' } : {}), managed: !!source.locked, isLink,
         // Visibility is a settings entry SkillDock can write (HLD 3.4) unless managed settings decide it.
         canToggle: !unknown && !source.locked, canRemove: false, canUpdate: false,
-        reason: unknown ?? (source.locked ? '可见性由组织托管设置决定，不能在这里修改。' : READ_ONLY), statusEvidence: 'Claude 技能目录 + 设置中的技能可见性', updatedAt: detail.updatedAt,
+        ...(unknown ?? source.locked ? { reason: unknown ?? '可见性由组织托管设置决定，不能在这里修改。' } : {}), statusEvidence: 'Claude 技能目录 + 设置中的技能可见性', updatedAt: detail.updatedAt,
         revision: revision({ real, visibility: visibility ?? String(value), source }),
       });
     }

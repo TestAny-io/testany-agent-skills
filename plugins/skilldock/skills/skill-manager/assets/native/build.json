@@ -12,7 +12,7 @@
     "src/AgentEnvironments.tsx": "807f1529152221823120ef14090212ea4baa287510a139da9874c3048041c1a8",
     "src/AgentUI.css": "f1c5a1009ed5518a61634a0a42da6c0b917c07f7285aee447c5e984dca7ce8c2",
     "src/AgentUI.tsx": "7fa0d0ba3e0ba4790132838106688ed417d4a61e0e62ff94e538d2ce83df7747",
-    "src/App.tsx": "edf5e933accfdb2caa6ae655543689b46f328ffad7bbc55fdde1c79aa452403a",
+    "src/App.tsx": "a078d6615899272062f8c2a30c0b376164e3d8d9e97cce5fa989bdfaa026f14d",
     "src/CompatibilityWarnings.tsx": "dc7f57da6a06829e5e24fc6149535f69bd6128bd0cbae93e10ee423a623d1f62",
     "src/DesktopUI.tsx": "a827ba36401fa368b332297efea7dc1d0a8151844b4179e0d7eae189fb99d063",
     "src/DiffBrowser.css": "42fb14f283c1be1c73ce375286f9cc29259351dc129a730a4643ebb4afacac94",
@@ -21,7 +21,7 @@
     "src/DuplicateSkillsDialog.tsx": "ef23afe5f3b5a194f7b352d4e8d067be5c07f920411c3746c4feca10708b3b0c",
     "src/ExternalLink.tsx": "c1900acfd24c1ebbaba2125c30063368a593ec0c2c06022496cf54cf6e433a96",
     "src/GitSourceFields.tsx": "8086774f5a6973d77be0b5b7b15403db37bd2b224f9ea34966f6a65f9e6e2b12",
-    "src/InstallDialog.tsx": "70065a4101ba33e7f23ad0902185f21df074db39fabbee180725446fec5a9786",
+    "src/InstallDialog.tsx": "ecb3ea26f97b143e6729d7d332a6160cee2468b5f8a37ce5812b1fb71238f4f2",
     "src/LibraryUI.tsx": "b75579cfd53f320476ca6352d2d40584fa1b96b91409a7bcc4dd660a77a64108",
     "src/Modal.tsx": "77548e5ee4a95fbea3a62841fecf81761abe9f8a84976d1217c108bdce860e8f",
     "src/NativeConfirm.tsx": "88d80b292af9d115f16929b574529785de96cc0481d7845f7504954aedd40407",
@@ -41,8 +41,8 @@
     "src/desktop.css": "15814dc52392f308d2afa57b9c076d9149e22e06228e3424264984d939ec03ce",
     "src/i18n.tsx": "a2327d918accb6e9114e8779c7b6b74e5bd7db3ce4489adb1f8aba74da09c6a4",
     "src/i18n/errors.json": "c5b132a42055099209988fbcc5b4ea2a003a86b3cf0f2d370cdf26b9937e4efc",
-    "src/i18n/messages.json": "9dbefc3b8095a72129fca89faf4e19326a61448ad11c048b86aada7f4eaf27c6",
-    "src/i18n/server-messages.json": "2ca6f3137828a5ef614e701d1d8415146767e9ab35ff4933f7164dc679c7e5db",
+    "src/i18n/messages.json": "b5f1082e1ee866310bb0e72a6b425f487a239d124f2d861c3b9f57bdb2959b92",
+    "src/i18n/server-messages.json": "d2909c16ded3db5aa0c07f984702694e4275187648c4100ee3c4025b61746fc5",
     "src/main.tsx": "0b17df37f3ddac17ba356b85184252cd545e0afa93a2246a8202b30b8a879fff",
     "src/native-icon.svg": "9b7d7c19189c56b43fe691c0cb01e19b1f88abc61d1d130c974c5f5411b7288c",
     "src/plugin-presentation.ts": "f221117671d3b93250a16e6e54326879e6ae1a6aaf3e50dea401e8fdfb86dadf",
@@ -55,7 +55,7 @@
   },
   "artifacts": {
     "server.mjs": "70aa636d69c178cf496ea1a6c0fb870e83dec0776b87410542fcec30a432ec1d",
-    "ui.html": "2b5b84e0bce358c3cd582d27e01d1b419ea7c539b80f1b87fd98f3caede04f51",
+    "ui.html": "e8f06d6b15905ffc3ddfbb4be5736b0fb3629995880559360b394d390eafa376",
     "icon.svg": "9b7d7c19189c56b43fe691c0cb01e19b1f88abc61d1d130c974c5f5411b7288c",
     "THIRD_PARTY_NOTICES.txt": "0580c525bbaf94d006050bf773e482a470c9f983971e23b26e8048505e11bd4f"
   }

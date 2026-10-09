@@ -11,8 +11,10 @@ import { PluginSkillPicker } from "./PluginSkillPicker";
 import { ExternalLink } from './ExternalLink';
 import { matchesPlugin, pluginTitle } from './plugin-presentation';
 
-export function InstallDialog({ kind, data, initialPlugin, initialMarket = false, busy, action, onClose, onMarket }: {
+export function InstallDialog({ kind, data, initialPlugin, initialMarket = false, busy, action, onClose, onMarket, agents = [] }: {
   kind: "skill" | "plugin"; data: Snapshot; initialPlugin?: Plugin; initialMarket?: boolean; busy: string | null; action: ActionHandler; onClose: () => void; onMarket: () => void;
+  /** Agents whose management is enabled; a skill install offers the choice only with more than one. */
+  agents?: ("codex" | "claude")[];
 }) {
   const plugin = kind === "plugin";
   const [sourceType, setType] = useState<"local" | "git" | "market">(initialPlugin || initialMarket || plugin ? "market" : "local");
@@ -22,6 +24,11 @@ export function InstallDialog({ kind, data, initialPlugin, initialMarket = false
   const [selection, setSelection] = useState<Plugin | null>(null);
   const [enabledSkills, setEnabledSkills] = useState<string[]>([]);
   const [scope, setScope] = useState<"user" | "project" | "local">("user");
+  // A skill goes to Codex, or to Claude's personal skills or the current project's .claude/skills (HLD 3.4).
+  const chooseAgent = kind === "skill" && agents.length > 1;
+  const [agent, setAgent] = useState<"codex" | "claude">(agents.includes("codex") || !agents.length ? "codex" : agents[0]);
+  const [skillScope, setSkillScope] = useState<"user" | "project">("user");
+  const side = kind === "skill" && agent === "claude" ? { agent: "claude" as const } : {};
   const initialized = useRef(false);
   const [error, setError] = useState(""); const review = preview;
   const [remoteResult, setRemoteResult] = useState<ActionResult['remoteInstall']>();
@@ -51,8 +58,8 @@ export function InstallDialog({ kind, data, initialPlugin, initialMarket = false
       if (direct?.remote) setAttempted(true);
       const skillChoice = direct?.canSelectSkills ? { enabledSkills } : {};
       const result = await action(selection && preview ? { action: "plugin.install", id: selection.id, previewId: preview.id, ...skillChoice, ...(claudePreview ? { scope } : {}) } : preview
-        ? { action: plugin ? "plugin.installSource" : "skill.install", previewId: preview.id, ...skillChoice }
-        : { action: plugin ? "plugin.previewInstall" : "skill.previewInstall", sourceType: sourceType === "git" ? "git" : "local", source: source.trim(), ...(subpath.trim() ? { subpath: subpath.trim() } : {}), ...(sourceType === "git" && gitRef.trim() ? { ref: gitRef.trim() } : {}) });
+        ? { action: plugin ? "plugin.installSource" : "skill.install", previewId: preview.id, ...skillChoice, ...side }
+        : { action: plugin ? "plugin.previewInstall" : "skill.previewInstall", ...side, ...("agent" in side ? { scope: skillScope } : {}), sourceType: sourceType === "git" ? "git" : "local", source: source.trim(), ...(subpath.trim() ? { subpath: subpath.trim() } : {}), ...(sourceType === "git" && gitRef.trim() ? { ref: gitRef.trim() } : {}) });
       if (result?.remoteInstall) setRemoteResult(result.remoteInstall);
       else if (result?.pluginPreview) acceptPreview(result.pluginPreview);
       else if (result?.preview) setPreview(result.preview);
@@ -112,7 +119,10 @@ export function InstallDialog({ kind, data, initialPlugin, initialMarket = false
             </button>)}</div>
             {!listed.length && <div className="empty-state"><Globe2 size={28} /><h3>{t("没有找到匹配的插件")}</h3><p>{t("调整筛选，或添加一个 Marketplace 来源。")}</p><Button onClick={onMarket}>{t("添加来源")}</Button></div>}
             {listed.length > limit && <Button onClick={() => setLimit(limit + 30)}>{t("显示更多")}</Button>}
-          </div> : sourceType === "git" ? <GitSourceFields kind={kind} source={source} subpath={subpath} gitRef={gitRef} setSource={setSource} setSubpath={setSubpath} setRef={setRef} /> : <label className="field"><span>{t(plugin ? "插件目录路径" : "技能目录路径")}</span><input required value={source} disabled={!!busy} autoComplete="off" placeholder={plugin ? "/Users/you/plugins/my-plugin" : "/Users/you/skills/my-skill"} onChange={e => setSource(e.target.value)} /></label>}
+          </div> : <>{chooseAgent && <div className="scope-choice" role="radiogroup" aria-label={t("安装到")}>
+            {agents.map(item => <label key={item}><input type="radio" name="skill-agent" checked={agent === item} onChange={() => setAgent(item)} />{t("安装到 {v0}", { v0: item === "codex" ? "Codex" : "Claude" })}</label>)}
+            {agent === "claude" && (["user", "project"] as const).map(item => <label key={item}><input type="radio" name="skill-scope" checked={skillScope === item} onChange={() => setSkillScope(item)} />{t(item === "user" ? "个人技能（所有项目）" : "当前项目（.claude/skills）")}</label>)}
+          </div>}</>}{sourceType === "market" ? null : sourceType === "git" ? <GitSourceFields kind={kind} source={source} subpath={subpath} gitRef={gitRef} setSource={setSource} setSubpath={setSubpath} setRef={setRef} /> : <label className="field"><span>{t(plugin ? "插件目录路径" : "技能目录路径")}</span><input required value={source} disabled={!!busy} autoComplete="off" placeholder={plugin ? "/Users/you/plugins/my-plugin" : "/Users/you/skills/my-skill"} onChange={e => setSource(e.target.value)} /></label>}
           {plugin && sourceType !== "market" && <p className="field-hint">{t("选择单个插件的目录，内含 plugin.json。无需先添加 Marketplace；SkillDock 会记录来源，供后续更新使用。")}</p>}
         </>}
         {error && <div className="field-error" role="alert"><ServiceMessage value={error} error /></div>}

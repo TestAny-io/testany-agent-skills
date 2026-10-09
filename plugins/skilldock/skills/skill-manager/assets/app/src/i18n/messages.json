@@ -2458,5 +2458,17 @@
   "当前项目，所有协作者（共享设置，需要确认）": {
     "en": "Current project, all collaborators (shared settings, needs confirmation)",
     "ja": "現在のプロジェクト、すべての共同作業者（共有設定、確認が必要）"
+  },
+  "安装到 {v0}": {
+    "en": "Install to {v0}",
+    "ja": "{v0} にインストール"
+  },
+  "个人技能（所有项目）": {
+    "en": "Personal skill (all projects)",
+    "ja": "個人スキル（すべてのプロジェクト）"
+  },
+  "当前项目（.claude/skills）": {
+    "en": "Current project (.claude/skills)",
+    "ja": "現在のプロジェクト（.claude/skills）"
   }
 }

@@ -1454,6 +1454,7 @@ export default function App() {
       )}
       {dialog?.type === "install" && data && (
         <InstallDialog kind="skill" data={data} onMarket={() => setDialog({ type: "market" })}
+          agents={(data.agents ?? []).filter(item => item.installed && item.management === "enabled").map(item => item.agent)}
           busy={busy}
           action={action}
           onClose={() =>

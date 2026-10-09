@@ -1214,5 +1214,53 @@
   "已在项目本地设置中把 Claude 技能 {v0} 设为关闭。新会话生效。": {
     "en": "Set Claude skill {v0} to off in the project's local settings. New sessions use it.",
     "ja": "プロジェクトのローカル設定で Claude スキル {v0} をオフにしました。新しいセッションで有効になります。"
+  },
+  "预览已过期或属于其他环境，请重新预览。": {
+    "en": "The preview has expired or belongs to another environment. Preview again.",
+    "ja": "プレビューの有効期限が切れたか、別の環境のものです。もう一度プレビューしてください。"
+  },
+  "已在 Claude 中安装技能 {v0}。新的 Claude 会话会加载它。": {
+    "en": "Installed skill {v0} in Claude. New Claude sessions load it.",
+    "ja": "Claude にスキル {v0} をインストールしました。新しい Claude セッションで読み込まれます。"
+  },
+  "已把 Claude 技能 {v0} 移至可恢复区；可从操作记录恢复。": {
+    "en": "Moved Claude skill {v0} to the restorable area. You can restore it from the activity log.",
+    "ja": "Claude スキル {v0} を復元可能領域に移動しました。操作履歴から復元できます。"
+  },
+  "已关联 Claude 技能 {v0} 的更新来源，本机文件保持原样。": {
+    "en": "Linked an update source to Claude skill {v0}; the files on this Mac are unchanged.",
+    "ja": "Claude スキル {v0} に更新元を関連付けました。この Mac のファイルは変更していません。"
+  },
+  "已更新 Claude 技能 {v0}，旧版已保留，可从操作记录恢复。": {
+    "en": "Updated Claude skill {v0}. The previous version is kept and can be restored from the activity log.",
+    "ja": "Claude スキル {v0} を更新しました。旧版は保持され、操作履歴から復元できます。"
+  },
+  "已恢复 Claude 技能 {v0}。": {
+    "en": "Restored Claude skill {v0}.",
+    "ja": "Claude スキル {v0} を復元しました。"
+  },
+  "两侧共用的技能在 Claude 一侧的移除、更新与来源关联随后续版本提供。": {
+    "en": "Removing, updating or linking a source on the Claude side of a skill both Agents share comes in a later version.",
+    "ja": "両方の Agent が共有するスキルについて、Claude 側での削除・更新・更新元の関連付けは今後のバージョンで提供します。"
+  },
+  "这个技能不支持此操作。": {
+    "en": "This skill does not support this action.",
+    "ja": "このスキルはこの操作に対応していません。"
+  },
+  "技能实际位置越出 Claude 的技能根。": {
+    "en": "The skill's actual location is outside Claude's skills root.",
+    "ja": "スキルの実際の場所が Claude のスキルルートの外にあります。"
+  },
+  "Claude 技能只能安装到个人技能目录或项目的 .claude/skills。": {
+    "en": "A Claude skill can be installed only into the personal skills directory or the project's .claude/skills.",
+    "ja": "Claude スキルは個人スキルディレクトリかプロジェクトの .claude/skills にのみインストールできます。"
+  },
+  "Claude 环境当前为只读，SkillDock 不会修改 Claude 中的技能、插件和 marketplace。请在 SkillDock 的“Agent 环境”页启用 Claude 管理后重试。": {
+    "en": "The Claude environment is read-only, so SkillDock does not change Claude's skills, plugins or marketplaces. Turn on Claude management on SkillDock's Agent environments page and try again.",
+    "ja": "Claude 環境は読み取り専用のため、SkillDock は Claude のスキル、プラグイン、マーケットプレイスを変更しません。SkillDock の「Agent 環境」ページで Claude の管理を有効にしてから再試行してください。"
+  },
+  "原位置的管理边界已变化。": {
+    "en": "The management boundary of the original location has changed.",
+    "ja": "元の場所の管理境界が変わりました。"
   }
 }
