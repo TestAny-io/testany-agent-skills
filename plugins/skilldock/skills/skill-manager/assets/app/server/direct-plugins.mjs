@@ -1,5 +1,6 @@
 // SPDX-License-Identifier: AGPL-3.0-only
 import fs from 'node:fs/promises';
+import fsSync from 'node:fs';
 import path from 'node:path';
 import { fail, hash, safeSegment, inside, writeJson, verifyDescendantDirectory, publicSource } from './files.mjs';
 import { readPluginManifest } from './cli.mjs';
@@ -59,8 +60,9 @@ export async function inspectClaudePlugin(directory, fallbackName) {
   const commands = (await entries('commands')).filter(entry => entry.isFile() && entry.name.endsWith('.md')).length;
   if (!claude && !skills.length && !commands) fail(422, 'UNSUPPORTED_FOR_AGENT', '这个来源没有 Claude 能加载的内容（Claude 的 plugin.json、skills 或 commands），不能安装到 Claude。');
   const manifest = claude ?? codex ?? {};
-  const name = typeof manifest.name === 'string' ? manifest.name : fallbackName ?? path.basename(directory);
-  if (!/^[A-Za-z0-9][A-Za-z0-9._-]{0,127}$/.test(name)) fail(422, 'INVALID_NAME', '插件名称只能包含字母、数字、点、下划线与连字符。');
+  const named = typeof manifest.name === 'string'; const name = named ? manifest.name : fallbackName ?? path.basename(directory);
+  if (!/^[A-Za-z0-9][A-Za-z0-9._-]{0,127}$/.test(name)) fail(422, 'INVALID_NAME', named ? '插件名称只能包含字母、数字、点、下划线与连字符。'
+    : '没有 manifest 时，插件名称取自来源目录名，只能包含字母、数字、点、下划线与连字符；可以改目录名，或在 .claude-plugin/plugin.json 中写 name。');
   return { name, version: typeof manifest.version === 'string' ? manifest.version : '', description: typeof manifest.description === 'string' ? manifest.description : '',
     mode: claude ? 'skills-dir' : 'marketplace', manifests: [...(claude ? ['claude'] : []), ...(codex ? ['codex'] : [])].sort(), skills: skills.sort(), commands };
 }
@@ -83,7 +85,14 @@ export function claudeDirectRoot(env, name) {
  * a same-named marketplace of the user's is never taken for it (4d review P3-01).
  */
 export function ownClaudeDirect(listed, tracked, env) {
-  return !!listed && !!tracked && tracked.root === claudeDirectRoot(env, listed.name) && listed.source === publicSource(tracked.root);
+  return !!listed && !!tracked && tracked.root === claudeDirectRoot(env, listed.name) && samePath(listed.source, tracked.root);
+}
+// Another spelling of the same directory (a trailing slash, a link on the way) is the same one (re-review P3-03).
+function samePath(shown, root) {
+  if (shown === publicSource(root)) return true;
+  if (typeof shown !== 'string' || !path.isAbsolute(shown)) return false;
+  if (path.resolve(shown) === path.resolve(root)) return true;
+  try { return fsSync.realpathSync(shown) === fsSync.realpathSync(root); } catch { return false; }
 }
 
 /** A marketplace SkillDock wrote for a Claude source shows that source. */

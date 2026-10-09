@@ -54,7 +54,8 @@ export function createClaudeActions({ root, read, writer, journal, git, removeSk
     if (!market.startsWith('skilldock-') || !cleanupDirect) return '';
     try {
       const outcome = await cleanupDirect(market);
-      return outcome === 'removed' ? removedNote : outcome === 'elsewhere' ? `\n其他项目中仍有从 SkillDock 生成的本地 marketplace ${market} 安装的插件，它保留在 Claude 中。` : '';
+      return outcome === 'removed' ? removedNote : outcome === 'elsewhere' ? `\n其他项目中仍有从 SkillDock 生成的本地 marketplace ${market} 安装的插件，它保留在 Claude 中。`
+        : outcome === 'foreign' ? `\nClaude 中同名的 marketplace ${market} 指向别处，未改动；已删除 SkillDock 自己的文件。` : '';
     } catch (error) {
       const message = `SkillDock 生成的本地 marketplace ${market} 未能清理：${redact(error.message)}可在 Marketplace 页移除它，或停用 Claude 管理时一并清理。`;
       await journal({ id: crypto.randomUUID(), action: 'marketplace.remove', agent: 'claude', target: market, createdAt: now(), status: 'error', message, reasonCode: error.code || 'OPERATION_FAILED', canRestore: false }).catch(() => {});

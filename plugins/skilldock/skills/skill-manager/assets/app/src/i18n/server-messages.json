@@ -1570,5 +1570,17 @@
   "选中的技能在预览后发生变化，请重新选择。": {
     "en": "A selected skill changed after the preview; choose again.",
     "ja": "選んだスキルがプレビュー後に変わりました。もう一度選んでください。"
+  },
+  "没有 manifest 时，插件名称取自来源目录名，只能包含字母、数字、点、下划线与连字符；可以改目录名，或在 .claude-plugin/plugin.json 中写 name。": {
+    "en": "Without a manifest the plugin is named after the source directory, and the name may contain only letters, digits, dots, underscores and hyphens; rename the directory, or set name in .claude-plugin/plugin.json.",
+    "ja": "manifest がない場合、プラグイン名はソースのディレクトリ名から取られ、英字、数字、ドット、アンダースコア、ハイフンだけが使えます。ディレクトリ名を変えるか、.claude-plugin/plugin.json に name を書いてください。"
+  },
+  "Claude 中同名的 marketplace {v0} 指向别处，未改动；已删除 SkillDock 自己的文件。": {
+    "en": "Claude's marketplace named {v0} points elsewhere and was left unchanged; SkillDock's own files were deleted.",
+    "ja": "Claude にある同名の marketplace {v0} は別の場所を指しているため変更していません。SkillDock 自身のファイルは削除しました。"
+  },
+  "这次生成的本地 marketplace 仍有从它安装的插件，已保留。": {
+    "en": "Plugins are still installed from the local marketplace generated this time, so it was kept.",
+    "ja": "今回生成したローカル marketplace からインストールしたプラグインがまだあるため、残しました。"
   }
 }

@@ -56,7 +56,7 @@ entities:
           note: REQ-SDX-004、REQ-SDX-015、REQ-SDX-016、8.3 第 3 条
     - id: DEC-SDX-004
       title: Claude 清单以官方列表为主证据
-      statement: Claude 插件与 marketplace 清单以命令行列表输出为主证据，文件系统只作补充；格式未知或不可读时该环境降级为“无法确认”并禁用写操作。
+      statement: Claude 插件与 marketplace 清单以命令行列表输出为主证据，文件系统只作补充；格式未知或不可读时该环境降级为“无法确认”并禁用写操作。“可安装插件”一项例外，只取 marketplace 副本（第 10 节 DG-NO-AVAILABLE，v1.18）。
       status: approved
       scope: in
       decision: 官方列表为准，缓存目录、marketplace 副本与设置文件只读补充，未知格式降级

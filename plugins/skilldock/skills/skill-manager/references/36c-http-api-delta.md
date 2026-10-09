@@ -8,8 +8,8 @@
 | 项目 | 内容 |
 |------|------|
 | 契约 | API-SDX-001-C HTTP 接口增量 |
-| 版本 | 0.17 |
-| 状态 | 第 12 轮契约复核 APPROVED（v0.12）。v0.13 处理第 12 轮的 P2；v0.14 为阶段 3 试用与阶段 4a、4b 实现中的澄清（索引 0.15），v0.15 为阶段 4d 实现中的澄清（索引 0.16），v0.16 处理阶段 4d 代码评审（索引 0.17），v0.17 处理阶段 4c 代码评审（索引 0.18），均待增量复核。第 4、5 节随 0.10.3 冻结（HLD 11A 条件 1a，0.10.3 已发布）；其余各节属条件 1b |
+| 版本 | 0.18 |
+| 状态 | 第 12 轮契约复核 APPROVED（v0.12）。v0.13 处理第 12 轮的 P2；v0.14 为阶段 3 试用与阶段 4a、4b 实现中的澄清（索引 0.15），v0.15 为阶段 4d 实现中的澄清（索引 0.16），v0.16 处理阶段 4d 代码评审（索引 0.17），v0.17 处理阶段 4c 代码评审（索引 0.18），v0.18 处理 4c、4d 合并复审（索引 0.19），均待增量复核。第 4、5 节随 0.10.3 冻结（HLD 11A 条件 1a，0.10.3 已发布）；其余各节属条件 1b |
 | Owner | SkillDock 维护者（产品 Owner：用户） |
 | 服务方 | SkillDock 0.11.x 本机服务（仅监听 `127.0.0.1`） |
 | 消费方 | 0.11.x 浏览器界面与原生界面；0.10.2、0.10.3 的原生界面（经各自原生入口代理）；0.10.2 启动器与原生入口、0.10.3 转交链（只读健康检查） |
@@ -195,7 +195,7 @@ export interface NativeRule {
 - **批量移除**（同名副本：`skill.previewRemoval`、`skill.removeSelected`）：2 版请求的 `ids` 可以包含 Claude 对象 ID；预览中任何一项的移除会移走两侧共用的真实目录，或改动另一侧插件的内容时，预览结果带相应的 `nativeRules`，执行时须带 `confirm: true`，否则返回 `CONFIRMATION_REQUIRED`。批量中的共用对象一律作用于 Codex 侧的发现路径（与 1 版一致）。整批仍保持 0.10.2 的原子语义：整组签名与任一项的核对（含 Claude 对象与共用技能的状态：各副本由哪些 Agent 看到、各侧的移除方式）失败都整批拒绝（`REMOVAL_CHANGED`），一份都不移。2 版执行的环境检查按各项所属的一侧：含 Codex 项时 Codex 只读才拒绝（`AGENT_READ_ONLY`），只含 Claude 项时不看 Codex 的状态。1 版请求保持 0.10.2 行为。
 - **更新**作用于真实目录，只能经 `canUpdate` 为真的一侧发起，`UpdateTarget.agent` 取该侧；预览带一条 `kind: "scope"` 的 `NativeRule`，说明两侧看到的内容都会改变。`canUpdate` 的规则：
   - 一侧可更新，须该侧发现路径就是真实目录（技能根本身可以是链接），且该侧分区有来源记录；
-  - 两侧都满足时（例如两侧的技能根都链接到同一目录），以 **Codex 侧**为准，Claude 侧 `canUpdate` 为假，`reason` 说明“由 Codex 侧的来源记录管理”；两侧来源记录指向不同来源时，两侧都不可更新，`reason` 说明冲突，2 版的检查更新与更新返回 `SOURCE_CONFLICT`（1 版保持 0.10.2）；
+  - 两侧都满足时（例如两侧的技能根都链接到同一目录），以 **Codex 侧**为准，Claude 侧 `canUpdate` 为假，`reason` 说明“由 Codex 侧的来源记录管理”；两侧来源记录指向不同来源时，两侧都不可更新，`reason` 说明冲突，2 版的检查更新与更新（含更新页）返回 `SOURCE_CONFLICT`（1 版保持 0.10.2）；批量执行（`updates.run`）与后台计划中的这类技能随阶段 5 处理（届时在更新项中标为不可检查）；
   - 关联来源（`skill.previewSource`、`skill.connectSource`）写入请求一侧的分区；2 版请求遇到另一侧已有指向不同来源的记录时拒绝，返回 `SOURCE_CONFLICT`，`message` 说明怎样解除（例如在另一侧重新关联到相同来源）；预览时即在结果中带一条 `kind: "scope"` 的说明，关联时才拒绝；本地目录按真实路径比较，子目录或 ref 不同即为不同来源；1 版请求不做冲突检查，照 0.10.2 写入，冲突状态按上一条处理（两侧都不可更新）。经一侧更新后，另一侧的同源记录同步刷新内容指纹；恢复一次更新（`activity.restore`）时，另一侧的同源记录同样还原为更新前的指纹。两者都是为了避免日后误报本地修改。
 - **跨侧影响提示**：Codex 侧独立技能的真实路径位于某个 Claude 插件的目录内（含 Claude 技能目录插件 `名称@skills-dir`）时，虽然不合并，2 版请求对它的移除与更新在会移走或改写插件目录内的内容时同样要求确认（只移除指向插件目录的链接不需要），`nativeRules` 中一条 `kind: "affected-plugins"` 列出受影响的 Claude 插件；反之亦然（AC-003）。更新页的 `update.check`、`update.apply` 以技能为目标时，同样按本节核对共用修订号、来源冲突与跨侧确认，说明随结果返回。只在另一侧环境已被发现时提示；确认后，操作的效果与不提示时相同。后台计划的确认门槛与此不同，是“另一侧已启用管理”：单次操作的提示只是界面中多一次确认，计划的确认会改变后台结果，须守住 MR-SDX-001，两者有意不统一。后台计划中的这类技能：
   - 另一侧已启用管理时，2 版 `schedule.configure` 新增这类目标、改变其安装身份，或把计划改为自动应用、启用一个自动应用的已停用计划（这两种计划级改动会开始自动应用；启用仅检查的计划不需要确认），都须对其中的这类目标带 `confirm: true`，否则返回 `CONFIRMATION_REQUIRED`；确认记在计划内容中（36a 第 2 节由 0.11.x 自定），重新提交计划时保留已有确认；原样重新提交的目标保持原状态，不算修改；2 版 `schedule.configure` 带 `confirm: true` 时，计划中全部待确认的这类目标都记为已确认（“在计划设置中确认”即这一请求），不带时保持原状态；返回 `CONFIRMATION_REQUIRED` 时，`nativeRules` 覆盖带 `confirm` 后将被确认的全部这类目标（本次新增或改变的，以及原有待确认的），界面主动发起确认时同样列出，确认范围与确认框所列一致；
@@ -243,7 +243,7 @@ export interface NativeRule {
 | 操作 | Claude 侧语义 |
 |------|---------------|
 | `plugin.install` | 经 Claude 命令行安装，显式带作用域 |
-| `plugin.previewInstall`、`plugin.installSource` | 从本地目录或 Git 安装（HLD 3.3、DEC-SDX-025）。来源带 Claude manifest 时作为技能目录插件放入个人技能目录或当前项目的 `.claude/skills`：文件事务，不经命令行、不写设置，来源记录写 Claude 分区，按 Claude 清单读回。不带 manifest 但有 Claude 能加载的技能或命令时，在数据目录生成 SkillDock 管理的本地 marketplace，登记后经命令行安装，只允许 `user`、`local`。两者都没有返回 `UNSUPPORTED_FOR_AGENT`；同一来源已安装返回 `PLUGIN_ALREADY_INSTALLED`。预览为 `PluginInstallPreview`（`agent`、`manifests`、`scopes`、`defaultScope`、`nativeRules`；`canSelectSkills` 为假）。没有任何 manifest 时插件名取来源本身（本地目录名；Git 来源取子路径末段，子路径为根时取仓库名），不合规返回 `INVALID_NAME`。Claude 中已有同名、但指向别处的 marketplace 时返回 `MARKETPLACE_EXISTS`；`enabledSkills` 返回 `UNSUPPORTED_FOR_AGENT`。安装失败时撤销这次生成的 marketplace（仍有从它安装的插件时保留），结果中说明。从这类 marketplace 安装的最后一个插件被卸载（命令行清单与 Claude 的安装记录中都没有其他安装）、或这个 marketplace 被移除时，经 `marketplace remove` 并读回后删除生成的文件与登记；清理失败不改变已完成的卸载或移除，结果追加说明，另记一条 `marketplace.remove` 的失败记录。快照中这类 marketplace 带 `direct: true` 与原始来源；它在 Claude 中的 `marketplace.refresh` 只重读数据目录中的副本，不从原始来源取新内容（随阶段 5） |
+| `plugin.previewInstall`、`plugin.installSource` | 从本地目录或 Git 安装（HLD 3.3、DEC-SDX-025）。来源带 Claude manifest 时作为技能目录插件放入个人技能目录或当前项目的 `.claude/skills`：文件事务，不经命令行、不写设置，来源记录写 Claude 分区，按 Claude 清单读回。不带 manifest 但有 Claude 能加载的技能或命令时，在数据目录生成 SkillDock 管理的本地 marketplace，登记后经命令行安装，只允许 `user`、`local`。两者都没有返回 `UNSUPPORTED_FOR_AGENT`；同一来源已安装返回 `PLUGIN_ALREADY_INSTALLED`。预览为 `PluginInstallPreview`（`agent`、`manifests`、`scopes`、`defaultScope`、`nativeRules`；`canSelectSkills` 为假）。没有任何 manifest 时插件名取来源本身（本地目录名；Git 来源取子路径末段，子路径为根时取仓库名），不合规返回 `INVALID_NAME`。Claude 中已有同名、但指向别处的 marketplace 时返回 `MARKETPLACE_EXISTS`；`enabledSkills` 返回 `UNSUPPORTED_FOR_AGENT`。安装失败时撤销这次生成的 marketplace（仍有从它安装的插件时保留），两种情形都在结果中说明。从这类 marketplace 安装的最后一个插件被卸载（命令行清单与 Claude 的安装记录中都没有其他安装）、或这个 marketplace 被移除时，经 `marketplace remove` 并读回后删除生成的文件与登记；清理失败不改变已完成的卸载或移除，结果追加说明，另记一条 `marketplace.remove` 的失败记录。快照中这类 marketplace 带 `direct: true` 与原始来源；它在 Claude 中的 `marketplace.refresh` 只重读数据目录中的副本，不从原始来源取新内容（随阶段 5） |
 | `plugin.toggle` | 写对应作用域设置中的启用条目；不支持“只启用部分技能”（`UNSUPPORTED_FOR_AGENT`） |
 | `plugin.remove` | 卸载，`keepData` 决定是否保留数据。技能目录插件位于个人技能目录或当前项目的 `.claude/skills` 时，确认后移到可恢复区，可经 `activity.restore` 恢复；指向其内容的 Codex 独立技能在确认的 `nativeRules` 中列出（`kind: "scope"`）；其他位置的不可移除（`canRemove` 为假并说明原因） |
 | `marketplace.add`、`marketplace.refresh`、`marketplace.remove` | 经 Claude 命令行；移除前在确认框列出从该 marketplace 安装的插件。`marketplace.add` 的 `scope` 决定声明写在哪一层设置（缺省 `user`）；Claude 侧不支持 `ref`（`UNSUPPORTED_FOR_AGENT`）；新 marketplace 按添加前后清单的差异读回。`marketplace.remove` 由 Claude 从所有设置层删除声明并卸载从它安装的插件：项目共享设置声明了它、或其中有 project 范围的安装时，确认的 `nativeRules` 另有一条 `kind: "scope"` 说明会改动协作者共享的 `.claude/settings.json`；组织托管设置声明的不可移除（`HOST_MANAGED`）；结果只说读回证实的卸载数 |
@@ -336,7 +336,7 @@ export interface NativeRule {
 - 沿用现有边界：仅绑定 `127.0.0.1`；同源静态页与接口；校验 Host、Origin、跨站标记；写请求要求会话令牌与 JSON；请求体 ≤ 32 KiB。
 - 快照与详情不返回 Claude 设置中与功能无关的键（环境变量、凭证辅助程序等），不返回任何凭证。
 - 1 版快照（不带 `multiAgent=1`）的 `activity` 不含 Claude 一侧的操作记录，保持 0.10.2 语义；过滤在最近 1000 条记录中进行，Claude 记录超过这个数且都比 Codex 记录新时，1 版看到的 Codex 记录会少于 200 条。
-- 首屏快照不调用联网的命令（如带 `--available` 的列表）。0.11 的多 Agent 快照中，Claude 的未安装插件取自 Claude 在本机保存的 marketplace 副本（HLD 3.2 表中的辅助来源，不联网）。0.11 不调用联网的 `--available` 清单：可安装插件取自本机副本，刷新 marketplace（`marketplace.refresh`）即更新副本（阶段 4d 决定）。
+- 首屏快照不调用联网的命令（如带 `--available` 的列表）。0.11 的多 Agent 快照中，Claude 的未安装插件取自 Claude 在本机保存的 marketplace 副本（HLD 3.2 表中“可安装插件”的证据，不联网；HLD 第 10 节 DG-NO-AVAILABLE）。0.11 不调用联网的 `--available` 清单：可安装插件取自本机副本，刷新 marketplace（`marketplace.refresh`）即更新副本（阶段 4d 决定）。
 
 ## 11. 兼容性与版本策略
 

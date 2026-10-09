@@ -11,6 +11,7 @@ import { createService } from '../server/service.mjs';
 import { writeGeneration } from '../server/generation.mjs';
 import { claudeWriteArgs } from '../server/claude-writer.mjs';
 import { claudeDirectLocation } from '../server/direct-plugins.mjs';
+import { runProcess } from '../server/cli.mjs';
 import { assertTranslated } from './i18n-helper.mjs';
 
 const write = async (file, value) => { await fs.mkdir(path.dirname(file), { recursive: true }); await fs.writeFile(file, typeof value === 'string' ? value : JSON.stringify(value)); };
@@ -49,7 +50,7 @@ async function world(t, { repo = false, cliAvailable = true, before } = {}) {
     claude.calls.push(args.join(' ')); claudeWriteArgs(args); claude.locks.push(await lockHeld());
     const [, verb, a, b] = args; const scope = args[args.indexOf('--scope') + 1];
     if (verb === 'marketplace' && a === 'add' && claude.failAdd) throw Object.assign(new Error('Claude 命令行 plugin marketplace add 失败：stand-in'), { status: 502, code: 'CLI_FAILED' });
-    if (verb === 'marketplace' && a === 'add' && !claude.noopAdd) { const name = JSON.parse(await fs.readFile(path.join(b, '.claude-plugin/marketplace.json'), 'utf8')).name; claude.marketplaces.push({ name, source: 'directory', path: b, installLocation: b }); }
+    if (verb === 'marketplace' && a === 'add' && !claude.noopAdd) { const name = JSON.parse(await fs.readFile(path.join(b, '.claude-plugin/marketplace.json'), 'utf8')).name; const shown = claude.slash ? `${b}/` : b; claude.marketplaces.push({ name, source: 'directory', path: shown, installLocation: shown }); }
     // Claude uninstalls what came from a marketplace it removes.
     if (verb === 'marketplace' && a === 'remove' && !claude.stuck) { claude.marketplaces = claude.marketplaces.filter(item => item.name !== b); claude.plugins = claude.plugins.filter(item => !item.id.endsWith(`@${b}`)); if (claude.breakAfterRemove) claude.listFails = true; }
     if (verb === 'install' && !claude.noopInstall) claude.plugins.push({ id: a, scope, enabled: true, version: '2.0.0', ...(scope === 'user' ? {} : { projectPath: cwd }) });
@@ -99,6 +100,7 @@ test('a source with a Claude manifest goes into a skills directory, leaves resto
   const removed = await w.act({ action: 'plugin.remove', agent: 'claude', id: plugin.id, expectedRevision: plugin.revision, confirm: true });
   assert.match(removed.message, /已把 Claude 插件 tidy 移至可恢复区/);
   assert.equal(await exists(path.join(w.configDir, 'skills/tidy')), false);
+  assert.deepEqual(Object.keys((await w.registry()).claudeSources ?? {}), [], '来源记录随移除删去');
   const record = (await w.snapshot()).activity.find(item => item.agent === 'claude' && item.action === 'plugin.remove');
   assert.equal(record.canRestore, true);
   assert.match((await w.act({ action: 'activity.restore', id: record.id })).message, /已恢复 Claude 插件 tidy/);
@@ -221,7 +223,8 @@ test('a source without any manifest is named after its directory; a name Claude 
   const json = JSON.parse(await fs.readFile(path.join(dirOf(w, market), '.claude-plugin/marketplace.json'), 'utf8'));
   assert.deepEqual([json.plugins[0].name, json.plugins[0].source], ['bare-tools', './plugins/bare-tools']);
   await skillFile(path.join(w.root, 'bad name/skills'), 'inside');
-  assert.equal((await w.act({ action: 'plugin.previewInstall', agent: 'claude', sourceType: 'local', source: path.join(w.root, 'bad name') })).code, 'INVALID_NAME');
+  const bad = await w.act({ action: 'plugin.previewInstall', agent: 'claude', sourceType: 'local', source: path.join(w.root, 'bad name') });
+  assert.equal(bad.code, 'INVALID_NAME'); assert.match(bad.message, /取自来源目录名/);
 });
 
 test('the clean-up after an uninstall reads back; when it fails the uninstall stands and the way out is said', async t => {
@@ -295,7 +298,10 @@ test('a same-named marketplace of the user\'s is never taken for SkillDock\'s, n
   const keep = path.join(w.state, 'local', 'keep-me'); await fs.mkdir(keep, { recursive: true });
   const registry = await w.registry(); registry.claudeDirectPlugins = { [market]: { root: keep, name: 'helper', source: path.join(w.root, 'codex-only'), sourceType: 'local' } };
   await fs.writeFile(w.service.environments.local.registryFile, JSON.stringify(registry));
+  w.claude.locks.length = 0; w.claude.onList = async () => { w.claude.locks.push(await w.lockHeld()); };
   const off = await w.disable(true);
+  w.claude.onList = undefined;
+  assert.equal(w.claude.locks.at(-1), true, '只删文件的一支也在 Claude 锁下重读');
   assert.match(off.message, /已清理 SkillDock 生成的本地 marketplace/);
   assert.ok(await exists(keep), '不删登记目录以外的内容');
   assert.ok(w.claude.marketplaces.some(item => item.path === own), '不动用户的 marketplace');
@@ -356,11 +362,66 @@ test('a skills-directory plugin under a protected root is not removed; a project
   assert.match(hidden.message, /个人技能目录中有同名插件，它会遮蔽这一个，这一个不会加载/);
 });
 
+test('a Git source without any manifest is named after the subpath or the repository, however they are written', async t => {
+  const w = await world(t);
+  const repo = path.join(w.root, 'gitrepo');
+  await skillFile(path.join(repo, 'skills'), 'top'); await skillFile(path.join(repo, 'plugins/foo/skills'), 'inner');
+  const git = args => runProcess('git', ['-C', repo, ...args]);
+  await git(['init', '-b', 'main']); await git(['config', 'user.name', 'Test']); await git(['config', 'user.email', 'test@example.invalid']); await git(['add', '.']); await git(['commit', '-m', 'initial']);
+  const name = async request => (await w.act({ action: 'plugin.previewInstall', agent: 'claude', sourceType: 'git', ...request })).pluginPreview?.name;
+  assert.equal(await name({ source: repo, subpath: './' }), 'gitrepo');
+  assert.equal(await name({ source: repo, subpath: 'plugins/foo/' }), 'foo');
+  assert.equal(await name({ source: path.join(repo, '.git') }), 'gitrepo');
+});
+
+test('a generated marketplace Claude lists under another spelling is still SkillDock\'s; a same-named one elsewhere is said so', async t => {
+  const w = await world(t);
+  w.claude.slash = true;
+  await installHelper(w); const market = await marketOf(w);
+  assert.equal((await w.snapshot()).marketplaces.find(item => item.name === market).direct, true, '结尾斜杠不影响身份');
+  let plugin = (await w.snapshot()).plugins.find(item => item.name === 'helper' && item.installed);
+  await w.act({ action: 'plugin.remove', agent: 'claude', id: plugin.id, expectedRevision: plugin.revision, confirm: true });
+  assert.equal(w.claude.calls.at(-1), `plugin marketplace remove ${market} --json`);
+  // Claude's marketplace of that name now points elsewhere: left alone, said as it is.
+  const v = await world(t);
+  await installHelper(v); const second = await marketOf(v);
+  const listed = v.claude.marketplaces.find(item => item.name === second); listed.path = listed.installLocation = path.join(v.root, 'users-own');
+  plugin = (await v.snapshot()).plugins.find(item => item.name === 'helper' && item.installed);
+  const removed = await v.act({ action: 'plugin.remove', agent: 'claude', id: plugin.id, expectedRevision: plugin.revision, confirm: true });
+  assert.match(removed.message, new RegExp(`Claude 中同名的 marketplace ${second} 指向别处，未改动；已删除 SkillDock 自己的文件`));
+  assert.equal(v.claude.calls.some(call => call.startsWith('plugin marketplace remove')), false);
+});
+
+test('a declaration left in the settings after the removal is a failed clean-up that keeps the files', async t => {
+  const w = await world(t);
+  await installHelper(w); const market = await marketOf(w);
+  await write(path.join(w.configDir, 'settings.json'), { extraKnownMarketplaces: { [market]: { source: { source: 'directory', path: dirOf(w, market) } } } });
+  const plugin = (await w.snapshot()).plugins.find(item => item.name === 'helper' && item.installed);
+  const removed = await w.act({ action: 'plugin.remove', agent: 'claude', id: plugin.id, expectedRevision: plugin.revision, confirm: true });
+  assert.match(removed.message, /未能清理：marketplace 已从清单中移除，但设置中仍有它的声明/);
+  assert.ok(await exists(dirOf(w, market))); assert.ok((await w.registry()).claudeDirectPlugins[market]);
+});
+
+test('a skills-directory plugin whose removal cannot be recorded is moved back', async t => {
+  const w = await world(t);
+  const preview = (await w.act({ action: 'plugin.previewInstall', agent: 'claude', sourceType: 'local', source: path.join(w.root, 'with-manifest') })).pluginPreview;
+  await w.act({ action: 'plugin.installSource', agent: 'claude', previewId: preview.id });
+  const plugin = (await w.snapshot()).plugins.find(item => item.marketplace === 'skills-dir' && item.name === 'tidy');
+  const local = path.join(w.state, 'local'); await fs.mkdir(path.join(local, 'quarantine'), { recursive: true });
+  await fs.chmod(local, 0o500);
+  t.after(() => fs.chmod(local, 0o700).catch(() => {}));
+  const failed = await w.act({ action: 'plugin.remove', agent: 'claude', id: plugin.id, expectedRevision: plugin.revision, confirm: true });
+  await fs.chmod(local, 0o700);
+  assert.ok(failed.code, '记录写不进时操作失败');
+  assert.ok(await exists(path.join(w.configDir, 'skills/tidy/.claude-plugin/plugin.json')), '插件目录移回原处');
+  assert.deepEqual(await fs.readdir(path.join(local, 'quarantine')), [], '可恢复区没有残留');
+});
+
 // New messages the cases above do not reach (4d review P3-09).
 const UNREACHED = ['同名安装目录已存在，不能覆盖。', '只能移除个人技能目录或当前项目 .claude/skills 中的技能目录插件。', '插件目录的实际位置越出 Claude 的技能根。',
   '未找到可用的 Claude 命令行，暂不能修改 Claude。', '之前为 Claude 生成的同一来源目录仍然存在且内容不同，请先核对；不再需要时，可在 Marketplace 页移除这个 marketplace 后重试。',
   'SkillDock 生成的本地 marketplace skilldock-0a 不在 Claude 中，已删除它的本地文件。', '这个技能目录插件不在个人技能目录或当前项目的 .claude/skills 中，不能在这里移除。',
-  'marketplace 已从清单中移除，但设置中仍有它的声明，以后可能被重新添加；请刷新核实。'];
+  'marketplace 已从清单中移除，但设置中仍有它的声明，以后可能被重新添加；请刷新核实。', '这次生成的本地 marketplace 仍有从它安装的插件，已保留。'];
 
 test('every message seen above, and the new ones they do not reach, has a whole English and Japanese translation', async () => {
   const messages = [...seen].filter(text => /[一-鿿]/.test(text));

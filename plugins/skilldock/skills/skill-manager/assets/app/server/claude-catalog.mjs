@@ -302,8 +302,8 @@ export async function claudeCatalog({ claudeRoot, project, cli, env = process.en
         if (!Array.isArray(catalog?.plugins)) throw new Error('unknown shape');
         pluginCount = catalog.plugins.length;
         if (!plainName(item.name)) diagnostics.push(`marketplace ${item.name.replace(/\p{C}/gu, '').slice(0, 80)} 的名称无法用作插件身份，未列出其中未安装的插件。`);
-        // Installable plugins come from the marketplace copy already on disk (HLD 3.2 table:
-        // the secondary source), so the snapshot never runs the networked `--available` list.
+        // Installable plugins come from the marketplace copy already on disk (HLD 3.2 table;
+        // DG-NO-AVAILABLE): the networked `--available` list is never run.
         // Without any install evidence, an entry might already be installed: list none.
         if ((installed ?? record) && plainName(item.name)) for (const plugin of catalog.plugins) {
           if (!plainName(plugin?.name)) continue;

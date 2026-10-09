@@ -87,7 +87,9 @@ try {
     const plain = await named('plain-plugin');
     assert.ok(plain?.marketplace.startsWith('skilldock-'), '经 SkillDock 生成的 marketplace 安装');
     assert.deepEqual(await declared(), [plain.marketplace], '用户设置中出现这条声明');
-    steps.push(`${label}：Claude 读到的版本 ${plain.version}，技能 ${plain.skillCount} 个，来源标注 ${(await claude()).marketplaces.find(item => item.name === plain.marketplace)?.direct}`);
+    // Claude lists the directory it was given, so SkillDock knows the marketplace as its own (re-review P3-03).
+    assert.equal((await claude()).marketplaces.find(item => item.name === plain.marketplace)?.direct, true, '标为 SkillDock 生成的单插件来源');
+    steps.push(`${label}：Claude 读到的版本 ${plain.version}，技能 ${plain.skillCount} 个，已标为单插件来源`);
     return plain;
   };
   let plain = await installPlain('无 manifest 来源');

@@ -746,7 +746,11 @@ export async function createService(options = {}) {
       let message = redact(error.message); if (rollbackError) message += `；自动恢复未完成：${redact(rollbackError.message)}，请保留备份区。`;
       // A failed install takes back the marketplace it generated, unless something is installed from it (4d review P2-03).
       if (directMarket) {
-        try { if (await cleanupClaudeDirect(directMarket) === 'removed') { delete original.claudeDirectPlugins[directMarket]; message += '\n已撤销这次生成的本地 marketplace。'; } }
+        try {
+          const outcome = await cleanupClaudeDirect(directMarket);
+          if (outcome === 'removed' || outcome === 'foreign') { delete original.claudeDirectPlugins[directMarket]; message += '\n已撤销这次生成的本地 marketplace。'; }
+          else message += '\n这次生成的本地 marketplace 仍有从它安装的插件，已保留。';
+        }
         catch (cleanupError) { message += `\nSkillDock 生成的本地 marketplace ${directMarket} 未能清理：${redact(cleanupError.message)}可在 Marketplace 页移除它，或停用 Claude 管理时一并清理。`; }
       }
       if (original && request.action === 'plugin.installSource' && !['CONFIRMATION_REQUIRED', 'STALE_PREVIEW'].includes(error.code)) {
@@ -782,7 +786,8 @@ export async function createService(options = {}) {
    * line's list or by Claude's own record, which also lists other projects (4d review P2-04) — and
    * its files with it (HLD 3.3). Only the marketplace that is this record's is removed from Claude,
    * with a readback (P2-01, P3-01). Returns 'removed', 'elsewhere' (still installed in a project
-   * the list does not show), or null.
+   * the list does not show), 'foreign' (Claude has a same-named marketplace that is not this one:
+   * left alone, only SkillDock's files go), or null.
    */
   async function cleanupClaudeDirect(market) {
     const env = environment('local'); const tracked = (await registryFor(env)).claudeDirectPlugins?.[market];
@@ -800,7 +805,7 @@ export async function createService(options = {}) {
       if ((after.declarations?.[market] ?? []).some(layer => layer !== 'managed')) fail(502, 'READBACK_FAILED', 'marketplace 已从清单中移除，但设置中仍有它的声明，以后可能被重新添加；请刷新核实。');
     }
     await dropClaudeDirectFiles(env, market, tracked);
-    return 'removed';
+    return listed && !own ? 'foreign' : 'removed';
   }
   /** SkillDock's own files and record for a generated marketplace; only its own directory. */
   async function dropClaudeDirectFiles(env, market, tracked) {
@@ -971,7 +976,14 @@ export async function createService(options = {}) {
       const candidate = path.join(staging, 'candidate'); const tree = await copySkill(directory, candidate);
       // A Claude plugin without any manifest is named after its source: the directory, the Git
       // subpath, or the repository (4d review P1-01).
-      const sourceName = () => request.sourceType !== 'git' ? path.basename(directory) : subpath !== '.' ? path.basename(subpath) : source.replace(/\/+$/, '').replace(/\.git$/, '').split(/[/:]/).pop();
+      // `./` and a trailing slash name the same directory; a repository's `.git` directory names it (re-review P3-04).
+      const sourceName = () => {
+        if (request.sourceType !== 'git') return path.basename(directory);
+        const inner = path.relative(realRoot, directory);
+        if (inner) return path.basename(inner);
+        const parts = source.replace(/[/\\]+$/, '').split(/[/:\\]/).filter(Boolean); const last = parts.pop() ?? '';
+        return (last === '.git' ? parts.pop() ?? '' : last).replace(/\.git$/, '');
+      };
       const detail = kind === 'plugin' ? await inspectPlugin(candidate) : kind === 'claude-plugin' ? await inspectClaudePlugin(candidate, sourceName()) : await metadata(candidate);
       if (kind === 'skill') { const icons = createIconCatalog(); detail.icon = await icons.skill(candidate); detail.iconAssets = icons.assets; }
       return { staging, candidate, source, sourceType: request.sourceType, subpath, ref, commit, originalDirectory: directory, detail, tree };
@@ -1787,7 +1799,9 @@ export async function createService(options = {}) {
       if (mode === 'local' && ['plugin.update', 'plugin.checkUpdate', 'plugin.install', 'plugin.installSource', 'skill.update', 'marketplace.refresh'].includes(translated.action)) options.onInstallationChange?.();
       return result;
     } catch (error) {
-      if (target) await scheduler.observeError(mode, target, error).catch(() => {});
+      // A confirmation still to give, or a page to refresh, is not a failed update: the item keeps
+      // what the last check saw (4c/4d re-review P3-01).
+      if (target && !['CONFIRMATION_REQUIRED', 'SNAPSHOT_STALE'].includes(error.code)) await scheduler.observeError(mode, target, error).catch(() => {});
       throw error;
     } finally { requestBusy = false; }
   }

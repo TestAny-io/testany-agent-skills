@@ -224,6 +224,11 @@ test('the updates page meets the same rules as the card: the note, the revision,
   const innerCheck = await v.act({ action: 'update.check', agent: 'codex', target: { kind: 'skill', id: inner.id } });
   const ask = await v.act({ action: 'update.apply', agent: 'codex', target: { kind: 'skill', id: inner.id }, previewId: innerCheck.updateItem.previewId });
   assert.equal(ask.code, 'CONFIRMATION_REQUIRED'); assert.deepEqual(ask.nativeRules[0].items, ['sd']);
+  // A confirmation still to give is not a failed update; given, the update completes (re-review P3-01, K17).
+  const item = (await v.service.snapshot('local', true)).updates.find(entry => entry.target.id === inner.id);
+  assert.deepEqual([item.status, item.canApply], ['available', true]);
+  const done = await v.act({ action: 'update.apply', agent: 'codex', target: { kind: 'skill', id: inner.id }, previewId: innerCheck.updateItem.previewId, confirm: true });
+  assert.match(done.message, /已更新 inner/);
 });
 
 test('sources: a preview names the other side\'s source early; a link to the same directory is the same; a different subpath is not; a revision is needed', async t => {
@@ -241,6 +246,11 @@ test('sources: a preview names the other side\'s source early; a link to the sam
   const codexSide = await w.act({ action: 'skill.previewSource', agent: 'codex', id: skill.id, sourceType: 'local', source: path.join(w.root, 'first/shared') });
   assert.equal((await w.act({ action: 'skill.connectSource', agent: 'codex', id: skill.id, previewId: codexSide.sourcePreview.id })).code, 'SNAPSHOT_STALE', '共用技能的关联须带修订号');
   assert.match((await w.act({ action: 'skill.connectSource', agent: 'claude', id: skill.id, expectedRevision: skill.revision, previewId: alias.sourcePreview.id })).message, /已/);
+  // The same source string with a different subpath is a different source (B27).
+  const registry = await w.registry(); const real = await fs.realpath(path.join(w.root, 'common/skills/shared'));
+  registry.claudeSources[real] = { ...registry.claudeSources[real], source: registry.sources[skill.id].source, subpath: 'elsewhere' };
+  await fs.writeFile(w.service.environments.local.registryFile, JSON.stringify(registry));
+  assert.equal((await w.shared()).canUpdate, false);
 });
 
 test('removing a link that points into the other side\'s plugin needs no confirmation; a managed Claude side is not removed here', async t => {
