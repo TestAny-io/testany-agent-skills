@@ -28,7 +28,8 @@ import { pluginContents } from './plugin-contents.mjs';
 import { officialAppUrl } from './app-directory.mjs';
 import { createDirectoryIcons } from './directory-icons.mjs';
 import { createAgentLayer, readManagement, writeManagement, AGENT_NAME } from './agents.mjs';
-import { claudeCatalog, claudeIds } from './claude-catalog.mjs';
+import { claudeCatalog, claudeIds, claudeLists } from './claude-catalog.mjs';
+import { INSTALL_SKIP, marketplaceEntry, pluginSource, OWNER_REASON, stageCandidate, predictVersion, checkOutcome, copyInstallation, localDirectory, defaultFetchers } from './claude-plugin-updates.mjs';
 import { claudeWriter } from './claude-writer.mjs';
 import { createClaudeActions, CLAUDE_WRITES } from './claude-actions.mjs';
 import { mergeClaude, markReadOnly } from './multi-agent.mjs';
@@ -691,6 +692,119 @@ export async function createService(options = {}) {
   const CLAUDE_PLUGIN_SOURCES = new Set(['plugin.previewInstall', 'plugin.installSource']);
   const claudeRunner = found => options.claudeWriter ? options.claudeWriter({ cli: found.cli.claude, claudeRoot: found.claudeRoot }) : claudeWriter({ cli: found.cli.claude, claudeRoot: found.claudeRoot, env: agentEnv });
   const SKILLS_DIR_PLACE = { user: '个人技能目录', project: '当前项目的 .claude/skills' };
+  // Phase 5b (HLD 3.3, 3.3A; DEC-SDX-005, 026): a Claude plugin from a marketplace. SkillDock stages
+  // what Claude would install, previews the difference, checks the installation and the source again
+  // before Claude's command line updates it, and reads back that Claude installed the candidate.
+  const claudeFetchers = { ...defaultFetchers({ env: agentEnv }), ...options.claudeFetchers };
+  const userCwdFor = found => fs.stat(project).then(() => project, () => path.dirname(found.claudeRoot.configDir));
+  const sha256File = async file => crypto.createHash('sha256').update(await fs.readFile(file)).digest('hex');
+  async function claudeInstall(found, cliId, scope, cwd) {
+    const lists = await claudeLists({ ...options.claudeCatalog, claudeRoot: found.claudeRoot, project, cli: found.cli.claude, env: agentEnv });
+    if (!lists) fail(422, 'CLI_UNAVAILABLE', '未找到可用的 Claude 命令行，暂不能修改 Claude。');
+    const real = scope === 'user' ? null : await realDirectory(cwd);
+    let install = null;
+    for (const item of lists.plugins) if (item.id === cliId && item.scope === scope && (scope === 'user' || item.projectPath && await realDirectory(item.projectPath) === real)) install = item;
+    return { lists, install };
+  }
+  async function claudePluginUpdate(target, { applying, previewId, internal }) {
+    const env = environment('local'); const found = await agentLayer.discover({ force: true });
+    const release = await fs.stat(found.claudeRoot.configDir).then(stat => stat.isDirectory(), () => false) ? acquireFileLock(operationLock(found.claudeRoot.configDir)) : () => {};
+    let name = target.id; let staging; let keep = false;
+    const journal = async entry => {
+      const registry = await registryFor(env);
+      registry.activity.unshift({ id: crypto.randomUUID(), action: 'plugin.update', agent: 'claude', target: name, createdAt: now(), canRestore: false, ...entry });
+      await writeJson(env.registryFile, registry);
+    };
+    try {
+      await verifyDirectoryRoot(env.stateBoundary);
+      const claude = await claudeFor(found, project, true);
+      if (claude.unconfirmed) fail(409, 'AGENT_UNCONFIRMED', claude.unconfirmed);
+      const plugin = claude.plugins.find(item => item.id === target.id && item.installed);
+      if (!plugin) fail(404, 'NOT_FOUND', '这个 Claude 插件已不在，请刷新后重试。');
+      name = plugin.displayName || plugin.name;
+      const cliId = `${plugin.name}@${plugin.marketplace}`; const scope = plugin.installation.scope;
+      const cwd = scope === 'user' ? await userCwdFor(found) : plugin.installation.projectPath;
+      if (scope !== 'user' && !(cwd && await exists(cwd))) fail(422, 'PROJECT_PATH_MISSING', `项目目录 ${cwd} 不存在，这条安装只读。`);
+      const run = claudeRunner(found);
+      const { lists, install } = await claudeInstall(found, cliId, scope, cwd);
+      if (!install?.installPath) fail(404, 'NOT_FOUND', '未找到这个插件的安装目录，请刷新后重试。');
+      const market = lists.marketplaces.find(item => item.name === plugin.marketplace);
+      if (!market) fail(404, 'NOT_FOUND', '这个插件的 marketplace 已不在 Claude 中，请刷新后重试。');
+      // A remote marketplace is refreshed first: its entry may have moved on (HLD 3.3A).
+      if (!['directory', 'file'].includes(market.source)) await run(['plugin', 'marketplace', 'update', plugin.marketplace, '--json'], { cwd: await userCwdFor(found) });
+      const location = market.installLocation ?? market.path;
+      const { entry, pluginRoot } = await marketplaceEntry(location, plugin.name);
+      const source = pluginSource(entry, market);
+      const installed = await inspectTree(install.installPath, { skip: INSTALL_SKIP });
+      const registry = await registryFor(env); const baselines = (registry.claudePluginBaselines ??= {}); const baseline = baselines[target.id];
+      // MR-SDX-003: content changed since SkillDock last saw this version is not overwritten.
+      if (baseline && baseline.version === install.version && baseline.fingerprint !== installed.fingerprint) fail(409, 'LOCAL_CHANGES', '已安装的插件内容相对上次记录有本地修改，不能自动覆盖；请先核对。');
+      if (!applying) {
+        const item = (status, extra) => ({ target, agent: 'claude', name, owner: 'Claude', route: 'claude-plugin', status, canCheck: true, canApply: status === 'available', canAutoApply: status === 'available' && !registry.claudePluginReview?.[target.id], checkedAt: now(), installedVersion: install.version, ...extra });
+        if (['command', 'helper', 'unknown'].includes(source.kind)) return { message: OWNER_REASON[source.kind], updateItem: item('blocked', { message: OWNER_REASON[source.kind], reasonCode: 'OWNER_MANAGED' }) };
+        staging = path.join(env.root, 'staging', crypto.randomUUID()); await verifyDescendantDirectory(env.stateBoundary, staging); await fs.mkdir(staging, { recursive: true, mode: 0o700 });
+        const staged = await stageCandidate(source, { installLocation: location, pluginRoot, staging, fetchers: claudeFetchers });
+        const predicted = await predictVersion(staged.candidate, entry, source, staged);
+        const outcome = checkOutcome({ installedVersion: install.version, installedFingerprint: installed.fingerprint, candidateFingerprint: staged.tree.fingerprint, predicted });
+        // Without a record, the check's own view is the baseline (MR-SDX-003), checked again before applying.
+        if (!baseline || baseline.version !== install.version) { baselines[target.id] = { version: install.version, fingerprint: installed.fingerprint }; await writeJson(env.registryFile, registry); }
+        const id = crypto.randomUUID();
+        if (outcome.status === 'available') {
+          previews.set(id, { id, kind: 'claude-plugin-update', agent: 'claude', mode: env.mode, created: previewNow(), staging, candidate: staged.candidate, tree: staged.tree, pluginId: target.id, installPath: install.installPath,
+            installedVersion: install.version, baseline: installed.fingerprint, entry: JSON.stringify(entry), facts: { commit: staged.commit, sha256: staged.sha256, integrity: staged.integrity, packageVersion: staged.packageVersion } });
+          keep = true;
+        }
+        const review = outcome.status === 'available' && registry.claudePluginReview?.[target.id];
+        const message = review ? `${outcome.message}\n上次装入的内容与预览不同；自动应用已暂停，请在更新页重新检查并手动应用。` : outcome.message;
+        return { message, updateItem: item(outcome.status, { message, ...(outcome.reasonCode ? { reasonCode: outcome.reasonCode } : {}), changes: diffFiles(installed.entries, staged.tree.entries),
+          ...(predicted && predicted !== 'unknown' ? { availableVersion: predicted } : {}), ...(outcome.status === 'available' ? { previewId: id } : {}) }) };
+      }
+      const preview = await assertPreview(env, previewId, 'claude-plugin-update', 'claude'); staging = preview.staging; previews.delete(previewId);
+      if (preview.pluginId !== target.id) fail(409, 'PREVIEW_MISMATCH', '更新预览不属于这个插件。');
+      if (install.installPath !== preview.installPath || install.version !== preview.installedVersion) fail(409, 'INSTALLATION_CHANGED', '插件安装在预览后发生变化，请重新检查。');
+      if (installed.fingerprint !== preview.baseline) fail(409, 'LOCAL_CHANGES', '插件在预览后发生变化，请重新检查。');
+      // The source once more, by its kind (HLD 3.3A 应用前核对).
+      if (JSON.stringify(entry) !== preview.entry) fail(409, 'SOURCE_CHANGED', 'marketplace 中这个插件的条目在预览后发生变化，请重新检查。');
+      if (['local', 'git-market'].includes(source.kind)) { if ((await inspectTree(localDirectory(source, location, pluginRoot))).fingerprint !== preview.tree.fingerprint) fail(409, 'SOURCE_CHANGED', '来源在预览后发生变化，请重新检查。'); }
+      else if (source.kind === 'git') { if (await claudeFetchers.resolve(source.url, source.ref) !== preview.facts.commit) fail(409, 'SOURCE_CHANGED', '来源仓库在预览后有新的提交，请重新检查。'); }
+      else if (source.kind === 'npm') { const view = await claudeFetchers.npmView(source.spec, source.registry); if (view.version !== preview.facts.packageVersion || view.integrity && preview.facts.integrity && view.integrity !== preview.facts.integrity) fail(409, 'SOURCE_CHANGED', 'npm 包在预览后发生变化，请重新检查。'); }
+      else if (source.kind === 'archive' && !source.sha256) { const file = path.join(staging, 'recheck.zip'); await claudeFetchers.download(source.url, file); if (await sha256File(file) !== preview.facts.sha256) fail(409, 'SOURCE_CHANGED', '压缩包在预览后发生变化，请重新检查。'); }
+      // Claude overwrites a plugin without a version in place: what it held is copied first,
+      // dependencies included, and a failed copy stops the update (HLD 3.3A).
+      const copies = path.join(env.root, 'claude-plugin-copies', hash(target.id).slice(0, 20)); let copyNote = '';
+      if (install.version === 'unknown') {
+        await verifyDescendantDirectory(env.stateBoundary, copies); await fs.mkdir(copies, { recursive: true, mode: 0o700 });
+        const next = path.join(copies, `next-${crypto.randomUUID()}`); await copyInstallation(install.installPath, next);
+        await fs.rm(path.join(copies, 'latest'), { recursive: true, force: true }); await fs.rename(next, path.join(copies, 'latest'));
+        copyNote = `\n更新前的内容已复制到 ${path.join(copies, 'latest')}；Claude 原地覆盖这类插件，无法经 Claude 回到旧版本。`;
+      }
+      await run(['plugin', 'update', cliId, '--scope', scope, '--json'], { cwd });
+      const { install: after } = await claudeInstall(found, cliId, scope, cwd);
+      const loaded = after?.installPath && (await inspectTree(after.installPath, { skip: INSTALL_SKIP })).fingerprint === preview.tree.fingerprint;
+      const fresh = await registryFor(env);
+      if (!loaded) {
+        // Reported as it is; automatic applying waits for a new preview (HLD 3.3A).
+        (fresh.claudePluginReview ??= {})[target.id] = true;
+        if (install.version === 'unknown' && !await exists(path.join(copies, 'baseline'))) await fs.rename(path.join(copies, 'latest'), path.join(copies, 'baseline')).catch(() => {});
+        await writeJson(env.registryFile, fresh);
+        fail(502, 'READBACK_FAILED', install.version === 'unknown' ? `Claude 命令行已返回，但装入的内容与预览不同；请重新检查。更新前的内容保留在 ${copies}。`
+          : `Claude 命令行已返回，但装入的内容与预览不同；请重新检查。旧版本目录 ${install.installPath} 由 Claude 保留 14 天。`);
+      }
+      (fresh.claudePluginBaselines ??= {})[target.id] = { version: after.version, fingerprint: preview.tree.fingerprint };
+      if (!internal && fresh.claudePluginReview) delete fresh.claudePluginReview[target.id];
+      await writeJson(env.registryFile, fresh);
+      if (install.version === 'unknown') await fs.rm(path.join(copies, 'baseline'), { recursive: true, force: true });
+      const message = `已更新 Claude 插件 ${name}${after.version !== install.version ? `（${install.version} → ${after.version}）` : ''}。新会话生效，已打开的会话需要重载插件。${copyNote}`;
+      await journal({ status: 'success', message });
+      return { message, needsReload: true, agent: 'claude' };
+    } catch (error) {
+      if (applying) await journal({ status: 'error', message: redact(error.message), reasonCode: error.code || 'OPERATION_FAILED' }).catch(() => {});
+      throw error;
+    } finally {
+      release(); claudeCache = undefined;
+      if (staging && !keep) await removeStaging(env, staging).catch(() => {});
+    }
+  }
   async function claudePluginSourceAction(request) {
     const env = environment('local'); const roots = await claudeSkillRoots(); const { found } = roots;
     const release = await fs.stat(found.claudeRoot.configDir).then(stat => stat.isDirectory(), () => false) ? acquireFileLock(operationLock(found.claudeRoot.configDir)) : () => {};
@@ -1864,7 +1978,8 @@ export async function createService(options = {}) {
       }
       if (target?.kind === 'plugin' && !applying) await scheduler.reconcileBinding(mode, target);
       const binding = target && (applying || target.kind === 'plugin') ? await scheduler.beforeOwnUpdate(mode, target) : null;
-      const result = claudeTarget ? await claudeSkillAction(translated) : await executeAction(translated);
+      const result = !claudeTarget ? await executeAction(translated) : base.route === 'claude-plugin'
+        ? await claudePluginUpdate(target, { applying, previewId: request.previewId, internal }) : await claudeSkillAction(translated);
       // PH3-P1-01: a check of a read-only Codex changed nothing, and its result cannot be applied.
       if (!claudeTarget && !applying && request.action === 'update.check' && mode === 'local' && await codexReadOnly()) {
         // A plugin check skipped the marketplace refresh; a skill check read its source as usual.
@@ -1934,7 +2049,7 @@ export async function createService(options = {}) {
   scheduler = await createScheduler({ environments, snapshot: schedulerSnapshot, perform: request => action(request, true), signature: targetSignature, hasPreview, migrate: migrateTarget,
     planVersion: generation >= CURRENT_GENERATION ? 2 : 1,
     verifySynchronized: async (mode, target, expectedSignature) => {
-      if (target.kind !== 'plugin') return false;
+      if (target.kind !== 'plugin' || target.agent === 'claude') return false;
       // A marketplace refresh can install packages itself. Verify existing
       // contents first, without asking the CLI to mutate an unbound target.
       const result = await executeAction({ mode, action: 'plugin.checkUpdate', id: target.id },

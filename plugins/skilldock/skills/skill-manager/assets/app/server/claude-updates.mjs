@@ -35,7 +35,11 @@ function pluginItem(plugin, sources, skillsDir) {
   // DEC-SDX-019: what Claude or the organisation manages is shown with its reason, not updated here.
   if (plugin.protection === 'synced') return blocked(name, path, 'HOST_MANAGED', '由 claude.ai 账号同步；SkillDock 不代为更新。', 'owner-managed', extra);
   if (plugin.installation?.scope === 'managed' || plugin.protection === 'managed') return blocked(name, path, 'HOST_MANAGED', '由组织托管设置安装；SkillDock 不代为更新。', 'owner-managed', extra);
-  return blocked(name, path, 'NOT_YET_AVAILABLE', '这一版 SkillDock 暂不能检查这个 Claude 插件的更新；可在 Claude Code 中用 /plugin 更新。', 'claude-plugin', extra);
+  // A marketplace SkillDock generated for a source updates from that source (phase 5c).
+  if (plugin.marketplace.startsWith('skilldock-')) return blocked(name, path, 'NOT_YET_AVAILABLE', '这一版 SkillDock 暂不能检查这个 Claude 插件的更新；可在 Claude Code 中用 /plugin 更新。', 'claude-plugin', extra);
+  // Phase 5b: from its marketplace, through Claude's command line (HLD 3.3A).
+  return { agent: 'claude', name, owner: 'Claude', route: 'claude-plugin', status: 'unchecked', canCheck: true, canApply: false, canAutoApply: true,
+    message: '检查这个插件的来源；更新经 Claude 命令行完成，并读回核对。', installedPath: path, ...extra };
 }
 
 /**

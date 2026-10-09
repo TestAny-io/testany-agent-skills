@@ -7,7 +7,7 @@ import path from 'node:path';
 import crypto from 'node:crypto';
 import { execFile } from 'node:child_process';
 import { claudeCliEnvironment } from './process-env.mjs';
-import { metadata, redact, publicSource } from './files.mjs';
+import { metadata, redact, publicSource, fail } from './files.mjs';
 
 const SETTINGS_KEYS = ['enabledPlugins', 'skillOverrides', 'extraKnownMarketplaces'];
 /** Highest first (Claude: managed > local > project > user; command-line flags are per session). */
@@ -191,6 +191,19 @@ async function scanSkills({ roots, layers, diagnostics, problems }) {
     }
   }
   return { skills, skillDirectoryPlugins: plugins };
+}
+
+/**
+ * Claude's own lists as its command line prints them (install paths, versions, marketplace copies),
+ * for the update path (phase 5b); null when the command line or the root is missing.
+ */
+export async function claudeLists({ claudeRoot, project, cli, env = process.env, timeout = 20000, listPlugins, listMarketplaces }) {
+  if (!cli?.available || !await isDirectory(claudeRoot.configDir)) return null;
+  const options = { env, claudeRoot, cwd: project, timeout };
+  const plugins = await (listPlugins ? listPlugins() : run(cli.path, ['plugin', 'list', '--json'], options));
+  const marketplaces = await (listMarketplaces ? listMarketplaces() : run(cli.path, ['plugin', 'marketplace', 'list', '--json'], options));
+  if (!Array.isArray(plugins) || !plugins.every(pluginShape) || !Array.isArray(marketplaces) || !marketplaces.every(marketShape)) fail(502, 'CLI_JSON', 'Claude 命令行列表的输出形状未知。');
+  return { plugins, marketplaces };
 }
 
 /**

@@ -8,7 +8,8 @@ import { execFile } from 'node:child_process';
 import { claudeCliEnvironment } from './process-env.mjs';
 import { AppError, redact } from './errors.mjs';
 
-const SCOPED = new Set(['plugin install', 'plugin uninstall', 'plugin enable', 'plugin disable', 'plugin marketplace add']);
+// `plugin update` (phase 5b) names its scope too: Claude's auto-detection could pick another installation.
+const SCOPED = new Set(['plugin install', 'plugin uninstall', 'plugin enable', 'plugin disable', 'plugin update', 'plugin marketplace add']);
 const COMMANDS = new Set([...SCOPED, 'plugin marketplace remove', 'plugin marketplace update']);
 const SCOPES = new Set(['user', 'project', 'local']);
 const FLAGS = new Set(['--json', '--keep-data', '--scope']);

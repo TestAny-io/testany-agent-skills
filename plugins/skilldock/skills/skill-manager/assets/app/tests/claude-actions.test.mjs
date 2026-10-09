@@ -97,8 +97,10 @@ test('the command line runs only whitelisted writes, with an explicit scope and 
   assert.equal(claudeWriteArgs(['plugin', 'enable', 'demo@m', '--scope', 'user', '--json']), 'plugin enable');
   assert.equal(claudeWriteArgs(['plugin', 'uninstall', 'demo@m', '--scope', 'local', '--keep-data', '--json']), 'plugin uninstall');
   assert.equal(claudeWriteArgs(['plugin', 'marketplace', 'update', 'm', '--json']), 'plugin marketplace update');
+  // Phase 5b: an update names its scope like the other plugin writes.
+  assert.equal(claudeWriteArgs(['plugin', 'update', 'demo@m', '--scope', 'user', '--json']), 'plugin update');
   for (const [args, label] of [
-    [['plugin', 'update', 'demo@m', '--scope', 'user', '--json'], '更新随阶段 5'],
+    [['plugin', 'update', 'demo@m', '--json'], '更新也须显式作用域'],
     [['plugin', 'install', 'demo@m', '--scope', 'user', '--json', '-y'], '不代为确认命令'],
     [['plugin', 'install', 'demo@m', '--scope', 'user', '--json', '--accept-command', 'abc'], '不代为确认命令'],
     [['plugin', 'install', 'demo@m', '--json'], '作用域必须显式'],

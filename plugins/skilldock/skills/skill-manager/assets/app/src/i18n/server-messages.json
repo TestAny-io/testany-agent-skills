@@ -1646,5 +1646,153 @@
   "技能已变为两侧共用，计划中的这一项已随对象 ID 迁移。": {
     "en": "The skill is now shared by both sides; this plan item moved with its new object ID.",
     "ja": "スキルが両側で共有されるようになったため、計画のこの項目は新しいオブジェクト ID に移しました。"
+  },
+  "已安装内容与来源一致。": {
+    "en": "The installed content matches the source.",
+    "ja": "インストール済みの内容はソースと一致しています。"
+  },
+  "来源内容有变化，但版本仍是 {v0}；Claude 只在版本变化时更新，请维护者递增版本。": {
+    "en": "The source content changed, but the version is still {v0}; Claude updates only when the version changes, so the maintainer needs to raise it.",
+    "ja": "ソースの内容は変わりましたが、バージョンは {v0} のままです。Claude はバージョンが変わったときだけ更新するため、メンテナーにバージョンを上げてもらう必要があります。"
+  },
+  "发现新版本 {v0}；经 Claude 命令行更新。": {
+    "en": "Found version {v0}; it is updated through the Claude command line.",
+    "ja": "新しいバージョン {v0} が見つかりました。Claude コマンドラインで更新します。"
+  },
+  "来源内容有变化；经 Claude 命令行更新。": {
+    "en": "The source content changed; it is updated through the Claude command line.",
+    "ja": "ソースの内容が変わりました。Claude コマンドラインで更新します。"
+  },
+  "检查这个插件的来源；更新经 Claude 命令行完成，并读回核对。": {
+    "en": "Checks this plugin's source; an update runs through the Claude command line and is read back.",
+    "ja": "このプラグインのソースを確認します。更新は Claude コマンドラインで行い、結果を読み戻して確認します。"
+  },
+  "已更新 Claude 插件 {v0}（{v1} → {v2}）。新会话生效，已打开的会话需要重载插件。": {
+    "en": "Updated Claude plugin {v0} ({v1} → {v2}). New sessions use it; reload plugins in sessions that are already open.",
+    "ja": "Claude プラグイン {v0} を更新しました（{v1} → {v2}）。新しいセッションで有効になります。開いているセッションではプラグインを再読み込みしてください。"
+  },
+  "已更新 Claude 插件 {v0}。新会话生效，已打开的会话需要重载插件。": {
+    "en": "Updated Claude plugin {v0}. New sessions use it; reload plugins in sessions that are already open.",
+    "ja": "Claude プラグイン {v0} を更新しました。新しいセッションで有効になります。開いているセッションではプラグインを再読み込みしてください。"
+  },
+  "更新前的内容已复制到 {v0}；Claude 原地覆盖这类插件，无法经 Claude 回到旧版本。": {
+    "en": "The content before the update was copied to {v0}; Claude overwrites such a plugin in place, so it cannot go back to the old version through Claude.",
+    "ja": "更新前の内容を {v0} にコピーしました。Claude はこの種のプラグインをその場で上書きするため、Claude 経由で旧バージョンには戻せません。"
+  },
+  "上次装入的内容与预览不同；自动应用已暂停，请在更新页重新检查并手动应用。": {
+    "en": "Last time the installed content differed from the preview; automatic applying is paused, so check again on the updates page and apply it yourself.",
+    "ja": "前回インストールされた内容がプレビューと異なりました。自動適用は一時停止しています。更新ページで再確認し、手動で適用してください。"
+  },
+  "Claude 命令行已返回，但装入的内容与预览不同；请重新检查。更新前的内容保留在 {v0}。": {
+    "en": "The Claude command line returned, but the installed content differs from the preview; check again. The content before the update is kept in {v0}.",
+    "ja": "Claude コマンドラインは完了しましたが、インストールされた内容がプレビューと異なります。再確認してください。更新前の内容は {v0} に保存しています。"
+  },
+  "Claude 命令行已返回，但装入的内容与预览不同；请重新检查。旧版本目录 {v0} 由 Claude 保留 14 天。": {
+    "en": "The Claude command line returned, but the installed content differs from the preview; check again. Claude keeps the old version directory {v0} for 14 days.",
+    "ja": "Claude コマンドラインは完了しましたが、インストールされた内容がプレビューと異なります。再確認してください。旧バージョンのディレクトリ {v0} は Claude が 14 日間保持します。"
+  },
+  "这个插件由 marketplace 声明的命令生成；SkillDock 不代为运行这个命令。可在 Claude Code 中用 /plugin 更新。": {
+    "en": "This plugin is produced by a command its marketplace declares; SkillDock does not run that command for you. You can update it with /plugin in Claude Code.",
+    "ja": "このプラグインは marketplace が宣言したコマンドで生成されます。SkillDock はそのコマンドを代わりに実行しません。Claude Code の /plugin で更新できます。"
+  },
+  "这个插件的下载需要 marketplace 声明的凭证命令；SkillDock 不代为运行。可在 Claude Code 中用 /plugin 更新。": {
+    "en": "Downloading this plugin needs a credential command its marketplace declares; SkillDock does not run it for you. You can update it with /plugin in Claude Code.",
+    "ja": "このプラグインのダウンロードには marketplace が宣言した認証コマンドが必要です。SkillDock は代わりに実行しません。Claude Code の /plugin で更新できます。"
+  },
+  "无法识别这个插件的来源；可在 Claude Code 中用 /plugin 更新。": {
+    "en": "This plugin's source is not recognised; you can update it with /plugin in Claude Code.",
+    "ja": "このプラグインのソースを識別できません。Claude Code の /plugin で更新できます。"
+  },
+  "这个 Claude 插件已不在，请刷新后重试。": {
+    "en": "This Claude plugin is no longer there; refresh and try again.",
+    "ja": "この Claude プラグインはもうありません。更新してから再試行してください。"
+  },
+  "未找到这个插件的安装目录，请刷新后重试。": {
+    "en": "This plugin's installation directory was not found; refresh and try again.",
+    "ja": "このプラグインのインストール先ディレクトリが見つかりません。更新してから再試行してください。"
+  },
+  "这个插件的 marketplace 已不在 Claude 中，请刷新后重试。": {
+    "en": "This plugin's marketplace is no longer in Claude; refresh and try again.",
+    "ja": "このプラグインの marketplace はもう Claude にありません。更新してから再試行してください。"
+  },
+  "已安装的插件内容相对上次记录有本地修改，不能自动覆盖；请先核对。": {
+    "en": "The installed plugin has local changes since SkillDock last recorded it and is not overwritten automatically; check it first.",
+    "ja": "インストール済みのプラグインには前回の記録以降にローカルの変更があるため、自動では上書きしません。先に確認してください。"
+  },
+  "更新预览不属于这个插件。": {
+    "en": "The update preview belongs to another plugin.",
+    "ja": "この更新プレビューは別のプラグインのものです。"
+  },
+  "插件安装在预览后发生变化，请重新检查。": {
+    "en": "The plugin's installation changed after the preview; check again.",
+    "ja": "プレビュー後にプラグインのインストールが変わりました。再確認してください。"
+  },
+  "插件在预览后发生变化，请重新检查。": {
+    "en": "The plugin changed after the preview; check again.",
+    "ja": "プレビュー後にプラグインが変わりました。再確認してください。"
+  },
+  "marketplace 中这个插件的条目在预览后发生变化，请重新检查。": {
+    "en": "This plugin's entry in its marketplace changed after the preview; check again.",
+    "ja": "プレビュー後に marketplace 内のこのプラグインのエントリーが変わりました。再確認してください。"
+  },
+  "来源在预览后发生变化，请重新检查。": {
+    "en": "The source changed after the preview; check again.",
+    "ja": "プレビュー後にソースが変わりました。再確認してください。"
+  },
+  "来源仓库在预览后有新的提交，请重新检查。": {
+    "en": "The source repository has a new commit since the preview; check again.",
+    "ja": "プレビュー後にソースリポジトリに新しいコミットがあります。再確認してください。"
+  },
+  "npm 包在预览后发生变化，请重新检查。": {
+    "en": "The npm package changed after the preview; check again.",
+    "ja": "プレビュー後に npm パッケージが変わりました。再確認してください。"
+  },
+  "压缩包在预览后发生变化，请重新检查。": {
+    "en": "The archive changed after the preview; check again.",
+    "ja": "プレビュー後にアーカイブが変わりました。再確認してください。"
+  },
+  "无法读取这个插件所在 marketplace 的本机副本；请刷新 marketplace 后再检查。": {
+    "en": "The local copy of this plugin's marketplace cannot be read; refresh the marketplace and check again.",
+    "ja": "このプラグインがある marketplace のローカルコピーを読み取れません。marketplace を更新してから再確認してください。"
+  },
+  "这个插件已不在它的 marketplace 中；请刷新 marketplace 后再检查。": {
+    "en": "This plugin is no longer in its marketplace; refresh the marketplace and check again.",
+    "ja": "このプラグインはもう marketplace にありません。marketplace を更新してから再確認してください。"
+  },
+  "插件来源越出 marketplace 根目录。": {
+    "en": "The plugin's source lies outside the marketplace root.",
+    "ja": "プラグインのソースが marketplace のルート外にあります。"
+  },
+  "无法解析来源的 Git 提交。": {
+    "en": "The source's Git commit cannot be resolved.",
+    "ja": "ソースの Git コミットを解決できません。"
+  },
+  "无法下载这个 npm 包。": {
+    "en": "This npm package cannot be downloaded.",
+    "ja": "この npm パッケージをダウンロードできません。"
+  },
+  "压缩包来源只接受 https 地址。": {
+    "en": "An archive source must be an https address.",
+    "ja": "アーカイブのソースは https アドレスのみ使えます。"
+  },
+  "下载压缩包失败：HTTP {v0}。": {
+    "en": "Downloading the archive failed: HTTP {v0}.",
+    "ja": "アーカイブのダウンロードに失敗しました：HTTP {v0}。"
+  },
+  "压缩包超过 100 MB。": {
+    "en": "The archive is larger than 100 MB.",
+    "ja": "アーカイブが 100 MB を超えています。"
+  },
+  "插件子目录越出仓库。": {
+    "en": "The plugin's subdirectory lies outside the repository.",
+    "ja": "プラグインのサブディレクトリがリポジトリの外にあります。"
+  },
+  "下载的压缩包摘要与 marketplace 条目声明的不一致，已中止。": {
+    "en": "The downloaded archive's digest does not match the one its marketplace entry declares; stopped.",
+    "ja": "ダウンロードしたアーカイブのダイジェストが marketplace のエントリーで宣言されたものと一致しないため、中止しました。"
+  },
+  "Claude 命令行列表的输出形状未知。": {
+    "en": "The Claude command line printed a list in an unknown shape.",
+    "ja": "Claude コマンドラインの一覧の出力形式が不明です。"
   }
 }

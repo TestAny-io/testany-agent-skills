@@ -64,14 +64,15 @@ export async function metadata(directory) {
 }
 
 // Imports are data only. Never execute scripts, follow external links or copy device files.
-export async function inspectTree(root) {
+// `skip`: top-level entries left out, such as what Claude writes into a plugin installation (HLD 3.3A).
+export async function inspectTree(root, { skip } = {}) {
   const realRoot = await fs.realpath(root);
   if (!(await fs.stat(realRoot)).isDirectory()) fail(422, 'INVALID_SOURCE', '来源必须是技能目录。');
   const entries = {}; let bytes = 0; let count = 0;
   async function walk(directory, prefix = '', depth = 0) {
     if (depth > 20) fail(422, 'SOURCE_LIMIT', '技能目录嵌套超过 20 层。');
     for (const item of (await fs.readdir(directory, { withFileTypes: true })).sort((a, b) => a.name.localeCompare(b.name))) {
-      if (item.name === '.git') continue;
+      if (item.name === '.git' || depth === 0 && skip?.has(item.name)) continue;
       const relative = prefix ? `${prefix}/${item.name}` : item.name;
       const file = path.join(directory, item.name); const stat = await fs.lstat(file);
       if (stat.isSymbolicLink()) {
