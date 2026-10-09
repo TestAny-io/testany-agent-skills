@@ -13,6 +13,7 @@ import net from 'node:net';
 import crypto from 'node:crypto';
 import { execFile, execFileSync } from 'node:child_process';
 import { fileURLToPath, pathToFileURL } from 'node:url';
+import { absentCommandLines } from './helpers/launcher-fixture.mjs';
 
 const FROZEN_0102 = 'ab6856f6f54fd73e6a420d23e7922e9b8e213d70';
 const RELEASED_0103 = '337547aa67831fcb78ba02414cd0c5f2ffbfbc58';
@@ -128,7 +129,7 @@ async function world(t, { codexSource = SOURCE, claudeSource = { source: 'git', 
   await fs.writeFile(path.join(state, 'local/updates.json'), JSON.stringify({ ...PLAN, version: generation >= 2 ? 2 : 1 }));
   if (generation >= 2) await fs.writeFile(path.join(state, 'generation.json'), JSON.stringify({ format: 1, generation: 2, minimumCompatibleGeneration: 2, writtenBy: '0.11.0', writtenAt: new Date().toISOString() }));
   const port = await freePort();
-  const env = { HOME: home, PATH: '/usr/bin:/bin', SKILLDOCK_STATE_DIR: state, SKILLDOCK_NODE_BIN: process.execPath, PORT: String(port), npm_config_cache: path.join(root, 'npm-cache') };
+  const env = { HOME: home, PATH: '/usr/bin:/bin', SKILLDOCK_STATE_DIR: state, SKILLDOCK_NODE_BIN: process.execPath, PORT: String(port), npm_config_cache: path.join(root, 'npm-cache'), ...absentCommandLines(home) };
   const w = { root, home, state, codexHome, claudeConfig, claudeCache: path.join(claudeConfig, 'plugins/cache'), projectA, projectB, port, env, installs: {} };
   w.planHash = await sha(path.join(state, 'local/updates.json'));
   t.after(async () => {

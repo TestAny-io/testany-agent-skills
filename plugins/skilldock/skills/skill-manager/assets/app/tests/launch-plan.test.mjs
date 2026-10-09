@@ -12,6 +12,7 @@ import { buildRecord, legacyFields, ensureLegacyProject, writeRecord, readRecord
 import { writeRestart } from '../server/installation.mjs';
 import { writeMigrationFailure } from '../server/migration.mjs';
 import { acquireFileLock } from '../server/process-lock.mjs';
+import { absentCommandLines } from './helpers/launcher-fixture.mjs';
 import { createApp } from '../server/index.mjs';
 
 const MARKET = 'testany-agent-skills';
@@ -35,7 +36,7 @@ async function world(t, { claudeSource = SOURCE } = {}) {
     await fs.writeFile(path.join(base, 'skills/skill-manager/assets/app/package.json'), JSON.stringify({ name: plugin === 'skilldock' ? 'skilldock' : plugin, version }));
     return path.join(base, 'skills/skill-manager/assets/app');
   };
-  return { root, home, codexHome, claudeConfig, state, project, install, env: { HOME: home } };
+  return { root, home, codexHome, claudeConfig, state, project, install, env: { HOME: home, ...absentCommandLines(home) } };
 }
 
 test('project fallback: never the working directory, explicit levels flagged, skipped values reported', async t => {

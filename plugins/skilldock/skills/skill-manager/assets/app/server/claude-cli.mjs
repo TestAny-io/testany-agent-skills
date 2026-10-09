@@ -49,9 +49,10 @@ async function desktopCommandLines(home) {
 }
 
 export async function claudeCliCandidates({ env = process.env, home = os.homedir(), saved } = {}) {
+  // An explicit command line is the only candidate, as for Codex: a wrong one fails.
+  if (env.SKILLDOCK_CLAUDE_BIN) return [{ file: env.SKILLDOCK_CLAUDE_BIN, source: 'explicit' }];
   const list = [];
   const add = (file, source) => { if (typeof file === 'string' && path.isAbsolute(file) && !list.some(item => item.file === file)) list.push({ file, source }); };
-  add(env.SKILLDOCK_CLAUDE_BIN, 'explicit');
   add(saved?.path, 'saved');
   add(saved?.sessionPath, 'session');
   for (const file of await desktopCommandLines(home)) add(file, 'desktop');
@@ -79,6 +80,7 @@ export async function resolveClaudeCli({ state, env = process.env, home = os.hom
   const saved = state ? await readClaudeCliSettings(state) : null;
   const attempts = [];
   for (const { file, source } of await claudeCliCandidates({ env, home, saved })) {
+    if (!path.isAbsolute(file)) { attempts.push({ path: file, source, error: '命令行路径必须为绝对路径。' }); continue; }
     try { await fs.access(file, fs.constants.X_OK); } catch { if (source !== 'path' && source !== 'user' && source !== 'desktop') attempts.push({ path: file, source, error: '文件不存在或不可执行。' }); continue; }
     const checked = await verify(file, { env, claudeRoot });
     if (!checked.version) { attempts.push({ path: file, source, error: checked.reason }); continue; }

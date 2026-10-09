@@ -348,7 +348,8 @@ export async function launch(action = 'start', options = {}) {
     process.stderr.write(cli.available ? `SkillDock：Codex CLI ${cli.path}（${cli.version}）\n` : `SkillDock：${cli.error}\n`);
     const expected = JSON.stringify(live ? current : await readRecord(state));
     await report('preparing');
-    const runtime = await prepareRuntime(state, snapshot, { log: path.join(state, 'build.log') });
+    // Dependency installation and build run third-party code: allowed variables and npm's own settings only.
+    const runtime = await prepareRuntime(state, snapshot, { log: path.join(state, 'build.log'), environment: childEnvironment(env, {}, { npm: true }) });
     const legacyProject = await ensureLegacyProject(state);
     const legacy = await legacyFields({ codexHome, installs: plan.installs, running: plan.ownReference });
     const record = buildRecord({ state, url, pid: 0, digest, runtime, codexHome, cli, legacyProject, legacy,

@@ -10,6 +10,7 @@ import { parseLaunchArguments, resolveProject } from '../assets/app/server/proje
 import { planLaunch, delegate, failureText } from '../assets/app/server/launch-plan.mjs';
 import { readSavedNode } from '../assets/app/server/node-candidates.mjs';
 import { showNodeGuidance } from '../assets/app/server/node-guide.mjs';
+import { childEnvironment } from '../assets/app/server/process-env.mjs';
 
 try {
   const { action, options, cliArgs } = parseLaunchArguments(process.argv.slice(2));
@@ -30,7 +31,7 @@ try {
     else {
       if (!cliArgs.length || !['plugin', '--version'].includes(cliArgs[0])) throw new Error('CLI 入口仅支持 --version 或 plugin 子命令。');
       process.exitCode = await new Promise((resolve, reject) => {
-        const child = spawn(cli.path, cliArgs, { env: process.env, stdio: 'inherit', shell: false });
+        const child = spawn(cli.path, cliArgs, { env: childEnvironment(process.env, { CODEX_HOME: process.env.CODEX_HOME }), stdio: 'inherit', shell: false });
         child.once('error', reject); child.once('exit', code => resolve(code ?? 1));
       });
     }

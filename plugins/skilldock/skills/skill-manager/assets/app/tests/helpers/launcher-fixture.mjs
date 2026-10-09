@@ -10,8 +10,10 @@ import { ROOT_FILES } from '../../scripts/source-bundle.mjs';
 
 export const MARKET = 'testany-agent-skills';
 export const SOURCE = 'https://github.com/TestAny-io/testany-agent-skills.git';
-// Launches never see this session's HOME, Codex or Claude variables.
-export const isolated = home => ({ ...Object.fromEntries(Object.entries(process.env).filter(([key]) => !/^(CLAUDE|CODEX_|SKILLDOCK_|ANTHROPIC_)|^PORT$/.test(key))), HOME: home });
+// Launches never see this session's HOME, Codex or Claude variables, and never run the
+// Agent command lines installed on this machine (absent explicit ones fail cleanly).
+export const absentCommandLines = home => ({ SKILLDOCK_CODEX_BIN: path.join(home, 'no-agent-cli/codex'), SKILLDOCK_CLAUDE_BIN: path.join(home, 'no-agent-cli/claude') });
+export const isolated = home => ({ ...Object.fromEntries(Object.entries(process.env).filter(([key]) => !/^(CLAUDE|CODEX_|SKILLDOCK_|ANTHROPIC_)|^PORT$/.test(key))), HOME: home, ...absentCommandLines(home) });
 
 export async function fixture(t) {
   const root = await fs.mkdtemp(path.join(os.tmpdir(), 'skilldock launcher '));

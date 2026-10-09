@@ -22,12 +22,17 @@ export function constructedPath(env = process.env, node = process.execPath) {
   return [...new Set([path.dirname(node), ...FIXED_PATH, ...inherited])].join(path.delimiter);
 }
 
-/** The allowed part of `env`, SkillDock settings included; `extra` is applied on top. */
-export function childEnvironment(env = process.env, extra = {}, { node = process.execPath } = {}) {
+/**
+ * The allowed part of `env`, SkillDock settings included; `extra` is applied on top.
+ * `npm: true` (dependency installation and build) also keeps npm's own configuration
+ * variables, such as a registry mirror.
+ */
+export function childEnvironment(env = process.env, extra = {}, { node = process.execPath, npm = false } = {}) {
   const result = {};
   for (const [key, value] of Object.entries(env)) {
     if (value === undefined) continue;
-    if (ALLOWED.has(key) || key.startsWith('LC_') || (key.startsWith('SKILLDOCK_') && !LAUNCH_ONLY.has(key))) result[key] = value;
+    if (ALLOWED.has(key) || key.startsWith('LC_') || (key.startsWith('SKILLDOCK_') && !LAUNCH_ONLY.has(key))
+      || (npm && /^npm_config_/i.test(key))) result[key] = value;
   }
   result.PATH = constructedPath(env, node);
   for (const [key, value] of Object.entries(extra)) { if (value === undefined || value === null) delete result[key]; else result[key] = String(value); }

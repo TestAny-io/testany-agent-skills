@@ -43,7 +43,7 @@ async function claudeInstallRecord(configDir) {
 export async function commandLineGateEvidence({ codexHome, claudeRoot, state, env = process.env, home = os.homedir(), timeout = 15000 }) {
   const blockers = []; const notes = [];
   if (codexHome && await exists(codexHome)) {
-    const cli = await resolveCodexCli({ codexHome, env: childEnvironment(env), home });
+    const cli = await resolveCodexCli({ codexHome, env, home });
     if (!cli.available) notes.push('Codex 命令行不可用，以插件缓存为准。');
     else {
       try {

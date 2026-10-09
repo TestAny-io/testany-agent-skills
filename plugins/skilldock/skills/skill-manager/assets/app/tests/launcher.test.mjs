@@ -364,13 +364,27 @@ test('the service inherits only allowed variables; the command line of a Claude 
   const f = await fixture(t); const options = { ...f, port: await freePort() };
   const entry = path.join(f.appDir, 'server/index.mjs');
   await fs.writeFile(entry, (await fs.readFile(entry, 'utf8')).replace("server.listen(", "(await import('node:fs')).writeFileSync(process.env.SKILLDOCK_STATE_DIR + '/service-env.json', JSON.stringify(Object.keys(process.env))); server.listen("));
+  // The Codex command-line probe and the dependency build record what they receive too.
+  const seen = path.join(f.root, 'seen'); await fs.mkdir(seen);
+  const codexBin = path.join(f.root, 'codex-stand-in');
+  await fs.writeFile(codexBin, `#!/bin/sh\n/usr/bin/env | /usr/bin/cut -d= -f1 > "${seen}/codex-$1"\ncase "$1" in --version) echo "codex-cli 0.1.0" ;; plugin) echo "marketplace list" ;; esac\n`, { mode: 0o755 });
+  const manifest = path.join(f.appDir, 'package.json'); const pkg = JSON.parse(await fs.readFile(manifest, 'utf8'));
+  pkg.scripts.build = `node -e "require('fs').writeFileSync('${path.join(seen, 'build')}', Object.keys(process.env).join(String.fromCharCode(10)))" && ${pkg.scripts.build}`;
+  await fs.writeFile(manifest, JSON.stringify(pkg));
   const session = path.join(f.root, 'claude-cli');
-  const env = { ...f.env, CLAUDECODE: '1', CLAUDE_CODE_EXECPATH: session, CLAUDE_CODE_ENTRYPOINT: 'claude-desktop', ANTHROPIC_API_KEY: 'not-a-real-key', CODEX_THREAD_ID: 'thread' };
-  const first = await launch('start', { ...options, env });
+  const env = { ...f.env, CLAUDECODE: '1', CLAUDE_CODE_EXECPATH: session, CLAUDE_CODE_ENTRYPOINT: 'claude-desktop', ANTHROPIC_API_KEY: 'not-a-real-key',
+    CLAUDE_CODE_OAUTH_TOKEN: 'not-a-real-token', CODEX_THREAD_ID: 'thread', npm_config_loglevel: 'warn' };
+  const first = await launch('start', { ...options, env, codexBin });
   try {
     const keys = JSON.parse(await fs.readFile(path.join(first.state, 'service-env.json'), 'utf8'));
-    for (const key of ['CLAUDECODE', 'CLAUDE_CODE_EXECPATH', 'CLAUDE_CODE_ENTRYPOINT', 'ANTHROPIC_API_KEY', 'CODEX_THREAD_ID']) assert.equal(keys.includes(key), false, key);
+    const sessionKeys = ['CLAUDECODE', 'CLAUDE_CODE_EXECPATH', 'CLAUDE_CODE_ENTRYPOINT', 'ANTHROPIC_API_KEY', 'CLAUDE_CODE_OAUTH_TOKEN', 'CODEX_THREAD_ID'];
+    for (const key of [...sessionKeys, 'npm_config_loglevel']) assert.equal(keys.includes(key), false, key);
     for (const key of ['HOME', 'PATH', 'PORT', 'SKILLDOCK_STATE_DIR', 'SKILLDOCK_PROJECT_DIR']) assert.ok(keys.includes(key), key);
+    for (const name of ['codex---version', 'codex-plugin', 'build']) {
+      const received = (await fs.readFile(path.join(seen, name), 'utf8')).split('\n');
+      for (const key of sessionKeys) assert.equal(received.includes(key), false, `${name} ${key}`);
+      assert.equal(received.includes('npm_config_loglevel'), name === 'build', `${name} npm_config_loglevel`);
+    }
     assert.equal(JSON.parse(await fs.readFile(path.join(first.state, 'settings/claude-cli.json'), 'utf8')).sessionPath, session);
   } finally { await launch('stop', { ...options, env }); }
 });
