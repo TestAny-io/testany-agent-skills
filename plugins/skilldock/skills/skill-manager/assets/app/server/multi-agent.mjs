@@ -56,6 +56,9 @@ export function markReadOnly(result, agent, reason) {
   }
   for (const plugin of result.plugins) if ((plugin.agents ?? ['codex']).includes(agent)) off(Object.assign(plugin, { canToggle: false, canRemove: false, canInstall: false }));
   for (const market of result.marketplaces) if ((market.agents ?? ['codex']).includes(agent)) off(Object.assign(market, { canRemove: false, canRefresh: false }));
+  // Updates can still be checked but not applied; earlier changes cannot be restored.
+  for (const item of result.updates ?? []) if ((item.target?.agent ?? 'codex') === agent) Object.assign(item, { canApply: false, canAutoApply: false });
+  for (const item of result.activity ?? []) if ((item.agent ?? 'codex') === agent) item.canRestore = false;
   return result;
 }
 

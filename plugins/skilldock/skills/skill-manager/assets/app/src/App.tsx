@@ -112,6 +112,7 @@ type Dialog =
       danger?: boolean;
       label: string;
       affected?: string[];
+      affectedTitle?: string;
     };
 type Toast = { kind: "success" | "error"; message: string };
 const scopeLabels: Record<Scope, string> = {
@@ -709,7 +710,7 @@ export default function App() {
       { label: t("查看详情"), icon: <Info size={15} />, run: () => setInspection({ kind, id: item.id }) },
       { label: t("编辑标签"), icon: <Tag size={15} />, disabled: !!busy || !objectAgents(item).includes("codex"), run: () => editTags(kind, item) },
       { label: t(item.enabled ? "禁用" : "启用"), icon: <CircleCheck size={15} />, disabled: !item.canToggle || !!busy || paused, run: () => run({ action: kind === "skill" ? "skill.toggle" : "plugin.toggle", id: item.id, enabled: !item.enabled }) },
-      { label: t("管理更新"), icon: <RefreshCw size={15} />, run: () => { navigate("updates"); setUpdateFocus(item.id); } },
+      { label: t("管理更新"), icon: <RefreshCw size={15} />, disabled: !objectAgents(item).includes("codex"), run: () => { navigate("updates"); setUpdateFocus(item.id); } },
     ];
     if (kind === "skill") {
       const skill = item as Skill;
@@ -1722,7 +1723,7 @@ function SkillDetail({
             {skill.canUpdate && <Badge tone="green">{t("已记录来源")}</Badge>}
           </div>
         </div>
-        <TagStrip subject={{ ...skill, kind: "skill" }} disabled={!!busy} onEdit={onEditTags} />
+        <TagStrip subject={{ ...skill, kind: "skill" }} disabled={!!busy || !objectAgents(skill).includes("codex")} onEdit={onEditTags} />
         <div className="detail-state">
           <div>
             <strong>{t("启用状态")}</strong>
@@ -2024,8 +2025,8 @@ function ConfirmDialog({
         {!!dialog.affected?.length && (
           <div className="affected-list">
             <h3>
-              {t("受影响的技能（")}
-              {dialog.affected.length}）
+              {dialog.affectedTitle ? t(dialog.affectedTitle) : t("受影响的技能（")}
+              {dialog.affectedTitle ? null : <>{dialog.affected.length}）</>}
             </h3>
             <ul>
               {dialog.affected.map((item) => (

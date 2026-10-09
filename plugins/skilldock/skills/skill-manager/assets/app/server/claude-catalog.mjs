@@ -154,7 +154,8 @@ async function scanSkills({ roots, layers, diagnostics, problems }) {
   const skills = []; const plugins = [];
   for (const { directory: root, scope } of roots) {
     let entries;
-    try { entries = await fs.readdir(root, { withFileTypes: true }); } catch (error) { if (error.code !== 'ENOENT' && error.code !== 'ENOTDIR') diagnostics.push(`${root}：${error.code}`); continue; }
+    try { entries = await fs.readdir(root, { withFileTypes: true }); }
+    catch (error) { if (error.code !== 'ENOENT' && error.code !== 'ENOTDIR') problems.push(`技能目录 ${root} 无法读取（${error.code || 'UNREADABLE'}）。`); continue; }
     for (const entry of entries.sort((a, b) => a.name.localeCompare(b.name))) {
       if (entry.name.startsWith('.') || !(entry.isDirectory() || entry.isSymbolicLink())) continue;
       const directory = path.join(root, entry.name);

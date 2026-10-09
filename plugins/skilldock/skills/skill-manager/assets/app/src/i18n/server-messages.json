@@ -759,10 +759,6 @@
     "en": "{v0} was not found on this Mac.",
     "ja": "この Mac に {v0} が見つかりません。"
   },
-  "{v0} Codex 为只读，这次检查没有刷新来源，结果以本机现有的 marketplace 副本为准。": {
-    "en": "{v0} Codex is read-only, so this check did not refresh the source; the result is based on the marketplace copy already on this Mac.",
-    "ja": "{v0} Codex は読み取り専用のため、今回の確認ではソースを更新していません。結果はこの Mac にある既存のマーケットプレイスのコピーに基づきます。"
-  },
   "无法确认 Claude 中的插件状态：{v0}": {
     "en": "Cannot confirm the plugin state in Claude: {v0}",
     "ja": "Claude のプラグイン状態を確認できません：{v0}"
@@ -802,5 +798,13 @@
   "这一版 SkillDock 只读取 Claude 中的技能和插件，暂不能在这里修改它们。": {
     "en": "This version of SkillDock only reads skills and plugins in Claude and cannot change them here yet.",
     "ja": "このバージョンの SkillDock は Claude のスキルとプラグインを読み取るだけで、ここではまだ変更できません。"
+  },
+  "{v0} Codex 为只读：这次检查没有刷新来源，也没有改动 Codex；如有新版本，需要启用 Codex 管理后才能更新。": {
+    "en": "{v0} Codex is read-only: this check did not refresh the source or change Codex. If there is a new version, turn on Codex management to update.",
+    "ja": "{v0} Codex は読み取り専用です。今回の確認ではソースを更新せず、Codex も変更していません。新しいバージョンがある場合は、Codex の管理を有効にしてから更新してください。"
+  },
+  "技能目录 {v0} 无法读取（{v1}）。": {
+    "en": "The skills directory {v0} cannot be read ({v1}).",
+    "ja": "スキルディレクトリ {v0} を読み取れません（{v1}）。"
   }
 }

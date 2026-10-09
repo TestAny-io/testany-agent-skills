@@ -54,8 +54,9 @@ const ACTION_FIELDS = {
 // Actions that change an Agent's skills, plugins or marketplaces: they edit its files or
 // configuration, or run a mutating command (plugin add/remove, marketplace add/upgrade/remove).
 // 36c §5: refused while that environment is read-only. Previews, tags, sources and settings
-// change SkillDock's own data only; a plugin update check is kept read-only separately (it
-// would otherwise upgrade the marketplace first).
+// change SkillDock's own data only. A plugin update check stays read-only inside
+// preparePluginUpdate (it would otherwise upgrade the marketplace and repair the skill
+// configuration), and its result cannot be applied.
 const HOST_WRITES = new Set(['skill.toggle', 'skill.install', 'skill.update', 'skill.remove', 'skill.removeSelected', 'activity.restore',
   'plugin.install', 'plugin.installSource', 'plugin.remove', 'plugin.toggle', 'marketplace.add', 'marketplace.refresh', 'marketplace.remove', 'update.apply']);
 // Global and multi-target actions: `agent` only marks a version-2 request (36c §6).
@@ -423,6 +424,10 @@ export async function createService(options = {}) {
     } finally { await removeStaging(env, staged.staging); }
   }
   async function preparePluginUpdate(env, registry, id, { refreshMarketplace = true, requireCurrent = false, expectedSignature } = {}) {
+    // PH3-P1-01: a read-only Codex is only read here — no marketplace refresh and no
+    // repair of its skill configuration; SkillDock's own baseline may still be recorded.
+    const readOnly = env.mode === 'local' && await codexReadOnly();
+    if (readOnly) refreshMarketplace = false;
     let catalog = await catalogFor(env, registry, true); let plugin = catalog.plugins.find(item => item.id === id && item.installed);
     if (!plugin) fail(404, 'NOT_FOUND', '未找到已安装插件。');
     const initialVersion = plugin.version;
@@ -494,7 +499,7 @@ export async function createService(options = {}) {
         checkedAt: now(), installedVersion: plugin.version, availableVersion, changes, sourceInfo: plugin.sourceInfo, installedPath, ...(updatedDuringCheck ? { updatedDuringCheck: true } : {}), ...(!current && !blocked ? { previewId } : {}) };
       if (updatedDuringCheck) item.message = 'Codex 已在刷新市场时更新包，已核对版本和内容。';
       if (current && (drifted || requireCurrent)) { item.message = '已核实插件外部同步，安装版本和内容与来源一致；已恢复检查基线，未修改安装文件。'; item.reasonCode = 'EXTERNAL_SYNC_VERIFIED'; }
-      if (registry.pluginSkillPreferences?.[id]) {
+      if (!readOnly && registry.pluginSkillPreferences?.[id]) {
         const roots = await discoverSkillRoots(installedPath);
         for (const relative of [...(plugin._componentRoots || []), ...Object.keys(registry.pluginSkillPreferences[id]).map(file => path.dirname(file))]) {
           const directory = path.resolve(installedPath, relative);
@@ -1030,7 +1035,7 @@ export async function createService(options = {}) {
     if (await codexReadOnly())
       fail(409, 'AGENT_READ_ONLY', 'Codex 环境当前为只读，SkillDock 不会修改 Codex 中的技能和插件。请在 SkillDock 的“Agent 环境”页启用 Codex 管理后重试。');
   }
-  const codexReadOnly = async () => (await readManagement(stateDir)).codex?.management === 'read-only';
+  async function codexReadOnly() { return (await readManagement(stateDir)).codex?.management === 'read-only'; }
   // HLD 3.8: targets of an Agent that is not managed (read-only, unconfirmed or gone) pause.
   async function pausedTarget(mode, target) {
     if (mode !== 'local') return null;
@@ -1135,12 +1140,13 @@ export async function createService(options = {}) {
       }
       if (target?.kind === 'plugin' && !applying) await scheduler.reconcileBinding(mode, target);
       const binding = target && (applying || target.kind === 'plugin') ? await scheduler.beforeOwnUpdate(mode, target) : null;
-      // PH3-P1-01: refreshing a marketplace changes Codex; a read-only Codex is checked against its current copy.
-      const keepCodex = translated.action === 'plugin.checkUpdate' && mode === 'local' && await codexReadOnly();
-      const result = await executeAction(translated, keepCodex ? { pluginCheckOptions: { refreshMarketplace: false } } : {});
-      if (keepCodex) {
-        const note = `${result.message} Codex 为只读，这次检查没有刷新来源，结果以本机现有的 marketplace 副本为准。`;
-        result.message = note; if (result.updateItem) result.updateItem.message = note;
+      const result = await executeAction(translated);
+      // PH3-P1-01: a check of a read-only Codex changed nothing, and its result cannot be applied.
+      if (!applying && request.action === 'update.check' && mode === 'local' && await codexReadOnly()) {
+        const note = `${result.message} Codex 为只读：这次检查没有刷新来源，也没有改动 Codex；如有新版本，需要启用 Codex 管理后才能更新。`;
+        result.message = note;
+        if (result.updateItem) Object.assign(result.updateItem, { message: note, canApply: false, canAutoApply: false });
+        if (result.update) result.update.available = false;
       }
       if (target && applying) await scheduler.afterOwnUpdate(mode, target, binding);
       else if (target) {

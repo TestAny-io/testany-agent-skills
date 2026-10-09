@@ -7,7 +7,7 @@ import fs from 'node:fs/promises';
 import os from 'node:os';
 import path from 'node:path';
 import { createService } from '../server/service.mjs';
-import { mergeClaude } from '../server/multi-agent.mjs';
+import { mergeClaude, markReadOnly } from '../server/multi-agent.mjs';
 import { writeGeneration } from '../server/generation.mjs';
 
 const skillFile = async (directory, name) => { await fs.mkdir(path.join(directory, name), { recursive: true }); await fs.writeFile(path.join(directory, name, 'SKILL.md'), `---\nname: ${name}\ndescription: ${name} skill.\n---\n`); };
@@ -71,3 +71,17 @@ test('a failing Claude list makes Claude unconfirmed in the multi-agent snapshot
   assert.equal(claude.management, 'unconfirmed'); assert.match(claude.reason, /stand-in/);
   assert.ok(multi.skills.some(item => item.name === 'claude-only'), '文件证据照常显示');
 });
+
+test('a read-only Agent in a multi-agent snapshot: no changes offered, updates not applicable, nothing restorable', () => {
+  const result = markReadOnly({
+    skills: [{ agents: ['codex'], canToggle: true, canRemove: true, canUpdate: true }, { agents: ['codex', 'claude'], canToggle: true, canRemove: true, canUpdate: false, perAgent: { codex: { canToggle: true }, claude: { canToggle: false } } }, { agents: ['claude'], canToggle: false, canRemove: false, canUpdate: false, reason: 'claude' }],
+    plugins: [{ agents: ['codex'], canToggle: true, canRemove: true, canInstall: true }], marketplaces: [{ canRemove: true, canRefresh: true }],
+    updates: [{ target: { kind: 'skill', id: 'a' }, canApply: true, canAutoApply: true }, { target: { kind: 'plugin', id: 'b', agent: 'claude' }, canApply: false }],
+    activity: [{ id: 'x', canRestore: true }, { id: 'y', agent: 'claude', canRestore: false }] }, 'codex', 'read-only reason');
+  assert.deepEqual(result.skills.map(item => [item.canToggle, item.canRemove, item.canUpdate, item.reason]), [[false, false, false, 'read-only reason'], [false, false, false, 'read-only reason'], [false, false, false, 'claude']]);
+  assert.equal(result.skills[1].perAgent.codex.canToggle, false);
+  assert.deepEqual([result.plugins[0].canToggle, result.plugins[0].canInstall, result.marketplaces[0].canRefresh], [false, false, false]);
+  assert.deepEqual(result.updates.map(item => item.canApply), [false, false]);
+  assert.deepEqual(result.activity.map(item => item.canRestore), [false, false]);
+});
+

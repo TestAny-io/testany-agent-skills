@@ -2402,5 +2402,17 @@
   "这一版只读取 Claude 插件，附带技能不单独列出。": {
     "en": "This version only reads Claude plugins; their skills are not listed one by one.",
     "ja": "このバージョンは Claude のプラグインを読み取るだけで、付属スキルは個別に表示しません。"
+  },
+  "启用后 SkillDock 可能写入的位置": {
+    "en": "Where SkillDock may write once management is on",
+    "ja": "有効にした後に SkillDock が書き込む可能性のある場所"
+  },
+  "这一版 SkillDock 只读取 Claude 中的对象；启用后，后续版本才能按你的操作修改 Claude 中的技能、插件和 marketplace，并把它们加入后台更新计划。启用这一步本身不会改动任何文件。": {
+    "en": "This version of SkillDock only reads items in Claude. Once on, later versions can change skills, plugins and marketplaces in Claude when you ask them to, and add them to background update plans. Turning management on changes no files by itself.",
+    "ja": "このバージョンの SkillDock は Claude の項目を読み取るだけです。有効にすると、以降のバージョンで、操作に応じて Claude のスキル・プラグイン・マーケットプレイスを変更し、バックグラウンド更新プランに追加できるようになります。有効にする操作自体はファイルを変更しません。"
+  },
+  "启用后，SkillDock 可以按你的操作修改 {v0} 中的技能、插件和 marketplace，并可以把它们加入后台更新计划。启用这一步本身不会改动任何文件。": {
+    "en": "Once on, SkillDock can change skills, plugins and marketplaces in {v0} when you ask it to, and can add them to background update plans. Turning management on changes no files by itself.",
+    "ja": "有効にすると、SkillDock は操作に応じて {v0} のスキル・プラグイン・マーケットプレイスを変更し、バックグラウンド更新プランに追加できます。有効にする操作自体はファイルを変更しません。"
   }
 }

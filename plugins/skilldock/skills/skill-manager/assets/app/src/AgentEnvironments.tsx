@@ -6,7 +6,7 @@ import { t } from "./i18n";
 import { AGENT_LABEL } from "./AgentUI";
 
 type Request = Omit<ActionRequest, "mode">;
-export interface ConfirmSpec { title: string; description: string; target: string; request: Request; danger?: boolean; label: string; affected?: string[] }
+export interface ConfirmSpec { title: string; description: string; target: string; request: Request; danger?: boolean; label: string; affected?: string[]; affectedTitle?: string }
 
 const STATE: Record<AgentEnvironment["management"], { label: string; tone: string }> = {
   enabled: { label: "已启用管理", tone: "badge-green" },
@@ -31,9 +31,9 @@ function EnvironmentCard({ environment, skills, plugins, busy, onRun, onConfirm 
     ...(environment.agent === "claude" ? [t("当前项目的 .claude/settings.json 与 .claude/settings.local.json（只在你选择项目范围时）")] : [])];
   const enable = () => onConfirm({ title: t("启用 {v0} 管理？", { v0: name }),
     description: environment.agent === "claude"
-      ? t("这一版 SkillDock 只读取 Claude 中的对象；启用后，后续版本才能按你的操作修改 Claude 中的技能、插件和 marketplace，并把它们加入后台更新计划。这不会改动 Claude 自身的设置。")
-      : t("启用后，SkillDock 可以按你的操作修改 {v0} 中的技能、插件和 marketplace，并可以把它们加入后台更新计划。这不会改动 {v0} 自身的设置。", { v0: name }),
-    affected: places, target: name, request: { action: "agent.setManagement", agent: environment.agent, management: "enabled" }, label: t("启用管理") });
+      ? t("这一版 SkillDock 只读取 Claude 中的对象；启用后，后续版本才能按你的操作修改 Claude 中的技能、插件和 marketplace，并把它们加入后台更新计划。启用这一步本身不会改动任何文件。")
+      : t("启用后，SkillDock 可以按你的操作修改 {v0} 中的技能、插件和 marketplace，并可以把它们加入后台更新计划。启用这一步本身不会改动任何文件。", { v0: name }),
+    affected: places, affectedTitle: "启用后 SkillDock 可能写入的位置", target: name, request: { action: "agent.setManagement", agent: environment.agent, management: "enabled" }, label: t("启用管理") });
   const disable = () => onConfirm({ title: t("停用 {v0} 管理？", { v0: name }),
     description: t("停用后 {v0} 回到只读：SkillDock 只显示其中的对象，不再修改它们；更新计划中属于 {v0} 的项暂停，重新启用后恢复。", { v0: name }),
     target: name, request: { action: "agent.setManagement", agent: environment.agent, management: "read-only" }, label: t("停用管理"), danger: true });

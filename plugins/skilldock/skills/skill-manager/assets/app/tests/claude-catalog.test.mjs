@@ -187,3 +187,16 @@ test('marketplace addresses never carry credentials', async t => {
   const catalog = await claudeCatalog({ ...w.base, listMarketplaces: async () => [{ name: 'private', source: 'git', url: 'https://user:secret@git.example.com/o/r.git?token=abc' }] });
   assert.equal(catalog.marketplaces[0].source, 'https://git.example.com/o/r.git');
 });
+
+test('an unreadable skills root leaves Claude unconfirmed; a managed value overrides a different local one', async t => {
+  const w = await world(t);
+  await write(path.join(w.managedDir, 'managed-settings.json'), { enabledPlugins: { 'b@m': true } });
+  await write(path.join(w.project, '.claude/settings.local.json'), { enabledPlugins: { 'b@m': false } });
+  assert.deepEqual((await claudeCatalog(w.base)).plugins.find(item => item.name === 'b').enablement, { decidedBy: 'managed', overriddenBy: 'managed', locked: true });
+  if (process.getuid?.() !== 0) {
+    const skills = path.join(w.configDir, 'skills'); await fs.chmod(skills, 0o000);
+    const blocked = await claudeCatalog(w.base).finally(() => fs.chmod(skills, 0o755));
+    assert.match(blocked.unconfirmed, /技能目录 .*skills 无法读取/);
+  }
+});
+
