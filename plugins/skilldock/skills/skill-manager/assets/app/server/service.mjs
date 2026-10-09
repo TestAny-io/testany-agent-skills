@@ -27,6 +27,8 @@ import { pluginContents } from './plugin-contents.mjs';
 import { officialAppUrl } from './app-directory.mjs';
 import { createDirectoryIcons } from './directory-icons.mjs';
 import { createAgentLayer, readManagement, writeManagement, AGENT_NAME } from './agents.mjs';
+import { claudeCatalog } from './claude-catalog.mjs';
+import { mergeClaude } from './multi-agent.mjs';
 import { writeClaudeRoot } from './claude-root.mjs';
 import { inspectNode, findNpm, resolveToolchain } from './toolchain.mjs';
 import { writeSavedNode } from './node-candidates.mjs';
@@ -247,15 +249,30 @@ export async function createService(options = {}) {
     if (mode === 'local') result.projects = await projects();
     // 36c §5–6: only a client that declared multiAgent=1 sees Agent environments, and then
     // every object names its Agent explicitly.
-    if (multiAgent) {
-      for (const list of [result.skills, result.plugins, result.marketplaces]) for (const item of list) item.agents ??= ['codex'];
-      result.agents = mode === 'local' ? await agentLayer.environments({ force }) : [];
+    if (multiAgent && mode === 'local') {
+      const found = await agentLayer.discover({ force });
+      const claude = found.installed.claude ? await claudeFor(found, env.project, force) : null;
+      mergeClaude(result, claude ?? { skills: [], plugins: [], marketplaces: [], diagnostics: [] });
+      result.agents = await agentLayer.environments({ found, unconfirmed: agent => agent === 'claude' ? claude?.unconfirmed : null });
+    } else if (multiAgent) {
+      mergeClaude(result, { skills: [], plugins: [], marketplaces: [], diagnostics: [] }); result.agents = [];
     }
     result.durationMs = Math.round(performance.now() - started); return result;
   }
+  // The Claude catalog for multi-agent snapshots, kept for 15 seconds like the Codex one.
+  let claudeCache;
+  async function claudeFor(found, projectDir, force) {
+    const key = JSON.stringify([found.claudeRoot.configDir, found.claudeRoot.pluginCacheDir, projectDir, found.cli.claude.path]);
+    if (!force && claudeCache?.key === key && Date.now() - claudeCache.at < 15000) return structuredClone(claudeCache.value);
+    let value;
+    try { value = await claudeCatalog({ claudeRoot: found.claudeRoot, project: projectDir, cli: found.cli.claude.available ? found.cli.claude : null, env: agentEnv, ...options.claudeCatalog }); }
+    catch (error) { value = { skills: [], plugins: [], marketplaces: [], diagnostics: [], unconfirmed: `无法读取 Claude 环境：${redact(error.message)}` }; }
+    claudeCache = { key, at: Date.now(), value };
+    return structuredClone(value);
+  }
   async function skill(mode, id) {
     if (typeof id !== 'string' || id.length > 300) fail(400, 'INVALID_ID', '需要技能 ID。');
-    const record = (await snapshot(mode)).skills.find(item => item.id === id);
+    const record = (await snapshot(mode, false, { multiAgent: id.startsWith('claude:') })).skills.find(item => item.id === id);
     if (!record) fail(404, 'NOT_FOUND', '未找到该技能，请刷新清单。');
     const content = (await metadata(path.dirname(record.path))).content;
     return { skill: record, content };
