@@ -7,7 +7,9 @@ import { pluginPath } from './paths.mjs';
 const gitCache = new Map();
 export const OWNER_HELP = 'https://learn.chatgpt.com/docs/enterprise/manage-app-updates';
 export const PLUGIN_HELP = 'https://developers.openai.com/plugins/build/plugins';
-export const targetKey = target => `${target.kind}:${target.id}`;
+// A Codex target keeps the 0.10.2 key; another side's target names its side (36c §6: a shared
+// skill keeps the Codex ID whichever side updates it).
+export const targetKey = target => target.agent && target.agent !== 'codex' ? `${target.kind}:${target.agent}:${target.id}` : `${target.kind}:${target.id}`;
 
 export function pluginSourceInfo(plugin, details = {}) {
   const local = details.sourceType === 'local' || !!plugin.sourcePath;
@@ -83,6 +85,11 @@ export function buildUpdateItems(snapshot, observations = {}, hasPreview = () =>
     items.push({ target: { kind: 'skill', id: skill.id }, name: skill.name, owner: skill.sourceInfo?.owner || 'User', route: tracked ? 'skill-source' : gitRoot || cache ? 'owner-managed' : 'connect-source', status: tracked ? 'unchecked' : 'blocked', canCheck: tracked || gitRoot || cache, canApply: false, canAutoApply: tracked,
       message: tracked ? '检查已追踪来源的文件变化。' : gitRoot ? '该技能目录本身包含 Git 仓库元数据，或属于链接；请在所属 Git 工作区更新，SkillDock 不替换 .git。' : git ? '已读取 Git 来源。确认关联后可更新此技能子目录，会形成工作树变更；不会 pull 整个仓库。' : cache ? '先在 Codex 插件页确认所属包的安装状态，再刷新此处。' : '关联一个本地或 Git 来源后，预览差异并更新；关联本身不会替换文件。', reasonCode: tracked ? undefined : gitRoot || cache ? 'OWNER_MANAGED' : 'SOURCE_UNKNOWN', sourceInfo: skill.sourceInfo, installedVersion: skill.version || skill.sourceInfo?.commit, installedPath: skill.path, affectedSkillIds: [skill.id] });
   }
+  return applyObservations(items, observations, hasPreview);
+}
+
+/** What the last check of each target found, kept while the target is the same installation. */
+export function applyObservations(items, observations = {}, hasPreview = () => false) {
   return items.map(item => {
     const prior = observations[targetKey(item.target)];
     if (!prior || prior.installedVersion !== undefined && prior.installedVersion !== item.installedVersion || prior.route !== undefined && prior.route !== item.route) return item;

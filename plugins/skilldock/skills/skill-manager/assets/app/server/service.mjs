@@ -4,7 +4,7 @@ import os from 'node:os';
 import { createIconCatalog } from './provider-icons.mjs';
 import crypto from 'node:crypto';
 import { fileURLToPath } from 'node:url';
-import { AppError, fail, exists, inside, identity, hash, now, metadata, inspectTree, copySkill, objectFingerprint, diffFiles, readJson, writeJson, safeName, safeSegment, redact, captureDirectoryRoot, verifyDirectoryRoot, verifyDescendantDirectory } from './files.mjs';
+import { AppError, fail, exists, inside, identity, hash, now, metadata, inspectTree, copySkill, objectFingerprint, diffFiles, readJson, writeJson, safeName, safeSegment, redact, captureDirectoryRoot, verifyDirectoryRoot, verifyDescendantDirectory, publicSource } from './files.mjs';
 import { toggleConfig, toggleSkillConfigs, readConfig } from './config.mjs';
 import { CodexAdapter, listCovers, validateSource, validateSubpath, validateRef, checkoutGit, readMarketplace, readComponentEntry, readPluginManifest, readPluginDefinition, discoverSkillRoots } from './cli.mjs';
 import { initializeSandbox, emptyRegistry } from './fixtures.mjs';
@@ -32,6 +32,7 @@ import { claudeCatalog, claudeIds } from './claude-catalog.mjs';
 import { claudeWriter } from './claude-writer.mjs';
 import { createClaudeActions, CLAUDE_WRITES } from './claude-actions.mjs';
 import { mergeClaude, markReadOnly } from './multi-agent.mjs';
+import { claudeUpdateItems, claudeLedSkills } from './claude-updates.mjs';
 import { writeClaudeRoot } from './claude-root.mjs';
 import { inspectNode, findNpm, resolveToolchain } from './toolchain.mjs';
 import { writeSavedNode } from './node-candidates.mjs';
@@ -273,7 +274,15 @@ export async function createService(options = {}) {
       const claude = found.installed.claude ? await claudeFor(found, env.project, force) : null;
       if (claude) decorateClaudeDirect(claude, registry, env);
       mergeClaude(result, claude ?? { skills: [], plugins: [], marketplaces: [], diagnostics: [] });
-      if (claude) await decorateClaudeSkills(result, registry, { user: path.join(found.claudeRoot.configDir, 'skills'), project: path.join(env.project, '.claude/skills') });
+      if (claude) {
+        const roots = { user: path.join(found.claudeRoot.configDir, 'skills'), project: path.join(env.project, '.claude/skills') };
+        await decorateClaudeSkills(result, registry, roots);
+        // Phase 5a: Claude objects join the update list, before any side is marked read-only (which
+        // then leaves its items checkable or not, but never applicable); a shared skill Claude leads
+        // is listed once, under Claude.
+        const led = claudeLedSkills(result); const items = claudeUpdateItems(result, await claudeUpdateMaps(result, registry, roots));
+        result.updates = [...result.updates.filter(item => !(item.target.kind === 'skill' && !item.target.agent && led.has(item.target.id))), ...(scheduler ? scheduler.decorate(mode, items) : items)];
+      }
       if (found.stored.codex?.management === 'read-only') markReadOnly(result, 'codex', CODEX_READ_ONLY_REASON);
       // Claude objects offer changes only while Claude management is enabled and confirmed.
       const claudeState = agentLayer.effective('claude', found, side => side === 'claude' ? claude?.unconfirmed : null);
@@ -383,8 +392,35 @@ export async function createService(options = {}) {
       if (skill.canToggle) delete skill.reason;
     }
   }
+  const trackedInfo = source => ({ kind: 'tracked', confidence: source.confidence || 'verified', owner: 'SkillDock', label: source.confidence === 'user-confirmed' ? '用户关联来源' : '已追踪来源',
+    evidence: '已记录来源及当前安装内容指纹；更新前重新校验。', source: publicSource(source.source), sourceType: source.sourceType, subpath: source.subpath, ref: source.ref, commit: source.commit });
+  /** Whether a skills-directory plugin can be updated by the file transaction (phase 5a): only in the two roots, a directory, from a recorded source. */
+  async function skillsDirState(plugin, registry, roots) {
+    const directory = plugin.installedPath;
+    if (!directory || ![roots.user, roots.project].includes(path.dirname(directory))) return { canUpdate: false };
+    const isLink = await fs.lstat(directory).then(stat => stat.isSymbolicLink(), () => false);
+    const source = registry.claudeSources?.[await realDirectory(directory)];
+    return { canUpdate: !!source && !isLink && !await exists(path.join(directory, '.git')), isLink, source };
+  }
+  /** The Claude-side source of each updatable object, and which skills-directory plugins can update; reads only. */
+  async function claudeUpdateMaps(result, registry, roots) {
+    const sources = new Map(); const skillsDir = new Map();
+    for (const skill of result.skills) {
+      const view = skill.agents?.length === 2 ? skill.perAgent?.claude?.canUpdate && skill.perAgent.claude : skill.agents?.join() === 'claude' && skill;
+      const source = view && registry.claudeSources?.[await realDirectory(path.dirname(view.path))];
+      if (source) sources.set(skill.id, trackedInfo(source));
+    }
+    for (const plugin of result.plugins) {
+      if (plugin.marketplace !== 'skills-dir' || !plugin.installed || plugin.agents?.join() !== 'claude') continue;
+      const state = await skillsDirState(plugin, registry, roots); skillsDir.set(plugin.id, state);
+      if (state.source) sources.set(plugin.id, trackedInfo(state.source));
+    }
+    return { sources, skillsDir };
+  }
   async function claudeSkillRecord(id, capability, request) {
     const current = await snapshot('local', true, { multiAgent: true });
+    // A skills-directory plugin updates by the same file transaction as a skill (phase 5a).
+    if (id.startsWith('claude:plugin:')) return claudePluginDirRecord(current, id, capability, request);
     const record = current.skills.find(item => item.id === id);
     if (!record) fail(404, 'NOT_FOUND', '未找到这个 Claude 技能，请刷新后重试。');
     // A shared skill acts through its Claude side (36c §6): that side's path, link and capabilities;
@@ -404,6 +440,19 @@ export async function createService(options = {}) {
     if (inside(await realDirectory(directory), fileURLToPath(import.meta.url)) || directory.split(path.sep).includes('.system')) fail(403, 'PROTECTED_SKILL', '应用自身或系统内容不可修改。');
     if (capability === 'canUpdate' && await exists(path.join(directory, '.git'))) fail(422, 'GIT_OWNER_MANAGED', '该目录本身是 Git 仓库，SkillDock 不替换工作树或 .git 元数据。');
     return { record: shared ? { ...record, path: view.path, isLink: view.isLink } : record, directory, boundary, key: await realDirectory(directory) };
+  }
+  async function claudePluginDirRecord(current, id, capability, request) {
+    const plugin = current.plugins.find(item => item.id === id && item.marketplace === 'skills-dir' && item.installed);
+    if (!plugin) fail(404, 'NOT_FOUND', '未找到这个 Claude 技能目录插件，请刷新后重试。');
+    if (capability !== 'canUpdate') fail(422, 'UNSUPPORTED_FOR_AGENT', '技能目录插件经插件操作修改。');
+    if (request.expectedRevision === undefined || request.expectedRevision !== plugin.revision) fail(409, 'SNAPSHOT_STALE', 'Claude 中已有改动，请刷新后重试。');
+    const roots = await claudeSkillRoots(); const directory = plugin.installedPath;
+    const state = await skillsDirState(plugin, await registryFor(environment('local')), roots);
+    if (!state.canUpdate) fail(403, 'PROTECTED_PLUGIN', state.isLink ? '这个技能目录插件通过链接接入；更新请在真实来源目录进行。' : '这个技能目录插件没有 SkillDock 记录的来源，或位于其他位置；请在它的来源处更新。');
+    const boundary = await captureDirectoryRoot(path.dirname(directory));
+    if ((await claudeProtectedRoots(roots)).some(root => inside(root, boundary.real))) fail(403, 'TARGET_BOUNDARY', 'Claude 的技能根指向插件或系统管理目录，不能修改其中的内容。');
+    if (!inside(boundary.real, await fs.realpath(directory))) fail(403, 'ROOT_BOUNDARY', '插件目录的实际位置越出 Claude 的技能根。');
+    return { record: { ...plugin, plugin: true }, directory, boundary, key: await realDirectory(directory) };
   }
   // One implementation of the skill file transactions for both sides (4b review P2-04; DEC-SDX-020).
   // A side says how it finds a writable record and its source key, where its source records live,
@@ -464,7 +513,7 @@ export async function createService(options = {}) {
       afterRestore: () => {},
       dropStaging: staging => removeStaging(env, staging),
       messages: { installed: name => `已在 Claude 中安装技能 ${name}。新的 Claude 会话会加载它。`, linked: name => `已关联 Claude 技能 ${name} 的更新来源，本机文件保持原样。`,
-        updated: name => `已更新 Claude 技能 ${name}，旧版已保留，可从操作记录恢复。`, removed: name => `已把 Claude 技能 ${name} 移至可恢复区；可从操作记录恢复。`, restored: (name, entry) => entry?.plugin ? `已恢复 Claude 插件 ${name}。` : `已恢复 Claude 技能 ${name}。` },
+        updated: (name, record) => record?.plugin ? `已更新 Claude 插件 ${name}，旧版已保留，可从操作记录恢复。` : `已更新 Claude 技能 ${name}，旧版已保留，可从操作记录恢复。`, removed: name => `已把 Claude 技能 ${name} 移至可恢复区；可从操作记录恢复。`, restored: (name, entry) => entry?.plugin ? `已恢复 Claude 插件 ${name}。` : `已恢复 Claude 技能 ${name}。` },
     };
   }
   /**
@@ -510,7 +559,8 @@ export async function createService(options = {}) {
         const { record, directory, key } = await side.record(request.id, 'canUpdate'); const source = sources[key];
         const current = await inspectTree(directory);
         if (current.fingerprint !== source.fingerprint) fail(409, 'LOCAL_CHANGES', '已安装技能有本地修改；请先保留或整理修改，不能自动覆盖。');
-        const staged = await stageSource(env, source); const changes = diffFiles(current.entries, staged.tree.entries); const id = crypto.randomUUID();
+        // A skills-directory plugin's source is a plugin directory, not a skill (phase 5a).
+        const staged = await stageSource(env, source, record.plugin ? 'claude-plugin' : 'skill'); const changes = diffFiles(current.entries, staged.tree.entries); const id = crypto.randomUUID();
         if (changes.length) previews.set(id, { ...staged, id, mode: env.mode, kind: 'update', ...side.tag, target: directory, skillId: record.id, baseline: current.fingerprint, sourceIdentity: JSON.stringify(source), targetBoundary: await captureDirectoryRoot(directory), created: previewNow() });
         else await removeStaging(env, staged.staging);
         return { early: { message: changes.length ? '发现来源变化，请检查文件列表。' : '当前内容与来源一致。', ...side.tag, update: { id, skillId: record.id, name: record.name, available: changes.length > 0, changes, message: changes.length ? `${changes.length} 个文件有变化；更新前会保留旧版本。` : '当前内容与来源一致。' } } };
@@ -535,7 +585,8 @@ export async function createService(options = {}) {
           if (await sameSourceAt(before, previousSource)) { partition[other.key] = { ...before, fingerprint: preview.tree.fingerprint, files: preview.tree.entries }; sync = { partition: other.partition, key: other.key, previous: before }; }
         }
         const restore = { kind: 'update', ...side.tag, directory, backup, ...parent, expectedFingerprint: preview.tree.fingerprint, priorFingerprint: preview.baseline, source: previousSource, ...(side.agent === 'claude' ? { sourceKey: key } : {}), ...(sync ? { sync } : {}), skillId: record.id };
-        return { result: { message: side.messages.updated(record.name), needsReload: true, ...side.tag }, target: record.name, restore, consumed: preview };
+        if (record.plugin) restore.plugin = true;
+        return { result: { message: side.messages.updated(record.name, record), needsReload: true, ...side.tag }, target: record.name, restore, consumed: preview };
       }
       case 'skill.remove': {
         const { record, directory, key, boundaries } = await side.record(request.id, 'canRemove'); const fingerprint = await objectFingerprint(directory); const parent = await parentIdentity(directory);
@@ -1520,11 +1571,18 @@ export async function createService(options = {}) {
     return { data: await directoryIcons.get(theme === 'dark' ? urls?.dark || urls?.light : urls?.light || urls?.dark) };
   }
   async function targetSignature(mode, target, current) {
-    const env = environment(mode); current ||= await snapshot(mode); const registry = await registryFor(env);
+    const env = environment(mode); current ||= await schedulerSnapshot(mode); const registry = await registryFor(env);
     const item = current.updates.find(candidate => targetKey(candidate.target) === targetKey(target));
     if (!item) fail(404, 'NOT_FOUND', '更新目标不存在。');
     let directory; let generation;
-    if (target.kind === 'skill') {
+    if (target.agent === 'claude') {
+      // A Claude target binds its own side's directory and source record (phase 5a).
+      const skill = target.kind === 'skill' && current.skills.find(candidate => candidate.id === target.id);
+      const plugin = target.kind === 'plugin' && current.plugins.find(candidate => candidate.id === target.id && candidate.installed);
+      directory = skill ? path.dirname((skill.agents?.length === 2 ? skill.perAgent.claude : skill).path) : plugin?.installedPath;
+      if (!directory) fail(404, 'NOT_FOUND', '更新目标不存在。');
+      generation = registry.claudeSources?.[await realDirectory(directory)]?.generation;
+    } else if (target.kind === 'skill') {
       const record = current.skills.find(candidate => candidate.id === target.id); directory = path.dirname(record.path); generation = registry.sources[target.id]?.generation;
     } else if (target.kind === 'plugin') {
       const plugin = current.plugins.find(candidate => candidate.id === target.id && candidate.installed);
@@ -1550,7 +1608,22 @@ export async function createService(options = {}) {
     }
     // Bind content by the supported update route, not whether today's check
     // found an applicable version. A "current" result must not change identity.
-    return { target, sourceIdentity, real, dev: String(stat.dev), ino: String(stat.ino), ...(generation ? { generation } : {}), ...(['plugin-reinstall', 'skill-source'].includes(item.route) ? { fingerprint: (await inspectTree(directory)).fingerprint } : {}) };
+    return { target, sourceIdentity, real, dev: String(stat.dev), ino: String(stat.ino), ...(generation ? { generation } : {}), ...(['plugin-reinstall', 'skill-source', 'plugin-files'].includes(item.route) ? { fingerprint: (await inspectTree(directory)).fingerprint } : {}) };
+  }
+  // Plans see Claude's objects while Claude is managed; otherwise the 0.10.2 snapshot (MR-SDX-001),
+  // where a Claude target pauses before it is looked up (HLD 3.8).
+  async function schedulerSnapshot(mode) {
+    return mode === 'local' && (await readManagement(stateDir)).claude?.management === 'enabled' ? snapshot(mode, false, { multiAgent: true }) : snapshot(mode);
+  }
+  /** A Claude skill that became shared: its plan target follows by the real directory it bound. */
+  async function migrateTarget(mode, target, binding, current) {
+    if (mode !== 'local' || target.kind !== 'skill' || !binding?.real) return null;
+    for (const skill of current.skills) {
+      if (skill.agents?.length !== 2 || !skill.perAgent?.claude) continue;
+      if (await realDirectory(path.dirname(skill.perAgent.claude.path)) !== binding.real) continue;
+      return skill.perAgent.claude.canUpdate ? { kind: 'skill', id: skill.id, agent: 'claude' } : { kind: 'skill', id: skill.id };
+    }
+    return null;
   }
   let requestBusy = false; let restarting = false; let closing = false;
   async function selectProject(directory) {
@@ -1578,13 +1651,15 @@ export async function createService(options = {}) {
     const registry = await registryFor(environment('local'));
     return registry.activity.find(entry => entry.id === id)?.agent ?? 'codex';
   }
+  const CLAUDE_UPDATES = new Set(['update.check', 'update.apply']);
   async function assertAgentWritable(request) {
     if (request.mode !== 'local') { if (request.agent === 'claude') fail(403, 'MODE_DISABLED', '演练环境不包含 Claude。'); return; }
     // A file diff only reads a preview, and checks against the preview's own side.
     if (request.action === 'preview.diff') return;
-    const side = request.action === 'activity.restore' ? await activityAgent(request.id) : request.agent;
+    // An update's side is its target's (36c §6 UpdateTarget.agent).
+    const side = request.action === 'activity.restore' ? await activityAgent(request.id) : CLAUDE_UPDATES.has(request.action) ? request.target?.agent ?? 'codex' : request.agent;
     if (side === 'claude' && !AGENT_FLAG_ONLY.has(request.action)) {
-      if (!CLAUDE_WRITES.has(request.action) && !CLAUDE_SKILL_FILES.has(request.action) && !CLAUDE_PLUGIN_SOURCES.has(request.action) && request.action !== 'activity.restore') fail(422, 'UNSUPPORTED_FOR_AGENT', '这一版 SkillDock 还不能在 Claude 中执行这个操作。');
+      if (!CLAUDE_WRITES.has(request.action) && !CLAUDE_SKILL_FILES.has(request.action) && !CLAUDE_PLUGIN_SOURCES.has(request.action) && !CLAUDE_UPDATES.has(request.action) && request.action !== 'activity.restore') fail(422, 'UNSUPPORTED_FOR_AGENT', '这一版 SkillDock 还不能在 Claude 中执行这个操作。');
       // 36c §8: which of the environment's states refuses the write, checked before the Claude lock.
       const found = await agentLayer.discover({ force: true });
       if (!found.installed.claude) fail(404, 'AGENT_NOT_INSTALLED', '本机未找到 Claude。');
@@ -1616,7 +1691,13 @@ export async function createService(options = {}) {
       if (target.kind === 'plugin' && !found.cli.codex.available) return 'Codex 命令行不可用，无法确认插件状态，计划中的这一项暂停；恢复后继续。';
     }
     if (agent === 'codex' && management !== 'read-only') return null;
-    if (management === 'enabled') return 'Claude 中的对象暂不能由更新计划处理，这一项暂停。';
+    if (agent === 'claude' && management === 'enabled') {
+      const found = await agentLayer.discover();
+      if (!found.installed.claude) return '本机未找到 Claude，计划中的这一项暂停；恢复后继续。';
+      const claude = await claudeFor(found, project, false);
+      if (claude.unconfirmed) return `无法确认 Claude 环境，计划中的这一项暂停；恢复后继续。\n${claude.unconfirmed}`;
+      return null;
+    }
     return `${AGENT_NAME[agent]} 管理未启用，计划中的这一项暂停；在 SkillDock 的“Agent 环境”页启用后恢复。`;
   }
   async function agentAction(request) {
@@ -1752,10 +1833,13 @@ export async function createService(options = {}) {
         if (request.action === 'project.chooseDirectory') return { message: '', selectedDirectory: await projectIntegration.choose(request.projectDir) };
         return { message: '项目扫描目录已切换；请核对现有更新计划的项目目标。', projectContext: await selectProject(request.projectDir) };
       }
-      let translated = request; let base;
+      let translated = request; let base; let claudeTarget = false;
       if (['update.check', 'update.apply'].includes(request.action)) {
-        const current = await snapshot(mode, true); target = scheduler.canonicalTarget(request.target, current);
-        base = buildUpdateItems(current, {}, hasPreview).find(item => targetKey(item.target) === targetKey(target));
+        // Phase 5a: a Claude target is checked and applied on Claude's side, from the multi-agent view.
+        claudeTarget = request.target?.agent === 'claude' && mode === 'local';
+        const current = await snapshot(mode, true, claudeTarget ? { multiAgent: true } : {}); target = scheduler.canonicalTarget(request.target, current);
+        base = (claudeTarget ? claudeUpdateItems(current, await claudeUpdateMaps(current, await registryFor(environment(mode)), await claudeSkillRoots())) : buildUpdateItems(current, {}, hasPreview))
+          .find(item => targetKey(item.target) === targetKey(target));
         if (!base) fail(404, 'NOT_FOUND', '更新目标不存在。');
         applying = request.action === 'update.apply';
         if (base.route === 'owner-managed' || !base.canCheck) {
@@ -1764,10 +1848,15 @@ export async function createService(options = {}) {
           return { message: updateItem.message, updateItem };
         }
         translated = { mode, action: `${target.kind}.${applying ? 'update' : 'checkUpdate'}`, id: target.id, ...(applying ? { previewId: request.previewId } : {}) };
+        if (claudeTarget) {
+          // A skill or a skills-directory plugin: the Claude skill file transaction, against the revision the page saw or, for a plan, the current one.
+          const object = target.kind === 'skill' ? current.skills.find(item => item.id === target.id) : current.plugins.find(item => item.id === target.id);
+          translated = { ...translated, action: applying ? 'skill.update' : 'skill.checkUpdate', agent: 'claude', expectedRevision: request.expectedRevision ?? object?.revision };
+        }
         // AC-003: a skill checked or updated from the updates page meets the same shared-skill and
         // cross-side rules as from its card (4c review P2-01).
         if (!internal && request.agent !== undefined && target.kind === 'skill') {
-          const gated = await sharedSkillGate({ ...translated, agent: 'codex', ...(request.expectedRevision !== undefined ? { expectedRevision: request.expectedRevision } : {}), ...(request.confirm !== undefined ? { confirm: request.confirm } : {}) });
+          const gated = await sharedSkillGate({ ...translated, agent: target.agent ?? 'codex', expectedRevision: request.expectedRevision, ...(request.confirm !== undefined ? { confirm: request.confirm } : {}) });
           context.notes.push(...gated.notes);
         }
       } else if (['skill.checkUpdate', 'skill.update'].includes(request.action)) {
@@ -1775,9 +1864,9 @@ export async function createService(options = {}) {
       }
       if (target?.kind === 'plugin' && !applying) await scheduler.reconcileBinding(mode, target);
       const binding = target && (applying || target.kind === 'plugin') ? await scheduler.beforeOwnUpdate(mode, target) : null;
-      const result = await executeAction(translated);
+      const result = claudeTarget ? await claudeSkillAction(translated) : await executeAction(translated);
       // PH3-P1-01: a check of a read-only Codex changed nothing, and its result cannot be applied.
-      if (!applying && request.action === 'update.check' && mode === 'local' && await codexReadOnly()) {
+      if (!claudeTarget && !applying && request.action === 'update.check' && mode === 'local' && await codexReadOnly()) {
         // A plugin check skipped the marketplace refresh; a skill check read its source as usual.
         const note = translated.action === 'plugin.checkUpdate'
           ? `${result.message} Codex 为只读：这次检查没有刷新来源，也没有改动 Codex；如有新版本，需要启用 Codex 管理后才能更新。`
@@ -1842,7 +1931,7 @@ export async function createService(options = {}) {
     try { return await dispatchRequest(request); } finally { release(); }
   }
   const isBusy = () => busy || requestBusy || operationActive || restarting || closing || scheduler.isRunning();
-  scheduler = await createScheduler({ environments, snapshot, perform: request => action(request, true), signature: targetSignature, hasPreview,
+  scheduler = await createScheduler({ environments, snapshot: schedulerSnapshot, perform: request => action(request, true), signature: targetSignature, hasPreview, migrate: migrateTarget,
     planVersion: generation >= CURRENT_GENERATION ? 2 : 1,
     verifySynchronized: async (mode, target, expectedSignature) => {
       if (target.kind !== 'plugin') return false;

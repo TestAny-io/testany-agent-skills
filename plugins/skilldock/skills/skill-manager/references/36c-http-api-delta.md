@@ -8,8 +8,8 @@
 | 项目 | 内容 |
 |------|------|
 | 契约 | API-SDX-001-C HTTP 接口增量 |
-| 版本 | 0.18 |
-| 状态 | 第 12 轮契约复核 APPROVED（v0.12）。v0.13 处理第 12 轮的 P2；v0.14 为阶段 3 试用与阶段 4a、4b 实现中的澄清（索引 0.15），v0.15 为阶段 4d 实现中的澄清（索引 0.16），v0.16 处理阶段 4d 代码评审（索引 0.17），v0.17 处理阶段 4c 代码评审（索引 0.18），v0.18 处理 4c、4d 合并复审（索引 0.19），均待增量复核。第 4、5 节随 0.10.3 冻结（HLD 11A 条件 1a，0.10.3 已发布）；其余各节属条件 1b |
+| 版本 | 0.19 |
+| 状态 | 第 12 轮契约复核 APPROVED（v0.12）。v0.13 处理第 12 轮的 P2；v0.14 为阶段 3 试用与阶段 4a、4b 实现中的澄清（索引 0.15），v0.15 为阶段 4d 实现中的澄清（索引 0.16），v0.16 处理阶段 4d 代码评审（索引 0.17），v0.17 处理阶段 4c 代码评审（索引 0.18），v0.18 处理 4c、4d 合并复审（索引 0.19），v0.19 为阶段 5a 实现（索引 0.20），均待增量复核。第 4、5 节随 0.10.3 冻结（HLD 11A 条件 1a，0.10.3 已发布）；其余各节属条件 1b |
 | Owner | SkillDock 维护者（产品 Owner：用户） |
 | 服务方 | SkillDock 0.11.x 本机服务（仅监听 `127.0.0.1`） |
 | 消费方 | 0.11.x 浏览器界面与原生界面；0.10.2、0.10.3 的原生界面（经各自原生入口代理）；0.10.2 启动器与原生入口、0.10.3 转交链（只读健康检查） |
@@ -176,6 +176,7 @@ export interface NativeRule {
 | `Skill`、`Plugin`、`Marketplace` | `agents?: Agent[]` | 对象所属的 Agent，非空、按 `codex`、`claude` 排序；缺省表示 `["codex"]`。`multiAgent=1` 时服务端对每个对象都显式给出 |
 | `UpdateTarget`（计划中的目标） | `confirmation?: "pending" \| "confirmed"` | 只出现在 `multiAgent=1` 快照的计划目标中，只对“另一侧已启用管理时须确认”的这类技能给出：待确认或已确认（第 6 节）；照常应用的目标、运行记录与进度中的目标都省略。服务端忽略请求中的该字段（确认只经带 `confirm: true` 的请求发生）；“原样提交”的比较只看目标身份（`kind`、`id`、`agent` 与安装身份）。0.11.x 界面据此列出待确认的目标 |
 | `UpdateItem`、`UpdateTarget`、`Activity`、`ActionResult` | `agent?: Agent` | 这些都针对某一侧的一次检查或操作，取单值；缺省为 Codex |
+| `UpdateItem` | `route` 新增 `"plugin-files"`、`"claude-plugin"` | 前者为 Claude 技能目录插件（经文件事务替换技能目录中的插件文件），后者为从 marketplace 安装的 Claude 插件（经 Claude 命令行） |
 | `Skill` | `visibility?: SkillVisibility`；`enablement?: EnablementSource`；`perAgent?: Partial<Record<Agent, SkillSide>>` | 前两者仅用于只属于 Claude 的技能，此时 `enabled` 与 `visibility` 对应（后两档为 `null`）。`perAgent` 只用于两侧共用的技能，见下文“共用对象” |
 | `Skill`、`Plugin`、`Marketplace` | `revision?: string` | Claude 对象与共用对象的状态摘要，写请求须带回（7.1）。共用技能的顶层 `revision` 覆盖两侧状态；Claude marketplace 的 `revision` 覆盖其自动更新设置与从它安装的插件集合 |
 | `Skill`、`Plugin` | `protection?: Protection` | 与现有 `managed`、`reason` 一起显示保护状态与原因 |
@@ -197,6 +198,7 @@ export interface NativeRule {
   - 一侧可更新，须该侧发现路径就是真实目录（技能根本身可以是链接），且该侧分区有来源记录；
   - 两侧都满足时（例如两侧的技能根都链接到同一目录），以 **Codex 侧**为准，Claude 侧 `canUpdate` 为假，`reason` 说明“由 Codex 侧的来源记录管理”；两侧来源记录指向不同来源时，两侧都不可更新，`reason` 说明冲突，2 版的检查更新与更新（含更新页）返回 `SOURCE_CONFLICT`（1 版保持 0.10.2）；批量执行（`updates.run`）与后台计划中的这类技能随阶段 5 处理（届时在更新项中标为不可检查）；
   - 关联来源（`skill.previewSource`、`skill.connectSource`）写入请求一侧的分区；2 版请求遇到另一侧已有指向不同来源的记录时拒绝，返回 `SOURCE_CONFLICT`，`message` 说明怎样解除（例如在另一侧重新关联到相同来源）；预览时即在结果中带一条 `kind: "scope"` 的说明，关联时才拒绝；本地目录按真实路径比较，子目录或 ref 不同即为不同来源；1 版请求不做冲突检查，照 0.10.2 写入，冲突状态按上一条处理（两侧都不可更新）。经一侧更新后，另一侧的同源记录同步刷新内容指纹；恢复一次更新（`activity.restore`）时，另一侧的同源记录同样还原为更新前的指纹。两者都是为了避免日后误报本地修改。
+- **Claude 一侧的更新项**（阶段 5a）：多 Agent 快照的 `updates` 包含只属于 Claude 的技能、由 Claude 一侧主导更新的共用技能（这时该技能只以 Claude 一侧列出）与 Claude 插件，`target.agent` 与 `agent` 为 `claude`。技能与技能目录插件从 SkillDock 记录的来源经文件事务检查与更新（`skill-source`、`plugin-files`）；从 marketplace 安装的插件经 Claude 命令行（`claude-plugin`，阶段 5b、5c）；不代为更新的（claude.ai 同步、组织托管、链接、不在两个技能根中的）给出原因，`canCheck` 为假（DEC-SDX-019）。`update.check`、`update.apply` 的侧别取自 `target.agent`，与请求顶层的 `agent` 无关；Claude 只读或无法确认时，其更新项 `canCheck`、`canApply` 都为假，请求返回 `AGENT_READ_ONLY` 或 `AGENT_UNCONFIRMED`（与 Codex 只读时仍可检查不同：Claude 的检查要在 Claude 锁下读取 Claude）。更新页与计划不带修订号时，服务端以当前快照的修订号核对 Claude 对象，预览的基线与来源身份仍在应用前核对。计划目标可带 `agent: "claude"`；Claude 未启用管理、未安装或无法确认时其目标暂停（HLD 3.8）；只属于 Claude 的技能变为两侧共用、对象 ID 改变时，计划目标与绑定按真实目录迁移，并留操作记录（`schedule.migrate`）。
 - **跨侧影响提示**：Codex 侧独立技能的真实路径位于某个 Claude 插件的目录内（含 Claude 技能目录插件 `名称@skills-dir`）时，虽然不合并，2 版请求对它的移除与更新在会移走或改写插件目录内的内容时同样要求确认（只移除指向插件目录的链接不需要），`nativeRules` 中一条 `kind: "affected-plugins"` 列出受影响的 Claude 插件；反之亦然（AC-003）。更新页的 `update.check`、`update.apply` 以技能为目标时，同样按本节核对共用修订号、来源冲突与跨侧确认，说明随结果返回。只在另一侧环境已被发现时提示；确认后，操作的效果与不提示时相同。后台计划的确认门槛与此不同，是“另一侧已启用管理”：单次操作的提示只是界面中多一次确认，计划的确认会改变后台结果，须守住 MR-SDX-001，两者有意不统一。后台计划中的这类技能：
   - 另一侧已启用管理时，2 版 `schedule.configure` 新增这类目标、改变其安装身份，或把计划改为自动应用、启用一个自动应用的已停用计划（这两种计划级改动会开始自动应用；启用仅检查的计划不需要确认），都须对其中的这类目标带 `confirm: true`，否则返回 `CONFIRMATION_REQUIRED`；确认记在计划内容中（36a 第 2 节由 0.11.x 自定），重新提交计划时保留已有确认；原样重新提交的目标保持原状态，不算修改；2 版 `schedule.configure` 带 `confirm: true` 时，计划中全部待确认的这类目标都记为已确认（“在计划设置中确认”即这一请求），不带时保持原状态；返回 `CONFIRMATION_REQUIRED` 时，`nativeRules` 覆盖带 `confirm` 后将被确认的全部这类目标（本次新增或改变的，以及原有待确认的），界面主动发起确认时同样列出，确认范围与确认框所列一致；
   - 经 2 版请求保存、但在另一侧已启用管理时尚未确认的这类目标（例如保存之后才启用另一侧管理），后台照常检查、不自动应用，结果的 `message` 说明须先在 0.11.x 界面的计划设置中确认（0.10.x 界面无法确认）；

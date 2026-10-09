@@ -124,6 +124,8 @@ const copy = {
     error: "检查失败",
     "skill-source": "按技能更新",
     "plugin-reinstall": "按整个插件更新",
+    "plugin-files": "替换技能目录中的插件文件",
+    "claude-plugin": "经 Claude 命令行更新",
     "owner-managed": "由宿主管理",
     "connect-source": "需要关联来源",
     connect: "关联更新来源",
@@ -265,6 +267,8 @@ const copy = {
     error: "Check failed",
     "skill-source": "Update this skill",
     "plugin-reinstall": "Update the whole plugin",
+    "plugin-files": "Replace the plugin files in the skills directory",
+    "claude-plugin": "Update through the Claude command line",
     "owner-managed": "Managed by host",
     "connect-source": "Connect a source",
     connect: "Connect update source",
@@ -407,6 +411,8 @@ const copy = {
     error: "確認に失敗",
     "skill-source": "スキル単位で更新",
     "plugin-reinstall": "プラグイン全体を更新",
+    "plugin-files": "スキルディレクトリ内のプラグインファイルを置き換え",
+    "claude-plugin": "Claude コマンドラインで更新",
     "owner-managed": "ホストが管理",
     "connect-source": "取得元の関連付けが必要",
     connect: "更新元を関連付け",
@@ -638,7 +644,7 @@ export function UpdatesWorkspace({
   const hint = (item: UpdateItem) =>
     item.route === "connect-source"
       ? t("connect-hint")
-      : item.route === "owner-managed"
+      : item.route === "owner-managed" || (item.route === "claude-plugin" && !item.canCheck)
         ? t("host-hint")
         : t("ready-hint");
   const manager = (owner: string) => {

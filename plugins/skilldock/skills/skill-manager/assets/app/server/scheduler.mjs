@@ -1,13 +1,16 @@
 import path from 'node:path';
 import crypto from 'node:crypto';
 import { fail, readJson, writeJson, verifyDirectoryRoot, redact } from './files.mjs';
-import { buildUpdateItems, targetKey } from './sources.mjs';
+import { buildUpdateItems, applyObservations, targetKey } from './sources.mjs';
 import { defaultSchedule, defaultUpdateState } from './update-state.mjs';
 
 export { defaultSchedule, defaultUpdateState };
 
 export function validateTarget(target) {
-  if (!target || typeof target !== 'object' || Array.isArray(target) || Object.keys(target).some(key => !['kind', 'id'].includes(key)) || !['skill', 'plugin', 'host'].includes(target.kind) || typeof target.id !== 'string' || !target.id || target.id.length > 300 || /[\x00-\x1f]/.test(target.id)) fail(400, 'INVALID_TARGET', '更新目标无效。');
+  if (!target || typeof target !== 'object' || Array.isArray(target) || Object.keys(target).some(key => !['kind', 'id', 'agent'].includes(key)) || !['skill', 'plugin', 'host'].includes(target.kind) || typeof target.id !== 'string' || !target.id || target.id.length > 300 || /[\x00-\x1f]/.test(target.id)) fail(400, 'INVALID_TARGET', '更新目标无效。');
+  // 36c §6: a target names its side; Codex is the default and is written without it.
+  if (target.agent !== undefined && !['codex', 'claude'].includes(target.agent) || target.agent === 'claude' && target.kind === 'host') fail(400, 'INVALID_TARGET', '更新目标无效。');
+  if (target.agent === 'codex') delete target.agent;
   return target;
 }
 export function validateSchedule(schedule) {
@@ -28,7 +31,7 @@ function sameBindingIdentity(before, after) {
 }
 
 
-export async function createScheduler({ environments, snapshot, perform, signature, verifySynchronized, hasPreview, coreBusy, clock = () => Date.now(), pollMs = 1000, startTimer = false, recover = true, beforeConfigure, disabledSchedule = async () => null, planVersion = 1, paused = async () => null }) {
+export async function createScheduler({ environments, snapshot, perform, signature, verifySynchronized, hasPreview, coreBusy, clock = () => Date.now(), pollMs = 1000, startTimer = false, recover = true, beforeConfigure, disabledSchedule = async () => null, planVersion = 1, paused = async () => null, migrate = async () => null }) {
   const states = {}; const writes = {}; const configuring = new Set(); let running = false; let activeMode; let closed = false; let runningPromise; let timer; let readGeneration = 0;
   const timestamp = () => new Date(clock()).toISOString();
   async function persist(mode) {
@@ -74,9 +77,11 @@ export async function createScheduler({ environments, snapshot, perform, signatu
     const state = states[mode];
     return { updateProgress: progress(mode), updates: buildUpdateItems(currentSnapshot, state.observations, hasPreview), schedule: { ...state.schedule, running: state.schedule.running }, updateRuns: state.runs.slice(0, 50), extraActivity: state.activity.slice(0, 100) };
   }
+  /** Another side's items take the same observations as the Codex ones. */
+  function decorate(mode, items) { return applyObservations(items, states[mode].observations, hasPreview); }
   function canonicalTarget(target, current) {
     validateTarget(target);
-    if (target.kind === 'skill') {
+    if (target.kind === 'skill' && !target.agent) {
       const skill = current.skills.find(item => item.id === target.id);
       if (skill?.pluginId && current.plugins.some(plugin => plugin.id === skill.pluginId && plugin.installed)) return { kind: 'plugin', id: skill.pluginId };
       if (skill?.scope === 'system') return { kind: 'host', id: 'codex-system-skills' };
@@ -187,15 +192,15 @@ export async function createScheduler({ environments, snapshot, perform, signatu
         const current = await snapshot(mode);
         const selected = await normalize(mode, targets || current.updates.map(item => item.target), current);
         record.total = selected.length;
-        for (const target of selected) {
+        for (let target of selected) {
           const disabled = await disabledSchedule(mode);
           if (disabled) Object.assign(state.schedule, disabled, { enabled: false });
           if (closed || trigger !== 'manual' && !state.schedule.enabled) { stopped = true; break; }
           record.phase = 'checking';
           record.current = { target, name: current.updates.find(item => targetKey(item.target) === targetKey(target))?.name || target.id };
           await persist(mode);
-          const currentState = await snapshot(mode); const item = currentState.updates.find(candidate => targetKey(candidate.target) === targetKey(target));
-          const name = item?.name || target.id;
+          const currentState = await snapshot(mode); let item = currentState.updates.find(candidate => targetKey(candidate.target) === targetKey(target));
+          let name = item?.name || target.id;
           let checked;
           const appendResult = result => record.items.push({ target, name, occurredAt: timestamp(),
             ...(checked?.installedVersion || item?.installedVersion ? { installedVersion: checked?.installedVersion || item.installedVersion } : {}),
@@ -203,6 +208,19 @@ export async function createScheduler({ environments, snapshot, perform, signatu
           // HLD 3.8: a target whose Agent is not managed pauses; it is not a failure.
           const pause = await paused(mode, target);
           if (pause) { appendResult({ status: 'skipped', message: pause, reasonCode: 'AGENT_PAUSED' }); await persist(mode); continue; }
+          // A Claude skill that became shared changed its ID: its plan target follows by real path (HLD 3.8).
+          if (!item && target.agent === 'claude') {
+            const moved = await migrate(mode, target, state.bindings[targetKey(target)], currentState);
+            if (moved && targetKey(moved) !== targetKey(target)) {
+              const from = targetKey(target), to = targetKey(moved);
+              state.schedule.targets = state.schedule.targets.map(entry => targetKey(entry) === from ? moved : entry);
+              if (state.bindings[from]) { state.bindings[to] = { ...state.bindings[from], target: moved }; delete state.bindings[from]; }
+              state.activity.unshift({ id: crypto.randomUUID(), action: 'schedule.migrate', target: moved.id, createdAt: timestamp(), status: 'success', message: '技能已变为两侧共用，计划中的这一项已随对象 ID 迁移。', canRestore: false });
+              state.activity = state.activity.slice(0, 100);
+              target = moved; item = currentState.updates.find(candidate => targetKey(candidate.target) === to); name = item?.name || target.id;
+              await persist(mode);
+            }
+          }
           if (!item) { appendResult({ status: 'skipped', message: '原目标已不存在；重新选择目标后才会纳入计划。', reasonCode: 'TARGET_MISSING' }); await persist(mode); continue; }
           if (trigger !== 'manual') {
             let actual; try { actual = await signature(mode, target, currentState); } catch { actual = null; }
@@ -263,5 +281,5 @@ export async function createScheduler({ environments, snapshot, perform, signatu
     initialTick = false;
   }
   if (startTimer) { timer = setInterval(() => { tick().catch(() => {}); }, pollMs); timer.unref(); setTimeout(() => { tick().catch(() => {}); }, 0).unref(); }
-  return { reload, data, progress, configure, observe, observeError, reconcileBinding, beforeOwnUpdate, afterOwnUpdate, afterOwnerRefresh, run, tick, canonicalTarget, isRunning: () => running, close: async () => { closed = true; clearInterval(timer); if (runningPromise) await runningPromise.catch(() => {}); await Promise.all(Object.values(writes).map(promise => promise.catch(() => {}))); } };
+  return { reload, data, decorate, progress, configure, observe, observeError, reconcileBinding, beforeOwnUpdate, afterOwnUpdate, afterOwnerRefresh, run, tick, canonicalTarget, isRunning: () => running, close: async () => { closed = true; clearInterval(timer); if (runningPromise) await runningPromise.catch(() => {}); await Promise.all(Object.values(writes).map(promise => promise.catch(() => {}))); } };
 }

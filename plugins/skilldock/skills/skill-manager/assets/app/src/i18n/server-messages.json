@@ -1582,5 +1582,69 @@
   "这次生成的本地 marketplace 仍有从它安装的插件，已保留。": {
     "en": "Plugins are still installed from the local marketplace generated this time, so it was kept.",
     "ja": "今回生成したローカル marketplace からインストールしたプラグインがまだあるため、残しました。"
+  },
+  "由组织托管设置管理；SkillDock 不代为更新。": {
+    "en": "Managed by your organisation's settings; SkillDock does not update it.",
+    "ja": "組織の管理設定で管理されています。SkillDock は更新しません。"
+  },
+  "此技能通过链接接入；更新请在真实来源目录进行。": {
+    "en": "This skill is linked in; update it in its real source directory.",
+    "ja": "このスキルはリンクで取り込まれています。実際のソースディレクトリで更新してください。"
+  },
+  "这个技能不在个人技能目录或当前项目的 .claude/skills 中，属于仓库或其他项目；SkillDock 不在这里更新它。": {
+    "en": "This skill is not in your personal skills directory or the current project's .claude/skills; it belongs to the repository or other projects, so SkillDock does not update it here.",
+    "ja": "このスキルは個人のスキルディレクトリにも現在のプロジェクトの .claude/skills にもなく、リポジトリや他のプロジェクトに属するため、SkillDock はここでは更新しません。"
+  },
+  "检查已追踪来源的文件变化；更新时替换技能目录中的插件文件。": {
+    "en": "Checks the tracked source for file changes; an update replaces the plugin's files in the skills directory.",
+    "ja": "追跡しているソースのファイル変更を確認します。更新ではスキルディレクトリ内のプラグインのファイルを置き換えます。"
+  },
+  "这个技能目录插件通过链接接入；更新请在真实来源目录进行。": {
+    "en": "This skills-directory plugin is linked in; update it in its real source directory.",
+    "ja": "このスキルディレクトリ プラグインはリンクで取り込まれています。実際のソースディレクトリで更新してください。"
+  },
+  "这个技能目录插件没有 SkillDock 记录的来源；请在它的来源处更新。": {
+    "en": "SkillDock has no recorded source for this skills-directory plugin; update it at its source.",
+    "ja": "このスキルディレクトリ プラグインには SkillDock が記録したソースがありません。ソース側で更新してください。"
+  },
+  "由 claude.ai 账号同步；SkillDock 不代为更新。": {
+    "en": "Synced from your claude.ai account; SkillDock does not update it.",
+    "ja": "claude.ai アカウントから同期されています。SkillDock は更新しません。"
+  },
+  "由组织托管设置安装；SkillDock 不代为更新。": {
+    "en": "Installed by your organisation's managed settings; SkillDock does not update it.",
+    "ja": "組織の管理設定でインストールされています。SkillDock は更新しません。"
+  },
+  "这一版 SkillDock 暂不能检查这个 Claude 插件的更新；可在 Claude Code 中用 /plugin 更新。": {
+    "en": "This version of SkillDock cannot check this Claude plugin for updates yet; you can update it with /plugin in Claude Code.",
+    "ja": "このバージョンの SkillDock では、この Claude プラグインの更新はまだ確認できません。Claude Code の /plugin で更新できます。"
+  },
+  "已更新 Claude 插件 {v0}，旧版已保留，可从操作记录恢复。": {
+    "en": "Updated Claude plugin {v0}; the previous version was kept and can be restored from the activity log.",
+    "ja": "Claude プラグイン {v0} を更新しました。旧版は保存されており、操作履歴から復元できます。"
+  },
+  "未找到这个 Claude 技能目录插件，请刷新后重试。": {
+    "en": "This Claude skills-directory plugin was not found; refresh and try again.",
+    "ja": "この Claude スキルディレクトリ プラグインが見つかりません。更新してから再試行してください。"
+  },
+  "技能目录插件经插件操作修改。": {
+    "en": "A skills-directory plugin is changed through plugin actions.",
+    "ja": "スキルディレクトリ プラグインはプラグインの操作で変更します。"
+  },
+  "这个技能目录插件没有 SkillDock 记录的来源，或位于其他位置；请在它的来源处更新。": {
+    "en": "SkillDock has no recorded source for this skills-directory plugin, or it is elsewhere; update it at its source.",
+    "ja": "このスキルディレクトリ プラグインには SkillDock が記録したソースがないか、別の場所にあります。ソース側で更新してください。"
+  },
+  "本机未找到 Claude，计划中的这一项暂停；恢复后继续。": {
+    "en": "Claude was not found on this computer, so this plan item is paused; it resumes once Claude is back.",
+    "ja": "このコンピューターに Claude が見つからないため、計画のこの項目は一時停止しています。戻ると再開します。"
+  },
+  "无法确认 Claude 环境，计划中的这一项暂停；恢复后继续。": {
+    "en": "The Claude environment cannot be confirmed, so this plan item is paused; it resumes once it can be.",
+    "ja": "Claude 環境を確認できないため、計画のこの項目は一時停止しています。確認できるようになると再開します。"
+  },
+  "技能已变为两侧共用，计划中的这一项已随对象 ID 迁移。": {
+    "en": "The skill is now shared by both sides; this plan item moved with its new object ID.",
+    "ja": "スキルが両側で共有されるようになったため、計画のこの項目は新しいオブジェクト ID に移しました。"
   }
 }

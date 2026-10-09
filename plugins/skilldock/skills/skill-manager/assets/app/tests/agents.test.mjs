@@ -157,10 +157,10 @@ test('a read-only Codex refuses every host change, but not SkillDock\'s own data
 test('Claude-side requests: later-phase actions are not offered yet; the others follow Claude management', async t => {
   const w = await world(t);
   const demo = (await w.service.snapshot('local', true)).skills.find(item => item.name === 'demo');
-  // Updates through the updates page (phase 5) and tags are not offered for Claude yet.
-  for (const request of [{ action: 'update.check', target: { kind: 'skill', id: demo.id } },
-    { action: 'tags.set', target: { kind: 'skill', id: demo.id }, tags: ['x'] }])
-    assert.equal((await w.act({ ...request, agent: 'claude' })).code, 'UNSUPPORTED_FOR_AGENT', request.action);
+  // Tags are not offered for Claude; an update's side is its target's (phase 5a), so a Codex
+  // target stays Codex's whatever the request's flag says.
+  assert.equal((await w.act({ action: 'tags.set', target: { kind: 'skill', id: demo.id }, tags: ['x'], agent: 'claude' })).code, 'UNSUPPORTED_FOR_AGENT');
+  assert.notEqual((await w.act({ action: 'update.check', target: { kind: 'skill', id: demo.id }, agent: 'claude' })).code, 'UNSUPPORTED_FOR_AGENT');
   // Phases 4a, 4b, 4d: Claude is read-only here (its management was never enabled).
   for (const request of [{ action: 'marketplace.add', sourceType: 'git', source: 'https://github.com/o/r' }, { action: 'skill.previewInstall', sourceType: 'local', source: w.root },
     { action: 'plugin.previewInstall', sourceType: 'local', source: w.root },

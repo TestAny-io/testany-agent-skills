@@ -102,7 +102,11 @@ export interface UpdateItem {
     | "skill-source"
     | "plugin-reinstall"
     | "owner-managed"
-    | "connect-source";
+    | "connect-source"
+    /** A Claude skills-directory plugin, by the file transaction (36c §6, phase 5a). */
+    | "plugin-files"
+    /** A Claude plugin from a marketplace, through Claude's command line. */
+    | "claude-plugin";
   status: "unchecked" | "current" | "available" | "blocked" | "error";
   canCheck: boolean;
   canApply: boolean;
