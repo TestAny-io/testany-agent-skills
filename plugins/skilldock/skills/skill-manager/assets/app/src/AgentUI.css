@@ -36,3 +36,10 @@
   .agent-card { padding: 16px; }
   .agent-details, .agent-paths { grid-template-columns: 1fr; }
 }
+.native-rules { list-style: none; margin: 12px 0; padding: 0; display: grid; gap: 8px; }
+.native-rules > li { display: flex; gap: 8px; align-items: flex-start; font-size: 13px; }
+.native-rules > li > svg { flex: none; margin-top: 2px; color: light-dark(#8c5f26, #decaaf); }
+.native-rules ul { margin: 4px 0 0; padding-left: 16px; }
+.check-field { display: flex; gap: 8px; align-items: center; font-size: 13px; margin-top: 8px; }
+.scope-choice { display: grid; gap: 6px; margin: 10px 0; }
+.scope-choice label { display: flex; gap: 8px; align-items: center; font-size: 13px; }

@@ -8,8 +8,8 @@
 | 项目 | 内容 |
 |------|------|
 | 契约 | API-SDX-001-C HTTP 接口增量 |
-| 版本 | 0.13 |
-| 状态 | 第 12 轮契约复核 APPROVED（v0.12）。本版处理第 12 轮的 P2，待增量复核。第 4、5 节随 0.10.3 冻结（HLD 11A 条件 1a，0.10.3 已发布）；其余各节属条件 1b |
+| 版本 | 0.14 |
+| 状态 | 第 12 轮契约复核 APPROVED（v0.12）。v0.13 处理第 12 轮的 P2；v0.14 为阶段 3 试用与阶段 4a 实现中的澄清（索引 0.15），待增量复核。第 4、5 节随 0.10.3 冻结（HLD 11A 条件 1a，0.10.3 已发布）；其余各节属条件 1b |
 | Owner | SkillDock 维护者（产品 Owner：用户） |
 | 服务方 | SkillDock 0.11.x 本机服务（仅监听 `127.0.0.1`） |
 | 消费方 | 0.11.x 浏览器界面与原生界面；0.10.2、0.10.3 的原生界面（经各自原生入口代理）；0.10.2 启动器与原生入口、0.10.3 转交链（只读健康检查） |
@@ -219,7 +219,7 @@ export interface NativeRule {
 | 字段 | 类型 | 说明 |
 |------|------|------|
 | `agent` | `Agent` | 对象所属的一侧。带 `agent` 的写请求按 2 版规则处理；2 版客户端的所有写请求都必须带（见第 6 节“2 版请求的判定”）。缺省为 Codex（1 版） |
-| `scope` | `"user" \| "project" \| "local"` | Claude 写入作用域；缺省 `user`。`project` 会改动协作者共享的设置，须同时带 `confirm: true` |
+| `scope` | `"user" \| "project" \| "local"` | Claude 写入作用域；缺省 `user`，`plugin.toggle` 例外：缺省按安装范围，用户范围的安装为 `user`，project、local 范围的安装与项目范围的技能目录插件为 `local`（只写该项目的本地设置，不影响其他项目，HLD 3.3）。`project` 会改动协作者共享的设置，须同时带 `confirm: true`。写入 `local` 会在 Git 仓库中新建未被忽略的 `.claude/settings.local.json` 时，须带 `gitExclude`（`true` 或 `false`），否则返回 `CONFIRMATION_REQUIRED`，`nativeRules` 中一条 `kind: "scope"` 的 `items` 列出该文件 |
 | `confirm` | `boolean` | 用户已在确认框中同意本次需要确认的改动：共享作用域、可见性从“仅名称/仅用户可调用”改为开或关、卸载 Claude 插件（默认删除插件数据）、移除 Claude marketplace（会卸载从它安装的插件）、移走两侧共用的技能目录、移除或更新会改写另一侧插件目录内容的技能、批量移除中涉及上述两类的项、另一侧已启用管理时把这类技能加入或改入后台计划、把含这类技能的计划改为自动应用或启用自动应用的计划、在计划设置中确认待确认的这类目标（第 6 节“跨侧影响提示”）、清理 SkillDock 管理的本地 marketplace |
 | `gitExclude` | `boolean` | 新建的 `.claude/settings.local.json` 位于未忽略的 Git 仓库时，用户是否同意写入 `.git/info/exclude` |
 | `keepData` | `boolean` | 卸载 Claude 插件时保留插件数据 |
@@ -245,7 +245,8 @@ export interface NativeRule {
 | `plugin.install`、`plugin.installSource`、`plugin.previewInstall` | 经 Claude 命令行安装，显式带作用域；无 manifest 的直接来源只允许 `user`、`local` 作用域（HLD 3.3） |
 | `plugin.toggle` | 写对应作用域设置中的启用条目；不支持“只启用部分技能”（`UNSUPPORTED_FOR_AGENT`） |
 | `plugin.remove` | 卸载，`keepData` 决定是否保留数据 |
-| `marketplace.add`、`marketplace.refresh`、`marketplace.remove` | 经 Claude 命令行；移除前在确认框列出从该 marketplace 安装的插件 |
+| `marketplace.add`、`marketplace.refresh`、`marketplace.remove` | 经 Claude 命令行；移除前在确认框列出从该 marketplace 安装的插件。`marketplace.add` 的 `scope` 决定声明写在哪一层设置（缺省 `user`）；Claude 侧不支持 `ref`（`UNSUPPORTED_FOR_AGENT`）；新 marketplace 按添加前后清单的差异读回 |
+| `plugin.previewMarketplace` | Claude 中未安装的插件：返回 `PluginInstallPreview`（`agent`、`scopes`、`defaultScope`、`nativeRules`；`canSelectSkills` 为假），不保存预览；随后的 `plugin.install` 以 `expectedRevision` 绑定所见的插件，`previewId` 不作校验 |
 | `skill.toggle` | 写技能可见性条目；当前值为后两档时须 `confirm: true` |
 | `skill.install`、`skill.update`、`skill.remove`、`activity.restore` | 复用现有文件事务，目标为 Claude 个人根或项目的 `.claude/skills`；`activity.restore` 作用于操作记录中的一侧 |
 | `skill.previewRemoval`、`skill.removeSelected` | 同名副本的批量移除，`ids` 可含 Claude 对象 ID；涉及两侧共用目录或另一侧插件内容时须确认（第 6 节） |
@@ -329,6 +330,7 @@ export interface NativeRule {
 
 - 沿用现有边界：仅绑定 `127.0.0.1`；同源静态页与接口；校验 Host、Origin、跨站标记；写请求要求会话令牌与 JSON；请求体 ≤ 32 KiB。
 - 快照与详情不返回 Claude 设置中与功能无关的键（环境变量、凭证辅助程序等），不返回任何凭证。
+- 1 版快照（不带 `multiAgent=1`）的 `activity` 不含 Claude 一侧的操作记录，保持 0.10.2 语义。
 - 首屏快照不调用联网的命令（如带 `--available` 的列表）；“可安装插件”在用户打开时单独请求。0.11 的多 Agent 快照中，Claude 的未安装插件取自 Claude 在本机保存的 marketplace 副本（HLD 3.2 表中的辅助来源，不联网）；联网的 `--available` 清单仍只在用户打开时单独请求（随阶段 4）。
 
 ## 11. 兼容性与版本策略

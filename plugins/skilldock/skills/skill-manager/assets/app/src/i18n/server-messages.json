@@ -834,5 +834,301 @@
   "marketplace {v0} 的名称无法用作插件身份，未列出其中未安装的插件。": {
     "en": "The name of marketplace {v0} cannot be used in a plugin identity, so the plugins not installed from it are not listed.",
     "ja": "マーケットプレイス {v0} の名前はプラグインの識別子に使えないため、未インストールのプラグインは表示されません。"
+  },
+  "Claude 中已有改动，请刷新后重试。": {
+    "en": "Claude has changed since this page was loaded. Refresh and try again.",
+    "ja": "このページを読み込んだ後に Claude で変更がありました。更新してから再試行してください。"
+  },
+  "Claude 命令行已返回，但读回的启用状态与预期不同：可能由更高层级的设置决定，请刷新核实。": {
+    "en": "The Claude command line returned, but the enablement read back differs from what was expected: a higher settings level may decide it. Refresh to check.",
+    "ja": "Claude コマンドラインは完了しましたが、読み戻した有効状態が想定と異なります。より上位の設定で決まっている可能性があります。更新して確認してください。"
+  },
+  "Claude 命令行已返回，但读回的插件清单中没有这次安装，请刷新核实。": {
+    "en": "The Claude command line returned, but the plugin list read back does not show this installation. Refresh to check.",
+    "ja": "Claude コマンドラインは完了しましたが、読み戻したプラグイン一覧にこのインストールがありません。更新して確認してください。"
+  },
+  "Claude 命令行已返回，但插件仍在已安装清单中，请刷新核实。": {
+    "en": "The Claude command line returned, but the plugin is still in the installed list. Refresh to check.",
+    "ja": "Claude コマンドラインは完了しましたが、プラグインはまだインストール済み一覧にあります。更新して確認してください。"
+  },
+  "Claude 中同时出现了多个新的 marketplace，请刷新核实。": {
+    "en": "Several new marketplaces appeared in Claude at once. Refresh to check.",
+    "ja": "Claude に複数の新しいマーケットプレイスが同時に現れました。更新して確認してください。"
+  },
+  "Claude 命令行已返回，但读回的清单中没有新的 marketplace；它可能已经存在，请刷新核实。": {
+    "en": "The Claude command line returned, but no new marketplace was read back; it may already exist. Refresh to check.",
+    "ja": "Claude コマンドラインは完了しましたが、新しいマーケットプレイスを読み戻せませんでした。既に存在する可能性があります。更新して確認してください。"
+  },
+  "Claude 命令行已返回，但读回的清单中没有这个 marketplace，请刷新核实。": {
+    "en": "The Claude command line returned, but this marketplace was not read back. Refresh to check.",
+    "ja": "Claude コマンドラインは完了しましたが、このマーケットプレイスを読み戻せませんでした。更新して確認してください。"
+  },
+  "Claude 命令行已返回，但这个 marketplace 仍在清单中，请刷新核实。": {
+    "en": "The Claude command line returned, but this marketplace is still listed. Refresh to check.",
+    "ja": "Claude コマンドラインは完了しましたが、このマーケットプレイスはまだ一覧にあります。更新して確認してください。"
+  },
+  "已把 {v0} 写入本机的 .git/info/exclude。": {
+    "en": "Added {v0} to this Mac's .git/info/exclude.",
+    "ja": "{v0} をこの Mac の .git/info/exclude に追加しました。"
+  },
+  "{v0} 不在 Git 的忽略规则中，注意不要提交它。": {
+    "en": "{v0} is not ignored by Git; take care not to commit it.",
+    "ja": "{v0} は Git の無視ルールに含まれていません。コミットしないよう注意してください。"
+  },
+  "已为当前用户安装 Claude 插件 {v0}。新会话生效，已打开的会话需要重载插件。": {
+    "en": "Installed Claude plugin {v0} for the current user. New sessions use it; reload plugins in sessions that are already open.",
+    "ja": "Claude プラグイン {v0} を現在のユーザーにインストールしました。新しいセッションで有効になります。開いているセッションではプラグインを再読み込みしてください。"
+  },
+  "已在当前项目中安装 Claude 插件 {v0}，只给你自己使用。新会话生效，已打开的会话需要重载插件。": {
+    "en": "Installed Claude plugin {v0} in the current project, for you only. New sessions use it; reload plugins in sessions that are already open.",
+    "ja": "Claude プラグイン {v0} を現在のプロジェクトに、自分専用としてインストールしました。新しいセッションで有効になります。開いているセッションではプラグインを再読み込みしてください。"
+  },
+  "已在当前项目中为所有协作者安装 Claude 插件 {v0}。新会话生效，已打开的会话需要重载插件。": {
+    "en": "Installed Claude plugin {v0} in the current project for all collaborators. New sessions use it; reload plugins in sessions that are already open.",
+    "ja": "Claude プラグイン {v0} を現在のプロジェクトのすべての共同作業者向けにインストールしました。新しいセッションで有効になります。開いているセッションではプラグインを再読み込みしてください。"
+  },
+  "已卸载 Claude 插件 {v0}。新会话生效，已打开的会话需要重载插件。": {
+    "en": "Uninstalled Claude plugin {v0}. New sessions use it; reload plugins in sessions that are already open.",
+    "ja": "Claude プラグイン {v0} をアンインストールしました。新しいセッションで有効になります。開いているセッションではプラグインを再読み込みしてください。"
+  },
+  "已卸载 Claude 插件 {v0}，插件数据已保留。新会话生效，已打开的会话需要重载插件。": {
+    "en": "Uninstalled Claude plugin {v0} and kept its data. New sessions use it; reload plugins in sessions that are already open.",
+    "ja": "Claude プラグイン {v0} をアンインストールし、データは残しました。新しいセッションで有効になります。開いているセッションではプラグインを再読み込みしてください。"
+  },
+  "已在 Claude 中添加 marketplace {v0}，可以浏览并安装其中的插件。": {
+    "en": "Added marketplace {v0} to Claude. You can browse and install its plugins.",
+    "ja": "Claude にマーケットプレイス {v0} を追加しました。プラグインを閲覧してインストールできます。"
+  },
+  "已刷新 Claude 的 marketplace {v0}；这不表示已安装的插件已经更新。": {
+    "en": "Refreshed Claude marketplace {v0}. This does not mean installed plugins were updated.",
+    "ja": "Claude のマーケットプレイス {v0} を更新しました。インストール済みプラグインが更新されたわけではありません。"
+  },
+  "已从 Claude 中移除 marketplace {v0}。": {
+    "en": "Removed marketplace {v0} from Claude.",
+    "ja": "Claude からマーケットプレイス {v0} を削除しました。"
+  },
+  "已从 Claude 中移除 marketplace {v0}，并卸载了从它安装的 {v1} 个插件。": {
+    "en": "Removed marketplace {v0} from Claude and uninstalled the {v1} plugins installed from it.",
+    "ja": "Claude からマーケットプレイス {v0} を削除し、そこからインストールした {v1} 個のプラグインをアンインストールしました。"
+  },
+  "插件安装预览已就绪。": {
+    "en": "The plugin installation preview is ready.",
+    "ja": "プラグインのインストールプレビューの準備ができました。"
+  },
+  "新会话生效；已打开的 Claude 会话需要重载插件（/reload-plugins）。": {
+    "en": "New sessions use the change; reload plugins in open Claude sessions (/reload-plugins).",
+    "ja": "新しいセッションで有効になります。開いている Claude セッションではプラグインを再読み込みしてください（/reload-plugins）。"
+  },
+  "未找到这个 Claude 插件，请刷新后重试。": {
+    "en": "This Claude plugin was not found. Refresh and try again.",
+    "ja": "この Claude プラグインが見つかりません。更新してから再試行してください。"
+  },
+  "未找到这个 Claude marketplace，请刷新后重试。": {
+    "en": "This Claude marketplace was not found. Refresh and try again.",
+    "ja": "この Claude マーケットプレイスが見つかりません。更新してから再試行してください。"
+  },
+  "这一版 SkillDock 还不能在 Claude 中执行这个操作。": {
+    "en": "This version of SkillDock cannot do this in Claude yet.",
+    "ja": "このバージョンの SkillDock は、Claude でこの操作をまだ実行できません。"
+  },
+  "这个 Claude 插件尚未安装。": {
+    "en": "This Claude plugin is not installed.",
+    "ja": "この Claude プラグインはインストールされていません。"
+  },
+  "这个插件不支持切换。": {
+    "en": "This plugin cannot be switched on or off here.",
+    "ja": "このプラグインはここで有効・無効を切り替えられません。"
+  },
+  "这个插件不能在这里安装。": {
+    "en": "This plugin cannot be installed here.",
+    "ja": "このプラグインはここではインストールできません。"
+  },
+  "这个插件不能在这里卸载。": {
+    "en": "This plugin cannot be uninstalled here.",
+    "ja": "このプラグインはここではアンインストールできません。"
+  },
+  "这个 marketplace 不能刷新。": {
+    "en": "This marketplace cannot be refreshed.",
+    "ja": "このマーケットプレイスは更新できません。"
+  },
+  "这个 marketplace 不能移除。": {
+    "en": "This marketplace cannot be removed.",
+    "ja": "このマーケットプレイスは削除できません。"
+  },
+  "这会改动协作者共享的 .claude/settings.json。": {
+    "en": "This changes .claude/settings.json, which collaborators share.",
+    "ja": "共同作業者と共有している .claude/settings.json を変更します。"
+  },
+  "写入项目共享设置会改动协作者共享的 .claude/settings.json，请确认后重试。": {
+    "en": "Writing the project's shared settings changes .claude/settings.json, which collaborators share. Confirm and try again.",
+    "ja": "プロジェクトの共有設定に書き込むと、共同作業者と共有している .claude/settings.json が変わります。確認してから再試行してください。"
+  },
+  "这次会新建 {v0}，它不在 Git 的忽略规则中；请选择是否把它写入本机的 .git/info/exclude。": {
+    "en": "This creates {v0}, which Git does not ignore. Choose whether to add it to this Mac's .git/info/exclude.",
+    "ja": "この操作で {v0} が作成されますが、Git の無視ルールに含まれていません。この Mac の .git/info/exclude に追加するか選んでください。"
+  },
+  "项目本地设置只属于你；不忽略它可能被误提交。写入 .git/info/exclude 只影响本机，不改动受版本管理的 .gitignore。": {
+    "en": "The project's local settings are yours alone; if Git does not ignore them they may be committed by mistake. Adding them to .git/info/exclude affects only this Mac and does not change the tracked .gitignore.",
+    "ja": "プロジェクトのローカル設定はあなた専用です。無視されていないと誤ってコミットされるおそれがあります。.git/info/exclude への追加はこの Mac だけに影響し、バージョン管理された .gitignore は変更しません。"
+  },
+  "这条安装的项目目录未知，暂不能修改。": {
+    "en": "The project directory of this installation is unknown, so it cannot be changed.",
+    "ja": "このインストールのプロジェクトディレクトリが不明なため、変更できません。"
+  },
+  "卸载 Claude 插件 {v0} 前需要确认。": {
+    "en": "Confirm before uninstalling Claude plugin {v0}.",
+    "ja": "Claude プラグイン {v0} をアンインストールする前に確認してください。"
+  },
+  "卸载默认删除插件数据（~/.claude/plugins/data 中该插件的目录）；可以选择保留。": {
+    "en": "Uninstalling deletes the plugin's data by default (its directory in ~/.claude/plugins/data); you can keep it.",
+    "ja": "アンインストールすると既定でプラグインのデータ（~/.claude/plugins/data 内のディレクトリ）を削除します。残すこともできます。"
+  },
+  "移除 Claude 的 marketplace {v0} 前需要确认。": {
+    "en": "Confirm before removing Claude marketplace {v0}.",
+    "ja": "Claude のマーケットプレイス {v0} を削除する前に確認してください。"
+  },
+  "移除后，从它安装的这些插件也会被卸载：": {
+    "en": "Removing it also uninstalls these plugins installed from it:",
+    "ja": "削除すると、そこからインストールした次のプラグインもアンインストールされます："
+  },
+  "没有从它安装的插件。": {
+    "en": "No plugins are installed from it.",
+    "ja": "そこからインストールしたプラグインはありません。"
+  },
+  "Claude 插件不能只启用部分技能。": {
+    "en": "A Claude plugin cannot enable only some of its skills.",
+    "ja": "Claude プラグインでは一部のスキルだけを有効にすることはできません。"
+  },
+  "Claude 的 marketplace 不能在这里指定 Git ref；请在 Claude Code 中添加。": {
+    "en": "A Git ref cannot be given for a Claude marketplace here; add it in Claude Code.",
+    "ja": "Claude のマーケットプレイスにはここで Git ref を指定できません。Claude Code で追加してください。"
+  },
+  "可以安装给当前用户（默认）、只在当前项目中给你自己用（本地设置），或给项目的所有协作者（共享设置，需要确认）。": {
+    "en": "Install for the current user (default), for yourself in the current project only (local settings), or for all collaborators in the project (shared settings, needs confirmation).",
+    "ja": "現在のユーザー向け（既定）、現在のプロジェクトで自分専用（ローカル設定）、またはプロジェクトのすべての共同作業者向け（共有設定、確認が必要）にインストールできます。"
+  },
+  "不支持该 Claude 命令行操作。": {
+    "en": "This Claude command-line operation is not supported.",
+    "ja": "この Claude コマンドライン操作はサポートされていません。"
+  },
+  "Claude 命令行操作需要恰好一个对象。": {
+    "en": "A Claude command-line operation needs exactly one target.",
+    "ja": "Claude コマンドライン操作には対象がちょうど 1 つ必要です。"
+  },
+  "不支持 Claude 命令行参数 {v0}。": {
+    "en": "The Claude command-line option {v0} is not supported.",
+    "ja": "Claude コマンドラインのオプション {v0} はサポートされていません。"
+  },
+  "作用域只能是 user、project 或 local。": {
+    "en": "The scope must be user, project or local.",
+    "ja": "スコープは user、project、local のいずれかです。"
+  },
+  "只有卸载可以保留数据。": {
+    "en": "Only uninstalling can keep data.",
+    "ja": "データを残せるのはアンインストールだけです。"
+  },
+  "Claude 写操作必须显式指定作用域。": {
+    "en": "A Claude write must name its scope.",
+    "ja": "Claude への書き込みではスコープを明示する必要があります。"
+  },
+  "Claude 写操作必须使用机器可读输出。": {
+    "en": "A Claude write must use machine-readable output.",
+    "ja": "Claude への書き込みでは機械可読の出力を使う必要があります。"
+  },
+  "这个插件需要执行 marketplace 声明的命令才能安装或更新，SkillDock 不代为确认；请在 Claude Code 中用 /plugin 手动处理。": {
+    "en": "This plugin needs a command declared by its marketplace to install or update, which SkillDock does not confirm on your behalf. Handle it in Claude Code with /plugin.",
+    "ja": "このプラグインのインストールや更新には、マーケットプレイスが宣言したコマンドの実行が必要です。SkillDock は代わりに承認しません。Claude Code で /plugin を使って処理してください。"
+  },
+  "Claude 命令行 {v0} 没有返回机器可读结果，无法确认实际状态。": {
+    "en": "The Claude command line {v0} returned no machine-readable result, so the actual state cannot be confirmed.",
+    "ja": "Claude コマンドライン {v0} が機械可読の結果を返さなかったため、実際の状態を確認できません。"
+  },
+  "这一版 SkillDock 还不能修改 Claude 中的技能。": {
+    "en": "This version of SkillDock cannot change Claude's skills yet.",
+    "ja": "このバージョンの SkillDock は、Claude のスキルをまだ変更できません。"
+  },
+  "技能目录插件的移除随后续版本提供；可以在 Claude 的技能目录中手动删除。": {
+    "en": "Removing a skills-directory plugin comes in a later version; you can delete it from Claude's skills directory by hand.",
+    "ja": "スキルディレクトリプラグインの削除は今後のバージョンで提供します。Claude のスキルディレクトリから手動で削除できます。"
+  },
+  "由组织托管设置声明的 marketplace 不能在这里移除。": {
+    "en": "A marketplace declared by organization-managed settings cannot be removed here.",
+    "ja": "組織の管理設定で宣言されたマーケットプレイスはここでは削除できません。"
+  },
+  "由组织托管安装的插件不能在这里修改。": {
+    "en": "A plugin installed by your organization cannot be changed here.",
+    "ja": "組織がインストールしたプラグインはここでは変更できません。"
+  },
+  "启用状态由组织托管设置决定，不能在这里修改。": {
+    "en": "Organization-managed settings decide whether it is enabled; it cannot be changed here.",
+    "ja": "有効かどうかは組織の管理設定で決まるため、ここでは変更できません。"
+  },
+  "Claude 没有报告这个插件的启用状态，暂不能切换。": {
+    "en": "Claude did not report whether this plugin is enabled, so it cannot be switched yet.",
+    "ja": "Claude がこのプラグインの有効状態を報告していないため、まだ切り替えられません。"
+  },
+  "Claude 尚未加载这个技能目录插件（项目目录可能未被信任），暂不能切换。": {
+    "en": "Claude has not loaded this skills-directory plugin (the project directory may not be trusted), so it cannot be switched yet.",
+    "ja": "Claude はこのスキルディレクトリプラグインをまだ読み込んでいません（プロジェクトディレクトリが信頼されていない可能性があります）。まだ切り替えられません。"
+  },
+  "Claude 环境当前为只读；在 SkillDock 的“Agent 环境”页启用 Claude 管理后才能修改。": {
+    "en": "The Claude environment is read-only. Turn on Claude management on SkillDock's Agent environments page to change it.",
+    "ja": "Claude 環境は現在読み取り専用です。SkillDock の「Agent 環境」ページで Claude の管理を有効にすると変更できます。"
+  },
+  "Claude 环境当前为只读，SkillDock 不会修改 Claude 中的插件和 marketplace。请在 SkillDock 的“Agent 环境”页启用 Claude 管理后重试。": {
+    "en": "The Claude environment is read-only, so SkillDock does not change Claude's plugins or marketplaces. Turn on Claude management on SkillDock's Agent environments page and try again.",
+    "ja": "Claude 環境は読み取り専用のため、SkillDock は Claude のプラグインやマーケットプレイスを変更しません。SkillDock の「Agent 環境」ページで Claude の管理を有効にしてから再試行してください。"
+  },
+  "无法确认 Claude 环境，暂不能修改。": {
+    "en": "The Claude environment cannot be confirmed, so it cannot be changed yet.",
+    "ja": "Claude 環境を確認できないため、まだ変更できません。"
+  },
+  "未找到可用的 Claude 命令行，暂不能修改 Claude。": {
+    "en": "No working Claude command line was found, so Claude cannot be changed yet.",
+    "ja": "使用できる Claude コマンドラインが見つからないため、まだ Claude を変更できません。"
+  },
+  "本机未找到 Claude。": {
+    "en": "Claude was not found on this Mac.",
+    "ja": "この Mac で Claude が見つかりません。"
+  },
+  "演练环境不包含 Claude。": {
+    "en": "The practice environment does not include Claude.",
+    "ja": "練習環境には Claude が含まれていません。"
+  },
+  "scope 只能是 user、project 或 local。": {
+    "en": "scope must be user, project or local.",
+    "ja": "scope は user、project、local のいずれかです。"
+  },
+  "{v0} 必须为布尔值。": {
+    "en": "{v0} must be a boolean.",
+    "ja": "{v0} はブール値である必要があります。"
+  },
+  "expectedRevision 无效。": {
+    "en": "expectedRevision is not valid.",
+    "ja": "expectedRevision が無効です。"
+  },
+  "已在用户设置中启用 Claude 插件 {v0}。新会话生效，已打开的会话需要重载插件。": {
+    "en": "Enabled Claude plugin {v0} in user settings. New sessions use it; reload plugins in sessions that are already open.",
+    "ja": "ユーザー設定で Claude プラグイン {v0} を有効にしました。新しいセッションで有効になります。開いているセッションではプラグインを再読み込みしてください。"
+  },
+  "已在用户设置中停用 Claude 插件 {v0}。新会话生效，已打开的会话需要重载插件。": {
+    "en": "Disabled Claude plugin {v0} in user settings. New sessions use it; reload plugins in sessions that are already open.",
+    "ja": "ユーザー設定で Claude プラグイン {v0} を無効にしました。新しいセッションで有効になります。開いているセッションではプラグインを再読み込みしてください。"
+  },
+  "已在项目共享设置中启用 Claude 插件 {v0}。新会话生效，已打开的会话需要重载插件。": {
+    "en": "Enabled Claude plugin {v0} in the project's shared settings. New sessions use it; reload plugins in sessions that are already open.",
+    "ja": "プロジェクトの共有設定で Claude プラグイン {v0} を有効にしました。新しいセッションで有効になります。開いているセッションではプラグインを再読み込みしてください。"
+  },
+  "已在项目共享设置中停用 Claude 插件 {v0}。新会话生效，已打开的会话需要重载插件。": {
+    "en": "Disabled Claude plugin {v0} in the project's shared settings. New sessions use it; reload plugins in sessions that are already open.",
+    "ja": "プロジェクトの共有設定で Claude プラグイン {v0} を無効にしました。新しいセッションで有効になります。開いているセッションではプラグインを再読み込みしてください。"
+  },
+  "已在项目本地设置中启用 Claude 插件 {v0}。新会话生效，已打开的会话需要重载插件。": {
+    "en": "Enabled Claude plugin {v0} in the project's local settings. New sessions use it; reload plugins in sessions that are already open.",
+    "ja": "プロジェクトのローカル設定で Claude プラグイン {v0} を有効にしました。新しいセッションで有効になります。開いているセッションではプラグインを再読み込みしてください。"
+  },
+  "已在项目本地设置中停用 Claude 插件 {v0}。新会话生效，已打开的会话需要重载插件。": {
+    "en": "Disabled Claude plugin {v0} in the project's local settings. New sessions use it; reload plugins in sessions that are already open.",
+    "ja": "プロジェクトのローカル設定で Claude プラグイン {v0} を無効にしました。新しいセッションで有効になります。開いているセッションではプラグインを再読み込みしてください。"
   }
 }

@@ -98,7 +98,8 @@ export async function createApp(options = {}) {
       response.writeHead(200, { 'Content-Type': MIME[path.extname(file)] || 'application/octet-stream' });
       response.end(request.method === 'HEAD' ? undefined : await fs.readFile(file));
     } catch (e) {
-      if (!response.headersSent) send(response, e instanceof AppError ? e.status : 500, { error: { code: e.code && e instanceof AppError ? e.code : 'INTERNAL_ERROR', message: redact(e.message || '操作失败。') } });
+      if (!response.headersSent) send(response, e instanceof AppError ? e.status : 500, { error: { code: e.code && e instanceof AppError ? e.code : 'INTERNAL_ERROR', message: redact(e.message || '操作失败。'),
+        ...(e instanceof AppError && e.code === 'CONFIRMATION_REQUIRED' && Array.isArray(e.nativeRules) ? { nativeRules: e.nativeRules } : {}) } });
       else response.end();
     }
   });

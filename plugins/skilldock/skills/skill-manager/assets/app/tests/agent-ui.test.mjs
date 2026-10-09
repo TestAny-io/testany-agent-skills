@@ -12,7 +12,7 @@ const require = createRequire(new URL('../package.json', import.meta.url));
 const { createElement } = require('react');
 const { renderToStaticMarkup } = require('react-dom/server');
 const bundle = await build({
-  stdin: { contents: 'export * from "./src/AgentUI"; export * from "./src/AgentEnvironments"; export * from "./src/agent-requests"; export { setPreferences } from "./src/preferences";', resolveDir: app, loader: 'ts' },
+  stdin: { contents: 'export * from "./src/AgentUI"; export * from "./src/AgentEnvironments"; export * from "./src/agent-requests"; export * from "./src/NativeConfirm"; export { setPreferences } from "./src/preferences";', resolveDir: app, loader: 'ts' },
   bundle: true, platform: 'node', format: 'cjs', packages: 'external', jsx: 'automatic', write: false, loader: { '.css': 'empty' },
 });
 function ui(language = 'zh') {
@@ -125,6 +125,24 @@ test('requests: the multi-agent snapshot only from API version 2; a write names 
   assert.equal(requestAgent({ action: 'skill.toggle', id: 'plain' }, snapshot), 'codex', '缺省为 Codex');
   assert.equal(requestAgent({ action: 'updates.run' }, snapshot), 'codex');
   assert.equal(requestAgent({ action: 'agent.setManagement', agent: 'claude' }, snapshot), 'claude');
+});
+
+test('writes to a Claude object carry its revision; a confirmation is sent again with the choices its rules offer', () => {
+  const { requestRevision, confirmedRequest, confirmationChoices, NativeRuleList } = ui();
+  const snapshot = { skills: [{ id: 'shared', agents: ['codex', 'claude'], revision: 'aa' }], plugins: [{ id: 'claude:plugin:x@m:user', agents: ['claude'], revision: 'bb' }], marketplaces: [{ id: 'claude:marketplace:m', agents: ['claude'], revision: 'cc' }] };
+  assert.equal(requestRevision({ action: 'plugin.toggle', id: 'claude:plugin:x@m:user' }, snapshot), 'bb');
+  assert.equal(requestRevision({ action: 'marketplace.refresh', id: 'claude:marketplace:m' }, snapshot), 'cc');
+  assert.equal(requestRevision({ action: 'skill.toggle', id: 'shared' }, snapshot), undefined, '共用技能的规则随阶段 4c');
+  assert.equal(requestRevision({ action: 'plugin.toggle', id: 'claude:plugin:x@m:user', expectedRevision: 'dd' }, snapshot), 'dd');
+  assert.equal(requestRevision({ action: 'updates.run' }, snapshot), undefined);
+  const removal = { request: { action: 'plugin.remove', id: 'claude:plugin:x@m:user' }, message: 'm', rules: [{ kind: 'data-removal', message: 'd' }, { kind: 'reload', message: 'r' }] };
+  assert.equal(JSON.stringify(confirmationChoices(removal.rules)), JSON.stringify({ keepData: true, gitExclude: false }));
+  assert.equal(JSON.stringify(confirmedRequest(removal, { keepData: true, gitExclude: true })), JSON.stringify({ action: 'plugin.remove', id: 'claude:plugin:x@m:user', confirm: true, keepData: true }));
+  const local = { request: { action: 'plugin.toggle', id: 'p', enabled: false }, message: 'm', rules: [{ kind: 'scope', message: 's', items: ['.claude/settings.local.json'] }] };
+  assert.equal(JSON.stringify(confirmedRequest(local, { keepData: true, gitExclude: false })), JSON.stringify({ action: 'plugin.toggle', id: 'p', enabled: false, confirm: true, gitExclude: false }));
+  assert.equal(JSON.stringify(confirmedRequest({ ...local, rules: [{ kind: 'scope', message: 's' }] }, { keepData: true, gitExclude: true })), JSON.stringify({ action: 'plugin.toggle', id: 'p', enabled: false, confirm: true }));
+  const html = render(NativeRuleList, { rules: [...removal.rules, { kind: 'affected-plugins', message: '移除后，从它安装的这些插件也会被卸载：', items: ['demo'] }] });
+  assert.match(html, /移除后，从它安装的这些插件也会被卸载：/); assert.match(html, /<code>demo<\/code>/); assert.equal((html.match(/<li>/g) || []).length + (html.match(/<li /g) || []).length >= 3, true);
 });
 
 test('nested service messages translate both the outer and the inner sentence (en)', () => {

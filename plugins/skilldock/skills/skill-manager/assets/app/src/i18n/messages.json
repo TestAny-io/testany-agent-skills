@@ -2418,5 +2418,45 @@
   "启用后，SkillDock 可以按你的操作修改 {v0} 中的技能、插件和 marketplace，并可以把它们加入后台更新计划。启用这一步本身不会改动任何文件。": {
     "en": "Once on, SkillDock can change skills, plugins and marketplaces in {v0} when you ask it to, and can add them to background update plans. Turning management on changes no files by itself.",
     "ja": "有効にすると、SkillDock は操作に応じて {v0} のスキル・プラグイン・マーケットプレイスを変更し、バックグラウンド更新プランに追加できます。有効にする操作自体はファイルを変更しません。"
+  },
+  "请确认这次改动": {
+    "en": "Confirm this change",
+    "ja": "この変更を確認"
+  },
+  "保留插件数据": {
+    "en": "Keep the plugin's data",
+    "ja": "プラグインのデータを残す"
+  },
+  "把它写入本机的 .git/info/exclude": {
+    "en": "Add it to this Mac's .git/info/exclude",
+    "ja": "この Mac の .git/info/exclude に追加する"
+  },
+  "确认": {
+    "en": "Confirm",
+    "ja": "確認"
+  },
+  "添加到": {
+    "en": "Add to",
+    "ja": "追加先"
+  },
+  "添加到 {v0}": {
+    "en": "Add to {v0}",
+    "ja": "{v0} に追加"
+  },
+  "安装范围": {
+    "en": "Install scope",
+    "ja": "インストール範囲"
+  },
+  "当前用户（所有项目）": {
+    "en": "Current user (all projects)",
+    "ja": "現在のユーザー（すべてのプロジェクト）"
+  },
+  "当前项目，只给自己（本地设置）": {
+    "en": "Current project, for yourself (local settings)",
+    "ja": "現在のプロジェクト、自分専用（ローカル設定）"
+  },
+  "当前项目，所有协作者（共享设置，需要确认）": {
+    "en": "Current project, all collaborators (shared settings, needs confirmation)",
+    "ja": "現在のプロジェクト、すべての共同作業者（共有設定、確認が必要）"
   }
 }

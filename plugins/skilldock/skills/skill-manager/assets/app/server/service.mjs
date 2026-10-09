@@ -28,6 +28,8 @@ import { officialAppUrl } from './app-directory.mjs';
 import { createDirectoryIcons } from './directory-icons.mjs';
 import { createAgentLayer, readManagement, writeManagement, AGENT_NAME } from './agents.mjs';
 import { claudeCatalog } from './claude-catalog.mjs';
+import { claudeWriter } from './claude-writer.mjs';
+import { createClaudeActions, CLAUDE_WRITES } from './claude-actions.mjs';
 import { mergeClaude, markReadOnly } from './multi-agent.mjs';
 import { writeClaudeRoot } from './claude-root.mjs';
 import { inspectNode, findNpm, resolveToolchain } from './toolchain.mjs';
@@ -62,14 +64,20 @@ const HOST_WRITES = new Set(['skill.toggle', 'skill.install', 'skill.update', 's
 // Global and multi-target actions: `agent` only marks a version-2 request (36c §6).
 const AGENT_FLAG_ONLY = new Set(['schedule.configure', 'updates.run', 'skill.previewRemoval', 'skill.removeSelected', 'project.select', 'project.chooseDirectory']);
 export const CODEX_READ_ONLY_REASON = 'Codex 环境当前为只读；在 SkillDock 的“Agent 环境”页启用 Codex 管理后才能修改。';
+export const CLAUDE_READ_ONLY_REASON = 'Claude 环境当前为只读；在 SkillDock 的“Agent 环境”页启用 Claude 管理后才能修改。';
+// Version-2 request fields (36c 7.1); a request without `agent` keeps the 0.10.2 fields only.
+const VERSION_2_FIELDS = ['scope', 'confirm', 'gitExclude', 'keepData', 'expectedRevision'];
 const validPath = value => typeof value === 'string' && path.isAbsolute(value) && value.length <= 2000 && !/[\x00-\x1f]/.test(value);
 export function validateAction(input) {
   if (!input || typeof input !== 'object' || Array.isArray(input)) fail(400, 'INVALID_ACTION', '请求需要 JSON 对象。');
   if (!['local', 'sandbox'].includes(input.mode)) fail(400, 'INVALID_MODE', '请求的环境无效。');
   const fields = ACTION_FIELDS[input.action];
   if (!fields) fail(400, 'INVALID_ACTION', '不支持该操作。');
-  for (const key of Object.keys(input)) if (!['mode', 'action', 'agent', ...fields].includes(key)) fail(400, 'INVALID_ACTION', `该操作不支持参数 ${key}。`);
+  for (const key of Object.keys(input)) if (!['mode', 'action', 'agent', ...fields, ...(input.agent !== undefined ? VERSION_2_FIELDS : [])].includes(key)) fail(400, 'INVALID_ACTION', `该操作不支持参数 ${key}。`);
   if (input.agent !== undefined && !['codex', 'claude'].includes(input.agent)) fail(400, 'INVALID_ACTION', 'agent 只能是 codex 或 claude。');
+  if (input.scope !== undefined && !['user', 'project', 'local'].includes(input.scope)) fail(400, 'INVALID_ACTION', 'scope 只能是 user、project 或 local。');
+  for (const key of ['confirm', 'gitExclude', 'keepData']) if (input[key] !== undefined && typeof input[key] !== 'boolean') fail(400, 'INVALID_ACTION', `${key} 必须为布尔值。`);
+  if (input.expectedRevision !== undefined && (typeof input.expectedRevision !== 'string' || !/^[a-f0-9]{1,64}$/.test(input.expectedRevision))) fail(400, 'INVALID_ACTION', 'expectedRevision 无效。');
   if (input.action.startsWith('agent.') && !input.agent) fail(400, 'INVALID_ACTION', '需要 agent。');
   if (fields.includes('management') && !['enabled', 'read-only'].includes(input.management)) fail(400, 'INVALID_ACTION', 'management 只能是 enabled 或 read-only。');
   if (fields.includes('claudeRoot') && (!input.claudeRoot || typeof input.claudeRoot !== 'object' || Object.keys(input.claudeRoot).some(key => !['configDir', 'pluginCacheDir'].includes(key))
@@ -261,10 +269,15 @@ export async function createService(options = {}) {
       const claude = found.installed.claude ? await claudeFor(found, env.project, force) : null;
       mergeClaude(result, claude ?? { skills: [], plugins: [], marketplaces: [], diagnostics: [] });
       if (found.stored.codex?.management === 'read-only') markReadOnly(result, 'codex', CODEX_READ_ONLY_REASON);
+      // Claude objects offer changes only while Claude management is enabled and confirmed.
+      const claudeState = agentLayer.effective('claude', found, side => side === 'claude' ? claude?.unconfirmed : null);
+      if (claudeState.management !== 'enabled') markReadOnly(result, 'claude', claudeState.management === 'unconfirmed' && claudeState.reason ? claudeState.reason : CLAUDE_READ_ONLY_REASON);
       result.agents = await agentLayer.environments({ found, unconfirmed: agent => agent === 'claude' ? claude?.unconfirmed : null });
     } else if (multiAgent) {
       mergeClaude(result, { skills: [], plugins: [], marketplaces: [], diagnostics: [] }); result.agents = [];
     }
+    // A version-1 snapshot keeps 0.10.2 semantics: Claude's activity is not Codex's.
+    if (!multiAgent) result.activity = result.activity.filter(item => (item.agent ?? 'codex') === 'codex');
     result.durationMs = Math.round(performance.now() - started); return result;
   }
   // The Claude catalog for multi-agent snapshots, kept for 15 seconds like the Codex one.
@@ -278,6 +291,21 @@ export async function createService(options = {}) {
     claudeCache = { key, at: Date.now(), value };
     return structuredClone(value);
   }
+  // Claude writes (36c §7.3) read Claude afresh, and journal into the local activity.
+  const claudeAction = createClaudeActions({
+    root: async () => (await agentLayer.discover()).claudeRoot,
+    read: async () => {
+      const found = await agentLayer.discover({ force: true });
+      return { claude: await claudeFor(found, project, true), claudeRoot: found.claudeRoot, cli: found.cli.claude, project };
+    },
+    writer: state => options.claudeWriter ? options.claudeWriter(state) : claudeWriter({ cli: state.cli, claudeRoot: state.claudeRoot, env: agentEnv }),
+    journal: async entry => {
+      const env = environment('local'); const registry = await registryFor(env);
+      registry.activity.unshift(entry);
+      await writeJson(env.registryFile, registry);
+    },
+    ...(options.claudeGit ? { git: options.claudeGit } : {}),
+  });
   async function skill(mode, id) {
     if (typeof id !== 'string' || id.length > 300) fail(400, 'INVALID_ID', '需要技能 ID。');
     const record = (await snapshot(mode, false, { multiAgent: id.startsWith('claude:') })).skills.find(item => item.id === id);
@@ -1029,8 +1057,19 @@ export async function createService(options = {}) {
   // 36c §5, §8: a read-only Codex refuses changes, with a message that also stands alone in
   // 0.10.x interfaces. Claude objects are read-only in this version.
   async function assertAgentWritable(request) {
-    if (request.mode !== 'local') return;
-    if (request.agent === 'claude' && !AGENT_FLAG_ONLY.has(request.action)) fail(422, 'UNSUPPORTED_FOR_AGENT', '这一版 SkillDock 只读取 Claude 中的技能和插件，暂不能在这里修改它们。');
+    if (request.mode !== 'local') { if (request.agent === 'claude') fail(403, 'MODE_DISABLED', '演练环境不包含 Claude。'); return; }
+    if (request.agent === 'claude' && !AGENT_FLAG_ONLY.has(request.action)) {
+      if (!CLAUDE_WRITES.has(request.action)) fail(422, 'UNSUPPORTED_FOR_AGENT', '这一版 SkillDock 还不能在 Claude 中执行这个操作。');
+      // 36c §8: which of the environment's states refuses the write, checked before the Claude lock.
+      const found = await agentLayer.discover({ force: true });
+      if (!found.installed.claude) fail(404, 'AGENT_NOT_INSTALLED', '本机未找到 Claude。');
+      const claude = await claudeFor(found, project, true);
+      const state = agentLayer.effective('claude', found, side => side === 'claude' ? claude?.unconfirmed : null);
+      if (state.management === 'unconfirmed') fail(409, 'AGENT_UNCONFIRMED', state.reason || '无法确认 Claude 环境，暂不能修改。');
+      if (state.management !== 'enabled') fail(409, 'AGENT_READ_ONLY', 'Claude 环境当前为只读，SkillDock 不会修改 Claude 中的插件和 marketplace。请在 SkillDock 的“Agent 环境”页启用 Claude 管理后重试。');
+      if (!found.cli.claude.available) fail(422, 'CLI_UNAVAILABLE', '未找到可用的 Claude 命令行，暂不能修改 Claude。');
+      return;
+    }
     if (!HOST_WRITES.has(request.action)) return;
     if (await codexReadOnly())
       fail(409, 'AGENT_READ_ONLY', 'Codex 环境当前为只读，SkillDock 不会修改 Codex 中的技能和插件。请在 SkillDock 的“Agent 环境”页启用 Codex 管理后重试。');
@@ -1103,6 +1142,10 @@ export async function createService(options = {}) {
       return scheduler.configure(mode, request.schedule);
     }
     if (request.action === 'updates.run') return scheduler.run(mode, { targets: request.targets, autoApply: request.autoApply });
+    if (request.agent === 'claude' && CLAUDE_WRITES.has(request.action)) {
+      requestBusy = true;
+      try { return await claudeAction(request); } finally { requestBusy = false; claudeCache = undefined; }
+    }
     requestBusy = true;
     let target; let applying = false;
     try {

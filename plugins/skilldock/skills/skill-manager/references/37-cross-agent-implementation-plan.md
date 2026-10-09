@@ -125,8 +125,21 @@
   - 每个对象带能力标记与原因；
   - 服务端同样拒绝不支持的操作；
   - 所有写操作核对 `revision`，发现在 Claude 中已有改动时停止。
+- **从阶段 3 挪入**：对象 ID 迁移；2 版请求下共用技能的规则（`CONFIRMATION_REQUIRED` 与 `nativeRules`、`expectedRevision` 与 `SNAPSHOT_STALE`、`SOURCE_CONFLICT`、跨侧影响提示）；Codex 环境的“无法确认”与未安装时目标暂停；在 SkillDock 中刷新 Claude marketplace（首次 UAT）；联网的 `--available` 清单按需请求（36c 第 10 节）。
+- **界面**：按 Owner 决定（2026-10-09），这一阶段的界面只保证功能可用，不做打磨；界面问题记入 [41](41-ui-redesign-backlog.md)。
 
-预计 2 次会话。
+拆分（每步：定向测试 → 沙箱完整套件 → 提交 → 复核）：
+
+| 步 | 内容 |
+|----|------|
+| 4a | Claude 插件与 marketplace 写操作：启停、从 marketplace 安装（预览给出作用域与原生规则）、卸载（保留数据）、marketplace 添加、刷新、移除（列出受影响插件）；Claude 配置根锁（实例锁 → Codex 锁 → Claude 锁，取锁不创建根目录）；能力标记与原因、`expectedRevision`、`CONFIRMATION_REQUIRED`；命令行白名单与机器可读结果；按插件清单读回 |
+| 4b | Claude 独立技能：可见性写入（结构化补丁、写前摘要核对、原子替换、撤销只记被改条目、`.git/info/exclude` 征得同意）；安装、更新、可恢复移除、恢复复用文件事务，目标为 Claude 个人根或项目 `.claude/skills`；来源记录按 Agent 分区；对象 ID 迁移 |
+| 4c | 2 版请求下的共用技能规则与跨侧影响提示（AC-003）、`SOURCE_CONFLICT`、批量移除含 Claude 对象；Codex 环境的“无法确认”与目标暂停 |
+| 4d | 从本地目录或 Git 安装 Claude 插件（带 manifest 的放入技能目录；不带的经 SkillDock 管理的本地 marketplace，停用管理时可清理）；联网的 `--available` 清单按需请求 |
+
+命令行写法以 Claude 2.1.288 的帮助为准（2026-10-09 在断网沙箱与临时目录中读取）：安装、卸载、启停都用 `-s/--scope` 显式传作用域，卸载有 `--keep-data`，结果用 `--json` 取最后一行；需要执行 marketplace 声明的命令（command 来源、headersHelper）时命令行要求 `-y` 或 `--accept-command`，SkillDock 不代为确认（DEC-SDX-019），只给出手动途径；marketplace 刷新为 `marketplace update <名称>`，移除不带作用域时从所有作用域删除声明。
+
+预计 3～4 次会话。
 
 ## 阶段 5：更新、预览与后台计划（M2，REQ-SDX-004、006，MR-SDX-003）
 
@@ -195,6 +208,7 @@
 | 阶段 1 | 已完成 | 迁移、门槛、单实例与 0.10.x 兼容义务；代码复核到第 4 轮（[r4](38-cross-agent-phase1-code-review-r4.md)）通过，其 P2 与 HLD 第 21 轮、契约第 13 轮 P2 在 `7971fd8` 处理（HLD v1.14、契约 v0.14，待增量复审） |
 | 阶段 2 | 已完成，代码复核第 3 轮与 HLD 第 24 轮通过 | 2a 运行环境 `38bd668`；2b Claude 命令行与环境白名单 `fe777f2`；2c 分发 `7d19e86`；2d Claude 侧安装 `e0ed4ab`（两侧互调用例；可选冒烟 `tests/claude-distribution-smoke.mjs` 在临时 HOME 中真实安装：只得到技能与命令、MCP 服务为 0、TeamDesk 标注可见、`doctor` 只读）。冒烟顺带发现 Homebrew Node 与 npm 配对失败，已在 `e0ed4ab` 修正。代码评审（[报告](38-cross-agent-phase2-code-review.md)）P1 1 项、P2 8 项，已在 `a925599`、`35f0b71`、`ef67997`、`af3ffad`、`1f761c8` 修复（HLD v1.15 同步文字）。代码复核第 2 轮（[报告](38-cross-agent-phase2-code-review-r2.md)）APPROVED，P2 3 项与 HLD 第 23 轮两处措辞在 `58dc726` 修复（HLD v1.16）；第 3 轮窄范围复核（[报告](38-cross-agent-phase2-code-review-r3.md)）APPROVED，HLD 第 24 轮 APPROVED（带条件，证书绑定 v1.16），其余只涉及测试的 P2 在随后的提交中修复（未再开评审轮次）。HLD 第 24 轮的三条观察（3.3 除外清单未列对话框与 `codesign`、处理表措辞、多余空行）留到下次修订 HLD 时一并处理。冒烟不再请求远端插件目录，须在禁止外连的沙箱中运行；测试世界不再运行本机的 Agent 命令行；完整套件在禁止外连、禁止执行本机 Agent 命令行的沙箱中通过 |
 | 阶段 3 | 已完成，代码复核第 3 轮通过；Owner 首次 UAT 已结束（2026-10-09），界面重新设计挪到 Claude 版完成之后（[待重新设计清单](41-ui-redesign-backlog.md)） | 3a Agent 环境层与管理状态 `d599c8d`；3b Claude 只读清单 `9256420`；3c 多 Agent 快照与共用技能 `12af853`（测试世界修正 `3620cf0`）；3d Agent 筛选、标识与“Agent 环境”页 `36cfc75`（确认框名称 `b7e6699`）。沙箱中完整套件 372 项通过；在临时世界（替身命令行、端口 47912）中目测了技能库、插件、市场来源与“Agent 环境”页，并走通了启用 Claude 管理。挪到后续阶段：对象 ID 迁移（阶段 3 中 Claude 对象还不能进入计划、来源或操作记录，Codex 对象的 ID 在共用时不变，没有要迁移的记录）随阶段 4 的第一批 Claude 写操作实现；Codex 环境的“无法确认”状态暂不计算（保持 0.10.2 行为，MR-SDX-001）；一键更新另一侧的 SkillDock 仍在阶段 5；切换 Claude 根目录后刷新后台上下文随阶段 5 的 Claude 后台目标实现。代码评审（[报告](39-cross-agent-phase3-code-review.md)）P1 2 项、P2 13 项已在 `1343a5e` 修复，沙箱中完整套件 381 项通过。评审指出的另一组挪动一并登记：共用技能在 2 版请求下的规则——移走或更新真实目录时以 `CONFIRMATION_REQUIRED` 与 `nativeRules` 提示同时影响两侧（AC-003）、`expectedRevision` 与 `SNAPSHOT_STALE`、`SOURCE_CONFLICT`、跨侧影响提示——随阶段 4 实现；在此之前，这类请求暂按 1 版语义处理（与 0.10.2 相同，移除进可恢复区）。Codex 环境的“无法确认”状态与 Codex 未安装时目标暂停，随阶段 4 的能力对照一并实现。复核第 2 轮（[r2](39-cross-agent-phase3-code-review-r2.md)）发现只读的 Codex 在检查插件时仍会补写技能选择，已在 `fe66fa2` 修复；第 3 轮（[r3](39-cross-agent-phase3-code-review-r3.md)）APPROVED，其新 P2 与测试缺口在随后的提交修复，沙箱中完整套件 384 项通过。已知残留：只读时检查的结果（含附注与“不可应用”）保留到下一次检查，重新启用 Codex 管理后需重新检查；管理状态写入后的读回没有独立测试（只能靠注入故障构造）。UAT 时请注意：这一版中两边共用的技能被移除或更新时，不会提示会同时影响 Codex 与 Claude（随阶段 4 实现），移除的内容进入可恢复区。首次 UAT（[说明](40-phase3-uat-guide.md)）的反馈与处理：（1）0.10.2 起，Codex 插件与 marketplace 操作后的读回只要清单里有任何提示就判为“无法确认终态”，Owner 刷新 marketplace 时因另一个插件的来源链接失效而误报；改为只核实本次操作的对象（所在清单须完整读到、目标记录未被忽略），无关提示照常显示，后台任务判断 SkillDock 是否已卸载用同一规则；（2）Claude 插件页补上“未安装”的插件，取自 Claude 在本机保存的 marketplace 副本（HLD 3.2 表中的辅助来源，不联网，只读；契约 36c 第 6 节补充其 ID 写法），在 SkillDock 中刷新 Claude marketplace 随阶段 4；（3）桌面应用为会话自带的插件（内置浏览器、电脑操作等）不在 Claude 配置目录中，只在 Claude 卡片上注明不列出。沙箱中完整套件 389 项通过。复核（[uat1](39-cross-agent-phase3-uat1-review.md)）APPROVED 带 P2 2 项、P3 5 项，随后一并处理：被忽略的记录按插件 ID 与“名称@市场”两种身份记下，没有身份的记录让该清单无法确认任何对象（读回与后台卸载判断都遵守）；提示指名被忽略的记录，后台区分“清单没读到”与“记录无法安全使用”；补齐评审列出的未覆盖保护的测试；Claude 名称按“字母、数字、点、下划线、连字符”校验，去重并入 Claude 自己的安装记录（含其他项目的安装），marketplace 副本读不了时给出提示；契约 36c 第 10 节补充未安装插件的来源。Owner 第二批反馈：插件页计数跟随 Agent 筛选，选“全部”时标题旁分别显示两侧数量；Agent 标识改为图标——Claude 用 Simple Icons 16.0.0 中的 Claude 标志（CC0，声明见 THIRD_PARTY_NOTICES.md），Codex 用 Lucide 的通用终端图标（OpenAI 的标志需要 OpenAI 许可，Simple Icons 16.0.0 因此删除了它）。`7a4f531` 沙箱中完整套件 400 项通过；复核 r2（[报告](39-cross-agent-phase3-uat1-review-r2.md)）APPROVED 带 P2 1 项、P3 6 项。Owner 随后决定：界面问题不再零碎修改，等 Claude 版（阶段 4、5）完成后整体重新设计；r2 中的界面项（P2-01、P3-03、P3-04、P3-06 第 1 条与计数测试）记入 [41](41-ui-redesign-backlog.md)。r2 的后端项随即处理：被忽略记录的身份必须形如“名称@市场”（按最后一个 @ 拆分），对不上形状的记录让该清单无法确认任何对象；后台判断 SkillDock 是否卸载时，被忽略记录的名称与 SkillDock 相同也视为可能是它；补官方目录安装读回、提示合并与去掉控制字符的测试；Claude marketplace 副本格式不对或市场名不合规时给出提示 |
+| 阶段 4 | 进行中：4a 已完成，待复核 | 4a Claude 插件与 marketplace 写操作（本次提交）：新模块 `server/claude-writer.mjs`（白名单子命令、显式作用域、`--json` 取最后一行、遇到 marketplace 声明的命令返回 `HOST_MANAGED` 不代为确认）、`server/claude-actions.mjs`（Claude 配置根锁、锁内重读与 `expectedRevision`、`CONFIRMATION_REQUIRED` 与 `nativeRules`、按插件与 marketplace 清单读回、操作记录带 `agent: "claude"`）、`server/local-settings.mjs`（新建未被忽略的 `.claude/settings.local.json` 时征得同意写入 `.git/info/exclude`）；Claude 清单给出按原生规则计算的能力标记，管理未启用或无法确认时服务端统一标为只读；错误体在 `CONFIRMATION_REQUIRED` 时带 `nativeRules`；1 版快照不含 Claude 的操作记录。界面只保证可用：Claude 对象的写请求自动带修订号，服务端要求确认时弹出按规则生成的确认框（可选保留插件数据、写入 exclude），添加来源可选 Agent，安装 Claude 插件可选范围。启停的缺省作用域按安装范围（HLD v1.17、契约索引 0.15 / 36c 0.14 的有限修订，待增量复核）。定向测试 `tests/claude-actions.test.mjs`（含全部新提示的英、日翻译检查）；可选冒烟 `tests/claude-writes-smoke.mjs` 在断网沙箱与临时目录中用真实 Claude 2.1.288 走通添加 marketplace、安装、用户与项目本地设置中的启停、保留数据卸载、刷新与移除 marketplace，前后核对真实 Claude 配置的修改时间与缓存条目数未变 |
 
 ## 估算
 

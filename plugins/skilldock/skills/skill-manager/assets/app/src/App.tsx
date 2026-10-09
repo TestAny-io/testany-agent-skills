@@ -65,6 +65,7 @@ import type {
   Skill,
   Snapshot,
   UpdatePreview,
+  NativeRule,
 } from "../shared/contracts";
 
 import {
@@ -88,9 +89,10 @@ import { TagStrip, TagFilter, TagsDialog, matchesTags, type TagSubject } from ".
 import { ProjectPicker, ProjectDialog } from "./ProjectControls";
 import { InstallDialog } from "./InstallDialog";
 import { LibraryFilters, ViewSwitch, CollectionFooter } from "./LibraryUI";
+import { NativeConfirmDialog, type NativeConfirmation } from "./NativeConfirm";
 import { AgentFilter, AgentBadges, AgentSplit, ClaudePluginFacts, ClaudeSkillFacts, MarketAutoUpdate, matchesAgent, showsAgents, objectAgents, type AgentFilterValue } from "./AgentUI";
 import { AgentEnvironments } from "./AgentEnvironments";
-import { requestAgent, stateUrl } from "./agent-requests";
+import { requestAgent, requestRevision, stateUrl } from "./agent-requests";
 
 type Page = "skills" | "plugins" | "markets" | "updates" | "activity" | "agents";
 type Metric = "all" | "enabled" | "standalone" | "attention";
@@ -103,6 +105,7 @@ type Dialog =
   | { type: "preferences" }
   | { type: "project" }
   | { type: "update"; preview: UpdatePreview }
+  | { type: "native-confirm"; confirmation: NativeConfirmation }
   | {
       type: "confirm";
       title: string;
@@ -228,11 +231,11 @@ async function api<T>(path: string, options?: RequestInit): Promise<T> {
     throw new Error(t("服务返回了无法读取的响应，请检查服务是否仍在运行。"));
   }
   if (!response.ok) {
-    const payload = data as { error?: { message?: string; code?: string } };
-    throw requestError(
+    const payload = data as { error?: { message?: string; code?: string; nativeRules?: NativeRule[] } };
+    throw Object.assign(requestError(
       payload.error?.code || "HTTP_ERROR",
       payload.error?.message || `HTTP ${response.status}`,
-    );
+    ), { code: payload.error?.code, nativeRules: payload.error?.nativeRules });
   }
   return data as T;
 }
@@ -537,7 +540,7 @@ export default function App() {
           "Content-Type": "application/json",
           "X-SkillDock-Token": tokenRef.current,
         },
-        body: JSON.stringify({ ...request, ...(multiAgentRef.current ? { agent: requestAgent(request, snapshot) } : {}), mode: capturedMode }),
+        body: JSON.stringify({ ...request, ...(multiAgentRef.current ? { agent: requestAgent(request, snapshot), expectedRevision: requestRevision(request, snapshot) } : {}), mode: capturedMode }),
       });
       if (modeRef.current !== capturedMode) return undefined;
       if (result.update && request.id)
@@ -577,6 +580,12 @@ export default function App() {
       }
       return result;
     } catch (error) {
+      // The service asks the user first: show what the change touches, then send it again.
+      const { code, nativeRules } = error as { code?: string; nativeRules?: NativeRule[] };
+      if (code === "CONFIRMATION_REQUIRED" && Array.isArray(nativeRules) && modeRef.current === capturedMode) {
+        setDialog({ type: "native-confirm", confirmation: { request, message: (error as Error).message, rules: nativeRules } });
+        return undefined;
+      }
       if (modeRef.current === capturedMode) {
         setToast({ kind: "error", message: (error as Error).message });
         void refresh();
@@ -602,6 +611,8 @@ export default function App() {
     run({ action: "skill.toggle", id: skill.id, enabled: !skill.enabled });
   }
   function confirmRemovePlugin(plugin: Plugin) {
+    // Claude names the native rules itself (36c 7.3); its confirmation follows from the service.
+    if (!objectAgents(plugin).includes("codex")) { run({ action: "plugin.remove", id: plugin.id }); return; }
     setDialog({ type: "confirm", title: t("卸载这个插件？"), description: t("该插件及其 {v0} 个已发现技能将通过包管理入口卸载。此操作不能通过技能恢复记录撤销，需要从市场重新安装。", { v0: plugin.skillCount }), target: plugin.id, request: { action: "plugin.remove", id: plugin.id }, danger: true, label: t("确认卸载"), affected: snapshot?.skills.filter(skill => skill.pluginId === plugin.id).map(skill => `${skill.name} — ${skill.path}`) });
   }
   function confirmRemoveSkill(skill: Skill) {
@@ -1244,7 +1255,7 @@ export default function App() {
                             setQueries(previous => ({ ...previous, plugins: "" }));
                             setPluginTags([]);
                           }}
-                          onRemove={() =>
+                          onRemove={() => !objectAgents(market).includes("codex") ? run({ action: "marketplace.remove", id: market.id }) :
                             setDialog({
                               type: "confirm",
                               title: t("移除这个市场来源？"),
@@ -1454,10 +1465,14 @@ export default function App() {
         <MarketDialog
           busy={busy}
           action={action}
+          agents={(data?.agents ?? []).filter(item => item.installed && item.management === "enabled").map(item => item.agent)}
           onClose={() =>
             setDialog((current) => (current === dialog ? dialog.fromInstall ? { type: "plugin-install", market: true } : null : current))
           }
         />
+      )}
+      {dialog?.type === "native-confirm" && (
+        <NativeConfirmDialog confirmation={dialog.confirmation} busy={busy} action={action} onClose={() => setDialog(current => (current === dialog ? null : current))} />
       )}
       {dialog?.type === "confirm" && (
         <ConfirmDialog
@@ -1881,12 +1896,16 @@ type ActionHandler = (
 function MarketDialog({
   busy,
   action,
+  agents,
   onClose,
 }: {
   busy: string | null;
   action: ActionHandler;
+  /** Agents whose management is enabled; a choice appears only with more than one. */
+  agents: ("codex" | "claude")[];
   onClose: () => void;
 }) {
+  const [agent, setAgent] = useState<"codex" | "claude">(agents.includes("codex") || !agents.length ? "codex" : agents[0]);
   const [sourceType, setSourceType] = useState<"local" | "git">("local");
   const [source, setSource] = useState("");
   const [ref, setRef] = useState("");
@@ -1897,9 +1916,10 @@ function MarketDialog({
     try {
       const result = await action({
         action: "marketplace.add",
+        ...(agents.length > 1 ? { agent } : {}),
         sourceType,
         source: source.trim(),
-        ...(sourceType === "git" && ref.trim() ? { ref: ref.trim() } : {}),
+        ...(sourceType === "git" && agent === "codex" && ref.trim() ? { ref: ref.trim() } : {}),
       });
       if (result) onClose();
     } catch (error) {
@@ -1960,7 +1980,12 @@ function MarketDialog({
               }
             />
           </label>
-          {sourceType === "git" && (
+          {agents.length > 1 && (
+            <div className="scope-choice" role="radiogroup" aria-label={t("添加到")}>
+              {agents.map(item => <label key={item}><input type="radio" name="market-agent" checked={agent === item} onChange={() => setAgent(item)} />{t("添加到 {v0}", { v0: item === "codex" ? "Codex" : "Claude" })}</label>)}
+            </div>
+          )}
+          {sourceType === "git" && agent === "codex" && (
             <label className="field">
               <span>
                 {t("分支或标签")}

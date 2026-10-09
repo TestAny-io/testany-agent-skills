@@ -22,8 +22,10 @@ const digest = value => crypto.createHash('sha256').update(value).digest('hex').
 const revision = value => crypto.createHash('sha256').update(JSON.stringify(value)).digest('hex').slice(0, 16);
 const exists = async file => !!(await fs.lstat(file).catch(() => null));
 const isDirectory = async directory => (await fs.stat(directory).catch(() => null))?.isDirectory() ?? false;
-const READ_ONLY = '这一版 SkillDock 只读取 Claude 中的对象，暂不能在这里修改。';
-const NOT_INSTALLABLE = '这一版 SkillDock 只列出 Claude 中可安装的插件，暂不能在这里安装；可以在 Claude Code 中用 /plugin 安装。';
+// Capabilities below are what Claude's native rules allow; the service marks every Claude
+// object read-only while Claude management is not enabled (36c §5).
+const READ_ONLY = '这一版 SkillDock 还不能修改 Claude 中的技能。';
+const SKILLS_DIR_REMOVAL = '技能目录插件的移除随后续版本提供；可以在 Claude 的技能目录中手动删除。';
 // Plugin and marketplace names as Claude writes them (letters, digits, '.', '_', '-'), so an
 // ID made from them stays unambiguous and carries no control characters.
 const plainName = value => typeof value === 'string' && /^[A-Za-z0-9][A-Za-z0-9._-]{0,127}$/.test(value);
@@ -240,14 +242,21 @@ export async function claudeCatalog({ claudeRoot, project, cli, env = process.en
     const manifests = [];
     if (installPath && await exists(path.join(installPath, '.codex-plugin/plugin.json'))) manifests.push('codex');
     if (manifest) manifests.push('claude');
+    // HLD 3.3, 3.5: what Claude lets SkillDock do with this installation, and why not.
+    const overridden = enabled !== null && typeof fromFiles === 'boolean' && fromFiles !== enabled;
+    const blocked = synced ? '由 claude.ai 同步的插件由组织管理，不能在这里修改。'
+      : item.scope === 'managed' ? '由组织托管安装的插件不能在这里修改。'
+      : installation.readOnlyReason;
+    const toggleReason = blocked ?? (source.locked ? '启用状态由组织托管设置决定，不能在这里修改。'
+      : overridden ? enabled ? '设置文件中是停用，但 Claude 实际启用了它：由设置文件之外的更高层级（例如组织托管设置）决定。' : '设置文件中是启用，但 Claude 实际停用了它：由设置文件之外的更高层级（例如组织托管设置）决定。'
+      : enabled === null ? 'Claude 没有报告这个插件的启用状态，暂不能切换。' : undefined);
     plugins.push({
       agents: ['claude'], id: claudeIds.plugin(item.id, item.scope, projectPath), name, displayName: manifest?.name !== name ? manifest?.name : undefined,
       description: typeof manifest?.description === 'string' ? manifest.description : '', marketplace, version: typeof item.version === 'string' ? item.version : undefined,
       installed: true, enabled, skillCount: installPath ? await countSkills(installPath) : 0, ...(installPath ? { installedPath: installPath, realPath: await fs.realpath(installPath).catch(() => installPath) } : {}),
       installation, enablement: source, manifests, ...(synced ? { protection: 'synced' } : source.locked ? { protection: 'managed' } : {}),
-      canInstall: false, canRemove: false, canToggle: false,
-      reason: synced ? '由 claude.ai 同步的插件由组织管理，不能在这里修改。' : enabled !== null && typeof fromFiles === 'boolean' && fromFiles !== enabled
-        ? enabled ? '设置文件中是停用，但 Claude 实际启用了它：由设置文件之外的更高层级（例如组织托管设置）决定。' : '设置文件中是启用，但 Claude 实际停用了它：由设置文件之外的更高层级（例如组织托管设置）决定。' : READ_ONLY,
+      canInstall: false, canRemove: !blocked, canToggle: !toggleReason,
+      ...(blocked ?? toggleReason ? { reason: blocked ?? toggleReason } : {}),
       revision: revision({ id: item.id, scope: item.scope, projectPath, version: item.version, enabled, source }),
     });
   }
@@ -261,11 +270,13 @@ export async function claudeCatalog({ claudeRoot, project, cli, env = process.en
     const id = `${name}@skills-dir`;
     const listed = (installed ?? []).find(item => item.id === id && (item.scope === scope || !item.scope));
     const { source } = enablement(layers, 'enabledPlugins', id, (a, b) => a === b);
+    // Claude reports a skills-directory plugin only once it loads it (a project directory must be trusted).
+    const toggleReason = source.locked ? '启用状态由组织托管设置决定，不能在这里修改。' : !listed ? 'Claude 尚未加载这个技能目录插件（项目目录可能未被信任），暂不能切换。' : undefined;
     plugins.push({ agents: ['claude'], id: claudeIds.plugin(id, scope, directory), name, description: typeof manifest.description === 'string' ? manifest.description : '', marketplace: 'skills-dir',
       version: typeof manifest.version === 'string' ? manifest.version : undefined, installed: true, enabled: listed ? listed.enabled : null, skillCount: await countSkills(directory),
       installedPath: directory, realPath: await fs.realpath(directory).catch(() => directory), installation: { scope, skillsDir: path.dirname(directory) }, enablement: source,
       manifests: ['claude', ...(await exists(path.join(directory, '.codex-plugin/plugin.json')) ? ['codex'] : [])].sort(),
-      canInstall: false, canRemove: false, canToggle: false, reason: READ_ONLY, revision: revision({ id, directory, enabled: listed?.enabled, source }) });
+      canInstall: false, canRemove: false, canToggle: !toggleReason, reason: toggleReason ?? SKILLS_DIR_REMOVAL, revision: revision({ id, directory, enabled: listed?.enabled, source }) });
   }
   const marketplaces = []; const available = [];
   // Installed in any scope, by the command line or Claude's own record (which also lists
@@ -296,13 +307,16 @@ export async function claudeCatalog({ claudeRoot, project, cli, env = process.en
           const version = typeof plugin.version === 'string' ? plugin.version : undefined;
           available.push({ agents: ['claude'], id: claudeIds.available(id), name: plugin.name, displayName: typeof plugin.displayName === 'string' && plugin.displayName !== plugin.name ? plugin.displayName : undefined,
             description: typeof plugin.description === 'string' ? plugin.description : '', marketplace: item.name, version, installed: false, enabled: null, skillCount: 0,
-            canInstall: false, canRemove: false, canToggle: false, reason: NOT_INSTALLABLE, revision: revision({ id, version }) });
+            canInstall: true, canRemove: false, canToggle: false, revision: revision({ id, version }) });
         }
       } catch { diagnostics.push(`marketplace ${item.name.replace(/\p{C}/gu, '').slice(0, 80)} 的本机副本无法读取，插件数与其中未安装的插件暂不显示。`); }
     }
     const sourceText = item.repo || item.url || item.path || entry.source?.repo || entry.source?.url || entry.source?.path || item.source;
+    // A marketplace that organisation-managed settings declare cannot be removed here.
+    const managedDeclaration = decidedBy(layers, 'extraKnownMarketplaces', item.name).layer === 'managed';
     marketplaces.push({ agents: ['claude'], id: claudeIds.marketplace(item.name), name: item.name, source: publicSource(String(sourceText)), type: item.source, pluginCount, autoUpdate,
-      ...(typeof entry.lastUpdated === 'string' ? { refreshedAt: entry.lastUpdated } : {}), canRemove: false, canRefresh: false, reason: READ_ONLY,
+      ...(typeof entry.lastUpdated === 'string' ? { refreshedAt: entry.lastUpdated } : {}), canRemove: !managedDeclaration, canRefresh: true,
+      ...(managedDeclaration ? { reason: '由组织托管设置声明的 marketplace 不能在这里移除。' } : {}),
       revision: revision({ name: item.name, autoUpdate, plugins: plugins.filter(plugin => plugin.marketplace === item.name).map(plugin => plugin.id).sort() }) });
   }
   plugins.push(...available);

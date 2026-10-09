@@ -21,19 +21,22 @@ export function InstallDialog({ kind, data, initialPlugin, initialMarket = false
   const [preview, setPreview] = useState<InstallPreview | PluginInstallPreview | null>(null);
   const [selection, setSelection] = useState<Plugin | null>(null);
   const [enabledSkills, setEnabledSkills] = useState<string[]>([]);
+  const [scope, setScope] = useState<"user" | "project" | "local">("user");
   const initialized = useRef(false);
   const [error, setError] = useState(""); const review = preview;
   const [remoteResult, setRemoteResult] = useState<ActionResult['remoteInstall']>();
   const [attempted, setAttempted] = useState(false);
   const listed = data.plugins.filter(item => (market === "all" || item.marketplace === market) && matchesPlugin(item, query));
   const direct = preview && "skills" in preview ? preview : null;
+  // A Claude plugin installs whole, into a scope the user picks (HLD 3.3).
+  const claudePreview = direct?.agent === "claude";
   async function checkConnection() {
     if (!selection) return;
     setError('');
     try { const result = await action({ action: 'plugin.connectionStatus', id: selection.id }); if (result?.remoteInstall) setRemoteResult(result.remoteInstall); }
     catch (failure) { setError((failure as Error).message); }
   }
-  function acceptPreview(value: PluginInstallPreview) { setPreview(value); setEnabledSkills(value.skillDetails.map(skill => skill.path)); }
+  function acceptPreview(value: PluginInstallPreview) { setPreview(value); setEnabledSkills(value.skillDetails.map(skill => skill.path)); setScope(value.defaultScope && value.defaultScope !== "managed" ? value.defaultScope : "user"); }
   async function choosePlugin(item: Plugin) {
     setError("");
     try {
@@ -47,7 +50,7 @@ export function InstallDialog({ kind, data, initialPlugin, initialMarket = false
     try {
       if (direct?.remote) setAttempted(true);
       const skillChoice = direct?.canSelectSkills ? { enabledSkills } : {};
-      const result = await action(selection && preview ? { action: "plugin.install", id: selection.id, previewId: preview.id, ...skillChoice } : preview
+      const result = await action(selection && preview ? { action: "plugin.install", id: selection.id, previewId: preview.id, ...skillChoice, ...(claudePreview ? { scope } : {}) } : preview
         ? { action: plugin ? "plugin.installSource" : "skill.install", previewId: preview.id, ...skillChoice }
         : { action: plugin ? "plugin.previewInstall" : "skill.previewInstall", sourceType: sourceType === "git" ? "git" : "local", source: source.trim(), ...(subpath.trim() ? { subpath: subpath.trim() } : {}), ...(sourceType === "git" && gitRef.trim() ? { ref: gitRef.trim() } : {}) });
       if (result?.remoteInstall) setRemoteResult(result.remoteInstall);
@@ -84,7 +87,11 @@ export function InstallDialog({ kind, data, initialPlugin, initialMarket = false
             <details><summary>{t('查看完整介绍')}</summary><p className="remote-description">{direct.remote.description}</p></details>
             <ExternalLink href={direct.remote.installUrl} target="_blank" rel="noopener noreferrer">{t('查看官方详情与授权')}<LinkIcon size={13} /></ExternalLink>
           </section>}
-          {direct && !direct.remote && <><PluginSkillPicker preview={direct} selected={enabledSkills} onChange={setEnabledSkills} disabled={!!busy} /><div className="install-components">
+          {claudePreview && <div className="scope-choice" role="radiogroup" aria-label={t("安装范围")}>
+            {(direct?.scopes ?? ["user"]).filter((item): item is "user" | "project" | "local" => item !== "managed").map(item => <label key={item}><input type="radio" name="claude-scope" checked={scope === item} onChange={() => setScope(item)} />{t({ user: "当前用户（所有项目）", local: "当前项目，只给自己（本地设置）", project: "当前项目，所有协作者（共享设置，需要确认）" }[item])}</label>)}
+            {direct?.nativeRules?.map(rule => <p key={rule.message} className="field-hint"><ServiceMessage value={rule.message} /></p>)}
+          </div>}
+          {direct && !direct.remote && !claudePreview && <><PluginSkillPicker preview={direct} selected={enabledSkills} onChange={setEnabledSkills} disabled={!!busy} /><div className="install-components">
             {!!direct.components.length && <p>{t("其他组件")}: {direct.components.map(item => t({ commands: "命令", agents: "代理", hooks: "Hooks", mcp: "MCP 服务器", apps: "应用连接" }[item] || item)).join(" · ")}</p>}
             {!!direct.duplicates.length && <p className="field-error">{t("已有同名插件，将作为另一个来源单独安装：")}{direct.duplicates.join(", ")}</p>}
           </div></>}

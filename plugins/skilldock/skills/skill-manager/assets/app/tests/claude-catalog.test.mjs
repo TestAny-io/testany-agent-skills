@@ -45,7 +45,7 @@ async function world(t) {
   return { root, home, configDir, managedDir, repo, project, installA, base };
 }
 
-test('plugins: enablement source, overrides, managed and synced protection, manifests and IDs; nothing is writable yet', async t => {
+test('plugins: enablement source, overrides, managed and synced protection, manifests and IDs; capabilities follow the native rules', async t => {
   const w = await world(t);
   const catalog = await claudeCatalog(w.base);
   assert.deepEqual([catalog.unconfirmed, catalog.evidence], [null, 'cli']);
@@ -56,7 +56,11 @@ test('plugins: enablement source, overrides, managed and synced protection, mani
   assert.deepEqual(byName('b').installation, { scope: 'project', projectPath: w.project });
   assert.deepEqual([byName('c').enablement, byName('c').protection], [{ decidedBy: 'managed', locked: true }, 'managed']);
   assert.deepEqual([byName('x').protection, byName('x').enablement.locked], ['synced', true]);
-  assert.ok(catalog.plugins.every(item => item.id.startsWith('claude:plugin:') && item.agents.join() === 'claude' && !item.canToggle && !item.canRemove && !item.canInstall && item.revision));
+  assert.ok(catalog.plugins.every(item => item.id.startsWith('claude:plugin:') && item.agents.join() === 'claude' && !item.canInstall && item.revision));
+  // Phase 4a: what Claude lets SkillDock change (the service marks all of it read-only while Claude is not managed).
+  assert.deepEqual(['a', 'b', 'c', 'x', 'sd'].map(name => [name, byName(name).canToggle, byName(name).canRemove]),
+    [['a', true, true], ['b', true, true], ['c', false, true], ['x', false, false], ['sd', false, false]]);
+  assert.equal(byName('a').reason, undefined); assert.match(byName('c').reason, /组织托管设置决定/); assert.match(byName('x').reason, /claude\.ai 同步/); assert.match(byName('sd').reason, /尚未加载/);
   assert.notEqual(byName('a').id, byName('b').id);
   assert.match(byName('b').id, /^claude:plugin:b@m:project:[a-f0-9]{12}$/);
   // A skills-directory plugin (name@skills-dir) is a plugin, never a standalone skill.
@@ -125,8 +129,7 @@ test('installable plugins come from the marketplace copy on disk: not installed,
   assert.ok(catalog.diagnostics.some(item => item.startsWith('marketplace shapeless 的本机副本无法读取')), '副本格式不对时说明原因');
   assert.ok(catalog.diagnostics.includes('marketplace odd:name 的名称无法用作插件身份，未列出其中未安装的插件。'), '市场名不合规时说明原因');
   assert.equal(catalog.unconfirmed, null, '副本问题不影响 Claude 的确认状态');
-  assert.deepEqual([available[0].enabled, available[0].canInstall, available[0].agents.join()], [null, false, 'claude']);
-  assert.match(available[0].reason, /只列出 Claude 中可安装的插件/);
+  assert.deepEqual([available[0].enabled, available[0].canInstall, available[0].agents.join(), available[0].reason], [null, true, 'claude', undefined]);
   assert.equal((await claudeCatalog(w.base)).marketplaces.find(item => item.name === 'm').revision, revision, '市场的修订号只随已安装插件变化');
   // Claude's install record is enough evidence; without any evidence an entry might be installed.
   assert.deepEqual((await claudeCatalog({ ...w.base, cli: null })).plugins.filter(item => !item.installed).map(item => item.name), ['b', 'l', 'd']);

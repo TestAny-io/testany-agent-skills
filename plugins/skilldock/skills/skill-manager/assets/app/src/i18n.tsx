@@ -61,6 +61,11 @@ function translated(value: string): string | undefined {
   // UI messages already created in the active language need no source notice.
   if (Object.values(catalog).some((entry) => entry[language] === value))
     return value;
+  // A message of several lines translates line by line, only when every line is known.
+  if (value.includes("\n")) {
+    const lines = value.split("\n").map((line) => translated(line));
+    return lines.every((line) => line !== undefined) ? lines.join("\n") : undefined;
+  }
   for (const template of templates) {
     const match = value.match(template.match);
     if (match)
