@@ -2,7 +2,9 @@
 // configuration directory, never the user's (REQ-SDX-017; DEC-SDX-013, 014; HLD 9.3 V6).
 // A local clone stands in for the marketplace: a directory marketplace also copies
 // untracked files (V8), and without Git history Claude records the version as "unknown".
-// Only the Claude command line is borrowed from the user's machine; nothing is downloaded.
+// Only the Claude command line is borrowed from the user's machine. It is never asked for
+// the remote plugin directory (`plugin list --available` downloads it, HLD 3.3); run this
+// inside a sandbox that denies outbound connections to be sure nothing else goes out.
 import fs from 'node:fs/promises';
 import path from 'node:path';
 import os from 'node:os';
@@ -30,9 +32,9 @@ try {
   const claude = async args => (await runProcess(cli.path, args, { env, cwd: fixture, timeout: 120000 })).stdout;
   await claude(['plugin', 'marketplace', 'add', market]);
   await claude(['plugin', 'install', 'skilldock@testany-agent-skills']);
-  const listed = JSON.parse(await claude(['plugin', 'list', '--available', '--json']));
-  assert.deepEqual(listed.installed.map(item => [item.id, item.enabled]), [['skilldock@testany-agent-skills', true]], '只装上 SkillDock');
-  const installed = listed.installed[0];
+  const listed = JSON.parse(await claude(['plugin', 'list', '--json']));
+  assert.deepEqual(listed.map(item => [item.id, item.enabled]), [['skilldock@testany-agent-skills', true]], '只装上 SkillDock');
+  const installed = listed[0];
   assert.ok(commit.startsWith(installed.version), 'Claude 以提交摘要作版本');
   // DEC-SDX-013: no Claude manifest, and the Codex MCP configuration is not loaded.
   const details = await claude(['plugin', 'details', 'skilldock@testany-agent-skills']);
@@ -41,7 +43,14 @@ try {
   assert.deepEqual(['.mcp.json', '.claude-plugin', 'codex.mcp.json'].filter(name => root.includes(name)), ['codex.mcp.json']);
   // DEC-SDX-014: the plugin browser shows which Agents each entry supports.
   assert.match(details, /Codex 与 Claude/);
-  assert.match(listed.available.find(item => item.name === 'teamdesk').description, /仅支持 Codex/);
+  // The entry descriptions as Claude's plugin browser reads them: the marketplace Claude registered.
+  const known = JSON.parse(await fs.readFile(path.join(configDir, 'plugins/known_marketplaces.json'), 'utf8'))['testany-agent-skills'];
+  const catalog = JSON.parse(await fs.readFile(path.join(known.installLocation, '.claude-plugin/marketplace.json'), 'utf8'));
+  assert.match(catalog.plugins.find(item => item.name === 'teamdesk').description, /仅支持 Codex/);
+  // Nothing remote was fetched into the configuration directory.
+  for (const name of ['plugin-catalog-cache.json', 'plugin-directory-cache-v2.json']) {
+    for (const directory of [configDir, path.join(configDir, 'plugins')]) assert.equal(await fs.stat(path.join(directory, name)).catch(() => null), null, name);
+  }
   // The installed copy is recognised as a Claude-side SkillDock; its doctor writes nothing.
   const appPath = path.join(installed.installPath, 'skills/skill-manager/assets/app');
   const own = await inspect(await locate(appPath, await agentRoots({ env: { CLAUDE_CONFIG_DIR: configDir }, home })));
