@@ -29,7 +29,7 @@ await fs.appendFile(path.join(state, '..', 'invocations.jsonl'), JSON.stringify(
   claudeSession: Boolean(process.env.CLAUDECODE), restartJob: process.env.SKILLDOCK_RESTART_JOB ?? null,
 }) + '\n');
 if (control.waitForSignal) {
-  process.once('SIGTERM', async () => { await fs.writeFile(path.join(state, '..', 'sigterm-received'), String(process.pid)); process.exit(143); });
+  for (const signal of ['SIGINT', 'SIGTERM']) process.once(signal, async () => { await fs.writeFile(path.join(state, '..', `${signal.toLowerCase()}-received`), String(process.pid)); process.exit(signal === 'SIGINT' ? 130 : 143); });
   await new Promise(resolve => setTimeout(resolve, 30000));
 }
 if (control.fail || control.noisyFail) {

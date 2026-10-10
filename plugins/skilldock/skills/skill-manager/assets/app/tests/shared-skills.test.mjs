@@ -18,7 +18,7 @@ const exists = file => fs.lstat(file).then(() => true, () => false);
 const seen = new Set();
 const see = value => { for (const text of [value?.message, value?.reason, ...(value?.nativeRules ?? []).map(rule => rule.message)]) if (typeof text === 'string') seen.add(text); return value; };
 
-async function world(t, { claudeOwns = false, codexIntoPlugin = false, codexLinkIntoPlugin = false, bothRoots = false, codexReadOnly = false, managed } = {}) {
+async function world(t, { claudeOwns = false, codexIntoPlugin = false, codexLinkIntoPlugin = false, bothRoots = false, bothLinks = false, codexReadOnly = false, managed } = {}) {
   const root = await fs.realpath(await fs.mkdtemp(path.join(os.tmpdir(), 'skilldock-shared-')));
   const home = path.join(root, 'home'); const codexHome = path.join(home, '.codex'); const configDir = path.join(home, '.claude'); const project = path.join(root, 'project');
   await fs.mkdir(project, { recursive: true });
@@ -37,6 +37,10 @@ async function world(t, { claudeOwns = false, codexIntoPlugin = false, codexLink
     await write(path.join(configDir, 'skills/sd/.claude-plugin/plugin.json'), { name: 'sd', description: 'Skills-dir plugin.' });
     await skillFile(path.join(configDir, 'skills/sd/skills'), 'inner');
     await fs.mkdir(codexHome, { recursive: true }); await fs.symlink(path.join(configDir, 'skills/sd/skills'), path.join(codexHome, 'skills'));
+  } else if (bothLinks) {
+    // Layout C (36b G-13): both sides link to a third directory.
+    await skillFile(path.join(root, 'elsewhere'), 'shared'); await fs.mkdir(path.join(codexHome, 'skills'), { recursive: true });
+    await fs.symlink(path.join(root, 'elsewhere/shared'), path.join(codexHome, 'skills/shared')); await fs.symlink(path.join(root, 'elsewhere/shared'), path.join(configDir, 'skills/shared'));
   } else if (claudeOwns) {
     await skillFile(path.join(configDir, 'skills'), 'shared'); await fs.mkdir(path.join(codexHome, 'skills'), { recursive: true });
     await fs.symlink(path.join(configDir, 'skills/shared'), path.join(codexHome, 'skills/shared'));
@@ -91,6 +95,21 @@ test('the Claude side of a shared skill: a link is removed and restored on its o
   const after = await w.shared();
   assert.deepEqual([after.perAgent.claude.visibility, after.perAgent.codex.enabled], ['disabled', true]);
   assert.deepEqual(JSON.parse(await fs.readFile(path.join(w.configDir, 'settings.json'), 'utf8')).skillOverrides, { shared: 'off' });
+});
+
+test('layout C, both sides links to a third directory (36b G-13): each side toggles and removes only its own link; neither side updates', async t => {
+  const w = await world(t, { bothLinks: true });
+  const skill = await w.shared();
+  assert.deepEqual([skill.agents.join(), skill.perAgent.claude.removeKind, skill.perAgent.codex.canUpdate, skill.perAgent.claude.canUpdate], ['codex,claude', 'link', false, false]);
+  const item = (await w.snapshot()).updates.find(entry => entry.affectedSkillIds?.includes(skill.id));
+  assert.equal(item?.canApply ?? false, false, '两侧都不能更新');
+  await w.act({ action: 'skill.toggle', agent: 'claude', id: skill.id, enabled: false, expectedRevision: skill.revision });
+  const toggled = await w.shared();
+  assert.deepEqual([toggled.perAgent.claude.visibility, toggled.perAgent.codex.enabled], ['disabled', true], '启禁分别生效');
+  await w.act({ action: 'skill.remove', agent: 'codex', id: toggled.id, expectedRevision: toggled.revision });
+  assert.equal(await exists(path.join(w.codexHome, 'skills/shared')), false, '只移除 Codex 一侧的链接');
+  assert.equal((await fs.lstat(path.join(w.configDir, 'skills/shared'))).isSymbolicLink(), true, 'Claude 一侧的链接还在');
+  assert.ok(await exists(path.join(w.root, 'elsewhere/shared/SKILL.md')), '真实目录不受影响');
 });
 
 test('moving a shared real directory away is confirmed first, against the revision of both sides; version 1 keeps 0.10.2', async t => {
@@ -333,6 +352,37 @@ test('a shared skill whose two sides name different sources is not checked in a 
   assert.deepEqual([item.canCheck, item.canAutoApply, item.reasonCode], [false, false, 'SOURCE_CONFLICT']);
   const batch = await w.act({ action: 'updates.run', agent: 'codex', targets: [{ kind: 'skill', id: skill.id }], autoApply: true });
   assert.deepEqual(batch.run.items.map(entry => [entry.status, entry.reasonCode]), [['skipped', 'SOURCE_CONFLICT']]);
+});
+
+test('a batch: the target whose two sides name different sources is skipped alone, the others update (36b G-15)', async t => {
+  const w = await world(t, { bothRoots: true });
+  await skillFile(path.join(w.root, 'upstream'), 'shared'); await skillFile(path.join(w.root, 'common/skills'), 'other'); await skillFile(path.join(w.root, 'upstream'), 'other');
+  await w.link('codex', path.join(w.root, 'upstream/shared'));
+  const other = (await w.snapshot()).skills.find(item => item.name === 'other');
+  const preview = await w.act({ action: 'skill.previewSource', agent: 'codex', id: other.id, expectedRevision: other.revision, sourceType: 'local', source: path.join(w.root, 'upstream/other') });
+  await w.act({ action: 'skill.connectSource', agent: 'codex', id: other.id, expectedRevision: other.revision, previewId: preview.sourcePreview.id });
+  const registry = await w.registry(); const real = await fs.realpath(path.join(w.root, 'common/skills/shared'));
+  const skill = await w.shared();
+  registry.claudeSources = { [real]: { ...registry.sources[skill.id], source: path.join(w.root, 'elsewhere/shared') } };
+  await fs.writeFile(w.service.environments.local.registryFile, JSON.stringify(registry));
+  await skillFile(path.join(w.root, 'upstream'), 'other', 'v2');
+  const batch = await w.act({ action: 'updates.run', agent: 'codex', targets: [{ kind: 'skill', id: skill.id }, { kind: 'skill', id: other.id }], autoApply: true });
+  assert.deepEqual(batch.run.items.map(entry => [entry.status, entry.reasonCode ?? null]), [['skipped', 'SOURCE_CONFLICT'], ['updated', null]]);
+  assert.match(await fs.readFile(path.join(w.root, 'common/skills/other/SKILL.md'), 'utf8'), /v2/);
+});
+
+test('a plan target whose directory is gone is reported as missing and kept in the plan (36b G-15)', async t => {
+  const w = await world(t);
+  await skillFile(path.join(w.root, 'upstream'), 'shared');
+  await w.link('codex', path.join(w.root, 'upstream/shared'));
+  const skill = await w.shared();
+  const target = (await w.snapshot()).updates.find(entry => entry.target.id === skill.id).target;
+  await w.act({ action: 'schedule.configure', agent: 'codex', schedule: { enabled: true, intervalMinutes: 60, timezone: 'UTC', autoApply: false, targets: [target] } });
+  await fs.rm(path.join(w.codexHome, 'skills/shared'), { recursive: true }); await fs.rm(path.join(w.configDir, 'skills/shared'));
+  w.advance(61); await w.service.tickScheduler();
+  const after = await w.snapshot();
+  assert.deepEqual([after.updateRuns[0].items[0].status, after.updateRuns[0].items[0].reasonCode], ['skipped', 'TARGET_MISSING']);
+  assert.deepEqual(after.schedule.targets.map(item => item.id), [target.id], '目标保留，不静默丢弃');
 });
 
 test('a plan confirms a cross-side skill while the other side is managed; until then it is checked, not applied (phase 5c)', async t => {

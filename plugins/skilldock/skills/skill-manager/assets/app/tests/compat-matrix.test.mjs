@@ -96,7 +96,21 @@ async function realTree(version) {
     const scripts = path.join(tree, 'skills/skill-manager/scripts');
     await fs.rename(path.join(scripts, 'launch.sh'), path.join(scripts, 'launch-real.sh'));
     await fs.copyFile(path.join(sample, 'log-invocation.mjs'), path.join(scripts, 'log-invocation.mjs'));
-    await fs.writeFile(path.join(scripts, 'launch.sh'), '#!/bin/sh\nset -eu\nscript_dir=$(CDPATH=\'\' cd -- "$(/usr/bin/dirname -- "$0")" && pwd -P)\n"${SKILLDOCK_NODE_BIN:?}" "$script_dir/log-invocation.mjs" "$@"\nexec /bin/sh "$script_dir/launch-real.sh" "$@"\n');
+    // The sample's controls (stub-launcher.mjs) around the real launcher, so that a case can make the
+    // callee fail while the records and health answers still come from the real 0.11 (HLD 11A condition 3).
+    await fs.writeFile(path.join(scripts, 'launch.sh'), `#!/bin/sh
+set -eu
+script_dir=$(CDPATH='' cd -- "$(/usr/bin/dirname -- "$0")" && pwd -P)
+node="\${SKILLDOCK_NODE_BIN:?}"
+control="\${SKILLDOCK_STATE_DIR:-$HOME/.local/share/skilldock}/../stub-control.json"
+has() { [ -f "$control" ] && /usr/bin/grep -q "\\"$1\\"" "$control"; }
+if has waitForSignal; then exec "$node" "$script_dir/log-invocation.mjs" "$@"; fi
+"$node" "$script_dir/log-invocation.mjs" "$@"
+if has forcePort; then PORT=$("$node" -e 'process.stdout.write(String(JSON.parse(require("fs").readFileSync(process.argv[1], "utf8")).forcePort))' "$control"); export PORT; fi
+if has bigStdout; then /bin/sh "$script_dir/launch-real.sh" "$@"; "$node" -e 'process.stdout.write("x".repeat(70 * 1024) + "\\n")'; exit 0; fi
+if has restartThenFail; then /bin/sh "$script_dir/launch-real.sh" "$@"; exit 1; fi
+exec /bin/sh "$script_dir/launch-real.sh" "$@"
+`);
     return tree;
   })());
   return realTrees.get(version);
@@ -176,6 +190,12 @@ async function seedInstance(w, sampleInstall, { project = w.projectA, stopped = 
   return JSON.parse(await fs.readFile(path.join(w.state, 'launcher.json'), 'utf8'));
 }
 
+// Stops a seeded instance and waits until it is gone: a real 0.11 service takes longer than the sample to close.
+async function killed(pid) {
+  try { process.kill(pid, 'SIGTERM'); } catch { return; }
+  for (let i = 0; i < 100; i++) { try { process.kill(pid, 0); } catch { return; } await new Promise(resolve => setTimeout(resolve, 50)); }
+  throw new Error(`实例 ${pid} 未退出`);
+}
 async function record(w) { return JSON.parse(await fs.readFile(path.join(w.state, 'launcher.json'), 'utf8')); }
 async function recordBytes(w) { return fs.readFile(path.join(w.state, 'launcher.json'), 'utf8').catch(() => null); }
 async function health(rec) { return (await fetch(`${rec.url}/api/health`, { signal: AbortSignal.timeout(2000) })).json(); }
@@ -276,10 +296,10 @@ for (const eleven of ELEVEN) gated(named('N-07 project.json 与运行项目不�
   await invariants(w);
 });
 
-for (const variant of ['preferred', 'fallback']) gated(`N-08/N-09 实例未运行，Claude 侧 0.11 为${variant === 'preferred' ? '首选' : '兜底'}：转交并启动`, async t => {
+for (const eleven of ELEVEN) for (const variant of ['preferred', 'fallback']) gated(named(`N-08/N-09 实例未运行，Claude 侧 0.11 为${variant === 'preferred' ? '首选' : '兜底'}：转交并启动`, eleven), async t => {
   const w = await world(t);
   await install(w, 'codex', 'frozen', '0.10.2'); await install(w, 'codex', 'released', '0.10.3');
-  const claude011 = await install(w, 'claude', 'sample', '0.11.0');
+  const claude011 = await install(w, 'claude', eleven, '0.11.0');
   const gone = variant === 'fallback' ? await install(w, 'claude', 'sample', '0.11.1') : null;
   await seedInstance(w, claude011, { project: w.projectA, stopped: true, preferred: gone ?? claude011 });
   if (gone) await fs.writeFile(path.join(gone.dest, '.orphaned_at'), String(Date.now()));
@@ -291,10 +311,10 @@ for (const variant of ['preferred', 'fallback']) gated(`N-08/N-09 实例未运�
   await invariants(w);
 });
 
-gated('N-10 没有可用的同源 ≥0.11 安装：0.10.3 退出 3，0.10.2 显示固定错误，不启动任何进程', async t => {
+for (const eleven of ELEVEN) gated(named('N-10 没有可用的同源 ≥0.11 安装：0.10.3 退出 3，0.10.2 显示固定错误，不启动任何进程', eleven), async t => {
   const w = await world(t);
   await install(w, 'codex', 'frozen', '0.10.2'); await install(w, 'codex', 'released', '0.10.3');
-  const claude011 = await install(w, 'claude', 'sample', '0.11.0');
+  const claude011 = await install(w, 'claude', eleven, '0.11.0');
   await seedInstance(w, claude011, { project: w.projectA, stopped: true });
   await fs.writeFile(path.join(claude011.dest, '.orphaned_at'), '1');
   const before = await recordBytes(w);
@@ -303,10 +323,10 @@ gated('N-10 没有可用的同源 ≥0.11 安装：0.10.3 退出 3，0.10.2 显�
   await invariants(w);
 });
 
-gated('N-11 被调用的 0.11 失败：0.10.3 退出 1，0.10.2 显示固定错误，计划数据不变', async t => {
+for (const eleven of ELEVEN) gated(named('N-11 被调用的 0.11 失败：0.10.3 退出 1，0.10.2 显示固定错误，计划数据不变', eleven), async t => {
   const w = await world(t);
   await install(w, 'codex', 'frozen', '0.10.2'); await install(w, 'codex', 'released', '0.10.3');
-  const claude011 = await install(w, 'claude', 'sample', '0.11.0');
+  const claude011 = await install(w, 'claude', eleven, '0.11.0');
   await seedInstance(w, claude011, { project: w.projectA, stopped: true });
   await fs.writeFile(path.join(w.root, 'stub-control.json'), JSON.stringify({ fail: true }));
   await assert.rejects((await native0102(w)).read('/api/health'), /redact is not a function/);
@@ -314,10 +334,10 @@ gated('N-11 被调用的 0.11 失败：0.10.3 退出 1，0.10.2 显示固定错�
   await invariants(w);
 });
 
-gated('N-13 新实例换端口：0.10.2 重读记录得到新地址', async t => {
+for (const eleven of ELEVEN) gated(named('N-13 新实例换端口：0.10.2 重读记录得到新地址', eleven), async t => {
   const w = await world(t);
   await install(w, 'codex', 'frozen', '0.10.2'); await install(w, 'codex', 'released', '0.10.3');
-  const claude011 = await install(w, 'claude', 'sample', '0.11.0');
+  const claude011 = await install(w, 'claude', eleven, '0.11.0');
   await seedInstance(w, claude011, { project: w.projectA, stopped: true });
   const moved = await freePort();
   await fs.writeFile(path.join(w.root, 'stub-control.json'), JSON.stringify({ forcePort: moved }));
@@ -326,10 +346,10 @@ gated('N-13 新实例换端口：0.10.2 重读记录得到新地址', async t =>
   await invariants(w);
 });
 
-gated('N-16 原生入口环境有 SKILLDOCK_PROJECT_DIR：以它调用 0.10.3，实例运行中且项目不同则切换', async t => {
+for (const eleven of ELEVEN) gated(named('N-16 原生入口环境有 SKILLDOCK_PROJECT_DIR：以它调用 0.10.3，实例运行中且项目不同则切换', eleven), async t => {
   const w = await world(t);
   await install(w, 'codex', 'frozen', '0.10.2'); await install(w, 'codex', 'released', '0.10.3');
-  const claude011 = await install(w, 'claude', 'sample', '0.11.0');
+  const claude011 = await install(w, 'claude', eleven, '0.11.0');
   await seedInstance(w, claude011, { project: w.projectA });
   const backend = await native0102(w, { SKILLDOCK_PROJECT_DIR: w.projectB });
   assert.equal((await backend.read('/api/health')).data.project, w.projectB);
@@ -337,10 +357,10 @@ gated('N-16 原生入口环境有 SKILLDOCK_PROJECT_DIR：以它调用 0.10.3，
   await invariants(w);
 });
 
-gated('N-17 切换项目时较新启动器失败：0.10.3 回落交还，0.10.2 代理到原实例', async t => {
+for (const eleven of ELEVEN) gated(named('N-17 切换项目时较新启动器失败：0.10.3 回落交还，0.10.2 代理到原实例', eleven), async t => {
   const w = await world(t);
   await install(w, 'codex', 'frozen', '0.10.2'); await install(w, 'codex', 'released', '0.10.3');
-  const claude011 = await install(w, 'claude', 'sample', '0.11.0');
+  const claude011 = await install(w, 'claude', eleven, '0.11.0');
   await seedInstance(w, claude011, { project: w.projectA });
   await fs.writeFile(path.join(w.state, 'project.json'), JSON.stringify({ path: w.projectB, recent: [] }));
   await fs.writeFile(path.join(w.root, 'stub-control.json'), JSON.stringify({ noisyFail: true }));
@@ -350,11 +370,65 @@ gated('N-17 切换项目时较新启动器失败：0.10.3 回落交还，0.10.2 
   await invariants(w);
 });
 
+gated('N-12 代号 2、launcher.json 已被删除：0.10.2 原生入口调用自身启动器；回退路径启动失败、脚本不在时，都显示固定错误，计划数据不变（已知残留 Q8）', async t => {
+  const w = await world(t);
+  const old = await install(w, 'codex', 'frozen', '0.10.2'); await install(w, 'codex', 'released', '0.10.3');
+  await seedRuntime(w, old.appPath);
+  // Without a record and without PORT, 0.10.2 would use the default port 4771, where the user's own
+  // SkillDock may run: this case alone gives the native entry the world's port.
+  const entry = () => native0102(w, { PORT: String(w.port) });
+  await assert.rejects((await entry()).read('/api/health'), /redact is not a function/, '缓存仍在：0.10.2 回退路径启动失败（同 R-03）');
+  assert.equal(await exists(path.join(w.state, 'launcher.json')), false);
+  await assert.rejects(fetch(`http://127.0.0.1:${w.port}/api/health`, { signal: AbortSignal.timeout(1500) }), '端口上没有留下服务');
+  await fs.rm(path.join(old.skillRoot, 'scripts/launch.sh'));
+  await assert.rejects((await entry()).read('/api/health'), /redact is not a function/, '自身脚本已不在');
+  assert.equal((await invocations(w)).length, 0, '不调用任何 0.11 启动脚本');
+  await invariants(w);
+});
+
+for (const eleven of ELEVEN) gated(named('N-14 旧 source 所指 Codex 缓存被删除：已打开过照常代理；首次打开时 0.10.2 启动器无法核实而拒绝，实例不受影响', eleven), async t => {
+  const w = await world(t);
+  await install(w, 'codex', 'frozen', '0.10.2'); await install(w, 'codex', 'released', '0.10.3');
+  const codex011 = await install(w, 'codex', eleven, '0.11.0');
+  const seeded = await seedInstance(w, codex011, { project: w.projectA });
+  assert.equal(seeded.source, codex011.appPath, '旧 source 指向 Codex 侧 0.11 缓存');
+  const opened = await native0102(w);
+  assert.equal((await opened.read('/api/health')).data.appVersion, '0.11.0');
+  await fs.rm(codex011.dest, { recursive: true });
+  const before = await recordBytes(w);
+  assert.equal((await opened.read('/api/health')).data.appVersion, '0.11.0', '界面已打开过：照常代理');
+  await assert.rejects((await native0102(w)).read('/api/health'), /redact is not a function/, '首次打开：自身 0.10.2 启动器无法核实');
+  assert.equal(await recordBytes(w), before);
+  assert.equal((await health(await record(w))).pid, seeded.pid, '实例不受影响');
+  await invariants(w);
+});
+
+for (const eleven of ELEVEN) gated(named('N-14 旧 source 所指 Codex 缓存被删除、实例未运行：0.10.2 走回退路径失败，计划数据不变', eleven), async t => {
+  const w = await world(t);
+  const old = await install(w, 'codex', 'frozen', '0.10.2'); await install(w, 'codex', 'released', '0.10.3');
+  const codex011 = await install(w, 'codex', eleven, '0.11.0');
+  await seedRuntime(w, old.appPath);
+  await seedInstance(w, codex011, { project: w.projectA, stopped: true });
+  await fs.rm(codex011.dest, { recursive: true });
+  await assert.rejects((await native0102(w)).read('/api/health'), /redact is not a function/);
+  assert.equal((await invocations(w)).length, 0);
+  await invariants(w);
+});
+
+for (const eleven of ELEVEN) gated(named('N-15 Codex 侧没有 SkillDock：旧 source 为运行中的安装，installation 为目录形态', eleven), async t => {
+  const w = await world(t);
+  const claude011 = await install(w, 'claude', eleven, '0.11.0');
+  const rec = await seedInstance(w, claude011, { project: w.projectA });
+  assert.equal(rec.source, claude011.appPath);
+  assert.deepEqual(rec.installation, { kind: 'directory', source: claude011.appPath });
+  await invariants(w);
+});
+
 // ---------- A.2 0.10.3 own entry ----------
 
-gated('S-01 本安装有 ≥0.11 缓存：第 1 步转交，转发动作与项目', async t => {
+for (const eleven of ELEVEN) gated(named('S-01 本安装有 ≥0.11 缓存：第 1 步转交，转发动作与项目', eleven), async t => {
   const w = await world(t);
-  await install(w, 'codex', 'released', '0.10.3'); await install(w, 'codex', 'sample', '0.11.0');
+  await install(w, 'codex', 'released', '0.10.3'); await install(w, 'codex', eleven, '0.11.0');
   const result = await launch0103(w, ['start', '--project', w.projectB]);
   assert.equal(result.code, 0, result.stderr);
   const [call] = await invocations(w);
@@ -379,9 +453,9 @@ for (const eleven of ELEVEN) gated(named('S-02 实例运行中、项目相同或
   await invariants(w);
 });
 
-gated('S-03/S-04 实例运行中收到不同的有效项目：可转交则切换，否则交还并说明未切换', async t => {
+for (const eleven of ELEVEN) gated(named('S-03/S-04 实例运行中收到不同的有效项目：可转交则切换，否则交还并说明未切换', eleven), async t => {
   const w = await world(t);
-  await install(w, 'codex', 'released', '0.10.3'); const claude011 = await install(w, 'claude', 'sample', '0.11.0');
+  await install(w, 'codex', 'released', '0.10.3'); const claude011 = await install(w, 'claude', eleven, '0.11.0');
   await seedInstance(w, claude011, { project: w.projectA });
   let result = await launch0103(w, ['start', '--project', w.projectB]);
   assert.equal(result.code, 0, result.stderr);
@@ -411,23 +485,23 @@ for (const eleven of ELEVEN) gated(named('S-05/S-06 实例未运行：有目标�
   await invariants(w);
 });
 
-gated('S-07/S-08 第 1 步被调用方失败：有运行实例则回落交还，否则退出 1', async t => {
+for (const eleven of ELEVEN) gated(named('S-07/S-08 第 1 步被调用方失败：有运行实例则回落交还，否则退出 1', eleven), async t => {
   const w = await world(t);
-  await install(w, 'codex', 'released', '0.10.3'); const codex011 = await install(w, 'codex', 'sample', '0.11.0');
+  await install(w, 'codex', 'released', '0.10.3'); const codex011 = await install(w, 'codex', eleven, '0.11.0');
   await seedInstance(w, codex011, { project: w.projectA });
   await fs.writeFile(path.join(w.root, 'stub-control.json'), JSON.stringify({ noisyFail: true }));
   let result = await launch0103(w, ['start']);
   assert.equal(result.code, 0); assert.match(JSON.parse(result.stdout).warning, /较新版本启动失败/);
-  const rec = await record(w); process.kill(rec.pid, 'SIGTERM'); await new Promise(resolve => setTimeout(resolve, 300));
+  const rec = await record(w); await killed(rec.pid);
   result = await launch0103(w, ['start']);
   assert.equal(result.code, 1); assert.match(result.stderr, /样本启动器按测试要求失败/);
   assert.equal((await invocations(w)).length, 2, '第 1 步失败后不再尝试第 3 步');
   await invariants(w);
 });
 
-gated('S-09/S-10 status、stop、restart：转发同一动作；无目标时退出 3', async t => {
+for (const eleven of ELEVEN) gated(named('S-09/S-10 status、stop、restart：转发同一动作；无目标时退出 3', eleven), async t => {
   const w = await world(t);
-  await install(w, 'codex', 'released', '0.10.3'); const claude011 = await install(w, 'claude', 'sample', '0.11.0');
+  await install(w, 'codex', 'released', '0.10.3'); const claude011 = await install(w, 'claude', eleven, '0.11.0');
   await seedInstance(w, claude011, { project: w.projectA });
   assert.equal((await launch0103(w, ['status'])).code, 0);
   assert.equal((await launch0103(w, ['stop'])).code, 0);
@@ -438,9 +512,9 @@ gated('S-09/S-10 status、stop、restart：转发同一动作；无目标时退�
   await invariants(w);
 });
 
-gated('S-11/S-12 带 Claude 会话变量调用另一侧：正常完成，变量原样传给被调用方', async t => {
+for (const eleven of ELEVEN) gated(named('S-11/S-12 带 Claude 会话变量调用另一侧：正常完成，变量原样传给被调用方', eleven), async t => {
   const w = await world(t);
-  await install(w, 'codex', 'released', '0.10.3'); await install(w, 'claude', 'sample', '0.11.0');
+  await install(w, 'codex', 'released', '0.10.3'); await install(w, 'claude', eleven, '0.11.0');
   const result = await launch0103(w, ['start'], { CLAUDECODE: '1', CLAUDE_CODE_ENTRYPOINT: 'claude-desktop', SKILLDOCK_RESTART_JOB: 'stale-job' });
   assert.equal(result.code, 0, result.stderr);
   const [call] = await invocations(w);
@@ -457,7 +531,7 @@ for (const eleven of ELEVEN) gated(named('S-13 设置了 SKILLDOCK_PROJECT_DIR�
   await invariants(w);
 });
 
-gated('S-14/S-15 自定义 Claude 目录与废弃目录：按根目录记录找到有效安装，忽略废弃目录', async t => {
+for (const eleven of ELEVEN) gated(named('S-14/S-15 自定义 Claude 目录与废弃目录：按根目录记录找到有效安装，忽略废弃目录', eleven), async t => {
   const w = await world(t);
   await install(w, 'codex', 'released', '0.10.3');
   const custom = path.join(w.root, 'custom-claude');
@@ -465,7 +539,7 @@ gated('S-14/S-15 自定义 Claude 目录与废弃目录：按根目录记录找�
   await fs.cp(path.join(w.claudeConfig, 'plugins/known_marketplaces.json'), path.join(custom, 'plugins/known_marketplaces.json'));
   await fs.rm(w.claudeConfig, { recursive: true });
   w.claudeCache = path.join(custom, 'plugins/cache');
-  await install(w, 'claude', 'sample', '0.11.0'); const orphan = await install(w, 'claude', 'sample', '0.11.2');
+  await install(w, 'claude', eleven, '0.11.0'); const orphan = await install(w, 'claude', 'sample', '0.11.2');
   await fs.writeFile(path.join(orphan.dest, '.orphaned_at'), '1');
   await fs.mkdir(path.join(w.state, 'agents'), { recursive: true });
   await fs.writeFile(path.join(w.state, 'agents/claude-root.json'), JSON.stringify({ format: 1, configDir: custom, pluginCacheDir: path.join(custom, 'plugins/cache'), origin: 'explicit', updatedAt: new Date().toISOString() }));
@@ -475,17 +549,20 @@ gated('S-14/S-15 自定义 Claude 目录与废弃目录：按根目录记录找�
   await invariants(w);
 });
 
-gated('S-16 本侧 marketplace 指向 fork：第 3 步不可用，退出 3', async t => {
+for (const eleven of ELEVEN) gated(named('S-16 本侧 marketplace 指向 fork：第 3 步不可用，退出 3', eleven), async t => {
   const w = await world(t, { codexSource: 'https://github.com/someone/testany-agent-skills.git' });
-  await install(w, 'codex', 'released', '0.10.3'); await install(w, 'claude', 'sample', '0.11.0');
+  await install(w, 'codex', 'released', '0.10.3'); await install(w, 'claude', eleven, '0.11.0');
   assert.equal((await launch0103(w, ['start'])).code, 3);
   assert.equal((await invocations(w)).length, 0);
   await invariants(w);
 });
 
-gated('S-17a/S-17b 迁移持锁时退出 1；取锁后发现迁移完成则改走转交链，不写文件', async t => {
+for (const eleven of ELEVEN) gated(named('S-17a/S-17b 迁移持锁时退出 1；取锁后发现迁移完成则改走转交链，不写文件', eleven), async t => {
   const w = await world(t);
-  const own = await install(w, 'codex', 'released', '0.10.3'); await install(w, 'claude', 'sample', '0.11.0');
+  const own = await install(w, 'codex', 'released', '0.10.3'); await install(w, 'claude', eleven, '0.11.0');
+  // A real 0.11 comes with its runtime already built (seedRuntime): what matters is that 0.10.3 adds nothing.
+  const runtimes = async () => (await fs.readdir(path.join(w.state, 'runtimes')).catch(() => [])).sort();
+  const seeded = await runtimes();
   await fs.writeFile(path.join(w.state, 'generation.json'), JSON.stringify({ format: 1, generation: 1 }));
   const { acquireFileLock } = await import(pathToFileURL(path.join(own.appPath, 'server/process-lock.mjs')).href);
   const release = acquireFileLock(path.join(w.state, 'launcher.lock'));
@@ -496,13 +573,13 @@ gated('S-17a/S-17b 迁移持锁时退出 1；取锁后发现迁移完成则改�
   await assert.rejects(launch('start', { projectDir: w.projectA, stateDir: w.state, codexHome: w.codexHome, port: w.port,
     onLocked: () => fs.writeFile(path.join(w.state, 'generation.json'), JSON.stringify({ format: 1, generation: 2 })) }), { code: 'SKILLDOCK_HANDOVER' });
   const again = acquireFileLock(path.join(w.state, 'launcher.lock')); again();
-  assert.equal(await exists(path.join(w.state, 'launcher.json')), false); assert.equal(await exists(path.join(w.state, 'runtimes')), false);
+  assert.equal(await exists(path.join(w.state, 'launcher.json')), false); assert.deepEqual(await runtimes(), seeded);
   await invariants(w);
 });
 
-gated('S-19 --project 不存在或是文件：视为无效项目', async t => {
+for (const eleven of ELEVEN) gated(named('S-19 --project 不存在或是文件：视为无效项目', eleven), async t => {
   const w = await world(t);
-  await install(w, 'codex', 'released', '0.10.3'); const claude011 = await install(w, 'claude', 'sample', '0.11.0');
+  await install(w, 'codex', 'released', '0.10.3'); const claude011 = await install(w, 'claude', eleven, '0.11.0');
   await seedInstance(w, claude011, { project: w.projectA });
   const file = path.join(w.root, 'plain-file'); await fs.writeFile(file, 'x');
   for (const value of [path.join(w.root, 'missing'), file]) {
@@ -513,9 +590,9 @@ gated('S-19 --project 不存在或是文件：视为无效项目', async t => {
   await invariants(w);
 });
 
-gated('S-20 切换项目时较新启动器失败：回落交还，stdout 只有一个 JSON', async t => {
+for (const eleven of ELEVEN) gated(named('S-20 切换项目时较新启动器失败：回落交还，stdout 只有一个 JSON', eleven), async t => {
   const w = await world(t);
-  await install(w, 'codex', 'released', '0.10.3'); const claude011 = await install(w, 'claude', 'sample', '0.11.0');
+  await install(w, 'codex', 'released', '0.10.3'); const claude011 = await install(w, 'claude', eleven, '0.11.0');
   await seedInstance(w, claude011, { project: w.projectA });
   await fs.writeFile(path.join(w.root, 'stub-control.json'), JSON.stringify({ noisyFail: true }));
   const result = await launch0103(w, ['start', '--project', w.projectB]);
@@ -526,22 +603,24 @@ gated('S-20 切换项目时较新启动器失败：回落交还，stdout 只有�
   await invariants(w);
 });
 
-gated('S-21 已带 SKILLDOCK_HANDOVER 的环境：不再转交', async t => {
+for (const eleven of ELEVEN) gated(named('S-21 已带 SKILLDOCK_HANDOVER 的环境：不再转交', eleven), async t => {
   const w = await world(t);
-  await install(w, 'codex', 'released', '0.10.3'); const claude011 = await install(w, 'claude', 'sample', '0.11.0');
+  await install(w, 'codex', 'released', '0.10.3'); const claude011 = await install(w, 'claude', eleven, '0.11.0');
   await seedInstance(w, claude011, { project: w.projectA });
   let result = await launch0103(w, ['start', '--project', w.projectB], { SKILLDOCK_HANDOVER: '1' });
   assert.equal(result.code, 0); assert.equal(JSON.parse(result.stdout).projectNotSwitched, w.projectB);
-  process.kill((await record(w)).pid, 'SIGTERM'); await new Promise(resolve => setTimeout(resolve, 300));
+  await killed((await record(w)).pid);
   result = await launch0103(w, ['start'], { SKILLDOCK_HANDOVER: '1' });
   assert.equal(result.code, 3); assert.equal((await invocations(w)).length, 0);
   await invariants(w);
 });
 
-gated('S-22 运行中的安装与首选启动目标不同：第 2 步交还，记录不变', async t => {
+for (const eleven of ELEVEN) gated(named('S-22 运行中的安装与首选启动目标不同：第 2 步交还，记录不变', eleven), async t => {
   const w = await world(t);
   await install(w, 'codex', 'released', '0.10.3');
-  const claude011 = await install(w, 'claude', 'sample', '0.11.0'); const newer = await install(w, 'claude', 'sample', '0.11.1');
+  const claude011 = await install(w, 'claude', eleven, '0.11.0'); // A real 0.11 moves to a higher preferred installation by itself (phase 5d): its preferred target here is
+  // another installation of the same version.
+  const newer = await install(w, 'claude', 'sample', eleven === 'real' ? '0.11.0' : '0.11.1');
   await seedInstance(w, claude011, { project: w.projectA, preferred: newer });
   const before = await recordBytes(w);
   const result = await launch0103(w, ['start']);
@@ -561,9 +640,9 @@ gated('S-23 代号 1、启动记录无法解析：不触发转交链，按 0.10.
   await invariants(w);
 });
 
-gated('S-24 被调用方重启实例后失败：回落时重新读取记录，用新实例核实', async t => {
+for (const eleven of ELEVEN) gated(named('S-24 被调用方重启实例后失败：回落时重新读取记录，用新实例核实', eleven), async t => {
   const w = await world(t);
-  await install(w, 'codex', 'released', '0.10.3'); const claude011 = await install(w, 'claude', 'sample', '0.11.0');
+  await install(w, 'codex', 'released', '0.10.3'); const claude011 = await install(w, 'claude', eleven, '0.11.0');
   const old = await seedInstance(w, claude011, { project: w.projectA });
   const moved = await freePort();
   await fs.writeFile(path.join(w.root, 'stub-control.json'), JSON.stringify({ restartThenFail: true, forcePort: moved }));
@@ -575,9 +654,9 @@ gated('S-24 被调用方重启实例后失败：回落时重新读取记录，�
   await invariants(w);
 });
 
-gated('S-25 被调用方 stdout 超过 64 KiB：视为失败；有运行实例则回落，否则退出 1', async t => {
+for (const eleven of ELEVEN) gated(named('S-25 被调用方 stdout 超过 64 KiB：视为失败；有运行实例则回落，否则退出 1', eleven), async t => {
   const w = await world(t);
-  await install(w, 'codex', 'released', '0.10.3'); await install(w, 'claude', 'sample', '0.11.0');
+  await install(w, 'codex', 'released', '0.10.3'); await install(w, 'claude', eleven, '0.11.0');
   await fs.writeFile(path.join(w.root, 'stub-control.json'), JSON.stringify({ bigStdout: true }));
   let result = await launch0103(w, ['start', '--project', w.projectA]);
   assert.equal(result.code, 1); assert.equal(result.stdout, ''); assert.match(result.stderr, /超过 64 KiB/);
@@ -588,9 +667,9 @@ gated('S-25 被调用方 stdout 超过 64 KiB：视为失败；有运行实例�
   await invariants(w);
 });
 
-gated('S-27 判定点 1 触发后收到 SIGTERM：转发给被调用的 0.11 启动脚本', async t => {
+for (const eleven of ELEVEN) gated(named('S-27 判定点 1 触发后收到 SIGTERM：转发给被调用的 0.11 启动脚本', eleven), async t => {
   const w = await world(t);
-  const own = await install(w, 'codex', 'released', '0.10.3'); await install(w, 'claude', 'sample', '0.11.0');
+  const own = await install(w, 'codex', 'released', '0.10.3'); await install(w, 'claude', eleven, '0.11.0');
   await fs.writeFile(path.join(w.root, 'stub-control.json'), JSON.stringify({ waitForSignal: true }));
   const child = (await import('node:child_process')).spawn('/bin/sh', [path.join(own.skillRoot, 'scripts/launch.sh'), 'start'], { env: w.env, cwd: w.projectA, stdio: 'ignore' });
   const exited = new Promise(resolve => child.once('exit', resolve));
@@ -600,6 +679,52 @@ gated('S-27 判定点 1 触发后收到 SIGTERM：转发给被调用的 0.11 启
   for (let i = 0; i < 50 && !(await exists(path.join(w.root, 'sigterm-received'))); i++) await new Promise(resolve => setTimeout(resolve, 100));
   assert.equal(await exists(path.join(w.root, 'sigterm-received')), true);
   await exited;
+  await invariants(w);
+});
+
+// 36b 4.2: launch.mjs runs the chain itself at decision points 2 (run directly) and 3 (after taking the
+// lock, once a migration has finished meanwhile); bootstrap.mjs at point 1. Point 3 is reached by a
+// driver that repeats launch.mjs's own entry code around the released launch() and runHandover().
+const POINT_3 = `const [launchFile, handoverFile, appDir, state, project] = process.argv.slice(1);
+const { pathToFileURL } = await import('node:url'); const fs = await import('node:fs/promises');
+const { launch } = await import(pathToFileURL(launchFile).href); const { runHandover } = await import(pathToFileURL(handoverFile).href);
+try { await launch('start', { projectDir: project, onLocked: () => fs.writeFile(state + '/generation.json', JSON.stringify({ format: 1, generation: 2 })) }); }
+catch (error) { if (error.code !== 'SKILLDOCK_HANDOVER') throw error; process.exitCode = (await runHandover({ action: 'start', projectDir: project, appDir })) ?? 1; }`;
+for (const eleven of ELEVEN) for (const [point, signal] of [[1, 'SIGINT'], [2, 'SIGINT'], [2, 'SIGTERM'], [3, 'SIGINT'], [3, 'SIGTERM']]) gated(named(`S-28 判定点 ${point} 触发后收到 ${signal}：转发给被调用的 0.11 启动脚本`, eleven), async t => {
+  const w = await world(t, point === 3 ? { generation: 1 } : {});
+  const own = await install(w, 'codex', 'released', '0.10.3'); await install(w, 'claude', eleven, '0.11.0');
+  await fs.writeFile(path.join(w.root, 'stub-control.json'), JSON.stringify({ waitForSignal: true }));
+  const { spawn } = await import('node:child_process');
+  const options = { env: w.env, cwd: w.projectA, stdio: 'ignore' };
+  const child = point === 1 ? spawn('/bin/sh', [path.join(own.skillRoot, 'scripts/launch.sh'), 'start'], options)
+    : point === 2 ? spawn(process.execPath, [path.join(own.skillRoot, 'scripts/launch.mjs'), 'start', '--project', w.projectA], options)
+    : spawn(process.execPath, ['--input-type=module', '-e', POINT_3, path.join(own.skillRoot, 'scripts/launch.mjs'), path.join(own.appPath, 'server/handover.mjs'), own.appPath, w.state, w.projectA], options);
+  const exited = new Promise(resolve => child.once('exit', resolve));
+  for (let i = 0; i < 100 && (await invocations(w)).length === 0; i++) await new Promise(resolve => setTimeout(resolve, 100));
+  assert.equal((await invocations(w)).length, 1, '已调用 0.11 启动脚本');
+  child.kill(signal);
+  const mark = path.join(w.root, `${signal.toLowerCase()}-received`);
+  for (let i = 0; i < 50 && !(await exists(mark)); i++) await new Promise(resolve => setTimeout(resolve, 100));
+  assert.equal(await exists(mark), true, `${signal} 已转发`);
+  await exited;
+  await invariants(w);
+});
+
+gated('S-26 未触发转交链时，原生入口超时结束 bootstrap.mjs：launch.mjs 照常完成启动（与 0.10.2 相同）', async t => {
+  const w = await world(t, { generation: 1 });
+  const own = await install(w, 'codex', 'released', '0.10.3');
+  await seedRuntime(w, own.appPath);
+  const { spawn } = await import('node:child_process');
+  // What the native entry's 600-second timeout does: SIGTERM to the process it started (bootstrap.mjs, which launch.sh execs).
+  const child = spawn('/bin/sh', [path.join(own.skillRoot, 'scripts/launch.sh'), 'start', '--project', w.projectA], { env: w.env, cwd: w.projectA, stdio: 'ignore' });
+  const exited = new Promise(resolve => child.once('exit', resolve));
+  // launch.mjs is running once it holds the launcher lock (bootstrap.mjs never takes it).
+  for (let i = 0; i < 400 && !(await exists(path.join(w.state, 'launcher.lock'))); i++) await new Promise(resolve => setTimeout(resolve, 10));
+  assert.equal(await exists(path.join(w.state, 'launcher.lock')), true, 'bootstrap.mjs 已启动 launch.mjs');
+  child.kill('SIGTERM'); await exited;
+  for (let i = 0; i < 200 && !(await exists(path.join(w.state, 'launcher.json'))); i++) await new Promise(resolve => setTimeout(resolve, 100));
+  const rec = await record(w);
+  assert.equal((await health(rec)).pid, rec.pid, 'launch.mjs 照常完成，实例可用');
   await invariants(w);
 });
 
@@ -659,6 +784,33 @@ for (const eleven of ELEVEN) gated(named('R-01/R-02 0.11 实例运行中执行 0
   await invariants(w);
 });
 
+for (const eleven of ELEVEN) gated(named('R-03 0.11 实例未运行时执行 0.10.2 的 start：删除记录后启动自己，服务因计划文件 version 2 启动失败，计划不变（已知残留 Q8）', eleven), async t => {
+  const w = await world(t);
+  const old = await install(w, 'codex', 'frozen', '0.10.2'); await install(w, 'codex', 'released', '0.10.3');
+  const codex011 = await install(w, 'codex', eleven, '0.11.0');
+  await seedRuntime(w, old.appPath);
+  await seedInstance(w, codex011, { project: w.projectA, stopped: true });
+  const result = await run(process.execPath, [path.join(old.skillRoot, 'scripts/launch.mjs'), 'start', '--project', w.projectA], { env: w.env, cwd: w.projectA, timeout: 120000 });
+  assert.notEqual(result.code, 0, result.stdout);
+  await invariants(w);
+});
+
+for (const eleven of ELEVEN) gated(named('R-04 Claude 侧仍加载 0.10.2 代码的旧会话：归属不符而拒绝，实例不受影响（已知残留 Q9）', eleven), async t => {
+  const w = await world(t);
+  const old = await install(w, 'claude', 'frozen', '0.10.2'); await install(w, 'codex', 'released', '0.10.3');
+  const codex011 = await install(w, 'codex', eleven, '0.11.0');
+  await seedInstance(w, codex011, { project: w.projectA });
+  const before = await recordBytes(w);
+  for (const action of ['start', 'restart', 'stop']) {
+    const args = action === 'stop' ? ['stop'] : [action, '--project', w.projectA];
+    const result = await run(process.execPath, [path.join(old.skillRoot, 'scripts/launch.mjs'), ...args], { env: w.env, cwd: w.projectA });
+    assert.equal(result.code, 1, action); assert.match(result.stderr, /无法核实|另一个源码实例/, action);
+  }
+  assert.equal(await recordBytes(w), before);
+  assert.equal((await health(await record(w))).appVersion, '0.11.0');
+  await invariants(w);
+});
+
 // ---------- A.5 0.11.0 gate with the real 0.11 ----------
 
 const launchOf = (w, install, args, { extraEnv = {}, cwd = w.projectA } = {}) =>
@@ -675,6 +827,43 @@ gated('G-01/G-02/G-03 门槛：另一侧有低于 0.10.3 的安装时不接管�
   result = await launchOf(w, real, ['restart'], { extraEnv: { SKILLDOCK_RESTART_JOB: 'job' } });
   assert.deepEqual([result.code, result.stdout], [4, '']); assert.match(result.stderr, /低于 0\.10\.3/);
   for (const name of ['launcher.json', 'project.json', 'restart.json', 'background', 'generation.json']) assert.equal(await exists(path.join(w.state, name)), false, name);
+  await invariants(w);
+});
+
+// V18 (HLD 9.3): the gate's combinations of environments, through the real 0.11.0 launcher.
+gated('V18-a 只有 Codex 装着 SkillDock，Claude 配置目录存在但 Claude 无法确认：门槛照常通过并接管（MR-SDX-001）', async t => {
+  const w = await world(t, { generation: 1 });
+  await install(w, 'codex', 'released', '0.10.3'); const real = await install(w, 'codex', 'real', '0.11.0');
+  assert.equal(await exists(w.claudeConfig), true, 'Claude 配置目录存在');
+  const result = await launchOf(w, real, ['start', '--project', w.projectA]);
+  assert.equal(result.code, 0, result.stderr);
+  assert.equal(JSON.parse(await fs.readFile(path.join(w.state, 'generation.json'), 'utf8')).generation, 2);
+  assert.equal((await record(w)).running.appPath, real.appPath);
+});
+
+gated('V18-b 只有 Claude 装着 SkillDock，残留 ~/.codex 中没有 SkillDock：门槛通过并接管', async t => {
+  const w = await world(t, { generation: 1 });
+  await install(w, 'claude', 'released', '0.10.3'); const real = await install(w, 'claude', 'real', '0.11.0');
+  assert.equal(await exists(path.join(w.codexHome, 'config.toml')), true, '残留的 Codex 配置');
+  const result = await launchOf(w, real, ['start', '--project', w.projectA]);
+  assert.equal(result.code, 0, result.stderr);
+  assert.equal(JSON.parse(await fs.readFile(path.join(w.state, 'generation.json'), 'utf8')).generation, 2);
+  assert.equal((await record(w)).running.appPath, real.appPath);
+});
+
+gated('V18-c/d 只有 Claude 装着 SkillDock，残留 ~/.codex 中有 0.10.2：不接管，列出残留位置；一键更新不可执行时给出原因与手动步骤', async t => {
+  const w = await world(t, { generation: 1 });
+  const stale = await install(w, 'codex', 'frozen', '0.10.2'); const real = await install(w, 'claude', 'real', '0.11.0');
+  let result = await launchOf(w, real, ['start', '--project', w.projectA]);
+  assert.deepEqual([result.code, result.stdout], [4, '']);
+  assert.ok(result.stderr.includes(`缓存目录 ${stale.dest}`), '列出构成“已安装”判定的缓存目录');
+  assert.ok(result.stderr.includes(`${path.join(w.codexHome, 'config.toml')} 中 skilldock@${MARKET} 的条目`), '列出配置条目');
+  assert.doesNotMatch(result.stderr, /跳过/, '不提供跳过');
+  result = await launchOf(w, real, ['start', '--project', w.projectA], { extraEnv: { SKILLDOCK_UPDATE_AGENT: 'codex' } });
+  assert.deepEqual([result.code, result.stdout], [4, '']);
+  assert.match(result.stderr, /未找到可用的 Codex 命令行，无法一键更新/);
+  assert.match(result.stderr, /处理步骤/);
+  for (const name of ['launcher.json', 'generation.json', 'background']) assert.equal(await exists(path.join(w.state, name)), false, name);
   await invariants(w);
 });
 
