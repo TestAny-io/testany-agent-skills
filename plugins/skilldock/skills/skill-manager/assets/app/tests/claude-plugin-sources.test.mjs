@@ -66,6 +66,11 @@ async function world(t, { repo = false, cliAvailable = true, before } = {}) {
     if (verb === 'marketplace' && a === 'remove' && !claude.stuck) { claude.marketplaces = claude.marketplaces.filter(item => item.name !== b); claude.plugins = claude.plugins.filter(item => !item.id.endsWith(`@${b}`)); if (claude.breakAfterRemove) claude.listFails = true; }
     if (verb === 'install' && !claude.noopInstall) claude.plugins.push({ id: a, scope, enabled: true, ...await cached(a), ...(scope === 'user' ? {} : { projectPath: cwd }) });
     // As Claude does: a new version gets its own directory; an unchanged one is up to date (phase 5c).
+    if (verb === 'update' && claude.failUpdate) {
+      // `readonly`: the generated marketplace's plugins directory can no longer be written, so a restore fails too.
+      if (claude.failUpdate === 'readonly') await fs.chmod(claude.readonlyDir, 0o500);
+      throw Object.assign(new Error(claude.failUpdate === 'CLI_TIMEOUT' ? 'Claude 命令行 plugin update 超时，执行结果尚未确认；请刷新查看实际状态后再决定是否重试。' : 'Claude 命令行 plugin update 失败：stand-in'), { status: 502, code: claude.failUpdate === 'CLI_TIMEOUT' ? 'CLI_TIMEOUT' : 'CLI_FAILED' });
+    }
     if (verb === 'update') {
       const install = claude.plugins.find(item => item.id === a && item.scope === scope); const next = await cached(a);
       if (next.version !== 'unknown' && next.version === install.version) return { updateOutcome: 'up_to_date' };
@@ -465,6 +470,33 @@ test('a plugin from a marketplace SkillDock generated updates from its original 
   // A source that renamed its plugin cannot update this one.
   await write(path.join(w.root, 'codex-only/.codex-plugin/plugin.json'), { name: 'renamed', version: '3.0.0' });
   assert.equal((await w.act({ action: 'update.check', agent: 'claude', target })).code, 'SOURCE_CHANGED');
+});
+
+test('a generated marketplace\'s copy and entry come back when Claude\'s update fails, not when it timed out; a failed restore keeps the backup (5c review P3-01, M2)', async t => {
+  const w = await world(t);
+  await installHelper(w); const market = await marketOf(w); const copy = path.join(dirOf(w, market), 'plugins/helper');
+  const entry = async () => JSON.parse(await fs.readFile(path.join(dirOf(w, market), '.claude-plugin/marketplace.json'), 'utf8')).plugins[0].version;
+  const target = (await w.snapshot()).updates.find(item => item.name === 'helper').target;
+  const check = async () => (await w.act({ action: 'update.check', agent: 'claude', target })).updateItem;
+  const apply = async () => w.act({ action: 'update.apply', agent: 'claude', target, previewId: (await check()).previewId });
+  await skillFile(path.join(w.root, 'codex-only/skills'), 'help-more');
+  await write(path.join(w.root, 'codex-only/.codex-plugin/plugin.json'), { name: 'helper', version: '2.1.0', description: 'Helper plugin.' });
+  w.claude.failUpdate = 'CLI_FAILED';
+  assert.equal((await apply()).code, 'CLI_FAILED');
+  assert.deepEqual([await exists(path.join(copy, 'skills/help-more')), await entry()], [false, '2.0.0'], '副本与条目还原');
+  // A timed-out command may have done its work: nothing is put back.
+  w.claude.failUpdate = 'CLI_TIMEOUT';
+  assert.equal((await apply()).code, 'CLI_TIMEOUT');
+  assert.deepEqual([await exists(path.join(copy, 'skills/help-more')), await entry()], [true, '2.1.0']);
+  // A restore that fails keeps the backup and says where.
+  await write(path.join(w.root, 'codex-only/.codex-plugin/plugin.json'), { name: 'helper', version: '2.2.0', description: 'Helper plugin.' });
+  w.claude.failUpdate = 'readonly'; w.claude.readonlyDir = path.dirname(copy);
+  t.after(() => fs.chmod(path.dirname(copy), 0o700).catch(() => {}));
+  const failed = await apply();
+  await fs.chmod(path.dirname(copy), 0o700);
+  assert.equal(failed.code, 'CLI_FAILED');
+  const kept = /\n自动恢复未完成；更新前的插件目录保留在 (.+)，请据此恢复 /.exec(failed.message)?.[1];
+  assert.ok(kept && await exists(path.join(kept, 'skills/help-more/SKILL.md')), failed.message);
 });
 
 // New messages the cases above do not reach (4d review P3-09).

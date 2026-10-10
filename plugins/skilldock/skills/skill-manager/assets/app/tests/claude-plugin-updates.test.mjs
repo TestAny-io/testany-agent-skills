@@ -14,6 +14,7 @@ import { createService } from '../server/service.mjs';
 import { writeGeneration } from '../server/generation.mjs';
 import { claudeWriteArgs } from '../server/claude-writer.mjs';
 import { runProcess } from '../server/cli.mjs';
+import { defaultFetchers } from '../server/claude-plugin-updates.mjs';
 import { assertTranslated } from './i18n-helper.mjs';
 
 const write = async (file, value) => { await fs.mkdir(path.dirname(file), { recursive: true }); await fs.writeFile(file, typeof value === 'string' ? value : JSON.stringify(value)); };
@@ -256,6 +257,23 @@ test('SkillDock itself on Claude\'s side is an ordinary plan target, like Codex\
   const run = await w.act({ action: 'updates.run', agent: 'claude', targets: [target], autoApply: true });
   assert.equal(run.run.items[0].status, 'updated');
   assert.equal(w.claude.plugins.find(item => item.id === 'skilldock@m').version, '0.11.1');
+});
+
+test('a Git ref resolves to what a checkout gets: an annotated tag by its commit, a branch by its exact name (5c review P3-02)', async t => {
+  const root = await fs.realpath(await fs.mkdtemp(path.join(os.tmpdir(), 'skilldock-git-ref-'))); t.after(() => fs.rm(root, { recursive: true, force: true }));
+  const repo = path.join(root, 'repo'); await fs.mkdir(repo);
+  await runProcess('git', ['-C', repo, 'init', '-q', '-b', 'main']);
+  await write(path.join(repo, 'a'), 'one'); await git(repo, 'add', '.'); await git(repo, 'commit', '-qm', 'one');
+  const one = (await git(repo, 'rev-parse', 'HEAD')).stdout.trim();
+  await git(repo, 'tag', '-a', 'v1.0', '-m', 'tag'); await git(repo, 'branch', 'feature/main');
+  await write(path.join(repo, 'a'), 'two'); await git(repo, 'commit', '-qam', 'two');
+  const two = (await git(repo, 'rev-parse', 'HEAD')).stdout.trim();
+  const { resolve } = defaultFetchers({ env: { PATH: process.env.PATH, HOME: root } });
+  assert.equal(await resolve(repo, 'v1.0'), one, '附注标签取它指向的提交');
+  assert.equal(await resolve(repo, 'main'), two, '不被 feature/main 干扰');
+  assert.equal(await resolve(repo, undefined), two);
+  assert.equal(await resolve(repo, 'refs/heads/feature/main'), one);
+  await assert.rejects(resolve(repo, 'missing'), { code: 'GIT_REPOSITORY_UNAVAILABLE' });
 });
 
 test('every message seen above has a whole English and Japanese translation', async () => {

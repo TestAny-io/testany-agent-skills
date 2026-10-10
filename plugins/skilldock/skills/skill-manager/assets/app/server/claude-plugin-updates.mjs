@@ -74,10 +74,14 @@ export function localDirectory(source, installLocation, pluginRoot) {
 export function defaultFetchers({ env, timeout = 60000 } = {}) {
   return {
     checkout: (url, ref, destination) => checkoutGit(url, ref, destination, { env, timeout }),
+    // Exact names, in the order a checkout resolves them: a tag before a branch, an annotated tag by
+    // the commit it points to. A short pattern would also match longer names (5c review P3-02).
     resolve: async (url, ref) => {
       if (ref && /^[a-f0-9]{40}$/.test(ref)) return ref;
-      const out = (await runProcess('git', ['-c', 'protocol.file.allow=always', 'ls-remote', '--', url, ref || 'HEAD'], { env, timeout })).stdout.trim().split('\n')[0] ?? '';
-      const commit = out.split(/\s+/)[0];
+      const names = !ref ? ['HEAD'] : ref.startsWith('refs/') ? [`${ref}^{}`, ref] : [`refs/tags/${ref}^{}`, `refs/tags/${ref}`, `refs/heads/${ref}`];
+      const out = (await runProcess('git', ['-c', 'protocol.file.allow=always', 'ls-remote', '--', url, ...names], { env, timeout })).stdout.trim();
+      const listed = new Map(out.split('\n').map(line => line.split(/\s+/)).map(([commit, name]) => [name, commit]));
+      const commit = names.map(name => listed.get(name)).find(Boolean) ?? '';
       if (!/^[a-f0-9]{40,64}$/.test(commit)) fail(502, 'GIT_REPOSITORY_UNAVAILABLE', '无法解析来源的 Git 提交。');
       return commit;
     },

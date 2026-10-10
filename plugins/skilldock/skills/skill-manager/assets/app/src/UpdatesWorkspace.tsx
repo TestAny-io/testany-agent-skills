@@ -172,7 +172,7 @@ const copy = {
     pendingConfirm: "这些技能的内容在另一侧插件的目录中，确认后计划才会自动应用它们的更新：",
     confirmPending: "确认",
     confirmPendingTitle: "让计划自动应用这些技能的更新？",
-    confirmPendingHelp: "这些技能的内容在另一侧插件的目录中，自动应用会改写所在的插件。确认会按当前设置重新保存计划。",
+    confirmPendingHelp: "这些技能的内容在另一侧插件的目录中，自动应用会改写所在的插件。确认会按当前设置重新保存计划，下次运行时间从现在重新计算。",
     confirmPendingAffected: "待确认的技能",
   },
   en: {
@@ -322,7 +322,7 @@ const copy = {
     pendingConfirm: "These skills’ contents are inside the other side’s plugins. The schedule applies their updates automatically only once you confirm:",
     confirmPending: "Confirm",
     confirmPendingTitle: "Let the schedule apply updates to these skills?",
-    confirmPendingHelp: "These skills’ contents are inside the other side’s plugins, so applying updates automatically changes those plugins. Confirming saves the schedule again with its current settings.",
+    confirmPendingHelp: "These skills’ contents are inside the other side’s plugins, so applying updates automatically changes those plugins. Confirming saves the schedule again with its current settings, and the next run is counted from now.",
     confirmPendingAffected: "Skills awaiting confirmation",
   },
   ja: {
@@ -471,7 +471,7 @@ const copy = {
     pendingConfirm: "これらのスキルの内容はもう一方のプラグインのディレクトリ内にあります。確認するまで、スケジュールはこれらの更新を自動適用しません：",
     confirmPending: "確認",
     confirmPendingTitle: "これらのスキルの更新をスケジュールで自動適用しますか？",
-    confirmPendingHelp: "これらのスキルの内容はもう一方のプラグインのディレクトリ内にあるため、自動適用するとそのプラグインが書き換えられます。確認すると、現在の設定でスケジュールを保存し直します。",
+    confirmPendingHelp: "これらのスキルの内容はもう一方のプラグインのディレクトリ内にあるため、自動適用するとそのプラグインが書き換えられます。確認すると、現在の設定でスケジュールを保存し直し、次回の実行時刻は今から数え直します。",
     confirmPendingAffected: "確認待ちのスキル",
   },
 } as const;

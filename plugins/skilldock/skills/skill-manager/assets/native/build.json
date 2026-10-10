@@ -52,14 +52,14 @@
     "src/UpdateProgress.css": "a846faab9fd9dd1dfa102949a2bd1641e54318d3c3a522da55aea35195482d2a",
     "src/UpdateProgress.tsx": "1971aeaa605ff45fe8dcb80c61e67c365123462a154375236739e73ef88d9f65",
     "src/UpdatesWorkspace.css": "64bf49a593f5ccf98b3450a2930d9363b15ef27f64c85d67d0bcd566d707c176",
-    "src/UpdatesWorkspace.tsx": "f960cfee8175103a6ce2fb3fd72ff60eeaadc45d1dee8ad36e4423264a766823",
+    "src/UpdatesWorkspace.tsx": "dcb5340b4b57b8b8a4bbc6261c1af131fa6aa816582d1cc04daf001b1dc1298a",
     "src/agent-requests.ts": "ed972505424fb9a792277f4bae49e3f5512f6e002af702e14ebc0dfee9becddb",
     "src/brand-wordmark.svg": "789e0b992714535d5b223f764808de60f66c36728bd9871ee1db1f4d51135932",
     "src/desktop.css": "15814dc52392f308d2afa57b9c076d9149e22e06228e3424264984d939ec03ce",
     "src/i18n.tsx": "dc09254cbb69d72741c0975ce96e70e8b3bf0c56332757833f6effbab0d51a7b",
     "src/i18n/errors.json": "c00b868b1f842b880328226d37e6aedeac847c39b9c91b62dea60575158ce148",
     "src/i18n/messages.json": "d49259f0e1cd037593d7ecc01e55523f0714f41a20def21202bd975e04959394",
-    "src/i18n/server-messages.json": "ed4cf824e408dd2252d3a91e6bf2522df7418aff35f09888c896938af553a39a",
+    "src/i18n/server-messages.json": "635f3850ed84d29b48df5102a9389f423d447252d93267ba330e44b133cce1db",
     "src/main.tsx": "0b17df37f3ddac17ba356b85184252cd545e0afa93a2246a8202b30b8a879fff",
     "src/native-icon.svg": "9b7d7c19189c56b43fe691c0cb01e19b1f88abc61d1d130c974c5f5411b7288c",
     "src/plugin-presentation.ts": "f221117671d3b93250a16e6e54326879e6ae1a6aaf3e50dea401e8fdfb86dadf",
@@ -72,7 +72,7 @@
   },
   "artifacts": {
     "server.mjs": "9861ff01f6e346ac769a93bc5a18ffdbb2120f9f8db0f61fa660ed6e22874689",
-    "ui.html": "f32ecbd3471149f9527a35a851167dc50b838bdee6ce58f874c3f3f59ff6977b",
+    "ui.html": "7315aaad100a8eba21ad3474fc64b0013aa86f2b22b95304f640e7d7a65677b6",
     "icon.svg": "9b7d7c19189c56b43fe691c0cb01e19b1f88abc61d1d130c974c5f5411b7288c",
     "THIRD_PARTY_NOTICES.txt": "0580c525bbaf94d006050bf773e482a470c9f983971e23b26e8048505e11bd4f"
   }

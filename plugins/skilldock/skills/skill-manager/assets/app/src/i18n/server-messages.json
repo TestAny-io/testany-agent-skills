@@ -1615,10 +1615,6 @@
     "en": "Installed by your organisation's managed settings; SkillDock does not update it.",
     "ja": "組織の管理設定でインストールされています。SkillDock は更新しません。"
   },
-  "这一版 SkillDock 暂不能检查这个 Claude 插件的更新；可在 Claude Code 中用 /plugin 更新。": {
-    "en": "This version of SkillDock cannot check this Claude plugin for updates yet; you can update it with /plugin in Claude Code.",
-    "ja": "このバージョンの SkillDock では、この Claude プラグインの更新はまだ確認できません。Claude Code の /plugin で更新できます。"
-  },
   "已更新 Claude 插件 {v0}，旧版已保留，可从操作记录恢复。": {
     "en": "Updated Claude plugin {v0}; the previous version was kept and can be restored from the activity log.",
     "ja": "Claude プラグイン {v0} を更新しました。旧版は保存されており、操作履歴から復元できます。"
@@ -1858,5 +1854,9 @@
   "{v0} 中的 SkillDock {v1} 已是两侧中最新的版本。": {
     "en": "SkillDock {v1} in {v0} is already the newest version on either side.",
     "ja": "{v0} の SkillDock {v1} は、両側で最新のバージョンです。"
+  },
+  "自动恢复未完成；更新前的插件目录保留在 {v0}，请据此恢复 {v1}。": {
+    "en": "Automatic recovery did not finish; the plugin directory from before the update is kept at {v0}. Restore {v1} from it.",
+    "ja": "自動復元は完了しませんでした。更新前のプラグインディレクトリは {v0} に残っています。これをもとに {v1} を復元してください。"
   }
 }

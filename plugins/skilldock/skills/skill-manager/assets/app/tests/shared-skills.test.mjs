@@ -344,7 +344,7 @@ test('a plan confirms a cross-side skill while the other side is managed; until 
   const target = { kind: 'skill', id: inner.id }; const plan = { enabled: true, intervalMinutes: 15, timezone: 'UTC', autoApply: true, targets: [target] };
   // Claude is managed: adding it to an applying plan asks first, and names the plugin.
   const ask = await w.act({ action: 'schedule.configure', agent: 'codex', schedule: plan });
-  assert.equal(ask.code, 'CONFIRMATION_REQUIRED'); assert.deepEqual(ask.nativeRules[0].items, ['inner（sd）']);
+  assert.equal(ask.code, 'CONFIRMATION_REQUIRED'); assert.deepEqual(ask.nativeRules[0].items, ['inner (sd)']);
   await w.act({ action: 'schedule.configure', agent: 'codex', schedule: plan, confirm: true });
   assert.equal((await w.snapshot()).schedule.targets[0].confirmation, 'confirmed');
   // The snapshot's targets sent back as they are: the field is ignored, and nothing is asked again.
@@ -371,6 +371,74 @@ test('a plan confirms a cross-side skill while the other side is managed; until 
   assert.equal(unconfirmed.run.items[0].reasonCode, 'CONFIRMATION_REQUIRED');
   const confirmed = await w.act({ action: 'updates.run', agent: 'codex', targets: [target], autoApply: true, confirm: true });
   assert.equal(confirmed.run.items[0].status, 'updated');
+});
+
+// A Codex skill whose contents lie in Claude's skills-directory plugin `sd`, linked to a source (36c §6).
+async function crossWorld(t) {
+  const w = await world(t, { codexIntoPlugin: true });
+  const inner = (await w.snapshot()).skills.find(item => item.name === 'inner' && item.agents?.includes('codex'));
+  await skillFile(path.join(w.root, 'up'), 'inner');
+  const link = async () => { const source = await w.act({ action: 'skill.previewSource', agent: 'codex', id: inner.id, sourceType: 'local', source: path.join(w.root, 'up/inner') });
+    return w.act({ action: 'skill.connectSource', agent: 'codex', id: inner.id, previewId: source.sourcePreview.id }); };
+  await link();
+  const target = { kind: 'skill', id: inner.id }; const plan = { enabled: true, intervalMinutes: 15, timezone: 'UTC', autoApply: true, targets: [target] };
+  let version = 1;
+  const bump = async () => { version++; await skillFile(path.join(w.root, 'up'), 'inner', `v${version}\n`); };
+  const rewritten = async () => /v\d/.test(await fs.readFile(path.join(w.configDir, 'skills/sd/skills/inner/SKILL.md'), 'utf8'));
+  const due = async () => { w.advance(16); await w.service.tickScheduler(); return (await w.snapshot()).updateRuns[0].items[0]; };
+  const confirmation = async () => (await w.snapshot()).schedule.targets[0].confirmation;
+  return { w, target, plan, link, bump, rewritten, due, confirmation };
+}
+
+test('a cross-side skill added while the plan is off waits for confirmation; starting to apply asks (5c review P1-01)', async t => {
+  const { w, plan, bump, rewritten, due, confirmation } = await crossWorld(t);
+  const saved = await w.act({ action: 'schedule.configure', agent: 'codex', schedule: { ...plan, enabled: false } });
+  assert.equal(saved.code, undefined, '关闭计划不被确认拦住');
+  assert.equal(await confirmation(), 'pending', '记为待确认，而不是 0.10.x 继承的目标');
+  // Turning on a plan that applies automatically, or making a plan apply, asks first (M7).
+  assert.equal((await w.act({ action: 'schedule.configure', agent: 'codex', schedule: plan })).code, 'CONFIRMATION_REQUIRED');
+  await w.act({ action: 'schedule.configure', agent: 'codex', schedule: { ...plan, autoApply: false } });
+  assert.equal((await w.act({ action: 'schedule.configure', agent: 'codex', schedule: plan })).code, 'CONFIRMATION_REQUIRED', '改为自动应用');
+  await bump(); const held = await due();
+  assert.deepEqual([held.status, held.reasonCode], ['available', undefined], '仅检查的计划照常检查'); assert.equal(await rewritten(), false);
+  await w.act({ action: 'schedule.configure', agent: 'codex', schedule: plan, confirm: true });
+  assert.equal(await confirmation(), 'confirmed');
+  assert.equal((await due()).status, 'updated'); assert.equal(await rewritten(), true);
+});
+
+test('"as it was" is the target\'s identity: a source linked again keeps a confirmation, and keeps a pending one pending (5c review P2-01)', async t => {
+  const { w, plan, link, bump, rewritten, due, confirmation } = await crossWorld(t);
+  await w.setClaude('read-only');
+  await w.act({ action: 'schedule.configure', agent: 'codex', schedule: plan });
+  await w.setClaude('enabled'); assert.equal(await confirmation(), 'pending');
+  await link();
+  // Saved again by a version-1 client, as it was: still pending; the plan only checks it.
+  await w.act({ action: 'schedule.configure', schedule: plan });
+  assert.equal(await confirmation(), 'pending');
+  await bump(); const held = await due();
+  assert.deepEqual([held.status, held.reasonCode], ['available', 'CONFIRMATION_REQUIRED']); assert.equal(await rewritten(), false);
+  await w.act({ action: 'schedule.configure', agent: 'codex', schedule: plan, confirm: true });
+  await link();
+  const again = await w.act({ action: 'schedule.configure', agent: 'codex', schedule: { ...plan, intervalMinutes: 30 } });
+  assert.equal(again.code, undefined, '已有确认不因重新关联来源而丢失'); assert.equal(await confirmation(), 'confirmed');
+});
+
+test('cross-side skills that keep 0.10.2 behaviour: the other side not managed, a version-1 origin, a version-1 batch (36c §6)', async t => {
+  const { w, target, plan, bump, rewritten, due, confirmation } = await crossWorld(t);
+  // Claude not managed: saved by a version-2 client without being asked, applied as usual (M9).
+  await w.setClaude('read-only');
+  assert.equal((await w.act({ action: 'schedule.configure', agent: 'codex', schedule: plan })).code, undefined);
+  await bump(); assert.equal((await due()).status, 'updated'); assert.equal(await rewritten(), true);
+  // Saved by a version-1 client, then sent again as it was by a version-2 one: not asked, applied (M14).
+  await w.act({ action: 'schedule.configure', agent: 'codex', schedule: { ...plan, enabled: false, targets: [] } });
+  await w.setClaude('enabled');
+  await w.act({ action: 'schedule.configure', schedule: plan });
+  assert.equal((await w.act({ action: 'schedule.configure', agent: 'codex', schedule: plan })).code, undefined);
+  assert.equal(await confirmation(), undefined, '1 版来源不显示确认状态');
+  await bump(); assert.equal((await due()).status, 'updated');
+  // A version-1 manual batch keeps 0.10.2 behaviour (M8).
+  await bump();
+  assert.equal((await w.act({ action: 'updates.run', targets: [target], autoApply: true })).run.items[0].status, 'updated');
 });
 
 test('a version-1 save keeps the targets of another side it cannot see', async t => {

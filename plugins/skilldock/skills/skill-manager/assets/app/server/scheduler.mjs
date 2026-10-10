@@ -26,7 +26,6 @@ export function validateSchedule(schedule) {
   return schedule;
 }
 
-const sameIdentity = (before, after) => { const { fingerprint: a, ...left } = before; const { fingerprint: b, ...right } = after; return JSON.stringify(left) === JSON.stringify(right); };
 function sameBindingIdentity(before, after) {
   if (!before || !after || typeof before.fingerprint !== 'string' || typeof after.fingerprint !== 'string') return false;
   const { fingerprint: oldContent, ...oldIdentity } = before;
@@ -38,8 +37,16 @@ function sameBindingIdentity(before, after) {
 export async function createScheduler({ environments, snapshot, perform, signature, verifySynchronized, hasPreview, coreBusy, clock = () => Date.now(), pollMs = 1000, startTimer = false, recover = true, beforeConfigure, disabledSchedule = async () => null, planVersion = 1, paused = async () => null, migrate = async () => null, crossSide = null }) {
   const states = {}; const writes = {}; const configuring = new Set(); let running = false; let activeMode; let closed = false; let runningPromise; let timer; let readGeneration = 0;
   const timestamp = () => new Date(clock()).toISOString();
+  // The separate record of a plan turned off carries the request's schedule. A target in it that has
+  // no state yet takes the record's request version, so a target added while turning the plan off is
+  // not taken for one inherited from 0.10.x (36c §6, 5c review P1-01).
+  function adoptDisabled(state, { origin, ...disabled }, { keepNextRun = false } = {}) {
+    Object.assign(state.schedule, disabled, { enabled: false }); if (!keepNextRun) delete state.schedule.nextRunAt;
+    state.targetMeta ??= {};
+    for (const target of state.schedule.targets ?? []) state.targetMeta[targetKey(target)] ??= { origin: origin === 'v2' ? 'v2' : 'v1' };
+  }
   async function persist(mode) {
-    writes[mode] = (writes[mode] || Promise.resolve()).catch(() => {}).then(async () => { await verifyDirectoryRoot(environments[mode].stateBoundary); const disabled = await disabledSchedule(mode); if (disabled) { Object.assign(states[mode].schedule, disabled, { enabled: false }); delete states[mode].schedule.nextRunAt; } await writeJson(path.join(environments[mode].root, 'updates.json'), states[mode]); });
+    writes[mode] = (writes[mode] || Promise.resolve()).catch(() => {}).then(async () => { await verifyDirectoryRoot(environments[mode].stateBoundary); const disabled = await disabledSchedule(mode); if (disabled) adoptDisabled(states[mode], disabled); await writeJson(path.join(environments[mode].root, 'updates.json'), states[mode]); });
     return writes[mode];
   }
   async function reload({ recover = false } = {}) {
@@ -52,7 +59,7 @@ export async function createScheduler({ environments, snapshot, perform, signatu
       validateSchedule({ enabled: state.schedule.enabled, intervalMinutes: state.schedule.intervalMinutes, timezone: state.schedule.timezone, autoApply: state.schedule.autoApply, targets: state.schedule.targets });
       if (running || generation !== readGeneration) return;
       state.activity ||= []; states[mode] = state;
-      const disabled = await disabledSchedule(mode); if (disabled) { Object.assign(state.schedule, disabled, { enabled: false }); delete state.schedule.nextRunAt; }
+      const disabled = await disabledSchedule(mode); if (disabled) adoptDisabled(state, disabled);
       if (!recover) continue;
       state.schedule.running = false;
       let interrupted = false;
@@ -128,11 +135,12 @@ export async function createScheduler({ environments, snapshot, perform, signatu
         bindings[key] = await signature(mode, target, current);
       }
     }
-    // A target submitted as it was keeps its state; a new or changed one is this request's (36c §6).
-    const resubmitted = key => priorKeys.has(key) && (!bindings[key] || !state.bindings[key] || sameIdentity(state.bindings[key], bindings[key]));
+    // A target submitted as it was keeps its state; a new one is this request's. "As it was" compares the
+    // target's identity only (36c §6; 5c review P2-01): what the confirmation answers is checked afresh.
+    const resubmitted = key => priorKeys.has(key);
     const meta = {};
     for (const target of targets) { const key = targetKey(target); meta[key] = resubmitted(key) ? { ...(priorMeta[key] ?? { origin: 'v1' }) } : { origin: version2 ? 'v2' : 'v1' }; }
-    if (version2 && crossSide) {
+    if (version2 && crossSide && mode === 'local') {
       // A skill whose content lies in the other side's plugin is confirmed for a plan while that side is managed.
       const cross = await crossSide(current ?? await snapshot(mode), targets);
       const counted = targets.filter(target => cross.get(targetKey(target))?.otherEnabled && meta[targetKey(target)].origin === 'v2');
@@ -140,7 +148,7 @@ export async function createScheduler({ environments, snapshot, perform, signatu
       const starts = input.enabled && input.autoApply && (!prior.enabled || !prior.autoApply);
       const needed = counted.some(target => !resubmitted(targetKey(target))) || starts;
       if (unconfirmed.length && needed && !confirm) throw new AppError(409, 'CONFIRMATION_REQUIRED', '计划中有技能的内容在另一侧插件的目录中，请确认后重试。', { nativeRules: [{ kind: 'affected-plugins',
-        message: '计划中的这些技能，内容在另一侧插件的目录中；自动应用会改写这些插件：', items: unconfirmed.map(target => { const info = cross.get(targetKey(target)); return `${info.name}（${info.plugins.join('、')}）`; }) }] });
+        message: '计划中的这些技能，内容在另一侧插件的目录中；自动应用会改写这些插件：', items: unconfirmed.map(target => { const info = cross.get(targetKey(target)); return `${info.name} (${info.plugins.join(', ')})`; }) }] });
       for (const target of unconfirmed) meta[targetKey(target)].confirmation = confirm ? 'confirmed' : 'pending';
     }
     await beforeConfigure?.(mode, input);
@@ -214,11 +222,13 @@ export async function createScheduler({ environments, snapshot, perform, signatu
   // 36c §6: a plan applies a cross-side skill saved by a version-2 request only once confirmed while the
   // other side is managed; a version-2 manual batch applies one only with the request's confirmation.
   async function crossHold(mode, target, current, { trigger, version2, confirm }) {
-    if (!crossSide) return null;
-    const info = (await crossSide(current, [target])).get(targetKey(target)); if (!info) return null;
-    if (trigger === 'manual') return version2 && info.discovered && !confirm ? '这项技能的内容在另一侧插件的目录中；这次批量执行没有确认，只检查、不应用。' : null;
+    // Only what could be held asks for the cross-side facts, which take a multi-Agent snapshot (5c review P3-04).
+    if (!crossSide || mode !== 'local' || target.kind !== 'skill') return null;
     const meta = states[mode].targetMeta?.[targetKey(target)];
-    return info.otherEnabled && meta?.origin === 'v2' && meta.confirmation !== 'confirmed' ? '这项技能的内容在另一侧插件的目录中；须先在 SkillDock 0.11 的计划设置中确认后才会自动应用（0.10.x 界面无法确认），这次只检查。' : null;
+    if (trigger === 'manual' ? !version2 || confirm : meta?.origin !== 'v2' || meta.confirmation === 'confirmed') return null;
+    const info = (await crossSide(current, [target])).get(targetKey(target)); if (!info) return null;
+    if (trigger === 'manual') return info.discovered ? '这项技能的内容在另一侧插件的目录中；这次批量执行没有确认，只检查、不应用。' : null;
+    return info.otherEnabled ? '这项技能的内容在另一侧插件的目录中；须先在 SkillDock 0.11 的计划设置中确认后才会自动应用（0.10.x 界面无法确认），这次只检查。' : null;
   }
   async function run(mode, { targets, autoApply, trigger = 'manual', version2 = false, confirm = false }) {
     if (typeof autoApply !== 'boolean') fail(400, 'INVALID_ACTION', 'autoApply 必须显式为布尔值。');
@@ -236,7 +246,7 @@ export async function createScheduler({ environments, snapshot, perform, signatu
         record.total = selected.length;
         for (let target of selected) {
           const disabled = await disabledSchedule(mode);
-          if (disabled) Object.assign(state.schedule, disabled, { enabled: false });
+          if (disabled) adoptDisabled(state, disabled, { keepNextRun: true });
           if (closed || trigger !== 'manual' && !state.schedule.enabled) { stopped = true; break; }
           record.phase = 'checking';
           record.current = { target, name: current.updates.find(item => targetKey(item.target) === targetKey(target))?.name || target.id };

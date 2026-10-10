@@ -816,14 +816,19 @@ export async function createService(options = {}) {
         const destination = path.join(tracked.root, 'plugins', plugin.name); await verifyDescendantDirectory(env.stateBoundary, destination);
         const catalogFile = path.join(tracked.root, '.claude-plugin/marketplace.json'); const catalog = await fs.readFile(catalogFile);
         const previous = path.join(staging, 'previous'); await move(destination, previous);
-        undoDirect = async () => { await fs.rm(destination, { recursive: true, force: true }); await move(previous, destination); await fs.writeFile(catalogFile, catalog); };
-        try { await copySkill(preview.candidate, destination); await writeClaudeDirectMarketplace(env, { detail: preview.direct.detail }, { market: plugin.marketplace, root: tracked.root }); }
-        catch (error) { await undoDirect(); throw error; }
+        // A restore that fails keeps the backup and says where it is (5c review P3-01).
+        undoDirect = async error => {
+          try { await fs.rm(destination, { recursive: true, force: true }); await move(previous, destination); await fs.writeFile(catalogFile, catalog); }
+          catch { keep = true; error.message += `\n自动恢复未完成；更新前的插件目录保留在 ${previous}，请据此恢复 ${destination}。`; }
+        };
+        // Moved, not copied: the candidate is not needed afterwards, and Claude never sees half a directory.
+        try { await move(preview.candidate, destination); await writeClaudeDirectMarketplace(env, { detail: preview.direct.detail }, { market: plugin.marketplace, root: tracked.root }); }
+        catch (error) { await undoDirect(error); throw error; }
       }
       try {
         if (source.kind === 'direct') await run(['plugin', 'marketplace', 'update', plugin.marketplace, '--json'], { cwd: await userCwdFor(found) });
         await run(['plugin', 'update', cliId, '--scope', scope, '--json'], { cwd });
-      } catch (error) { if (undoDirect && error.code !== 'CLI_TIMEOUT') await undoDirect().catch(() => {}); throw error; }
+      } catch (error) { if (undoDirect && error.code !== 'CLI_TIMEOUT') await undoDirect(error); throw error; }
       const { install: after } = await claudeInstall(found, cliId, scope, cwd);
       const loaded = after?.installPath && (await inspectTree(after.installPath, { skip: INSTALL_SKIP })).fingerprint === preview.tree.fingerprint;
       const fresh = await registryFor(env);
@@ -2140,8 +2145,10 @@ export async function createService(options = {}) {
       // The current atomic item completes, then the worker observes the stop.
       await ensureGeneration();
       await verifyDirectoryRoot(applicationBoundary);
-      // The plan takes this record over on each save, so it holds the targets the plan keeps (36c §6).
-      await writeJson(disabledFile(request.mode), { ...request.schedule, targets: scheduler.requestedTargets(request.mode, request.schedule, request.agent !== undefined) });
+      // The plan takes this record over on each save, so it holds the targets the plan keeps and the
+      // request's version for the ones it adds (36c §6).
+      const version2 = request.agent !== undefined;
+      await writeJson(disabledFile(request.mode), { ...request.schedule, targets: scheduler.requestedTargets(request.mode, request.schedule, version2), origin: version2 ? 'v2' : 'v1' });
       if (request.mode === 'local') await background?.remove({ deferBootout: isOperationActive(codexHome) });
       if (operationActive) return { message: '已关闭自动更新；当前单项完成后停止。', schedule: { ...request.schedule, running: scheduler.isRunning() } };
       try { return await withOperation(() => executeRequest(request)); }
