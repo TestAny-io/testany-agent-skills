@@ -22,10 +22,12 @@
 
 ## 2. 启动
 
+下面命令中的 `<仓库目录>` 换成这个仓库在你电脑上的位置（克隆或存放的目录）。
+
 在终端中运行（把最后的项目路径换成你常用的项目目录）：
 
 ```bash
-SKILLDOCK_STATE_DIR="$HOME/.local/share/skilldock-uat" PORT=4781 /bin/sh "/Users/kailaichen/Downloads/source code/testany-agent-skills/plugins/skilldock/skills/skill-manager/scripts/launch.sh" start --project "$HOME"
+SKILLDOCK_STATE_DIR="$HOME/.local/share/skilldock-uat" PORT=4781 /bin/sh "<仓库目录>/plugins/skilldock/skills/skill-manager/scripts/launch.sh" start --project "$HOME"
 ```
 
 成功后会输出 `http://127.0.0.1:4781`。在浏览器中打开它。
@@ -33,7 +35,7 @@ SKILLDOCK_STATE_DIR="$HOME/.local/share/skilldock-uat" PORT=4781 /bin/sh "/Users
 试用实例已经在运行时，更新代码后用 `restart` 代替 `start` 重启（其余参数相同）：
 
 ```bash
-SKILLDOCK_STATE_DIR="$HOME/.local/share/skilldock-uat" PORT=4781 /bin/sh "/Users/kailaichen/Downloads/source code/testany-agent-skills/plugins/skilldock/skills/skill-manager/scripts/launch.sh" restart --project "$HOME"
+SKILLDOCK_STATE_DIR="$HOME/.local/share/skilldock-uat" PORT=4781 /bin/sh "<仓库目录>/plugins/skilldock/skills/skill-manager/scripts/launch.sh" restart --project "$HOME"
 ```
 
 ## 3. 建议核对的内容
@@ -78,7 +80,7 @@ SKILLDOCK_STATE_DIR="$HOME/.local/share/skilldock-uat" PORT=4781 /bin/sh "/Users
 ## 5. 停止与清理
 
 ```bash
-SKILLDOCK_STATE_DIR="$HOME/.local/share/skilldock-uat" PORT=4781 /bin/sh "/Users/kailaichen/Downloads/source code/testany-agent-skills/plugins/skilldock/skills/skill-manager/scripts/launch.sh" stop
+SKILLDOCK_STATE_DIR="$HOME/.local/share/skilldock-uat" PORT=4781 /bin/sh "<仓库目录>/plugins/skilldock/skills/skill-manager/scripts/launch.sh" stop
 ```
 
 试用数据都在 `~/.local/share/skilldock-uat`。不再需要时，把这个目录移到废纸篓即可。你正在使用的 SkillDock 与其数据不受影响。

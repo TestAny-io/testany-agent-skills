@@ -217,7 +217,7 @@
 - `env -i` 清空环境，`HOME`、`TMPDIR` 指向 `…/review-4cd-r2/` 下的临时目录，`PATH` 只保留最小集合；
 - 经 `NODE_OPTIONS=--import` 加载连接守卫：拒绝连接 4771、4781 与非本机地址，并记录。
 
-下表 `$R` 指 `/private/tmp/claude-501/-Users-kailaichen-Downloads-source-code-testany-platform-backend/0607cd6e-9b0e-4e21-8549-01942a916e20/scratchpad/review-4cd-r2`，应用目录指 `plugins/skilldock/skills/skill-manager/assets/app`。
+下表 `$R` 指评审会话临时目录下的 `scratchpad/review-4cd-r2`，应用目录指 `plugins/skilldock/skills/skill-manager/assets/app`。
 
 | 命令 | 位置 | 结果 |
 |------|------|------|
@@ -367,3 +367,5 @@
   - `mut/`：变异脚本、`run.out`、`results.tsv`；
   - `home/`、`tmp/`：临时 HOME 与 TMPDIR；`run.sh`、`guard.mjs`、`tsc.out`。
 - **结束状态**：主工作区 HEAD 为 `5dbd674`（他人提交，见第 1 节），除本报告外工作区干净。
+
+> 2026-10-10 推送前修订：上文一处本机临时目录的绝对路径改为占位写法，其余内容未改；原文见提交 `ceffd4f`。

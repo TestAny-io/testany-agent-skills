@@ -185,7 +185,7 @@
 
 ## 6. 已运行的命令与结果
 
-所有测试、实验与变异都在 `sandbox-exec -f …/scratchpad/verify/phase2-review/hermetic.sb` 下运行（拒绝外网与本机 Codex/Claude 可执行文件），`HOME`、`CLAUDE_CONFIG_DIR`、`CODEX_HOME` 指向 scratchpad 中的临时目录；E5 另设 `SKILLDOCK_NODE_BIN`（本机 nvm 的 node）、`SKILLDOCK_CODEX_APP_DIR`、`SKILLDOCK_CODEX_BIN`、`SKILLDOCK_CLAUDE_BIN`（指向不存在的路径）。下文 `$S` 指 `/private/tmp/claude-501/-Users-kailaichen-Downloads-source-code-testany-platform-backend/0607cd6e-9b0e-4e21-8549-01942a916e20/scratchpad`。
+所有测试、实验与变异都在 `sandbox-exec -f …/scratchpad/verify/phase2-review/hermetic.sb` 下运行（拒绝外网与本机 Codex/Claude 可执行文件），`HOME`、`CLAUDE_CONFIG_DIR`、`CODEX_HOME` 指向 scratchpad 中的临时目录；E5 另设 `SKILLDOCK_NODE_BIN`（本机 nvm 的 node）、`SKILLDOCK_CODEX_APP_DIR`、`SKILLDOCK_CODEX_BIN`、`SKILLDOCK_CLAUDE_BIN`（指向不存在的路径）。下文 `$S` 指评审会话的临时目录（`…/scratchpad`）。
 
 ### 6.1 基线
 
@@ -326,3 +326,5 @@
 - **没有做的事**：没有向 `127.0.0.1:4771`、`127.0.0.1:4781` 发请求（E5 夹具的启动记录中写有 `http://127.0.0.1:4771`，只作为 `PORT` 环境变量传给目标启动器；启动器在 `planLaunch` 中只读文件即被拒绝，没有进入探测或启动）；没有运行真实的 `codex`、`claude` 命令行或 `launchctl`；没有联网或下载；没有读写真实的 `~/.claude`、`~/.claude.json`、`~/.codex`、`~/.local/share/skilldock`、`~/Library/LaunchAgents`、`/Library/Application Support/ClaudeCode`；没有打印整个配置文件；报告中没有密钥。
 - **主工作区**：只运行了只读 git 命令（`log`、`show`、`diff`、`status`、`rev-parse`、`ls-tree`、`archive`）与一次 `git clone --no-local`（从主仓库读）；唯一的写入是本报告（未 `git add`、未提交、未推送）。
 - **scratchpad 中**：导出副本、只读克隆（已删除 remote，N28 试验后 `git checkout` 还原，结束时只有 `node_modules` 软链接未跟踪）、变异副本（结束时与 `cd94b88` 一致）、修法试验副本、`8809862` 导出、实验脚本与日志（`review-5r2-logs/`）。
+
+> 2026-10-10 推送前修订：上文一处本机临时目录的绝对路径改为占位写法，其余内容未改；原文见提交 `ceffd4f`。

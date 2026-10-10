@@ -313,7 +313,7 @@
 
 ### 6.1 命令
 
-所有测试、实验与变异都在导出副本的应用目录中运行，命令形如 `env HOME=<scratchpad>/review-4d/home TMPDIR=<scratchpad>/review-4d/tmp sandbox-exec -f <scratchpad>/verify/phase2-review/hermetic.sb node …`。该沙箱拒绝执行真实的 Codex、Claude 命令行，也拒绝非本机外连。`<scratchpad>` 为 `/private/tmp/claude-501/-Users-kailaichen-Downloads-source-code-testany-platform-backend/0607cd6e-9b0e-4e21-8549-01942a916e20/scratchpad`。
+所有测试、实验与变异都在导出副本的应用目录中运行，命令形如 `env HOME=<scratchpad>/review-4d/home TMPDIR=<scratchpad>/review-4d/tmp sandbox-exec -f <scratchpad>/verify/phase2-review/hermetic.sb node …`。该沙箱拒绝执行真实的 Codex、Claude 命令行，也拒绝非本机外连。`<scratchpad>` 为评审会话的临时目录（`…/scratchpad`）。
 
 | 命令 | 位置 | 结果 |
 |------|------|------|
@@ -412,3 +412,5 @@
   - `exp/`：实验脚本与输出；
   - `mut/`：变异脚本与结果；
   - `home/`、`tmp/`：临时 HOME 与 TMPDIR。
+
+> 2026-10-10 推送前修订：上文一处本机临时目录的绝对路径改为占位写法，其余内容未改；原文见提交 `ceffd4f`。
