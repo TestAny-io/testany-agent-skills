@@ -56,7 +56,7 @@ $skill-manager Open the skill management panel
 /plugin install skilldock@testany-agent-skills
 ```
 
-Start a new session (or run `/reload-plugins`), then open it with `/skilldock:skill-manager` or ask Claude to open SkillDock; it opens in Claude's built-in browser panel. Both sides open the same instance with the same data, and installing on one side is enough to manage the other.
+In the desktop app you can also install it from **+** next to the prompt box → **Plugins** → **Add plugin**. Start a new session (or run `/reload-plugins`), then open it with `/skilldock:skill-manager` or ask Claude to open SkillDock; it opens in Claude's built-in browser panel. To update later: `/plugin` → **Installed** → SkillDock → **Update now**, or SkillDock's **Updates** page. Both sides open the same instance with the same data, and installing on one side is enough to manage the other.
 
 <details>
 <summary><strong>Requirements, a missing entry, or a broken command?</strong></summary>

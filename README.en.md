@@ -90,11 +90,11 @@ Add this marketplace and install it in a Claude Code conversation:
 /plugin install skilldock@testany-agent-skills
 ```
 
-Start a new session (or run `/reload-plugins` in an open one), then open it with `/skilldock:skill-manager` or just ask Claude to open SkillDock. Claude opens it in its built-in browser panel, or gives you a link when no browser tool is available; Claude has no native sidebar entry like Codex.
+In the Claude desktop app's Code tab you can also click **+** next to the prompt box → **Plugins** → **Add plugin** and choose SkillDock in the plugin browser. Start a new session (or run `/reload-plugins` in an open one), then open it with `/skilldock:skill-manager` or just ask Claude to open SkillDock. Claude opens it in its built-in browser panel, or gives you a link when no browser tool is available; Claude has no native sidebar entry like Codex.
 
 - **Requirements**: macOS, Git, and Node.js 22.12 or later (found or guided as above).
 - **Management**: when SkillDock first sees an Agent, the side where SkillDock is installed is managed and the other side is read-only. SkillDock only reads a read-only side; turn management on in **Agent environments** to let it make changes, after a list of the places it may write. Changes to Claude go through Claude's own command line and are read back.
-- **Updates**: run `claude plugin marketplace update testany-agent-skills` and `claude plugin update skilldock@testany-agent-skills` in a terminal, then `/reload-plugins`. When the two sides run different versions, **Agent environments** also offers a one-click update of the older side.
+- **Updates**: run `/plugin` in a Claude session, select SkillDock on the **Installed** tab and choose **Update now**; or check and update Claude's SkillDock on SkillDock's **Updates** page (when the two sides run different versions, **Agent environments** also offers a one-click update). Then run `/reload-plugins` or start a new session. From a terminal, `claude plugin marketplace update testany-agent-skills` and `claude plugin update skilldock@testany-agent-skills` do the same.
 - **SkillDock on both sides**: when 0.11 first opens older data, it checks that neither side has a SkillDock older than 0.10.3; otherwise it stops, changes nothing, and explains what to do (including a one-click update after you confirm).
 - **Going back**: to return to 0.10.x, use a separate data directory (`SKILLDOCK_STATE_DIR`) or keep 0.11.x. SkillDock 0.10.3 does not take over 0.11 data and asks you to update; 0.10.2 and earlier refuse to start or fail to start, without rewriting your data.
 

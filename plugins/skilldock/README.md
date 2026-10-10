@@ -56,7 +56,7 @@ $skill-manager 打开技能管理面板
 /plugin install skilldock@testany-agent-skills
 ```
 
-新开会话（或运行 `/reload-plugins`）后，用 `/skilldock:skill-manager` 打开，或直接说“打开 SkillDock”；界面打开在 Claude 的内置浏览器面板中。两边打开的是同一个实例、同一份数据，只装在一边也能管理另一边。
+桌面应用中也可以点提示框旁的 **+** → **Plugins** → **Add plugin** 安装。新开会话（或运行 `/reload-plugins`）后，用 `/skilldock:skill-manager` 打开，或直接说“打开 SkillDock”；界面打开在 Claude 的内置浏览器面板中。以后更新：`/plugin` → **Installed** → SkillDock → **Update now**，或在 SkillDock 的“更新”页更新。两边打开的是同一个实例、同一份数据，只装在一边也能管理另一边。
 
 <details>
 <summary><strong>安装要求、入口不见了，或命令报错？</strong></summary>

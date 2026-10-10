@@ -66,7 +66,7 @@ printf 'Using Codex CLI: %s\n' "$CODEX_CLI"
 
 开启新的 Codex 任务，用 `$skill-manager 打开技能管理面板` 启动。这只安装独立 SkillDock 应用，不会安装 testany-eng 研发工具集。CLI 版本缺少 `plugin add` 时，可在 Codex 插件页面从同名市场安装。
 
-在 Claude 中安装：在 Claude Code 对话中运行 `/plugin marketplace add TestAny-io/testany-agent-skills` 与 `/plugin install skilldock@testany-agent-skills`，新开会话或 `/reload-plugins` 后用 `/skilldock:skill-manager` 打开。更新用 `claude plugin marketplace update testany-agent-skills` 与 `claude plugin update skilldock@testany-agent-skills`，再 `/reload-plugins`。Claude 不加载 Codex 原生入口，打开的是同一个网页面板。
+在 Claude 中安装：在 Claude Code 对话中运行 `/plugin marketplace add TestAny-io/testany-agent-skills` 与 `/plugin install skilldock@testany-agent-skills`，新开会话或 `/reload-plugins` 后用 `/skilldock:skill-manager` 打开。更新：在会话中 `/plugin` → **Installed** → SkillDock → **Update now**，或在 SkillDock 的“更新”页更新；终端中用 `claude plugin marketplace update testany-agent-skills` 与 `claude plugin update skilldock@testany-agent-skills`。之后 `/reload-plugins`。Claude 不加载 Codex 原生入口，打开的是同一个网页面板。
 
 获取新版本先执行 `"$CODEX_CLI" plugin marketplace upgrade testany-agent-skills`，再执行同一条 `"$CODEX_CLI" plugin add` 更新安装副本，之后在新任务调用 `$skill-manager`。源码、市场目录和已安装副本各有自己的生命周期；只执行 `git pull` 不保证已安装缓存同步。源码包下载是 AGPL 对应源码，不能当 marketplace 注册包直接安装。
 
