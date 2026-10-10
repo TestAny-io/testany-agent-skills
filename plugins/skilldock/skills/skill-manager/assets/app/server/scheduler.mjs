@@ -206,7 +206,10 @@ export async function createScheduler({ environments, snapshot, perform, signatu
     try { const actual = await signature(mode, target); return JSON.stringify(actual) === JSON.stringify(binding) ? binding : null; } catch { return null; }
   }
   async function afterOwnUpdate(mode, target, originalBinding) {
-    if (originalBinding && JSON.stringify(states[mode].bindings[targetKey(target)]) === JSON.stringify(originalBinding)) states[mode].bindings[targetKey(target)] = await signature(mode, target);
+    // The update has landed: a binding that cannot be read again now is left to the next run, which
+    // migrates or reports it, instead of failing what was done (5a/5b review P1-01).
+    if (originalBinding && JSON.stringify(states[mode].bindings[targetKey(target)]) === JSON.stringify(originalBinding))
+      try { states[mode].bindings[targetKey(target)] = await signature(mode, target); } catch { /* kept */ }
     states[mode].observations[targetKey(target)] = { status: 'current', canApply: false, message: '更新已读回确认。', checkedAt: timestamp() };
     await persist(mode);
   }
@@ -268,7 +271,7 @@ export async function createScheduler({ environments, snapshot, perform, signatu
               state.schedule.targets = state.schedule.targets.map(entry => targetKey(entry) === from ? moved : entry);
               if (state.bindings[from]) { state.bindings[to] = { ...state.bindings[from], target: moved }; delete state.bindings[from]; }
               if (state.targetMeta?.[from]) { state.targetMeta[to] = state.targetMeta[from]; delete state.targetMeta[from]; }
-              state.activity.unshift({ id: crypto.randomUUID(), action: 'schedule.migrate', target: moved.id, createdAt: timestamp(), status: 'success', message: '技能已变为两侧共用，计划中的这一项已随对象 ID 迁移。', canRestore: false });
+              state.activity.unshift({ id: crypto.randomUUID(), action: 'schedule.migrate', target: moved.id, createdAt: timestamp(), status: 'success', message: '技能的共用状态已变化，计划中的这一项已随对象 ID 迁移。', canRestore: false });
               state.activity = state.activity.slice(0, 100);
               target = moved; item = currentState.updates.find(candidate => targetKey(candidate.target) === to); name = item?.name || target.id;
               await persist(mode);

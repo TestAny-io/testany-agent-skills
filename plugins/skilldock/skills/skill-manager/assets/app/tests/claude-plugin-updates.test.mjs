@@ -34,6 +34,7 @@ async function world(t) {
   const market = path.join(root, 'market'); const entries = [];
   const writeMarket = () => write(path.join(market, '.claude-plugin/marketplace.json'), { name: 'm', owner: { name: 'test' }, plugins: entries });
   const claude = { plugins: [], marketplaces: [{ name: 'm', source: 'directory', path: market, installLocation: market }], calls: [], tamper: false, fetched: {} };
+  await write(path.join(configDir, 'plugins/known_marketplaces.json'), { m: { source: { source: 'directory', path: market }, installLocation: market } });
   // Stand-in fetchers: an npm registry and an archive host on disk.
   const fetchers = {
     npmPack: async (spec, registry, directory) => { const file = path.join(directory, 'pkg.tgz'); await fs.copyFile(claude.fetched.npm.file, file); return { file, version: claude.fetched.npm.version, integrity: claude.fetched.npm.integrity }; },
@@ -78,9 +79,9 @@ async function world(t) {
     }
     return { outcome: 'ok' };
   };
-  const state = path.join(root, 'state'); await fs.mkdir(state); await writeGeneration(state, 2);
+  const state = path.join(root, 'state'); await fs.mkdir(state); await writeGeneration(state, 2); let time = Date.parse('2026-10-10T00:00:00Z');
   await write(path.join(state, 'settings/agents.json'), { format: 1, agents: { claude: { management: 'enabled', origin: 'user', changedAt: '2026-10-09T00:00:00.000Z' } } });
-  const service = await createService({ home, codexHome: path.join(home, '.codex'), projectDir: project, stateDir: state, background: false, env: { HOME: home },
+  const service = await createService({ home, codexHome: path.join(home, '.codex'), projectDir: project, stateDir: state, background: false, env: { HOME: home }, now: () => time,
     adapter: { list: async () => ({ plugins: [], marketplaces: [], diagnostics: [], listed: { plugins: true, marketplaces: true }, cli: { available: true, version: 'codex-cli 0.200.0', path: '/stand-in/codex' } }) },
     claudeCli: async () => ({ available: true, version: '2.1.288', path: '/stand-in/claude' }),
     claudeCatalog: { managedDir: path.join(root, 'no-managed'), listPlugins: async () => structuredClone(claude.plugins), listMarketplaces: async () => structuredClone(claude.marketplaces) },
@@ -94,7 +95,13 @@ async function world(t) {
   const check = async name => act({ action: 'update.check', agent: 'claude', target: await target(name) });
   const apply = async (name, previewId, extra = {}) => act({ action: 'update.apply', agent: 'claude', target: await target(name), previewId, ...extra });
   const registry = async () => JSON.parse(await fs.readFile(service.environments.local.registryFile, 'utf8'));
-  return { root, home, configDir, project, cache, market, entries, writeMarket, claude, service, act, snapshot, install, target, check, apply, registry };
+  // What Claude does on its own (a desktop session's update): the entry's content placed as Claude would.
+  const claudeUpdates = async (name, scope = 'user') => { const index = claude.plugins.findIndex(item => item.id === `${name}@m` && item.scope === scope);
+    const entry = entries.find(item => item.name === name); const next = await place(entry, scope, claude.plugins[index].projectPath ?? project);
+    if (next.installPath !== claude.plugins[index].installPath) await write(path.join(claude.plugins[index].installPath, '.orphaned_at'), '1');
+    claude.plugins[index] = next; };
+  const advance = minutes => { time += minutes * 60000; };
+  return { root, home, configDir, project, cache, market, entries, writeMarket, claude, service, act, snapshot, install, target, check, apply, registry, claudeUpdates, advance };
 }
 
 test('a versioned plugin from a local marketplace: current, then a new version applied and read back', async t => {
@@ -133,7 +140,7 @@ test('a plugin without a version is copied, dependencies included, before Claude
   await write(path.join(installPath, 'node_modules/dep/index.js'), 'module.exports = 1;');
   await plugin(path.join(w.market, 'plugins/beta'), 'beta', { body: 'v2' });
   const checked = (await w.check('beta')).updateItem;
-  assert.equal(checked.status, 'available');
+  assert.equal(checked.status, 'available'); assert.match(checked.message, /没有版本号，Claude 会原地覆盖它/, '应用前就说明');
   const applied = await w.apply('beta', checked.previewId);
   assert.match(applied.message, /更新前的内容已复制到 .*latest；Claude 原地覆盖这类插件/);
   const copy = applied.message.match(/复制到 (\S+latest)/)[1];
@@ -169,9 +176,9 @@ test('a readback that differs from the preview is reported, and automatic applyi
   w.claude.tamper = true;
   const checked = (await w.check('alpha')).updateItem;
   const failed = await w.apply('alpha', checked.previewId);
-  assert.equal(failed.code, 'READBACK_FAILED'); assert.match(failed.message, /装入的内容与预览不同/);
+  assert.equal(failed.code, 'READBACK_CONTENT_CHANGED'); assert.match(failed.message, /装入的内容与预览不同/);
   w.claude.tamper = false;
-  await plugin(path.join(w.claude.plugins[0].installPath), 'alpha', { version: '1.1.0', body: 'v2' }); await fs.rm(path.join(w.claude.plugins[0].installPath, 'tampered.txt'));
+  // What Claude did install is the baseline now: checking again is not a local change (5a/5b review P1-02).
   await plugin(path.join(w.market, 'plugins/alpha'), 'alpha', { version: '1.2.0', body: 'v3' });
   const next = (await w.check('alpha')).updateItem;
   assert.deepEqual([next.status, next.canAutoApply], ['available', false]); assert.match(next.message, /自动应用已暂停/);
@@ -274,6 +281,106 @@ test('a Git ref resolves to what a checkout gets: an annotated tag by its commit
   assert.equal(await resolve(repo, undefined), two);
   assert.equal(await resolve(repo, 'refs/heads/feature/main'), one);
   await assert.rejects(resolve(repo, 'missing'), { code: 'GIT_REPOSITORY_UNAVAILABLE' });
+});
+
+test('a plugin without a version that Claude updated itself is not a local change; content equal to the source resumes a paused applying (5a/5b review P1-02, P3-02)', async t => {
+  const w = await world(t);
+  await plugin(path.join(w.market, 'plugins/beta'), 'beta');
+  await w.install({ name: 'beta', source: './plugins/beta' });
+  assert.equal((await w.check('beta')).updateItem.status, 'current');
+  // Claude overwrote it in place (still `unknown`): the same content as the source, so current.
+  await plugin(path.join(w.market, 'plugins/beta'), 'beta', { body: 'v2' }); await w.claudeUpdates('beta');
+  const after = (await w.check('beta')).updateItem;
+  assert.deepEqual([after.status, after.reasonCode], ['current', undefined]);
+  // A change of SkillDock's own making is said so, with a way out.
+  await fs.appendFile(path.join(w.claude.plugins[0].installPath, 'skills/s/SKILL.md'), 'edited\n');
+  await plugin(path.join(w.market, 'plugins/beta'), 'beta', { body: 'v3' });
+  const edited = await w.check('beta');
+  assert.equal(edited.code, 'LOCAL_CHANGES'); assert.match(edited.message, /可能是 Claude 自己更新过.*卸载后重新安装/);
+  await w.claudeUpdates('beta');
+  assert.equal((await w.check('beta')).updateItem.status, 'current', '重新装入来源的内容后照常');
+  // A readback pause clears once the installation equals the source again.
+  const registryFile = w.service.environments.local.registryFile; const registry = await w.registry();
+  registry.claudePluginReview = { [(await w.target('beta')).id]: true }; await write(registryFile, registry);
+  assert.equal((await w.check('beta')).updateItem.status, 'current');
+  await plugin(path.join(w.market, 'plugins/beta'), 'beta', { body: 'v4' });
+  assert.equal((await w.check('beta')).updateItem.canAutoApply, true, '暂停已解除');
+});
+
+test('a source with node_modules compares as the installation does: unchanged is current (5a/5b review P2-01)', async t => {
+  const w = await world(t);
+  await plugin(path.join(w.market, 'plugins/gamma'), 'gamma', { version: '1.0.0' });
+  await write(path.join(w.market, 'plugins/gamma/node_modules/dep/index.js'), 'module.exports = 1;');
+  await w.install({ name: 'gamma', source: './plugins/gamma' });
+  const item = (await w.check('gamma')).updateItem;
+  assert.deepEqual([item.status, item.reasonCode], ['current', undefined]);
+});
+
+test('the updates page shows a Claude plugin preview file by file; another plugin\'s preview is left for it (5a/5b review P2-03, P3-04)', async t => {
+  const w = await world(t);
+  for (const name of ['alpha', 'zeta']) { await plugin(path.join(w.market, `plugins/${name}`), name, { version: '1.0.0' }); await w.install({ name, source: `./plugins/${name}` }); }
+  for (const name of ['alpha', 'zeta']) await plugin(path.join(w.market, `plugins/${name}`), name, { version: '1.1.0', body: 'v2' });
+  const alpha = (await w.check('alpha')).updateItem; const zeta = (await w.check('zeta')).updateItem;
+  const changed = alpha.changes.find(change => change.path.endsWith('SKILL.md'));
+  const diff = await w.act({ action: 'preview.diff', previewId: alpha.previewId, path: changed.path });
+  assert.equal(diff.code, undefined, diff.message); assert.ok(diff.diff);
+  assert.equal((await w.apply('alpha', zeta.previewId)).code, 'PREVIEW_MISMATCH');
+  assert.match((await w.apply('zeta', zeta.previewId)).message, /已更新 Claude 插件 zeta/, '它的预览没有被消耗');
+});
+
+test('a source SkillDock never runs, or an installation whose project is gone, is not offered for checking; the plan pauses it (5a/5b review P2-04)', async t => {
+  const w = await world(t);
+  w.entries.push({ name: 'cmd', source: { source: 'command', command: 'make plugin' } }, { name: 'dash', source: { source: 'npm', package: '-x' } }); await w.writeMarket();
+  w.claude.plugins.push({ id: 'cmd@m', scope: 'user', enabled: true, version: '1.0.0', installPath: path.join(w.cache, 'm/cmd/1.0.0') }, { id: 'dash@m', scope: 'user', enabled: true, version: '1.0.0', installPath: path.join(w.cache, 'm/dash/1.0.0') });
+  await write(path.join(w.cache, 'm/cmd/1.0.0/.claude-plugin/plugin.json'), { name: 'cmd' }); await write(path.join(w.cache, 'm/dash/1.0.0/.claude-plugin/plugin.json'), { name: 'dash' });
+  const items = (await w.snapshot()).updates;
+  for (const name of ['cmd', 'dash']) { const item = items.find(entry => entry.name === name); assert.deepEqual([item.canCheck, item.reasonCode], [false, 'OWNER_MANAGED'], name); }
+  assert.equal((await w.act({ action: 'schedule.configure', agent: 'claude', schedule: { enabled: true, intervalMinutes: 60, timezone: 'UTC', autoApply: true, targets: [items.find(entry => entry.name === 'cmd').target] } })).code, 'TARGET_NOT_READY');
+  // A local installation whose project goes away.
+  const other = path.join(w.root, 'other'); await fs.mkdir(other);
+  await plugin(path.join(w.market, 'plugins/near'), 'near', { version: '1.0.0' }); await w.install({ name: 'near', source: './plugins/near' }, 'local', other);
+  const near = await w.target('near');
+  await w.act({ action: 'schedule.configure', agent: 'claude', schedule: { enabled: true, intervalMinutes: 60, timezone: 'UTC', autoApply: true, targets: [near] } });
+  await fs.rm(other, { recursive: true });
+  const gone = (await w.snapshot()).updates.find(entry => entry.target.id === near.id);
+  assert.deepEqual([gone.canCheck, gone.reasonCode], [false, 'PROJECT_PATH_MISSING']);
+  w.advance(61); await w.service.tickScheduler();
+  const run = (await w.snapshot()).updateRuns[0].items[0];
+  assert.deepEqual([run.status, run.reasonCode], ['skipped', 'AGENT_PAUSED']); assert.match(run.message, /项目目录不存在，计划中的这一项暂停/);
+});
+
+test('a plan keeps a versioned Claude plugin that Claude updated itself; an installation changed after the preview stops the update (5a/5b review P2-05, M02)', async t => {
+  const w = await world(t);
+  await plugin(path.join(w.market, 'plugins/alpha'), 'alpha', { version: '1.0.0' }); await w.install({ name: 'alpha', source: './plugins/alpha' });
+  const target = await w.target('alpha');
+  await w.act({ action: 'schedule.configure', agent: 'claude', schedule: { enabled: true, intervalMinutes: 60, timezone: 'UTC', autoApply: true, targets: [target] } });
+  await plugin(path.join(w.market, 'plugins/alpha'), 'alpha', { version: '1.1.0', body: 'v2' }); await w.claudeUpdates('alpha');
+  await plugin(path.join(w.market, 'plugins/alpha'), 'alpha', { version: '1.2.0', body: 'v3' });
+  w.advance(61); await w.service.tickScheduler();
+  const run = (await w.snapshot()).updateRuns[0].items[0];
+  assert.deepEqual([run.status, run.reasonCode], ['updated', undefined], '不是 TARGET_BINDING_CHANGED');
+  // Checked, then Claude moved on before applying: refused, nothing run.
+  await plugin(path.join(w.market, 'plugins/alpha'), 'alpha', { version: '1.3.0', body: 'v4' });
+  const checked = (await w.check('alpha')).updateItem; await w.claudeUpdates('alpha'); const calls = w.claude.calls.length;
+  assert.equal((await w.apply('alpha', checked.previewId)).code, 'INSTALLATION_CHANGED'); assert.equal(w.claude.calls.length, calls);
+});
+
+test('hardening: a linked plugin directory outside the marketplace, and archive downloads by redirect, size and host (5a/5b review P3-06)', async t => {
+  const w = await world(t);
+  const outside = path.join(w.root, 'outside'); await plugin(outside, 'linky', { version: '1.0.0' });
+  await fs.mkdir(path.join(w.market, 'plugins'), { recursive: true }); await fs.symlink(outside, path.join(w.market, 'plugins/linky'));
+  await w.install({ name: 'linky', source: './plugins/linky' });
+  assert.equal((await w.check('linky')).code, 'SOURCE_BOUNDARY');
+  // Downloads, with a stand-in network.
+  const routes = { 'https://a.example/x.zip': [302, 'https://b.example/x.zip'], 'https://b.example/x.zip': [200, 'zip-bytes'], 'https://c.example/x.zip': [302, 'http://b.example/x.zip'],
+    'https://d.example/x.zip': [302, 'https://localhost/x.zip'], 'https://e.example/x.zip': [200, 'x'.repeat(64)] };
+  const fetchImpl = async url => { const [status, value] = routes[url]; return status === 302 ? new Response(null, { status, headers: { location: value } }) : new Response(value, { status }); };
+  const { download } = defaultFetchers({ env: {}, fetchImpl, archiveLimit: 32 });
+  const file = path.join(w.root, 'got.zip');
+  await download('https://a.example/x.zip', file); assert.equal(await fs.readFile(file, 'utf8'), 'zip-bytes');
+  await assert.rejects(download('https://c.example/x.zip', file), { code: 'INVALID_SOURCE' }, '重定向到 http');
+  await assert.rejects(download('https://d.example/x.zip', file), { code: 'INVALID_SOURCE' }, '重定向到本机');
+  await assert.rejects(download('https://e.example/x.zip', file), { code: 'SOURCE_LIMIT' });
 });
 
 test('every message seen above has a whole English and Japanese translation', async () => {

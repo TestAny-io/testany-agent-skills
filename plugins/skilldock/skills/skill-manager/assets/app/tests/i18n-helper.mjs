@@ -24,8 +24,7 @@ export async function translator(language) {
 /** Every Chinese message has a whole English translation (no Chinese left) and a Japanese one. */
 export async function assertTranslated(messages) {
   const en = await translator('en'), ja = await translator('ja');
-  for (const text of messages) {
-    assert.equal(/[一-鿿]/.test(en(text)), false, `en: ${text}`);
-    assert.notEqual(ja(text), text, `ja: ${text}`);
-  }
+  // All that are missing at once, not only the first.
+  const missing = [...messages.filter(text => /[一-鿿]/.test(en(text))).map(text => `en: ${text}`), ...messages.filter(text => ja(text) === text).map(text => `ja: ${text}`)];
+  assert.deepEqual(missing, []);
 }

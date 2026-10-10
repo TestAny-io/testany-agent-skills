@@ -23,7 +23,7 @@ function skillItem(skill, sources) {
   return blocked(skill.name, view.path, 'SOURCE_UNKNOWN', '关联一个本地或 Git 来源后，预览差异并更新；关联本身不会替换文件。', 'connect-source', extra);
 }
 
-function pluginItem(plugin, sources, skillsDir) {
+function pluginItem(plugin, sources, skillsDir, owner) {
   const target = { kind: 'plugin', id: plugin.id, agent: 'claude' };
   const path = plugin.installedPath; const extra = { target, sourceInfo: sources.get(plugin.id) ?? plugin.sourceInfo, installedVersion: plugin.version, affectedSkillIds: [] };
   const name = plugin.displayName || plugin.name;
@@ -34,7 +34,11 @@ function pluginItem(plugin, sources, skillsDir) {
   }
   // DEC-SDX-019: what Claude or the organisation manages is shown with its reason, not updated here.
   if (plugin.protection === 'synced') return blocked(name, path, 'HOST_MANAGED', '由 claude.ai 账号同步；SkillDock 不代为更新。', 'owner-managed', extra);
-  if (plugin.installation?.scope === 'managed' || plugin.protection === 'managed') return blocked(name, path, 'HOST_MANAGED', '由组织托管设置安装；SkillDock 不代为更新。', 'owner-managed', extra);
+  // Only an installation the organisation made; one it merely keeps enabled updates as usual (5a/5b review P3-05).
+  if (plugin.installation?.scope === 'managed') return blocked(name, path, 'HOST_MANAGED', '由组织托管设置安装；SkillDock 不代为更新。', 'owner-managed', extra);
+  // A source SkillDock never runs, or an installation whose project is gone, says so before any check (P2-04).
+  const left = owner.get(plugin.id);
+  if (left) return blocked(name, path, left.reasonCode, left.message, 'owner-managed', extra);
   // Phase 5b: from its marketplace, through Claude's command line (HLD 3.3A).
   return { agent: 'claude', name, owner: 'Claude', route: 'claude-plugin', status: 'unchecked', canCheck: true, canApply: false, canAutoApply: true,
     message: '检查这个插件的来源；更新经 Claude 命令行完成，并读回核对。', installedPath: path, ...extra };
@@ -43,16 +47,17 @@ function pluginItem(plugin, sources, skillsDir) {
 /**
  * The update items of the Claude objects in a multi-agent snapshot, before any observation.
  * `sources` maps an object ID to its Claude-side source information (SkillDock's records);
- * `skillsDir` maps a skills-directory plugin's ID to whether SkillDock can update it.
+ * `skillsDir` maps a skills-directory plugin's ID to whether SkillDock can update it; `owner` maps
+ * a plugin's ID to why it is left to Claude ({reasonCode, message}).
  */
-export function claudeUpdateItems(snapshot, { sources = new Map(), skillsDir = new Map() } = {}) {
+export function claudeUpdateItems(snapshot, { sources = new Map(), skillsDir = new Map(), owner = new Map() } = {}) {
   const items = [];
   for (const skill of snapshot.skills) {
     const claudeOnly = skill.agents?.length === 1 && skill.agents[0] === 'claude' && ['user', 'project'].includes(skill.scope);
     const leads = skill.agents?.length === 2 && !!skill.perAgent?.claude?.canUpdate;
     if (claudeOnly || leads) items.push(skillItem(skill, sources));
   }
-  for (const plugin of snapshot.plugins) if (plugin.installed && plugin.agents?.length === 1 && plugin.agents[0] === 'claude') items.push(pluginItem(plugin, sources, skillsDir));
+  for (const plugin of snapshot.plugins) if (plugin.installed && plugin.agents?.length === 1 && plugin.agents[0] === 'claude') items.push(pluginItem(plugin, sources, skillsDir, owner));
   return items;
 }
 

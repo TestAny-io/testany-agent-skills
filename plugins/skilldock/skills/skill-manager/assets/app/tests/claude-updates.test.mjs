@@ -27,10 +27,10 @@ async function world(t, { claude = 'enabled' } = {}) {
   const state = path.join(root, 'state'); await fs.mkdir(state); await writeGeneration(state, 2);
   const agents = async management => write(path.join(state, 'settings/agents.json'), { format: 1, agents: { claude: { management, origin: 'user', changedAt: '2026-10-09T00:00:00.000Z' } } });
   await agents(claude);
-  const lists = { plugins: [], marketplaces: [] }; let time = Date.parse('2026-10-09T00:00:00Z');
+  const lists = { plugins: [], marketplaces: [] }; let time = Date.parse('2026-10-09T00:00:00Z'); const cli = { available: true };
   const service = await createService({ home, codexHome, projectDir: project, stateDir: state, background: false, env: { HOME: home }, now: () => time,
     adapter: { list: async () => ({ plugins: [], marketplaces: [], diagnostics: [], listed: { plugins: true, marketplaces: true }, cli: { available: true, version: 'codex-cli 0.200.0', path: '/stand-in/codex' } }) },
-    claudeCli: async () => ({ available: true, version: '2.1.288', path: '/stand-in/claude' }),
+    claudeCli: async () => cli.available ? { available: true, version: '2.1.288', path: '/stand-in/claude' } : { available: false, error: '未找到可用的 Claude 命令行。' },
     claudeCatalog: { managedDir: path.join(root, 'no-managed'), listPlugins: async () => structuredClone(lists.plugins), listMarketplaces: async () => structuredClone(lists.marketplaces) },
     claudeWriter: () => async () => { throw new Error('no command line'); }, claudeGit: async () => { throw new Error('not a repository'); } });
   t.after(async () => { await service.close(); await fs.rm(root, { recursive: true, force: true }); });
@@ -38,7 +38,7 @@ async function world(t, { claude = 'enabled' } = {}) {
   const snapshot = () => service.snapshot('local', true, { multiAgent: true });
   const item = async id => (await snapshot()).updates.find(entry => entry.target.id === id);
   const advance = minutes => { time += minutes * 60000; };
-  return { root, home, configDir, codexHome, project, state, lists, service, act, snapshot, item, agents, advance };
+  return { root, home, configDir, codexHome, project, state, lists, service, act, snapshot, item, agents, advance, cli };
 }
 // A Claude skill installed from a local source, so that SkillDock records where it came from.
 async function installSkill(w) {
@@ -131,10 +131,61 @@ test('a Claude skill that becomes shared keeps its place in the plan; the Codex 
   assert.ok(state.activity.some(item => item.action === 'schedule.migrate'), '迁移留有记录');
 });
 
+test('a shared skill Claude leads, updated by an applying plan, stays shared under its ID; the run is updated, the next current (5a/5b review P1-01)', async t => {
+  const w = await world(t);
+  await installSkill(w);
+  await fs.symlink(path.join(w.configDir, 'skills/notes'), path.join(w.codexHome, 'skills/notes'));
+  const shared = (await w.snapshot()).skills.find(item => item.name === 'notes'); const target = { kind: 'skill', id: shared.id, agent: 'claude' };
+  await w.act({ action: 'schedule.configure', agent: 'claude', schedule: { enabled: true, intervalMinutes: 15, timezone: 'UTC', autoApply: true, targets: [target] } });
+  await skillFile(path.join(w.root, 'src'), 'notes', 'v2\n');
+  w.advance(16); await w.service.tickScheduler();
+  let state = await w.snapshot();
+  assert.deepEqual([state.updateRuns[0].items[0].status, state.updateRuns[0].items[0].reasonCode], ['updated', undefined]);
+  assert.match(await fs.readFile(path.join(w.configDir, 'skills/notes/SKILL.md'), 'utf8'), /v2/);
+  const after = state.skills.find(item => item.name === 'notes');
+  assert.deepEqual([after.id, after.agents.join()], [shared.id, 'codex,claude'], 'Codex 一侧仍看得到它，对象 ID 不变');
+  assert.ok((await w.service.snapshot('local', true)).skills.some(item => item.name === 'notes'), '1 版快照也列出');
+  w.advance(16); await w.service.tickScheduler();
+  state = await w.snapshot();
+  assert.equal(state.updateRuns[0].items[0].status, 'current'); assert.deepEqual(state.schedule.targets, [target]);
+});
+
+test('a shared skill whose Codex link goes away continues in the plan as Claude\'s own (5a/5b review P3-03)', async t => {
+  const w = await world(t);
+  await installSkill(w);
+  await fs.symlink(path.join(w.configDir, 'skills/notes'), path.join(w.codexHome, 'skills/notes'));
+  const shared = (await w.snapshot()).skills.find(item => item.name === 'notes');
+  await w.act({ action: 'schedule.configure', agent: 'claude', schedule: { enabled: true, intervalMinutes: 15, timezone: 'UTC', autoApply: false, targets: [{ kind: 'skill', id: shared.id, agent: 'claude' }] } });
+  await fs.rm(path.join(w.codexHome, 'skills/notes'));
+  const own = (await w.snapshot()).skills.find(item => item.name === 'notes');
+  assert.deepEqual([own.agents.join(), own.id === shared.id], ['claude', false]);
+  w.advance(16); await w.service.tickScheduler();
+  const state = await w.snapshot();
+  assert.deepEqual(state.schedule.targets, [{ kind: 'skill', id: own.id, agent: 'claude' }]);
+  assert.equal(state.updateRuns[0].items[0].status, 'current');
+});
+
+test('a Claude target\'s side is its own, whatever the request names; it pauses while Claude cannot be confirmed or is gone (5a/5b review M35, M30, M31)', async t => {
+  const w = await world(t);
+  const skill = await installSkill(w); const target = { kind: 'skill', id: skill.id, agent: 'claude' };
+  await w.agents('read-only');
+  assert.equal((await w.act({ action: 'update.check', agent: 'codex', target })).code, 'AGENT_READ_ONLY', '侧别取自目标，不取请求的 agent');
+  await w.agents('enabled');
+  await w.act({ action: 'schedule.configure', agent: 'claude', schedule: { enabled: true, intervalMinutes: 15, timezone: 'UTC', autoApply: false, targets: [target] } });
+  w.cli.available = false;
+  w.advance(16); await w.service.tickScheduler();
+  let run = (await w.snapshot()).updateRuns[0].items[0];
+  assert.deepEqual([run.status, run.reasonCode], ['skipped', 'AGENT_PAUSED']); assert.match(run.message, /无法确认 Claude 环境/);
+  await fs.rm(w.configDir, { recursive: true });
+  w.advance(16); await w.service.tickScheduler();
+  run = (await w.snapshot()).updateRuns[0].items[0];
+  assert.deepEqual([run.status, run.reasonCode], ['skipped', 'AGENT_PAUSED']); assert.match(run.message, /本机未找到 Claude/);
+});
+
 test('every message seen above has a whole English and Japanese translation', async () => {
   const messages = [...seen].filter(text => /[一-鿿]/.test(text));
   assert.ok(messages.length > 5, `${messages.length}`);
   await assertTranslated([...messages, '这个技能不在个人技能目录或当前项目的 .claude/skills 中，属于仓库或其他项目；SkillDock 不在这里更新它。', '由组织托管设置管理；SkillDock 不代为更新。',
     '此技能通过链接接入；更新请在真实来源目录进行。', '这个技能目录插件通过链接接入；更新请在真实来源目录进行。', '这个技能目录插件没有 SkillDock 记录的来源；请在它的来源处更新。', '由组织托管设置安装；SkillDock 不代为更新。',
-    '本机未找到 Claude，计划中的这一项暂停；恢复后继续。', '技能已变为两侧共用，计划中的这一项已随对象 ID 迁移。', '检查已追踪来源的文件变化；更新时替换技能目录中的插件文件。']);
+    '本机未找到 Claude，计划中的这一项暂停；恢复后继续。', '技能的共用状态已变化，计划中的这一项已随对象 ID 迁移。', '检查已追踪来源的文件变化；更新时替换技能目录中的插件文件。']);
 });

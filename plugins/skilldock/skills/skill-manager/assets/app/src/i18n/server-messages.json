@@ -1639,9 +1639,9 @@
     "en": "The Claude environment cannot be confirmed, so this plan item is paused; it resumes once it can be.",
     "ja": "Claude 環境を確認できないため、計画のこの項目は一時停止しています。確認できるようになると再開します。"
   },
-  "技能已变为两侧共用，计划中的这一项已随对象 ID 迁移。": {
-    "en": "The skill is now shared by both sides; this plan item moved with its new object ID.",
-    "ja": "スキルが両側で共有されるようになったため、計画のこの項目は新しいオブジェクト ID に移しました。"
+  "技能的共用状态已变化，计划中的这一项已随对象 ID 迁移。": {
+    "en": "The skill's sharing between the two sides changed; this plan item moved with its new object ID.",
+    "ja": "スキルの両側での共有状態が変わったため、計画のこの項目は新しいオブジェクト ID に移しました。"
   },
   "已安装内容与来源一致。": {
     "en": "The installed content matches the source.",
@@ -1858,5 +1858,37 @@
   "自动恢复未完成；更新前的插件目录保留在 {v0}，请据此恢复 {v1}。": {
     "en": "Automatic recovery did not finish; the plugin directory from before the update is kept at {v0}. Restore {v1} from it.",
     "ja": "自動復元は完了しませんでした。更新前のプラグインディレクトリは {v0} に残っています。これをもとに {v1} を復元してください。"
+  },
+  "已安装的插件内容相对上次记录有变化，可能是 Claude 自己更新过，也可能是本地修改，不能自动覆盖；请先核对。如果没有本地修改，可在 Claude 中卸载后重新安装这个插件，再检查。": {
+    "en": "The installed plugin changed since SkillDock last recorded it. Claude may have updated it itself, or it was changed locally, so it is not overwritten automatically; check it first. If nothing was changed locally, uninstall and reinstall the plugin in Claude, then check again.",
+    "ja": "インストール済みのプラグインは前回の記録から変わっています。Claude 自身が更新したか、ローカルで変更された可能性があるため、自動では上書きしません。先に確認してください。ローカルで変更していない場合は、Claude でアンインストールして再インストールしてから、もう一度確認してください。"
+  },
+  "这条安装所在的项目目录不存在，计划中的这一项暂停；项目目录恢复后继续。": {
+    "en": "The project folder of this installation no longer exists, so this plan item is paused; it resumes once the folder is back.",
+    "ja": "このインストールのプロジェクトフォルダーが存在しないため、計画のこの項目は一時停止しています。フォルダーが戻ると再開します。"
+  },
+  "下载压缩包失败：重定向过多。": {
+    "en": "Downloading the archive failed: too many redirects.",
+    "ja": "アーカイブのダウンロードに失敗しました：リダイレクトが多すぎます。"
+  },
+  "更新目标无效。": {
+    "en": "The update target is invalid.",
+    "ja": "更新対象が無効です。"
+  },
+  "更新目标不存在。": {
+    "en": "The update target does not exist.",
+    "ja": "更新対象が存在しません。"
+  },
+  "文件差异已加载。": {
+    "en": "The file differences are loaded.",
+    "ja": "ファイルの差分を読み込みました。"
+  },
+  "所选目标尚不能检查更新，请先确认来源。": {
+    "en": "A selected target cannot be checked for updates yet; confirm its source first.",
+    "ja": "選択した対象はまだ更新を確認できません。先に取得元を確認してください。"
+  },
+  "这个插件没有版本号，Claude 会原地覆盖它；更新前 SkillDock 会先复制一份，供需要时手动恢复。": {
+    "en": "This plugin has no version, so Claude overwrites it in place; SkillDock copies it first so it can be restored by hand if needed.",
+    "ja": "このプラグインにはバージョンがないため、Claude はその場で上書きします。必要なときに手動で戻せるよう、更新前に SkillDock がコピーを作成します。"
   }
 }

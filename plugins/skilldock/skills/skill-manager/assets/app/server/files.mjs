@@ -90,15 +90,17 @@ export async function inspectTree(root, { skip } = {}) {
   return { fingerprint: hash(JSON.stringify(entries)), entries, files: count, bytes, realRoot };
 }
 
-export async function copySkill(source, destination) {
-  const tree = await inspectTree(source);
-  await fs.cp(tree.realRoot, destination, { recursive: true, dereference: false, verbatimSymlinks: true, errorOnExist: true, force: false, filter: file => path.basename(file) !== '.git' });
+/** `skip`: top-level entries left out of the copy and its fingerprint, as `inspectTree` does. */
+export async function copySkill(source, destination, { skip } = {}) {
+  const tree = await inspectTree(source, { skip });
+  await fs.cp(tree.realRoot, destination, { recursive: true, dereference: false, verbatimSymlinks: true, errorOnExist: true, force: false,
+    filter: file => path.basename(file) !== '.git' && !(skip && path.dirname(file) === tree.realRoot && skip.has(path.basename(file))) });
   for (const [relative, value] of Object.entries(tree.entries)) {
     if (!value.startsWith('link:')) continue;
     const file = path.join(destination, relative);
     await fs.unlink(file); await fs.symlink(value.slice(5), file);
   }
-  if ((await inspectTree(destination)).fingerprint !== tree.fingerprint) fail(409, 'SOURCE_CHANGED', '来源在复制期间发生变化，请重新预览。');
+  if ((await inspectTree(destination, { skip })).fingerprint !== tree.fingerprint) fail(409, 'SOURCE_CHANGED', '来源在复制期间发生变化，请重新预览。');
   return tree;
 }
 

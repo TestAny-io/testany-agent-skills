@@ -5,6 +5,7 @@
 // (a Git checkout, an npm package, an archive) goes through functions the service can replace.
 import crypto from 'node:crypto';
 import fs from 'node:fs/promises';
+import fsSync from 'node:fs';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { fail, inspectTree, copySkill, inside } from './files.mjs';
@@ -43,7 +44,8 @@ export function pluginSource(entry, market) {
     case 'github': return typeof source.repo === 'string' ? { kind: 'git', url: githubUrl(source.repo), ref } : { kind: 'unknown' };
     case 'url': return typeof source.url === 'string' ? { kind: 'git', url: gitUrl(source.url), ref } : { kind: 'unknown' };
     case 'git-subdir': return typeof source.url === 'string' && typeof source.path === 'string' ? { kind: 'git', url: gitUrl(source.url), ref, subpath: source.path } : { kind: 'unknown' };
-    case 'npm': return typeof source.package === 'string' ? { kind: 'npm', spec: !source.package.startsWith('https:') && typeof source.version === 'string' && !/@[^/]+$/.test(source.package.replace(/^@/, '')) ? `${source.package}@${source.version}` : source.package, ...(typeof source.registry === 'string' ? { registry: source.registry } : {}) } : { kind: 'unknown' };
+    // A package name that reads as an option is not one SkillDock passes to npm (5a/5b review P3-06).
+    case 'npm': return typeof source.package === 'string' && !source.package.startsWith('-') ? { kind: 'npm', spec: !source.package.startsWith('https:') && typeof source.version === 'string' && !/@[^/]+$/.test(source.package.replace(/^@/, '')) ? `${source.package}@${source.version}` : source.package, ...(typeof source.registry === 'string' ? { registry: source.registry } : {}) } : { kind: 'unknown' };
     case 'archive': return typeof source.url === 'string' ? { kind: 'archive', url: source.url, ...(typeof source.sha256 === 'string' ? { sha256: source.sha256.toLowerCase() } : {}) } : { kind: 'unknown' };
     case 'command': return { kind: 'command' };
     default: return { kind: 'unknown' };
@@ -61,7 +63,10 @@ export const OWNER_REASON = {
 function relativeDirectory(installLocation, relative, pluginRoot) {
   const value = !relative.startsWith('./') && relative !== '.' && !relative.includes('/') && pluginRoot ? path.join(pluginRoot, relative) : relative;
   const directory = path.resolve(installLocation, value);
-  if (!inside(path.resolve(installLocation), directory)) fail(422, 'SOURCE_BOUNDARY', '插件来源越出 marketplace 根目录。');
+  // By the real path too: a link inside the copy must not bring in a directory outside it (5a/5b review P3-06).
+  const real = value => { try { return fsSync.realpathSync(value); } catch { return null; } };
+  const actual = real(directory);
+  if (!inside(path.resolve(installLocation), directory) || actual && !inside(real(installLocation) ?? path.resolve(installLocation), actual)) fail(422, 'SOURCE_BOUNDARY', '插件来源越出 marketplace 根目录。');
   return directory;
 }
 
@@ -71,7 +76,7 @@ export function localDirectory(source, installLocation, pluginRoot) {
 }
 
 /** Default network access, for the service; tests replace it. */
-export function defaultFetchers({ env, timeout = 60000 } = {}) {
+export function defaultFetchers({ env, timeout = 60000, fetchImpl = fetch, archiveLimit = 100 * 1024 * 1024 } = {}) {
   return {
     checkout: (url, ref, destination) => checkoutGit(url, ref, destination, { env, timeout }),
     // Exact names, in the order a checkout resolves them: a tag before a branch, an annotated tag by
@@ -92,16 +97,29 @@ export function defaultFetchers({ env, timeout = 60000 } = {}) {
       return { file: path.join(directory, path.basename(first.filename)), version: first.version, integrity: first.integrity };
     },
     npmView: async (spec, registry) => {
-      const out = JSON.parse((await runProcess('npm', ['view', spec, 'version', 'dist.integrity', '--json', ...(registry ? ['--registry', registry] : [])], { env, timeout })).stdout);
+      const parsed = JSON.parse((await runProcess('npm', ['view', spec, 'version', 'dist.integrity', '--json', ...(registry ? ['--registry', registry] : [])], { env, timeout })).stdout);
+      // A range that several versions satisfy lists them in order; `npm pack` takes the highest, the last.
+      const out = Array.isArray(parsed) ? parsed.at(-1) ?? {} : parsed;
       return { version: out.version, integrity: out['dist.integrity'] };
     },
+    // Redirects are followed by hand, to https hosts other than this computer only, and the size is
+    // counted while reading (5a/5b review P3-06).
     download: async (url, file) => {
-      if (!url.startsWith('https://')) fail(422, 'INVALID_SOURCE', '压缩包来源只接受 https 地址。');
-      const response = await fetch(url, { redirect: 'follow', signal: AbortSignal.timeout(timeout) });
-      if (!response.ok) fail(502, 'DOWNLOAD_MISSING', `下载压缩包失败：HTTP ${response.status}。`);
-      const data = Buffer.from(await response.arrayBuffer());
-      if (data.length > 100 * 1024 * 1024) fail(422, 'SOURCE_LIMIT', '压缩包超过 100 MB。');
-      await fs.writeFile(file, data);
+      const signal = AbortSignal.timeout(timeout); let current = url;
+      for (let hops = 0; ; hops++) {
+        const target = new URL(current);
+        if (target.protocol !== 'https:' || /^(localhost|127\.|0\.0\.0\.0$|\[::1?\]$)/i.test(target.hostname)) fail(422, 'INVALID_SOURCE', '压缩包来源只接受 https 地址。');
+        const response = await fetchImpl(current, { redirect: 'manual', signal });
+        const next = response.headers.get('location');
+        if ([301, 302, 303, 307, 308].includes(response.status) && next) {
+          if (hops >= 5) fail(502, 'DOWNLOAD_MISSING', '下载压缩包失败：重定向过多。');
+          current = new URL(next, current).href; continue;
+        }
+        if (!response.ok) fail(502, 'DOWNLOAD_MISSING', `下载压缩包失败：HTTP ${response.status}。`);
+        const chunks = []; let size = 0;
+        for await (const chunk of response.body) { size += chunk.length; if (size > archiveLimit) fail(422, 'SOURCE_LIMIT', '压缩包超过 100 MB。'); chunks.push(chunk); }
+        await fs.writeFile(file, Buffer.concat(chunks)); return;
+      }
     },
     unzip: (file, destination) => runProcess(process.platform === 'darwin' ? '/usr/bin/ditto' : 'unzip', process.platform === 'darwin' ? ['-x', '-k', file, destination] : ['-q', file, '-d', destination], { env, timeout }),
     untar: (file, destination) => runProcess('tar', ['-xzf', file, '-C', destination], { env, timeout }),
@@ -117,29 +135,30 @@ async function archiveRoot(directory) {
 }
 
 /**
- * Stages what Claude would install into `staging/candidate` (HLD 3.3A). Returns the candidate's
+ * Stages what Claude would install into `staging/candidate` (HLD 3.3A), leaving out what the
+ * installation's fingerprint leaves out (`node_modules`; 5a/5b review P2-01). Returns the candidate's
  * tree and the facts the pre-apply check and the version need (commit, digest, package).
  */
 export async function stageCandidate(source, { installLocation, pluginRoot, staging, fetchers }) {
   const candidate = path.join(staging, 'candidate');
   switch (source.kind) {
     case 'local': case 'git-market': {
-      const tree = await copySkill(localDirectory(source, installLocation, pluginRoot), candidate);
+      const tree = await copySkill(localDirectory(source, installLocation, pluginRoot), candidate, { skip: INSTALL_SKIP });
       return { candidate, tree };
     }
     case 'git': {
       const repository = path.join(staging, 'repository');
       const commit = await fetchers.checkout(source.url, source.ref, repository);
       const directory = source.subpath ? path.resolve(repository, source.subpath) : repository;
-      if (!inside(repository, directory)) fail(422, 'SOURCE_BOUNDARY', '插件子目录越出仓库。');
-      const tree = await copySkill(directory, candidate);
+      if (!inside(repository, directory) || !inside(await fs.realpath(repository), await fs.realpath(directory).catch(() => directory))) fail(422, 'SOURCE_BOUNDARY', '插件子目录越出仓库。');
+      const tree = await copySkill(directory, candidate, { skip: INSTALL_SKIP });
       return { candidate, tree, commit };
     }
     case 'npm': {
       const packed = await fetchers.npmPack(source.spec, source.registry, staging);
       const extract = path.join(staging, 'extract'); await fs.mkdir(extract);
       await fetchers.untar(packed.file, extract);
-      const tree = await copySkill(path.join(extract, 'package'), candidate);
+      const tree = await copySkill(path.join(extract, 'package'), candidate, { skip: INSTALL_SKIP });
       return { candidate, tree, packageVersion: packed.version, integrity: packed.integrity };
     }
     case 'archive': {
@@ -149,7 +168,7 @@ export async function stageCandidate(source, { installLocation, pluginRoot, stag
       if (source.sha256 && source.sha256 !== digest) fail(409, 'SOURCE_CHANGED', '下载的压缩包摘要与 marketplace 条目声明的不一致，已中止。');
       const extract = path.join(staging, 'extract'); await fs.mkdir(extract);
       await fetchers.unzip(file, extract);
-      const tree = await copySkill(await archiveRoot(extract), candidate);
+      const tree = await copySkill(await archiveRoot(extract), candidate, { skip: INSTALL_SKIP });
       return { candidate, tree, sha256: digest };
     }
     default: fail(422, 'UNSUPPORTED_FOR_AGENT', OWNER_REASON[source.kind] ?? OWNER_REASON.unknown);
