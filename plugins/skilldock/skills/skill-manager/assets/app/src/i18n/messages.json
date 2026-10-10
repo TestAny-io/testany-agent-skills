@@ -2514,5 +2514,9 @@
   "一键更新 {v0} 中的 SkillDock": {
     "en": "Update SkillDock in {v0}",
     "ja": "{v0} の SkillDock を更新"
+  },
+  "调整 Agent 管理": {
+    "en": "Change Agent management",
+    "ja": "Agent の管理を変更"
   }
 }

@@ -12,7 +12,7 @@ import { recordClaudeSessionRoot } from '../server/claude-root.mjs';
 import { readRoute } from '../server/native-backend.mjs';
 import { writeGeneration } from '../server/generation.mjs';
 
-async function world(t, { codex = true, claude = true } = {}) {
+async function world(t, { codex = true, claude = true, ...extra } = {}) {
   const root = await fs.realpath(await fs.mkdtemp(path.join(os.tmpdir(), 'skilldock-agents-')));
   const home = path.join(root, 'home'); const codexHome = path.join(home, '.codex'); const claudeConfig = path.join(home, '.claude');
   await fs.mkdir(home);
@@ -26,7 +26,7 @@ async function world(t, { codex = true, claude = true } = {}) {
   const options = { home, codexHome, projectDir: home, stateDir: state, background: false,
     adapter: { list: async () => ({ plugins: [], marketplaces: [], diagnostics: [], cli: status.codex }) },
     claudeCli: async () => status.claude, env: { HOME: home },
-    claudeCatalog: { managedDir: path.join(root, 'no-managed'), listPlugins: async () => { if (lists.fail) throw new Error(lists.fail); return []; }, listMarketplaces: async () => [] } };
+    claudeCatalog: { managedDir: path.join(root, 'no-managed'), listPlugins: async () => { if (lists.fail) throw new Error(lists.fail); return []; }, listMarketplaces: async () => [] }, ...extra };
   const service = await createService(options);
   t.after(async () => { await service.close(); await fs.rm(root, { recursive: true, force: true }); });
   const act = request => service.action({ mode: 'local', ...request }).then(result => result, error => error);
@@ -90,6 +90,17 @@ test('Claude: an unavailable command line leaves it unconfirmed and enabling nee
   assert.equal((await w.act({ action: 'skill.toggle', agent: 'claude', id: demo.id, enabled: false })).code, 'UNSUPPORTED_FOR_AGENT', 'Codex 侧 ID 的 Claude 一侧随 4c');
   assert.equal((await w.act({ action: 'agent.updateSkilldock', agent: 'claude' })).code, 'NOT_FOUND', '这一侧没有 SkillDock（一键更新随 5d2）');
   assert.equal((await w.act({ action: 'agent.setManagement', management: 'enabled' })).code, 'INVALID_ACTION', 'agent.* 必须带 agent');
+});
+
+test('turning management on or off is listed with the other changes, for a multi-agent client only; a slow read names its parts in the log (UAT 2026-10-10)', async t => {
+  const lines = []; const w = await world(t, { log: line => lines.push(line), slowSnapshotMs: 0 });
+  await w.act({ action: 'agent.setManagement', agent: 'claude', management: 'enabled' });
+  await w.act({ action: 'agent.setManagement', agent: 'claude', management: 'read-only' });
+  const listed = (await w.service.snapshot('local', true, { multiAgent: true })).activity.filter(item => item.action === 'agent.setManagement');
+  assert.deepEqual(listed.map(item => [item.agent, item.target, item.status, item.canRestore]), [['claude', 'Claude', 'success', false], ['claude', 'Claude', 'success', false]]);
+  assert.deepEqual(listed.map(item => item.message.split('\n')[0]).sort(), ['已启用 Claude 管理。', '已把 Claude 设为只读；SkillDock 不再修改其中的技能和插件，计划中的相关项暂停。']);
+  assert.equal((await w.service.snapshot('local', true)).activity.some(item => item.action.startsWith('agent.')), false, '1 版客户端不认识 Agent 环境的操作');
+  assert.match(lines.findLast(line => line.includes('claude-list')), /读取清单用时 \d+ ms：codex-list \d+，scan \d+，agents \d+，claude-list \d+，其余 -?\d+。$/);
 });
 
 test('an Agent that is not installed cannot be enabled; one enabled before stays listed with its state', async t => {

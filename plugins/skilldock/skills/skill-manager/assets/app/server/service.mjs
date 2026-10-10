@@ -30,7 +30,7 @@ import { createDirectoryIcons } from './directory-icons.mjs';
 import { createAgentLayer, readManagement, writeManagement, AGENT_NAME } from './agents.mjs';
 import { claudeCatalog, claudeIds, claudeLists } from './claude-catalog.mjs';
 import { updateSkilldockIn, claudeAppVersion, manualUpdate } from './skilldock-update.mjs';
-import { INSTALL_SKIP, marketplaceEntry, pluginSource, OWNER_REASON, stageCandidate, predictVersion, checkOutcome, copyInstallation, localDirectory, defaultFetchers } from './claude-plugin-updates.mjs';
+import { INSTALL_SKIP, marketplaceEntry, pluginSource, entrySourceInfo, OWNER_REASON, stageCandidate, predictVersion, checkOutcome, copyInstallation, localDirectory, defaultFetchers } from './claude-plugin-updates.mjs';
 import { claudeWriter } from './claude-writer.mjs';
 import { createClaudeActions, CLAUDE_WRITES } from './claude-actions.mjs';
 import { mergeClaude, markReadOnly } from './multi-agent.mjs';
@@ -71,6 +71,8 @@ export const CODEX_READ_ONLY_REASON = 'Codex 环境当前为只读；在 SkillDo
 export const CLAUDE_READ_ONLY_REASON = 'Claude 环境当前为只读；在 SkillDock 的“Agent 环境”页启用 Claude 管理后才能修改。';
 // Version-2 request fields (36c 7.1); a request without `agent` keeps the 0.10.2 fields only.
 const VERSION_2_FIELDS = ['scope', 'confirm', 'gitExclude', 'keepData', 'expectedRevision'];
+/** A snapshot at least this slow writes its parts to the log. */
+export const SLOW_SNAPSHOT_MS = 5000;
 const validPath = value => typeof value === 'string' && path.isAbsolute(value) && value.length <= 2000 && !/[\x00-\x1f]/.test(value);
 export function validateAction(input) {
   if (!input || typeof input !== 'object' || Array.isArray(input)) fail(400, 'INVALID_ACTION', '请求需要 JSON 对象。');
@@ -121,6 +123,7 @@ export { compareVersions };
 
 export async function createService(options = {}) {
   const homeInput = path.resolve(options.home || os.homedir()); const home = await fs.realpath(homeInput);
+  const log = options.log ?? (line => process.stderr.write(`${line}\n`));
   let stateDir = path.resolve(options.stateDir || process.env.SKILLDOCK_STATE_DIR || path.join(home, '.local/share/skilldock'));
   let projectInfo = await resolveProject({ projectDir: options.projectDir, stateDir });
   const inherited = options.projectContext || JSON.parse(process.env.SKILLDOCK_PROJECT_CONTEXT || 'null');
@@ -255,11 +258,14 @@ export async function createService(options = {}) {
     if (!operationActive) {
       try { await withOperation(() => cleanupTemporary(env)); } catch { /* A writer owns the lock, or cleanup is unavailable; never interrupt its staging. */ }
     }
-    const result = await enrichSources(await scan(env, registry, await catalogFor(env, registry, force)), env, registry);
+    // A slow read names its slow part in server.log (UAT 2026-10-10: a first read took 27 s).
+    const timing = {}; const timed = async (part, work) => { const at = performance.now(); try { return await work(); } finally { timing[part] = Math.round(performance.now() - at); } };
+    const catalog = await timed('codex-list', () => catalogFor(env, registry, force));
+    const result = await timed('scan', async () => enrichSources(await scan(env, registry, catalog), env, registry));
     enrichTags(result, registry);
     // A version-1 snapshot keeps 0.10.2 semantics: Claude's activity is not Codex's, and it does not
-    // take places among the 200 shown (4a review P3-05).
-    if (!multiAgent) result.activity = result.activity.filter(item => (item.agent ?? 'codex') === 'codex');
+    // take places among the 200 shown (4a review P3-05); nor does it see Agent environment actions (36c §10, v0.29).
+    if (!multiAgent) result.activity = result.activity.filter(item => (item.agent ?? 'codex') === 'codex' && !item.action?.startsWith('agent.'));
     if (scheduler) { const { extraActivity, ...updateState } = scheduler.data(mode, result); Object.assign(result, updateState); result.activity = [...result.activity, ...extraActivity].sort((a, b) => b.createdAt.localeCompare(a.createdAt)).slice(0, 200); }
     else { result.activity = result.activity.slice(0, 200); result.updates = buildUpdateItems(result, {}, hasPreview); }
     // 36c §6: a version-1 client does not see another side's plan targets.
@@ -274,8 +280,8 @@ export async function createService(options = {}) {
     // 36c §5–6: only a client that declared multiAgent=1 sees Agent environments, and then
     // every object names its Agent explicitly.
     if (multiAgent && mode === 'local') {
-      const found = await agentLayer.discover({ force });
-      const claude = found.installed.claude ? await claudeFor(found, env.project, force) : null;
+      const found = await timed('agents', () => agentLayer.discover({ force }));
+      const claude = found.installed.claude ? await timed('claude-list', () => claudeFor(found, env.project, force)) : null;
       if (claude) decorateClaudeDirect(claude, registry, env);
       mergeClaude(result, claude ?? { skills: [], plugins: [], marketplaces: [], diagnostics: [] });
       if (claude) {
@@ -311,7 +317,9 @@ export async function createService(options = {}) {
     } else if (multiAgent) {
       mergeClaude(result, { skills: [], plugins: [], marketplaces: [], diagnostics: [] }); result.agents = [];
     }
-    result.durationMs = Math.round(performance.now() - started); return result;
+    result.durationMs = Math.round(performance.now() - started);
+    if (result.durationMs >= (options.slowSnapshotMs ?? SLOW_SNAPSHOT_MS)) log(`${now()} 读取清单用时 ${result.durationMs} ms：${Object.entries(timing).map(([part, ms]) => `${part} ${ms}`).join('，')}，其余 ${result.durationMs - Object.values(timing).reduce((sum, ms) => sum + ms, 0)}。`);
+    return result;
   }
   // The Claude catalog for multi-agent snapshots, kept for 15 seconds like the Codex one.
   let claudeCache;
@@ -439,8 +447,10 @@ export async function createService(options = {}) {
     for (const plugin of result.plugins) {
       if (!plugin.installed || plugin.agents?.join() !== 'claude' || plugin.marketplace === 'skills-dir') continue;
       if (plugin.installation?.readOnlyReason) { owner.set(plugin.id, { reasonCode: 'PROJECT_PATH_MISSING', message: plugin.installation.readOnlyReason }); continue; }
-      const kind = (await claudeEntrySource(plugin, result.marketplaces, path.dirname(roots.user), read))?.kind;
-      if (kind && OWNER_REASON[kind]) owner.set(plugin.id, { reasonCode: 'OWNER_MANAGED', message: OWNER_REASON[kind] });
+      const source = await claudeEntrySource(plugin, result.marketplaces, path.dirname(roots.user), read);
+      if (source && OWNER_REASON[source.kind]) owner.set(plugin.id, { reasonCode: 'OWNER_MANAGED', message: OWNER_REASON[source.kind] });
+      // Shown where the list and the preview said nothing (UAT 2026-10-10); a generated marketplace keeps its original source.
+      if (source && !plugin.sourceInfo?.source) sources.set(plugin.id, entrySourceInfo(source, plugin.marketplace));
     }
     return { sources, skillsDir, owner };
   }
@@ -808,7 +818,8 @@ export async function createService(options = {}) {
         : '已安装的插件内容相对上次记录有本地修改，不能自动覆盖；请先核对。');
       if (applying && changedLocally) localChanges();
       if (!applying) {
-        const item = (status, extra) => ({ target, agent: 'claude', name, owner: 'Claude', route: 'claude-plugin', status, canCheck: true, canApply: status === 'available', canAutoApply: status === 'available' && !registry.claudePluginReview?.[target.id], checkedAt: now(), installedVersion: install.version, ...extra });
+        const item = (status, extra) => ({ target, agent: 'claude', name, owner: 'Claude', route: 'claude-plugin', status, canCheck: true, canApply: status === 'available', canAutoApply: status === 'available' && !registry.claudePluginReview?.[target.id], checkedAt: now(), installedVersion: install.version, installedPath: install.installPath,
+          sourceInfo: direct ? { source: publicSource(tracked.source), sourceType: tracked.sourceType, subpath: tracked.subpath, ref: tracked.ref, label: '单插件来源' } : entrySourceInfo(source, plugin.marketplace), ...extra });
         if (['command', 'helper', 'unknown'].includes(source.kind)) return { message: OWNER_REASON[source.kind], updateItem: item('blocked', { message: OWNER_REASON[source.kind], reasonCode: 'OWNER_MANAGED' }) };
         let staged;
         if (direct) {
@@ -1825,7 +1836,8 @@ export async function createService(options = {}) {
       directory = pluginPath(env.codexHome, plugin.marketplace, plugin.name, plugin.version); generation = registry.plugins?.[target.id]?.generation;
     } else directory = env.codexHome;
     const real = await fs.realpath(directory); const stat = await fs.stat(directory);
-    const source = item.sourceInfo || {}; const sourceIdentity = {};
+    // A marketplace entry's description is for display; it names pinned versions, and the entry's place is bound below.
+    const source = item.sourceInfo?.kind === 'marketplace-entry' ? {} : item.sourceInfo || {}; const sourceIdentity = {};
     for (const key of ['kind', 'owner', 'sourceType', 'source', 'subpath', 'ref', 'commit', 'marketplace', 'pluginId']) if (source[key] !== undefined) sourceIdentity[key] = source[key];
     if (target.agent === 'claude' && item.route === 'claude-plugin') {
       const plugin = current.plugins.find(candidate => candidate.id === target.id && candidate.installed);
@@ -2074,8 +2086,15 @@ export async function createService(options = {}) {
     stored[agent] = { management, origin: 'user', changedAt: now() };
     await writeManagement(stateDir, stored);
     if ((await readManagement(stateDir))[agent]?.management !== management) fail(502, 'READBACK_FAILED', '管理状态写入后读回不一致，请重试。');
-    return { message: management === 'enabled' ? `已启用 ${AGENT_NAME[agent]} 管理。`
-      : `已把 ${AGENT_NAME[agent]} 设为只读；SkillDock 不再修改其中的技能和插件，计划中的相关项暂停。${note}` };
+    const message = management === 'enabled' ? `已启用 ${AGENT_NAME[agent]} 管理。`
+      : `已把 ${AGENT_NAME[agent]} 设为只读；SkillDock 不再修改其中的技能和插件，计划中的相关项暂停。${note}`;
+    // Listed with the other changes (UAT 2026-10-10); the switch has taken effect even when the record cannot be written.
+    const env = environment('local');
+    await verifyDirectoryRoot(env.stateBoundary).then(() => registryFor(env)).then(registry => {
+      registry.activity.unshift({ id: crypto.randomUUID(), action: 'agent.setManagement', agent, target: AGENT_NAME[agent], createdAt: now(), status: 'success', message, canRestore: false });
+      return writeJson(env.registryFile, registry);
+    }).catch(() => {});
+    return { message };
   }
   /**
    * HLD 3.3: turning Claude management off says which marketplaces SkillDock wrote are still in

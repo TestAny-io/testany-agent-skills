@@ -27,7 +27,7 @@
     "src/AgentEnvironments.tsx": "8559f9ebe99b1bcb4c1355e672118ab4eded8344e03083bc13793b93d2b3591d",
     "src/AgentUI.css": "f1c5a1009ed5518a61634a0a42da6c0b917c07f7285aee447c5e984dca7ce8c2",
     "src/AgentUI.tsx": "7fa0d0ba3e0ba4790132838106688ed417d4a61e0e62ff94e538d2ce83df7747",
-    "src/App.tsx": "6551327ae7a414e49a9e6993f445cef5f43d57180c1dfcd56af92118663b4c6c",
+    "src/App.tsx": "65e4822d0100ad13b48073ab285a73959bedc4842d4902aff19bf2ea69232c22",
     "src/CompatibilityWarnings.tsx": "dc7f57da6a06829e5e24fc6149535f69bd6128bd0cbae93e10ee423a623d1f62",
     "src/ConfirmDialog.tsx": "cf838a952b8c17690d1e54ad1538326a372890f5ca921efffe18635b04a790bc",
     "src/DesktopUI.tsx": "a827ba36401fa368b332297efea7dc1d0a8151844b4179e0d7eae189fb99d063",
@@ -58,8 +58,8 @@
     "src/desktop.css": "15814dc52392f308d2afa57b9c076d9149e22e06228e3424264984d939ec03ce",
     "src/i18n.tsx": "dc09254cbb69d72741c0975ce96e70e8b3bf0c56332757833f6effbab0d51a7b",
     "src/i18n/errors.json": "0439683b3255bbf6d6d127483e666c2b9d5b6efa10f387a0efd9b7e3e09ad9f3",
-    "src/i18n/messages.json": "d49259f0e1cd037593d7ecc01e55523f0714f41a20def21202bd975e04959394",
-    "src/i18n/server-messages.json": "c273869b4a82135210ea84a64d0da8f45d54644c1db1000aaa79a9a9df42fc6c",
+    "src/i18n/messages.json": "868db7fa805f06515475f21aaadf900b89957664d6aa6266e141568f13c69c42",
+    "src/i18n/server-messages.json": "1f1df7e7b98ec8769800ff02853f9fd8d9d0286a22e322928657b4e988bb6bb8",
     "src/main.tsx": "0b17df37f3ddac17ba356b85184252cd545e0afa93a2246a8202b30b8a879fff",
     "src/native-icon.svg": "9b7d7c19189c56b43fe691c0cb01e19b1f88abc61d1d130c974c5f5411b7288c",
     "src/plugin-presentation.ts": "f221117671d3b93250a16e6e54326879e6ae1a6aaf3e50dea401e8fdfb86dadf",
@@ -72,7 +72,7 @@
   },
   "artifacts": {
     "server.mjs": "98d37d99ba6366dde78be7102a6dc3d8c1bb99f7728f0e2530518e5f18401701",
-    "ui.html": "d1a2610a741521cd4ae033aa4cddb23e4f10c0d20cbf041f55f64e47fc52706a",
+    "ui.html": "f9194e957260482a725ec291744710b460d681fe6347ea5c729f808898709e0e",
     "icon.svg": "9b7d7c19189c56b43fe691c0cb01e19b1f88abc61d1d130c974c5f5411b7288c",
     "THIRD_PARTY_NOTICES.txt": "0580c525bbaf94d006050bf773e482a470c9f983971e23b26e8048505e11bd4f"
   }

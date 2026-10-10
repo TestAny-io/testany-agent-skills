@@ -3,6 +3,7 @@
 > 这份说明交给那台电脑上 Claude 桌面版（Code 标签页）中的 Claude 执行。它是用户的日常电脑，Codex 中装着正在使用的 SkillDock 0.10.3（Claude 中若也装了 SkillDock，同样不要使用或改动它）。
 > 目标：在一个独立的试用目录中运行 0.11 开发版，供用户在浏览器中试用；试完把这台电脑恢复到试用前的样子，不留任何开发用的配置。
 > 代码来源：公开仓库 `TestAny-io/testany-agent-skills` 的分支 `feature/skilldock-0.11-cross-agent`（尚未发布到 `main`）。
+> 修订（2026-10-10，据首轮试用报告；上一版见提交 `e570697`）：第 4 步查找命令行时只采用实际能运行的（跳过损坏的包装脚本，补上 ChatGPT 应用内置 Codex 的路径），并打印选中的路径；第 8 步说明 `$CODEX`、`$CLAUDE` 的来历，以及 Agent 应用自身产生的记录由用户决定。
 
 ## 1. 边界（先读）
 
@@ -47,8 +48,11 @@ git --version
 
 ```bash
 mkdir -p "$HOME/skilldock-uat/project" "$HOME/skilldock-uat/npm-cache"
-CODEX=$(command -v codex || ls /Applications/Codex.app/Contents/Resources/codex-cli/bin/codex /Applications/Codex.app/Contents/Resources/codex /Applications/ChatGPT.app/Contents/Resources/codex-cli/bin/codex /Applications/ChatGPT.app/Contents/Resources/codex 2>/dev/null | head -1)
-CLAUDE=${CLAUDE_CODE_EXECPATH:-$(command -v claude || ls "$HOME/Library/Application Support/Claude/claude-code"/*/*/claude.app/Contents/MacOS/claude 2>/dev/null | tail -1)}
+# 只采用实际能运行的命令行：PATH 中的包装脚本可能已损坏（例如缺少其 vendor 中的可执行文件）
+pick() { for c in "$@"; do if [ -n "$c" ] && [ -x "$c" ] && "$c" --version >/dev/null 2>&1; then echo "$c"; return 0; fi; done; return 1; }
+CODEX=$(pick "$(command -v codex)" /Applications/ChatGPT.app/Contents/Resources/codex-cli/CodexCLI.app/Contents/MacOS/codex /Applications/ChatGPT.app/Contents/Resources/codex-cli/bin/codex /Applications/ChatGPT.app/Contents/Resources/codex /Applications/Codex.app/Contents/Resources/codex-cli/bin/codex /Applications/Codex.app/Contents/Resources/codex)
+CLAUDE=$(pick "$CLAUDE_CODE_EXECPATH" "$(command -v claude)" || find "$HOME/Library/Application Support/Claude/claude-code" -path '*/claude.app/Contents/MacOS/claude' -type f 2>/dev/null | sort -r | while IFS= read -r c; do "$c" --version >/dev/null 2>&1 && { echo "$c"; break; }; done)
+echo "Codex 命令行：${CODEX:-（未找到可运行的）}"; echo "Claude 命令行：${CLAUDE:-（未找到可运行的）}"
 NAMES='let s="";process.stdin.on("data",d=>s+=d).on("end",()=>{try{const v=JSON.parse(s);const a=Array.isArray(v)?v:(v.installed??v.marketplaces??[]);for(const x of a)console.log(" ",x.id??(x.name+(x.marketplaceName?"@"+x.marketplaceName:"")),x.scope??"",x.version??"")}catch{console.log("  （读取失败）")}})'
 {
   echo "== Codex 插件"; [ -n "$CODEX" ] && "$CODEX" plugin list --json 2>/dev/null | node -e "$NAMES" || echo "  （Codex 命令行不可用）"
@@ -138,7 +142,7 @@ npm_config_cache="$HOME/skilldock-uat/npm-cache" SKILLDOCK_STATE_DIR="$HOME/skil
    diff "$HOME/skilldock-uat/baseline.txt" "$HOME/skilldock-uat/after.txt"
    ```
 
-   - 多出来的插件、marketplace、技能：向用户确认后移除（Codex 用 `"$CODEX" plugin remove <名称>@<marketplace>`、`"$CODEX" plugin marketplace remove <名称>`；Claude 用 `"$CLAUDE" plugin uninstall <名称>@<marketplace> --scope <作用域>`、`"$CLAUDE" plugin marketplace remove <名称>`；技能目录移到废纸篓）。特别留意名称形如 `skilldock-` 加 20 位十六进制的 Claude marketplace，它指向试用目录，试用目录删掉后会成为悬空记录。
+   - 多出来的插件、marketplace、技能：向用户确认后移除（下面的 `$CODEX`、`$CLAUDE` 取自第 4 步命令块的前几行，在同一条命令中先运行那几行；Codex 用 `"$CODEX" plugin remove <名称>@<marketplace>`、`"$CODEX" plugin marketplace remove <名称>`；Claude 用 `"$CLAUDE" plugin uninstall <名称>@<marketplace> --scope <作用域>`、`"$CLAUDE" plugin marketplace remove <名称>`；技能目录移到废纸篓）。特别留意名称形如 `skilldock-` 加 20 位十六进制的 Claude marketplace，它指向试用目录，试用目录删掉后会成为悬空记录。
    - 少了的东西：告诉用户，由用户决定是否恢复。
    - 试用中改过的启用/停用、可见性等开关，名称列表看不出来；请用户回想是否改过，必要时在 Codex 或 Claude 中改回。
 5. **确认没有残留进程**：
@@ -159,6 +163,7 @@ npm_config_cache="$HOME/skilldock-uat/npm-cache" SKILLDOCK_STATE_DIR="$HOME/skil
    - 用户照常从 Codex 打开 SkillDock，确认 0.10.3 仍正常工作（Claude 中若也装了 SkillDock，同样确认）；
    - `ls "$HOME/Library/LaunchAgents" | grep -i skilldock` 的结果与基线中“后台任务”一节相同；
    - 告诉用户：废纸篓里的 `skilldock-uat-…` 确认不再需要后，由用户自行清空废纸篓。
+   - Claude 应用自身因在试用项目中开会话而产生的记录（`~/.claude.json` 中以 `~/skilldock-uat/project` 为键的项目条目、`~/.claude/projects/` 下对应的目录、桌面端会话列表中的试用会话）不是 SkillDock 写的，也不是开发配置：列给用户，不要自行编辑这些文件；是否在应用中删除这些会话或记录，由用户决定。
 
 ## 9. 汇报
 

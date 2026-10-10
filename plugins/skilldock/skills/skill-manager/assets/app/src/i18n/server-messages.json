@@ -1918,5 +1918,9 @@
   "自动恢复未完成：插件目录已移回原处，但 marketplace 条目没能改回；请刷新这个 marketplace 后核对。": {
     "en": "Automatic recovery did not finish: the plugin directory is back in place, but the marketplace entry could not be put back. Refresh this marketplace, then check it.",
     "ja": "自動復元は完了しませんでした。プラグインディレクトリは元に戻りましたが、マーケットプレイスの項目を戻せませんでした。このマーケットプレイスを更新してから確認してください。"
+  },
+  "取自本机保存的 marketplace 副本；检查与更新前重新读取。": {
+    "en": "Taken from the marketplace copy saved on this computer; read again before checking and updating.",
+    "ja": "このコンピューターに保存されたマーケットプレイスのコピーから取得しています。確認と更新の前に読み直します。"
   }
 }

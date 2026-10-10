@@ -8,7 +8,7 @@ import fs from 'node:fs/promises';
 import fsSync from 'node:fs';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
-import { fail, inspectTree, copySkill, inside } from './files.mjs';
+import { fail, inspectTree, copySkill, inside, publicSource } from './files.mjs';
 import { checkoutGit, runProcess } from './cli.mjs';
 
 /** What Claude writes into an installation, left out of its fingerprint (HLD 3.3A; 9.3 V11). */
@@ -50,6 +50,15 @@ export function pluginSource(entry, market) {
     case 'command': return { kind: 'command' };
     default: return { kind: 'unknown' };
   }
+}
+
+/** A plugin's entry source as the update list and preview show it, without credentials (UAT 2026-10-10). */
+export function entrySourceInfo(source, marketplace) {
+  const at = `marketplace ${marketplace}`;
+  const shown = source.kind === 'git' ? publicSource(source.url) : source.kind === 'npm' ? `npm ${publicSource(source.spec)}` : source.kind === 'archive' ? publicSource(source.url)
+    : ['local', 'git-market'].includes(source.kind) ? `${at} · ${source.relative}` : at;
+  return { kind: 'marketplace-entry', confidence: 'verified', owner: 'Claude', source: shown, ...(source.subpath ? { subpath: source.subpath } : {}), ...(source.ref ? { ref: source.ref } : {}),
+    evidence: '取自本机保存的 marketplace 副本；检查与更新前重新读取。' };
 }
 
 /** Why SkillDock leaves a source to Claude (DEC-SDX-019). */

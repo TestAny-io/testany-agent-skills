@@ -14,7 +14,7 @@ import { createService } from '../server/service.mjs';
 import { writeGeneration } from '../server/generation.mjs';
 import { claudeWriteArgs } from '../server/claude-writer.mjs';
 import { runProcess } from '../server/cli.mjs';
-import { defaultFetchers } from '../server/claude-plugin-updates.mjs';
+import { defaultFetchers, entrySourceInfo, pluginSource } from '../server/claude-plugin-updates.mjs';
 import { assertTranslated } from './i18n-helper.mjs';
 
 const write = async (file, value) => { await fs.mkdir(path.dirname(file), { recursive: true }); await fs.writeFile(file, typeof value === 'string' ? value : JSON.stringify(value)); };
@@ -484,6 +484,22 @@ test('archive hosts: a name that merely starts with localhost is fine; this comp
     for (const url of ['https://localhost/x.zip', 'https://127.0.0.2/x.zip', 'https://[::1]/x.zip', 'https://[::ffff:127.0.0.1]/x.zip'])
       await assert.rejects(download(url, file), error => error.code === 'INVALID_SOURCE' && /不能指向本机/.test(error.message), url);
   } finally { await fs.rm(file, { force: true }); }
+});
+
+test('the list and the preview say where a Claude plugin is installed and what its entry points at, without credentials (UAT 2026-10-10)', async t => {
+  const w = await world(t);
+  await plugin(path.join(w.market, 'plugins/alpha'), 'alpha', { version: '1.0.0' });
+  await w.install({ name: 'alpha', source: './plugins/alpha' });
+  const listed = (await w.snapshot()).updates.find(entry => entry.name === 'alpha');
+  const installed = path.join(w.cache, 'm/alpha/1.0.0');
+  assert.deepEqual([listed.installedPath, listed.sourceInfo.source, listed.sourceInfo.owner], [installed, 'marketplace m · ./plugins/alpha', 'Claude']);
+  await plugin(path.join(w.market, 'plugins/alpha'), 'alpha', { version: '1.1.0', body: 'v2' });
+  const checked = (await w.check('alpha')).updateItem;
+  assert.deepEqual([checked.status, checked.installedPath, checked.sourceInfo.source], ['available', installed, 'marketplace m · ./plugins/alpha']);
+  seen.add(checked.sourceInfo.evidence);
+  const remote = entrySourceInfo(pluginSource({ source: { source: 'git-subdir', url: 'https://someone:secret@example.com/r.git', path: 'plugins/p', sha: 'abc123' } }, { source: 'github' }), 'm');
+  assert.deepEqual([remote.source, remote.subpath, remote.ref], ['https://example.com/r.git', 'plugins/p', 'abc123']);
+  assert.doesNotMatch(JSON.stringify(remote), /secret|someone/);
 });
 
 test('every message seen above has a whole English and Japanese translation', async () => {

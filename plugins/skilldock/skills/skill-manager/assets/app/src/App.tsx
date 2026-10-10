@@ -166,6 +166,7 @@ const actionNames: Record<string, string> = {
   "schedule.configure": "修改更新计划",
   "schedule.reconcile": "恢复更新计划绑定",
   "agent.updateSkilldock": "一键更新 SkillDock",
+  "agent.setManagement": "调整 Agent 管理",
   "skill.connectSource": "关联更新来源",
   "plugin.update": "更新插件",
   "plugin.checkUpdate": "检查插件更新",
