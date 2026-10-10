@@ -149,7 +149,7 @@
 
 ## 汇总
 
-- **待 Owner**（阶段 6e）：AC-007 第 4 项（V17）、AC-008 第 3 项与 AC-017 第 1、3 项（从真实 Claude 桌面应用添加 marketplace、安装与更新 0.11.0）、AC-013 第 1 项的复核。
+- **待 Owner**（阶段 6e）：AC-007 第 4 项（V17，按 [60](60-v17-real-codex-update.md)）、AC-008 第 3 项与 AC-017 第 1、3 项（从真实 Claude 桌面应用添加 marketplace、安装与更新 0.11.0，按 [61](61-final-uat-claude-desktop.md)）、AC-013 第 1 项的复核。
 - **Owner 认可的例外与残余**：AC-001 第 3 项（只读一侧的 SkillDock 一键更新，DG-R24-1）、MR-SDX-003（首次检查前的本地修改，DG-R24-2）。
 - **部分**（Owner 2026-10-10 同意随 0.11.0 发布，记入 [41](41-ui-redesign-backlog.md)）：AC-003 第 1 项（UI-05、UI-02）、AC-016 第 2 项（UI-11）、AC-009 第 6 项（UI-15）。AC-016 第 3 项（UI-14）已在发布前修复。
 
