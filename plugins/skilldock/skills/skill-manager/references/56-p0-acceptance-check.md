@@ -28,7 +28,7 @@
 
 | 验收项 | 证据 | 结论 |
 |------|------|------|
-| 每个对象显示 Agent 标识，筛选正确 | 自动：`agent-ui`、`multi-agent` | 部分：标识只显示图标，名称在悬停与读屏中（[41](41-ui-redesign-backlog.md) UI-05，须 Owner 决定）；部分页面的计数口径不一（UI-02） |
+| 每个对象显示 Agent 标识，筛选正确 | 自动：`agent-ui`、`multi-agent` | 部分：标识只显示图标，名称在悬停与读屏中（[41](41-ui-redesign-backlog.md) UI-05）；部分页面的计数口径不一（UI-02）。Owner 2026-10-10 同意随 0.11.0 发布，重设计时处理 |
 | 两侧共用的技能只出现一次，更新或移除前提示同时影响两侧 | 自动：`shared-skills`、`multi-agent` | 满足 |
 | 只有一个环境时不出现 Agent 切换 | 自动：`agent-ui` “the Agent dimension appears only with more than one environment present” | 满足 |
 
@@ -89,7 +89,7 @@
 | 没有可用 Node 时弹出对话框，不下载；安装后重新检测可继续 | 自动：`toolchain` “without a usable Node nothing is downloaded…”、“the shell entry without any usable Node exits 1 with guidance…”；实测：V12 | 满足 |
 | 两侧都装时共用同一选择与运行目录 | 自动：`launcher` “either side…” | 满足 |
 | 0.10.x 用过的 Codex 自带 Node 或已下载的私有 Node 仍被识别 | 自动：`node-candidates`（`skilldock-private` 候选） | 满足 |
-| 首次构建需要联网时事先说明；断网失败不影响已运行的服务与数据 | `SKILL.md`、README 写明首次启动需要联网；`launcher`（新版构建失败保留旧服务） | 部分：启动时没有单独打印“需要联网”的提示，说明在文档中；发布前由 Owner 决定是否需要在启动输出中提示 |
+| 首次构建需要联网时事先说明；断网失败不影响已运行的服务与数据 | `SKILL.md`、README 写明首次启动需要联网；`launcher`（新版构建失败保留旧服务） | 部分：启动时没有单独打印“需要联网”的提示，说明在文档中。Owner 2026-10-10 同意随 0.11.0 发布，记入 41 UI-15 |
 
 ## AC-012 写入边界
 
@@ -119,8 +119,8 @@
 | 验收项 | 证据 | 结论 |
 |------|------|------|
 | 5.6 中“提供”的能力在只启用 Claude 的环境中可完成并读回 | 自动：阶段 4、5 各 Claude 测试（安装、启停、可见性、移除恢复、关联来源、更新、计划）；实测：`claude-writes-smoke` | 满足（入口方面见下一行） |
-| “按原生语义调整”的项在确认框或详情中显示原生规则 | 自动：`claude-actions`、`shared-skills`（`nativeRules`） | 部分：更新页检查结果中的原生规则只在应用需要确认时列出（UI-11） |
-| “不提供 / 不适用”的项在 Claude 对象上没有可点击入口并显示原因 | 自动：`claude-catalog`（能力按原生规则计算） | 部分：反方向的问题——Claude 对象上“管理更新”入口不可用，但更新页可以更新（UI-14） |
+| “按原生语义调整”的项在确认框或详情中显示原生规则 | 自动：`claude-actions`、`shared-skills`（`nativeRules`） | 部分：更新页检查结果中的原生规则只在应用需要确认时列出（UI-11）。Owner 2026-10-10 同意随 0.11.0 发布 |
+| “不提供 / 不适用”的项在 Claude 对象上没有可点击入口并显示原因 | 自动：`claude-catalog`（能力按原生规则计算） | 满足：原有的反方向问题（Claude 对象上“管理更新”不可用，UI-14）已按 Owner 2026-10-10 的要求修复，见 `agent-ui` “"Manage updates" from any Agent's object…” |
 | 写操作前重新读取；发现在 Claude 中做过的改动时停止并提示 | 自动：`claude-actions`（锁内重读、`expectedRevision`、`SNAPSHOT_STALE`） | 满足 |
 | 插件已被 Claude 自身更新到最新时，计划记为无需更新 | 自动：`claude-plugin-updates` “a plan keeps a versioned Claude plugin that Claude updated itself…” | 满足 |
 
@@ -150,4 +150,4 @@
 ## 汇总
 
 - **待 Owner**（阶段 6e）：AC-007 第 4 项（V17）、AC-008 第 3 项与 AC-017 第 1 项（从真实 Claude 桌面应用安装 0.11.0）、AC-013 第 1 项的复核。
-- **部分**：AC-003 第 1 项（UI-05、UI-02）、AC-016 第 2、3 项（UI-11、UI-14）——都在界面重设计清单中；AC-009 第 6 项（是否在启动输出中提示需要联网）。是否接受这些“部分”项随 0.11.0 发布、界面重设计时再处理，由 Owner 决定。
+- **部分**（Owner 2026-10-10 同意随 0.11.0 发布，记入 [41](41-ui-redesign-backlog.md)）：AC-003 第 1 项（UI-05、UI-02）、AC-016 第 2 项（UI-11）、AC-009 第 6 项（UI-15）。AC-016 第 3 项（UI-14）已在发布前修复。

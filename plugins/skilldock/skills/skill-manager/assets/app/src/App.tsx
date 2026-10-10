@@ -727,7 +727,7 @@ export default function App() {
       { label: t("查看详情"), icon: <Info size={15} />, run: () => setInspection({ kind, id: item.id }) },
       { label: t("编辑标签"), icon: <Tag size={15} />, disabled: !!busy || !objectAgents(item).includes("codex"), run: () => editTags(kind, item) },
       { label: t(item.enabled ? "禁用" : "启用"), icon: <CircleCheck size={15} />, disabled: !item.canToggle || !!busy || paused, run: () => run({ action: kind === "skill" ? "skill.toggle" : "plugin.toggle", id: item.id, enabled: !item.enabled }) },
-      { label: t("管理更新"), icon: <RefreshCw size={15} />, disabled: !objectAgents(item).includes("codex"), run: () => { navigate("updates"); setUpdateFocus(item.id); } },
+      { label: t("管理更新"), icon: <RefreshCw size={15} />, disabled: kind === "plugin" && !(item as Plugin).installed, run: () => { navigate("updates"); setUpdateFocus(item.id); } },
     ];
     if (kind === "skill") {
       const skill = item as Skill;
@@ -1591,7 +1591,7 @@ function PluginDetail({ plugin, skills, busy, onClose, onToggle, onRemove, onIns
       {plugin.installed && plugin.installation && <div className="install-components"><strong>{t("附带技能（{v0}）", { v0: plugin.skillCount })}</strong><p className="field-hint">{t("这一版只读取 Claude 插件，附带技能不单独列出。")}</p></div>}
       {plugin.installed && !plugin.installation && <div className="install-components"><strong>{t("附带技能（{v0}）", { v0: skills.length })}</strong><div className="plugin-skill-list">{skills.map(skill => <button className="text-button" key={skill.id} onClick={() => onSkill(skill)}><ProviderIcon icon={skill.icon}><Sparkles size={15} /></ProviderIcon>{skill.name}<ChevronRight size={14} /></button>)}</div></div>}
       <p className="field-hint">{t("插件附带的技能与组件一起安装、更新和卸载。")}</p>
-    </div><div className="modal-footer">{plugin.installed ? <><Button variant="danger" disabled={!plugin.canRemove || !!busy} onClick={onRemove}><Trash2 size={15} />{t("卸载")}</Button>{!plugin.installation && <Button disabled={!!busy} onClick={onUpdates}><RefreshCw size={15} />{t("管理更新")}</Button>}</> : <><Button onClick={onClose}>{t("关闭")}</Button><Button variant="primary" disabled={!plugin.canInstall || !!busy} onClick={onInstall}>{t("安装插件")}</Button></>}</div>
+    </div><div className="modal-footer">{plugin.installed ? <><Button variant="danger" disabled={!plugin.canRemove || !!busy} onClick={onRemove}><Trash2 size={15} />{t("卸载")}</Button><Button disabled={!!busy} onClick={onUpdates}><RefreshCw size={15} />{t("管理更新")}</Button></> : <><Button onClick={onClose}>{t("关闭")}</Button><Button variant="primary" disabled={!plugin.canInstall || !!busy} onClick={onInstall}>{t("安装插件")}</Button></>}</div>
   </Inspector>;
 }
 function MarketCard({

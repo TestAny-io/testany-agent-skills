@@ -276,3 +276,22 @@ test('a native start the gate stopped offers to update the Agents it names, each
   assert.doesNotMatch(html, /确认更新/, '点击后才出现确认');
   assert.match(render(gateUi('en').GateUpdate, { agents: ['claude'], onDone() {} }), /Update SkillDock in Claude/);
 });
+
+test('"Manage updates" from any Agent\'s object focuses its own item, or the plugin that updates a bundled skill (Owner 2026-10-10, UI-14)', () => {
+  const { UpdatesWorkspace, focusMatches } = updatesUi();
+  const claudeSkill = { kind: 'skill', id: 'c'.repeat(24), agent: 'claude' }; const plugin = { kind: 'plugin', id: 'p@m', agent: 'claude' };
+  const item = (target, name, extra = {}) => ({ target, name, owner: 'Claude', route: 'claude-plugin', status: 'unchecked', canCheck: true, canApply: false, canAutoApply: true, ...extra });
+  const updates = [item(claudeSkill, 'solo-skill'), item(plugin, 'bundle-plugin', { affectedSkillIds: ['bundled-skill-id'] })];
+  assert.deepEqual(updates.map(entry => focusMatches(entry, claudeSkill.id)), [true, false]);
+  assert.deepEqual(updates.map(entry => focusMatches(entry, 'bundled-skill-id')), [false, true]);
+  assert.deepEqual(updates.map(entry => focusMatches(entry, undefined)), [true, true]);
+  const data = { mode: 'local', skills: [{ id: claudeSkill.id, name: 'solo-skill', agents: ['claude'] }, { id: 'bundled-skill-id', name: 'bundled', pluginId: plugin.id, agents: ['claude'] }],
+    plugins: [{ id: plugin.id, name: 'bundle-plugin', installed: true, agents: ['claude'] }], marketplaces: [], activity: [], diagnostics: [], updates, updateRuns: [] };
+  const props = { data, runPending: false, onClearFocus() {}, busy: false, language: 'zh', execute: async () => undefined, onDetails() {}, onRefresh() {}, onConfirm() {} };
+  let html = render(UpdatesWorkspace, { ...props, focusTarget: claudeSkill.id });
+  assert.match(html, /更新这个技能/); assert.match(html, /solo-skill/); assert.doesNotMatch(html, /bundle-plugin/);
+  html = render(UpdatesWorkspace, { ...props, focusTarget: 'bundled-skill-id' });
+  assert.match(html, /这个技能随所属插件一起更新/); assert.match(html, /bundle-plugin/);
+  html = render(UpdatesWorkspace, { ...props, focusTarget: plugin.id });
+  assert.match(html, /更新整个插件及其附带技能/);
+});

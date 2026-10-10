@@ -504,6 +504,14 @@ function minutesForHours(value: string): number | undefined {
  * 36c §6: cross-side skills a version-2 save put in an applying plan, waiting to be confirmed in the
  * plan settings; confirming saves the plan again as it is, with `confirm`.
  */
+/**
+ * Whether an update item belongs to the object “Manage updates” came from: its own item, or the
+ * plugin item that updates a bundled skill. Any Agent's object (Owner, 2026-10-10: UI-14).
+ */
+export function focusMatches(item: UpdateItem, focusTarget?: string) {
+  return !focusTarget || item.target.id === focusTarget || !!item.affectedSkillIds?.includes(focusTarget);
+}
+
 export function pendingConfirmation(data: Snapshot, language: Language): ConfirmContent | undefined {
   const schedule = data.schedule; const t = (key: Key) => copy[language][key];
   const pending = schedule?.autoApply ? schedule.targets.filter((target) => target.confirmation === "pending") : [];
@@ -574,10 +582,12 @@ export function UpdatesWorkspace({
   const eligible = items.filter((item) =>
     form?.autoApply ? item.canAutoApply : item.canCheck,
   );
+  const focusedPlugin = focusTarget ? data.plugins.find(plugin => plugin.id === focusTarget) : undefined;
+  const focusedSkill = focusTarget && !focusedPlugin ? data.skills.find(skill => skill.id === focusTarget) : undefined;
   const shown = useMemo(
     () =>
       items.filter((item) =>
-        (!focusTarget || item.target.kind === "plugin" && item.target.id === focusTarget) && `${item.name} ${item.owner} ${item.installedPath || ""} ${item.sourceInfo?.source || ""}`
+        focusMatches(item, focusTarget) && `${item.name} ${item.owner} ${item.installedPath || ""} ${item.sourceInfo?.source || ""}`
           .toLowerCase()
           .includes(search.toLowerCase()),
       ),
@@ -825,8 +835,8 @@ export function UpdatesWorkspace({
         </button>
       </div>
       <UpdateProgress key={data.mode} mode={data.mode} seed={data.updateProgress} pending={runPending} onComplete={() => refreshRef.current()} onRunningChange={setBatchRunning} />
-      {focusTarget && <div className="uw-focused-plugin"><div><strong>{data.plugins.find(plugin => plugin.id === focusTarget)?.name || focusTarget}</strong>
-        <p>{translate("更新整个插件及其附带技能")}</p></div><button className="text-button" onClick={onClearFocus}>{translate("查看全部更新对象")}</button></div>}
+      {focusTarget && <div className="uw-focused-plugin"><div><strong>{focusedPlugin?.name || focusedSkill?.name || focusTarget}</strong>
+        <p>{translate(focusedPlugin ? "更新整个插件及其附带技能" : focusedSkill?.pluginId ? "这个技能随所属插件一起更新" : "更新这个技能")}</p></div><button className="text-button" onClick={onClearFocus}>{translate("查看全部更新对象")}</button></div>}
       <label className="uw-search">
         <Search size={17} />
         <input

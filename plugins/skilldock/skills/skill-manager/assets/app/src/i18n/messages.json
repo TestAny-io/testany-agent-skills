@@ -2518,5 +2518,13 @@
   "调整 Agent 管理": {
     "en": "Change Agent management",
     "ja": "Agent の管理を変更"
+  },
+  "更新这个技能": {
+    "en": "Update this skill",
+    "ja": "このスキルを更新"
+  },
+  "这个技能随所属插件一起更新": {
+    "en": "This skill is updated with its plugin",
+    "ja": "このスキルは所属するプラグインと一緒に更新されます"
   }
 }
