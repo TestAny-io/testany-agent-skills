@@ -28,6 +28,8 @@ export async function readCodexProjects(codexHome) {
     } else throw new Error('schema');
     return { entries };
   } catch (error) {
+    // Without Codex on this computer there is nothing to say about its projects (PRD AC-013).
+    if (error.code === 'ENOENT' && !await fs.stat(codexHome).then(() => true, () => false)) return { entries: [] };
     return { entries: [], warning: error.code === 'ENOENT' ? '尚未发现 Codex 保存的本地项目，可以选择本地文件夹。' : '无法读取 Codex 项目列表；仍可选择最近使用的目录或本地文件夹。' };
   }
 }

@@ -1115,7 +1115,8 @@ export default function App() {
               {page === "plugins" && (
                 <>
                   {data.directoryError && <div className="notice" role="status"><CircleAlert size={18} /><p><ServiceMessage value={data.directoryError} /></p></div>}
-                  {!data.cli.available && (
+                  {/* Only where Codex is on this computer (PRD AC-013); a version-1 snapshot lists no environments. */}
+                  {!data.cli.available && (!data.agents || data.agents.some(item => item.agent === "codex")) && (
                     <div className="notice">
                       <Terminal size={18} />
                       <div>
