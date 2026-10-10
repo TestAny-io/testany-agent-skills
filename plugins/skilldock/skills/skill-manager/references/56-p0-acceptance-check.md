@@ -118,7 +118,7 @@
 
 | 验收项 | 证据 | 结论 |
 |------|------|------|
-| 5.6 中“提供”的能力在只启用 Claude 的环境中可完成并读回 | 自动：阶段 4、5 各 Claude 测试（安装、启停、可见性、移除恢复、关联来源、更新、计划）；实测：`claude-writes-smoke` | 满足（入口方面见下一行） |
+| 5.6 中“提供”的能力在只启用 Claude 的环境中可完成并读回 | 自动：阶段 4、5 各 Claude 测试（安装、启停、可见性、移除恢复、关联来源、更新、计划）；实测：`claude-writes-smoke` | 满足（服务端）。界面上“从本地目录或 Git 把插件装到 Claude”到 `122ef9f` 才第一次接通（此前一律装到 Codex），没有界面层用例，在最终 UAT 中实测（[61](61-final-uat-claude-desktop.md) 第 7A 节） |
 | “按原生语义调整”的项在确认框或详情中显示原生规则 | 自动：`claude-actions`、`shared-skills`（`nativeRules`） | 部分：更新页检查结果中的原生规则只在应用需要确认时列出（UI-11）。Owner 2026-10-10 同意随 0.11.0 发布 |
 | “不提供 / 不适用”的项在 Claude 对象上没有可点击入口并显示原因 | 自动：`claude-catalog`（能力按原生规则计算） | 满足：原有的反方向问题（Claude 对象上“管理更新”不可用，UI-14）已按 Owner 2026-10-10 的要求修复，见 `agent-ui` “"Manage updates" from any Agent's object…”（定位）与 “"Manage updates" stays available for Claude-only objects…”（菜单入口、停用确认框的例外） |
 | 写操作前重新读取；发现在 Claude 中做过的改动时停止并提示 | 自动：`claude-actions`（锁内重读、`expectedRevision`、`SNAPSHOT_STALE`） | 满足 |
@@ -175,4 +175,7 @@
 | N22、K15、K16 | 47 | 界面三项：显示专用 manifest、更新对话框与技能卡片检查带说明（与 41 的 UI-10、UI-11 同属界面重设计） |
 | B37 | 47（45 M37） | 共用技能的 Claude 一侧不在技能根中时不可移除 |
 | B39 | 47（45 M39） | Claude 一侧更新时同步 Codex 一侧的来源记录 |
+| N2、N3、N5、N7 | [59](59-cross-agent-6d-rereview-r2.md) | 界面接线：插件安装窗口的 Agent 按“已安装且已启用”过滤、窗口用传入的 Agent 选说明文字、从本地目录或 Git 安装插件时提供 Agent 选择、插件详情对 Claude 插件显示“管理更新”（现有用例只测辅助函数与源码片段） |
+| N13（M11） | 59、[58](58-cross-agent-6d-rereview.md) | 计划的 `schedule.reconcile` 记录带目标的 Agent |
+| M18、M19 | 58 | `marketplace-entry` 的可信度为 `inferred`；生成 marketplace 中插件的来源信息字段（只影响显示） |
 

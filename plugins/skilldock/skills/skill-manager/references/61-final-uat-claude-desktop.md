@@ -83,6 +83,24 @@ echo "== Claude marketplace"; "$CLAUDE" plugin marketplace list --json | node -e
 3. 读回版本是否变化：`"$CLAUDE" plugin list --json | node -e "$NAMES"`；再运行 `/reload-plugins`，打开 SkillDock 确认正常。
 4. 可选：如果开发者再推一个提交，请用户改用 SkillDock 自己的“更新”页：找到 Claude 中的 SkillDock，点“检查”，有更新时按提示应用；记录结果。
 
+## 7A. 新接通的界面路径：从本地目录把插件装到 Claude（可选，建议做）
+
+这条界面路径在开发分支上刚接通，之前没有实测过。用一个临时的测试插件试，试完卸载：
+
+1. 准备一个只含一个技能、带 Claude manifest 的测试插件（不涉及任何真实插件）：
+
+   ```bash
+   P="$HOME/skilldock-uat-final/uat-local-plugin"
+   mkdir -p "$P/.claude-plugin" "$P/skills/uat-hello"
+   printf '{"name":"uat-local-plugin","version":"0.0.1","description":"SkillDock UAT test plugin"}\n' > "$P/.claude-plugin/plugin.json"
+   printf -- '---\nname: uat-hello\ndescription: SkillDock UAT test skill.\n---\nSay hello.\n' > "$P/skills/uat-hello/SKILL.md"
+   echo "$P"
+   ```
+
+2. 请用户在 SkillDock 的“插件”页点“安装插件”，选“本地目录”，填上面打印的路径。记录：窗口里是否出现“安装到 Codex / 安装到 Claude”的选择（两侧都启用管理时应出现，默认 Codex）；选 Claude 后预览说明了什么（带 Claude manifest 的会放进 Claude 的个人技能目录）。
+3. 确认安装后，读回：`ls "$HOME/.claude/skills"` 中出现 `uat-local-plugin`；`"$CLAUDE" plugin list --json | node -e "$NAMES"` 中出现 `uat-local-plugin@skills-dir`。
+4. 请用户在 SkillDock 中卸载这个测试插件（它进入可恢复区），再确认 `~/.claude/skills` 中已没有它。
+
 ## 8. 0.11.0 发布之后
 
 开发者合并到 `main` 并通知后，把 marketplace 改回跟随 `main`。先查 `/plugin` 的 Marketplaces 页有没有修改来源的入口；没有时，经用户同意：
@@ -105,5 +123,6 @@ echo "== Claude marketplace"; "$CLAUDE" plugin marketplace list --json | node -e
 | “Agent 环境”页：两侧版本、Claude 管理状态 | |
 | Update marketplace：菜单名称、结果、版本是否变化 | |
 | （可选）SkillDock 更新页更新 Claude 中的 SkillDock | |
+| （7A）从本地目录装插件到 Claude：是否出现 Agent 选择、安装位置、卸载后是否清干净 | |
 | TeamDesk 是否注明“仅支持 Codex” | |
 | 其他异常或与 README 写法不同的地方 | |
