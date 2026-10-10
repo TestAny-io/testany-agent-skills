@@ -7,7 +7,7 @@ import os from 'node:os';
 import { spawn } from 'node:child_process';
 import { agentRoots, discoverInstalls, locate, inspect, selectRunSource, reference, compareVersions, parseVersion, atLeast, safeSegment, readJsonFile, readText, canonical, sourceKeyFor, within, absolute, APP_TAIL } from './installs.mjs';
 import { installationIdentity, sameInstallation } from './installation.mjs';
-import { readGeneration, CURRENT_GENERATION } from './generation.mjs';
+import { readGeneration, CURRENT_GENERATION, CURRENT_GENERATION_MINIMUM } from './generation.mjs';
 import { isCurrentRecord, refreshRecord, writeRecord } from './launcher-record.mjs';
 import { acquireFileLock } from './process-lock.mjs';
 import { withStateLocks } from './state-locks.mjs';
@@ -85,6 +85,21 @@ export async function refreshInstallations({ state, codexHome, env = process.env
       return writeRecord(state, next);
     }, { wait: 0 });
   } catch { return null; } finally { launching?.(); }
+}
+
+/**
+ * HLD 3.8 (generation 2): the running family's installations on either side, and the highest
+ * one that reads the current data (`best`, null when none does). Null when the record names
+ * no installed family: a development copy, or no current record.
+ */
+export async function backgroundFamily({ state, codexHome, env = process.env, home = os.homedir() }) {
+  const record = await readRecordQuietly(state);
+  const running = isCurrentRecord(record) && record.state === state ? record.running : null;
+  if (!running?.sourceKey) return null;
+  const claudeRoot = await resolveClaudeRoot({ state, env, home });
+  const roots = await agentRoots({ env: { ...env, CODEX_HOME: codexHome }, home, claudeRoot: { configDir: claudeRoot.configDir, pluginCacheDir: claudeRoot.pluginCacheDir }, record });
+  const family = (await discoverInstalls(roots)).filter(item => item.marketplace === running.marketplace && item.sourceKey === running.sourceKey);
+  return { family, best: selectRunSource(family.filter(item => atLeast(item.version, CURRENT_GENERATION_MINIMUM)), { runningAppPath: running.appPath }) };
 }
 
 /** Health check summary of installations (36c §4): no paths or credentials. */

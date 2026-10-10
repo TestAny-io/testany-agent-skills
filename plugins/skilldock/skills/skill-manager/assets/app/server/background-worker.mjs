@@ -12,9 +12,9 @@ import { installationIdentity, sameInstallation } from './installation.mjs';
 import { captureSource } from '../scripts/source-bundle.mjs';
 import { prepareRuntime } from './runtime.mjs';
 import { resolveCodexCli } from './codex-runtime.mjs';
-import { readGeneration, CURRENT_GENERATION } from './generation.mjs';
+import { readGeneration, CURRENT_GENERATION, CURRENT_GENERATION_MINIMUM } from './generation.mjs';
 import { restoreMissingRecord } from './launcher-record.mjs';
-import { refreshInstallations } from './launch-plan.mjs';
+import { backgroundFamily, refreshInstallations } from './launch-plan.mjs';
 
 // DEC-SDX-010: instance lock → Codex lock for a version-2 context (the Codex root is never
 // created by locking); a version-1 context keeps 0.10.x locking. Throws BUSY.
@@ -51,14 +51,32 @@ export async function resolveBackgroundSource(context, adapter) {
   return source;
 }
 
+/**
+ * HLD 3.8: on generation 2 the background follows the highest SkillDock of the running family
+ * on either side that reads the current data, and never one that does not (3.7). Only when the
+ * record names no installed family, or none of it is found on either side, does the 0.10.2
+ * check decide, which never removes the task on uncertain evidence.
+ */
+export async function resolveFamilySource(context, adapter) {
+  if (context.version === 2) {
+    // The saved Claude root, never the LaunchAgent's environment (HLD 3.8).
+    const found = await backgroundFamily({ state: context.stateDir, codexHome: context.codexHome, home: context.home, env: {} });
+    if (found?.best) return found.best.appPath;
+    if (found?.family.length) throw new Error(`已安装的 SkillDock 都低于 ${CURRENT_GENERATION_MINIMUM}，不能使用当前数据；计划暂停。请把 SkillDock 更新到最新版本。`);
+  }
+  return resolveBackgroundSource(context, adapter);
+}
+
 export async function refreshBackgroundRuntime(context, adapter, { prepare = prepareRuntime } = {}) {
-  const source = await resolveBackgroundSource(context, adapter);
+  const source = await resolveFamilySource(context, adapter);
   if (!source) return null;
   const snapshot = await captureSource(source);
   if (context.digest === snapshot.sourceDigest) return context;
   // A source checkout used for development already has its dependencies.
   const runtime = source === context.runtime ? context.runtime : await prepare(context.stateDir, snapshot);
-  const next = { ...context, source, runtime, digest: snapshot.sourceDigest, node: process.execPath };
+  // Another installation, possibly on the other side, has its own identity.
+  const installation = source === context.source ? context.installation : await installationIdentity(source, context.codexHome);
+  const next = { ...context, source, runtime, installation, digest: snapshot.sourceDigest, node: process.execPath };
   await writeJson(backgroundPaths(context.stateDir, context.home).context, next);
   return next;
 }
@@ -132,7 +150,7 @@ export async function runBackground(context, options = {}) {
       }
     }
     const adapter = options.adapter || new CodexAdapter({ codexHome: context.codexHome, codexBin });
-    let source = await resolveBackgroundSource(context, adapter);
+    const source = await resolveFamilySource(context, adapter);
     if (!source) {
       await writeJson(paths.disabled, { ...schedule, enabled: false });
       const state = await readJson(stateFile); state.schedule.enabled = false; delete state.schedule.nextRunAt; await writeJson(stateFile, state);

@@ -1814,5 +1814,9 @@
   "这项技能的内容在另一侧插件的目录中；须先在 SkillDock 0.11 的计划设置中确认后才会自动应用（0.10.x 界面无法确认），这次只检查。": {
     "en": "This skill's contents are inside the other side's plugin. It is applied automatically only after you confirm it in the schedule settings of SkillDock 0.11 (the 0.10.x interface cannot confirm it); this time it was only checked.",
     "ja": "このスキルの内容はもう一方のプラグインのディレクトリ内にあります。SkillDock 0.11 のスケジュール設定で確認するまで自動適用されません（0.10.x の画面では確認できません）。今回は確認のみ行いました。"
+  },
+  "已安装的 SkillDock 都低于 {v0}，不能使用当前数据；计划暂停。请把 SkillDock 更新到最新版本。": {
+    "en": "Every installed SkillDock is older than {v0} and cannot use the current data, so the schedule is paused. Update SkillDock to the latest version.",
+    "ja": "インストールされている SkillDock はすべて {v0} より古く、現在のデータを使用できないため、スケジュールを一時停止しています。SkillDock を最新版に更新してください。"
   }
 }

@@ -7,7 +7,9 @@ import fs from 'node:fs/promises';
 import os from 'node:os';
 import path from 'node:path';
 import { resolveLaunchProject } from '../server/project-context.mjs';
-import { installationContext, delegationTarget, legacyOwnership, legacyOwnershipDetail, planLaunch, refreshInstallations, migrationCheck } from '../server/launch-plan.mjs';
+import { installationContext, delegationTarget, legacyOwnership, legacyOwnershipDetail, planLaunch, refreshInstallations, migrationCheck, backgroundFamily } from '../server/launch-plan.mjs';
+import { resolveFamilySource, refreshBackgroundRuntime } from '../server/background-worker.mjs';
+import { fileURLToPath } from 'node:url';
 import { buildRecord, legacyFields, ensureLegacyProject, writeRecord, readRecord } from '../server/launcher-record.mjs';
 import { writeRestart } from '../server/installation.mjs';
 import { writeMigrationFailure } from '../server/migration.mjs';
@@ -228,4 +230,62 @@ test('installation changes refresh the preferred target and legacy fields, never
   await refreshInstallations({ state: w.state, codexHome: w.codexHome, env: w.env, home: w.home, appDir: codex, instance: { pid: 1, project: other } });
   const synced = await readRecord(w.state);
   assert.deepEqual([synced.preferred.appPath, synced.actualProject], [newest, other]);
+});
+
+// HLD 3.8 (phase 5d): on generation 2 the background follows the running family on either side.
+async function familyRecord(w, appDir) {
+  const context = await installationContext({ env: w.env, home: w.home, state: w.state, appDir });
+  await writeRecord(w.state, buildRecord({ state: w.state, url: 'http://127.0.0.1:1', pid: 1, digest: 'd', runtime: '/r', codexHome: w.codexHome, legacyProject: await ensureLegacyProject(w.state),
+    legacy: await legacyFields({ codexHome: w.codexHome, installs: context.installs, running: context.ownReference }), running: context.ownReference, preferred: context.preferred, actualProject: w.project }));
+}
+const unexpectedScan = { list: async () => { throw new Error('unexpected scan'); } };
+
+test('generation 2: the background follows the highest installation of the family on either side that reads the current data (HLD 3.8)', async t => {
+  const w = await world(t);
+  const codex = await w.install('codex', '0.11.0'); await familyRecord(w, codex);
+  const family = () => backgroundFamily({ state: w.state, codexHome: w.codexHome, home: w.home, env: w.env });
+  assert.equal((await family()).best.appPath, codex);
+  const claude = await w.install('claude', '0.11.1');
+  assert.equal((await family()).best.appPath, claude, '另一侧更高的版本');
+  const context = { version: 2, stateDir: w.state, codexHome: w.codexHome, home: w.home, source: codex, installation: { kind: 'directory', source: codex } };
+  assert.equal(await resolveFamilySource(context, unexpectedScan), claude, '不再只看 Codex 一侧');
+  // Claude keeps a replaced version for 14 days with .orphaned_at, then removes it (HLD 9.3).
+  const newer = await w.install('claude', '0.11.2'); await fs.writeFile(path.join(claude, '../../../../.orphaned_at'), '1');
+  assert.equal(await resolveFamilySource({ ...context, source: claude }, unexpectedScan), newer);
+  await fs.rm(path.join(claude, '../../../..'), { recursive: true });
+  assert.equal(await resolveFamilySource({ ...context, source: claude }, unexpectedScan), newer, '旧目录被清理不算卸载');
+  // A version 1 context keeps the 0.10.2 check.
+  assert.equal(await resolveFamilySource({ ...context, version: 1 }, unexpectedScan), codex);
+});
+
+test('generation 2: the background never runs a version below the current data, and only an empty family goes to the 0.10.2 check (HLD 3.7, 3.8)', async t => {
+  const w = await world(t);
+  const old = await w.install('codex', '0.10.3'); await familyRecord(w, old);
+  const context = { version: 2, stateDir: w.state, codexHome: w.codexHome, home: w.home, source: old, installation: { kind: 'directory', source: old } };
+  await assert.rejects(resolveFamilySource(context, unexpectedScan), /都低于 0\.11\.0，不能使用当前数据；计划暂停/);
+  // Neither side has the family: the 0.10.2 check decides (here: the directory is gone, so uninstalled).
+  await fs.rm(path.join(old, '../../../..'), { recursive: true });
+  assert.equal(await resolveFamilySource(context, unexpectedScan), null);
+  // A development copy names no installed family.
+  const copy = path.join(w.root, 'copy'); await fs.mkdir(copy); await fs.writeFile(path.join(copy, 'package.json'), JSON.stringify({ name: 'skilldock', version: '0.11.0' }));
+  await familyRecord(w, copy);
+  assert.equal(await backgroundFamily({ state: w.state, codexHome: w.codexHome, home: w.home, env: w.env }), null);
+  assert.equal(await resolveFamilySource({ ...context, source: copy, installation: { kind: 'directory', source: copy } }, unexpectedScan), copy);
+});
+
+test('generation 2: a background moved to the other side takes that installation\'s identity (HLD 3.8)', async t => {
+  const w = await world(t);
+  const tree = fileURLToPath(new URL('../../../', import.meta.url));
+  const real = async (agent, version) => {
+    const app = await w.install(agent, version); const skill = path.join(app, '../..');
+    await fs.cp(tree, skill, { recursive: true, filter: input => !input.split(path.sep).some(part => ['node_modules', 'dist', '.source-snapshot', '.state', 'test-results', 'playwright-report'].includes(part)) });
+    const file = path.join(app, 'package.json'); await fs.writeFile(file, JSON.stringify({ ...JSON.parse(await fs.readFile(file, 'utf8')), version }));
+    return app;
+  };
+  const codex = await real('codex', '0.11.0'); await familyRecord(w, codex); const claude = await real('claude', '0.11.1');
+  const { captureSource } = await import('../scripts/source-bundle.mjs');
+  const context = { version: 2, stateDir: w.state, codexHome: w.codexHome, home: w.home, source: codex, runtime: '/old-runtime',
+    installation: { kind: 'plugin', codexHome: w.codexHome, marketplace: MARKET, plugin: 'skilldock', appPath: 'skills/skill-manager/assets/app' }, digest: (await captureSource(codex)).sourceDigest };
+  const next = await refreshBackgroundRuntime(context, unexpectedScan, { prepare: async () => '/new-runtime' });
+  assert.deepEqual([next.source, next.runtime, next.installation], [claude, '/new-runtime', { kind: 'directory', source: claude }]);
 });

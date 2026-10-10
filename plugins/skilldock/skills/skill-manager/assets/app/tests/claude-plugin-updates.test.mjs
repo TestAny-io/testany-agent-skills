@@ -244,6 +244,20 @@ test('a command source or a credential helper is left to Claude; a project insta
   assert.deepEqual([w.claude.calls.at(-1).command, w.claude.calls.at(-1).cwd], ['plugin update alpha@m --scope local --json', other]);
 });
 
+test('SkillDock itself on Claude\'s side is an ordinary plan target, like Codex\'s (phase 5d)', async t => {
+  const w = await world(t);
+  await plugin(path.join(w.market, 'plugins/skilldock'), 'skilldock', { version: '0.11.0' });
+  await w.install({ name: 'skilldock', source: './plugins/skilldock' });
+  const target = await w.target('skilldock');
+  assert.equal((await w.snapshot()).updates.find(entry => entry.name === 'skilldock').canCheck, true);
+  await w.act({ action: 'schedule.configure', agent: 'claude', schedule: { enabled: true, intervalMinutes: 60, timezone: 'UTC', autoApply: true, targets: [target] } });
+  assert.deepEqual((await w.snapshot()).schedule.targets, [target]);
+  await plugin(path.join(w.market, 'plugins/skilldock'), 'skilldock', { version: '0.11.1', body: 'v2' });
+  const run = await w.act({ action: 'updates.run', agent: 'claude', targets: [target], autoApply: true });
+  assert.equal(run.run.items[0].status, 'updated');
+  assert.equal(w.claude.plugins.find(item => item.id === 'skilldock@m').version, '0.11.1');
+});
+
 test('every message seen above has a whole English and Japanese translation', async () => {
   const messages = [...seen].filter(text => /[一-鿿]/.test(text));
   assert.ok(messages.length > 5, `${messages.length}`);

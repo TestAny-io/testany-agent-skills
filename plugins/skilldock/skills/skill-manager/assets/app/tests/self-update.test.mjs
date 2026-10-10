@@ -7,6 +7,7 @@ import { fileURLToPath } from 'node:url';
 import { createSelfUpdater } from '../server/self-update.mjs';
 import { createService } from '../server/service.mjs';
 import { captureSource } from '../scripts/source-bundle.mjs';
+import { writeGeneration } from '../server/generation.mjs';
 
 const delay = ms => new Promise(resolve => setTimeout(resolve, ms));
 async function until(predicate) { for (let i = 0; i < 100; i++) { if (await predicate()) return; await delay(10); } assert.fail('condition not reached'); }
@@ -146,4 +147,63 @@ test('0.10.3 also backs off when a restart fails before the launcher is called (
   await tick(30_000); assert.equal(counts.snapshots, 1, 'waiting: no refresh');
   await tick(31_000); assert.equal(counts.snapshots, 2, 'retried after one minute');
   await tick(60_000); assert.equal(counts.snapshots, 2, 'second wait is two minutes');
+});
+
+// Generation 2 (HLD 3.7, phase 5d): the record names the running and the preferred installation.
+async function modern(f, { running = ['2.4.0', '2.4.0'], preferred = ['2.5.0', '2.5.0'], ...extra } = {}) {
+  await writeGeneration(f.stateDir, 'test');
+  for (const [version, app] of Object.entries(f.versions)) {
+    const file = path.join(app, 'package.json'); await fs.writeFile(file, JSON.stringify({ ...JSON.parse(await fs.readFile(file, 'utf8')), version }));
+  }
+  // [installation, version named by the record]
+  const reference = ([installation, version], agent) => ({ agent, marketplace: 'testany-agent-skills', appPath: f.versions[installation], version, sourceKey: 'family' });
+  const record = { format: 2, generation: 2, status: 'running', pid: process.pid, state: f.stateDir, runtime: f.runtime, url: 'http://127.0.0.1:4771',
+    running: reference(running, 'codex'), preferred: reference(preferred, 'claude'), ...extra };
+  await fs.writeFile(path.join(f.stateDir, 'launcher.json'), JSON.stringify(record));
+  return record;
+}
+
+test('generation 2: a higher preferred installation, on either side, is restarted into once nothing is busy (phase 5d)', async t => {
+  const f = await fixture(t); const calls = [];
+  const updater = createSelfUpdater({ ...f, startTimer: false, worker: job => { calls.push(job); return new Promise(() => {}); } });
+  t.after(() => updater.close());
+  await modern(f); f.setBusy(true); await updater.tick(); assert.equal(calls.length, 0, '等待在途批次');
+  f.setBusy(false); await updater.tick();
+  assert.equal(calls.length, 1); assert.equal(calls[0].source, f.versions['2.5.0']); assert.equal(calls[0].previousPid, process.pid);
+  assert.equal(calls[0].sourceDigest, (await captureSource(f.versions['2.5.0'])).sourceDigest);
+  assert.equal(f.isPaused(), true); assert.equal((await updater.status()).status, 'preparing');
+  await updater.tick(); assert.equal(calls.length, 1, '只发起一次');
+});
+
+test('generation 2: an equal version, another instance\'s record, a changed target or the background digest start nothing', async t => {
+  const f = await fixture(t); let calls = 0;
+  const updater = createSelfUpdater({ ...f, startTimer: false, worker: async () => { calls++; } });
+  t.after(() => updater.close());
+  const tick = async () => { updater.request(); await updater.tick(); };
+  await modern(f, { preferred: ['2.5.0', '2.4.0'] }); await tick(); assert.equal(calls, 0, '版本相同时保持正在运行的（DEC-SDX-008）');
+  await modern(f, { pid: process.pid + 1 }); await tick(); assert.equal(calls, 0, '别的实例的记录');
+  await modern(f, { runtime: path.join(f.root, 'elsewhere') }); await tick(); assert.equal(calls, 0, '别的运行目录');
+  await modern(f, { status: 'stopped' }); await tick(); assert.equal(calls, 0);
+  await modern(f, { preferred: ['2.5.0', '2.6.0'] }); await tick(); assert.equal(calls, 0, '目录中的版本已不是记录所写的');
+  // The 0.10.x trigger, a background prepared from another source, is not one on generation 2.
+  await modern(f, { preferred: ['2.4.0', '2.4.0'] });
+  await fs.mkdir(path.join(f.stateDir, 'background')); await fs.writeFile(path.join(f.stateDir, 'background/context.json'), JSON.stringify({ digest: 'other' }));
+  const saved = process.env.SKILLDOCK_SOURCE_DIGEST; process.env.SKILLDOCK_SOURCE_DIGEST = 'running';
+  t.after(() => { if (saved === undefined) delete process.env.SKILLDOCK_SOURCE_DIGEST; else process.env.SKILLDOCK_SOURCE_DIGEST = saved; });
+  await updater.tick(); assert.equal(calls, 0); assert.equal(f.isPaused(), false);
+});
+
+test('generation 2: failed restarts back off, and a new target starts over (36b §7.3)', async t => {
+  const f = await fixture(t); const clock = { now: 1_000_000 }; let calls = 0;
+  const updater = createSelfUpdater({ ...f, startTimer: false, now: () => clock.now, worker: async () => { calls++; throw new Error('fixture launcher refused'); } });
+  t.after(() => updater.close());
+  const step = async (wait, expected) => { clock.now += wait; await updater.tick(); await until(async () => !f.isPaused()); assert.equal(calls, expected); };
+  await modern(f);
+  await step(0, 1); await step(59_000, 1); await step(2_000, 2); await step(60_000, 2);
+  // A newer version of the target is another target.
+  const file = path.join(f.versions['2.5.0'], 'package.json'); await fs.writeFile(file, JSON.stringify({ ...JSON.parse(await fs.readFile(file, 'utf8')), version: '2.6.0' }));
+  const recordFile = path.join(f.stateDir, 'launcher.json'); const record = JSON.parse(await fs.readFile(recordFile, 'utf8'));
+  await fs.writeFile(recordFile, JSON.stringify({ ...record, preferred: { ...record.preferred, version: '2.6.0' } }));
+  await step(0, 3);
+  assert.match((await updater.status()).message, /fixture launcher refused/);
 });

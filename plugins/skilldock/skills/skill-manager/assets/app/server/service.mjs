@@ -2127,17 +2127,25 @@ export async function createService(options = {}) {
     beforeConfigure: async (mode, input) => {
       if (input.enabled) { if (mode === 'local') { await background?.ensure(); migrationError = undefined; } }
     } });
-  try {
-    await withOperation(async () => {
-      const state = scheduler.data('local', { skills: [], plugins: [], updates: [] });
-      if (state.schedule.enabled && background) {
-        try { await background.ensure(); } catch (error) { migrationError = redact(error.message); }
-      }
-    });
-  } catch (error) { if (error.code !== 'BUSY') throw error; }
+  // An enabled plan's background registration follows this instance. Started while the launcher
+  // still holds the locks, it is left to a later round (HLD 3.8; the entry retries every 10 seconds).
+  let registrationPending = false;
+  async function registerBackground() {
+    try {
+      await withOperation(async () => {
+        const state = scheduler.data('local', { skills: [], plugins: [], updates: [] });
+        if (state.schedule.enabled && background) {
+          try { await background.ensure(); migrationError = undefined; } catch (error) { migrationError = redact(error.message); }
+        }
+      });
+      registrationPending = false; return true;
+    } catch (error) { if (error.code !== 'BUSY') throw error; registrationPending = true; return false; }
+  }
+  await registerBackground();
   return { stateDir, get project() { return project; }, launchProject, get projectContext() { return projectInfo; }, defaultMode, environments, adapter, snapshot, skill, action, projects, directoryIcon,
     updateProgress: async mode => { environment(mode); await refreshSchedule(); return scheduler.progress(mode); },
     tickScheduler: () => withOperation(() => scheduler.tick()), isBusy,
+    catchUpBackground: async () => registrationPending && !closing && !restarting ? registerBackground() : false,
     pauseForRestart: () => { if (isBusy()) return false; restarting = true; return true; }, resumeAfterRestart: () => { restarting = false; },
     close: async () => { closing = true; await scheduler.close(); await operationPromise?.catch(() => {}); } };
 }

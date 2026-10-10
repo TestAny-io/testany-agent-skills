@@ -6,6 +6,8 @@ import { readText } from './installs.mjs';
 
 /** 0.10.x data is generation 1; 0.11.0 migrates it to 2. */
 export const CURRENT_GENERATION = 2;
+/** The first release that reads and writes the current generation (HLD 3.7: no downgrade below it). */
+export const CURRENT_GENERATION_MINIMUM = '0.11.0';
 export const markerFile = state => path.join(state, 'generation.json');
 
 /** Absent → 1; unreadable or malformed → Infinity, so nothing older takes over. */

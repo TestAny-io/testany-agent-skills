@@ -42,7 +42,8 @@ export async function createApp(options = {}) {
       .then(() => refresh && refreshInstallations({ state: service.stateDir, codexHome, ...environment, appDir: appSource, instance: { pid: process.pid, project: service.project } }))
       .catch(() => {}).finally(() => { keeping = undefined; });
   };
-  const keeper = setInterval(() => keepRecord(true), 10000); keeper.unref();
+  // HLD 3.8: what was skipped while the launcher held the locks is done by this round.
+  const keeper = setInterval(() => { keepRecord(true); service.catchUpBackground().catch(() => {}); }, 10000); keeper.unref();
   // 36c §4: app, pid, instanceId, state, sourceDigest, project, launchProject, appVersion,
   // dataGeneration and apiVersion are frozen; restart is frozen for version-1 clients.
   const health = async () => ({ app: 'skilldock', pid: process.pid, project: service.project, launchProject: service.launchProject, projectContext: service.projectContext,

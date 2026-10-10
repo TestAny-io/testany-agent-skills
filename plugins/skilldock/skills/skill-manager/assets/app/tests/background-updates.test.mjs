@@ -274,3 +274,18 @@ test('overlapping configuration requests cannot acknowledge a disable and then e
   await act(f.service, 'schedule.configure', { schedule: { ...f.schedule, enabled: false } });
   assert.equal((await f.service.snapshot('local')).schedule.enabled, false);
 });
+
+test('a registration skipped while the launcher held the locks is made by a later round, once (HLD 3.8, phase 5d)', async t => {
+  const f = await fixture(t); await f.service.close();
+  let ensured = 0; const manager = { ensure: async () => { ensured++; }, status: async () => ({ provider: 'launchd', status: 'ready' }), remove: async () => {} };
+  const hold = () => acquireFileLock(operationLock(f.settings.codexHome));
+  let release = hold(); let service;
+  try { service = await createService({ ...f.settings, scheduler: undefined, background: undefined, backgroundManager: manager }); } finally { release(); }
+  t.after(() => service.close());
+  assert.equal(ensured, 0, '启动时锁被占用：跳过');
+  release = hold();
+  try { assert.equal(await service.catchUpBackground(), false); } finally { release(); }
+  assert.equal(ensured, 0, '仍被占用：留到下一轮');
+  assert.equal(await service.catchUpBackground(), true); assert.equal(ensured, 1);
+  assert.equal(await service.catchUpBackground(), false); assert.equal(ensured, 1, '只补做一次');
+});

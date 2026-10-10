@@ -191,6 +191,10 @@ test('nested service messages translate both the outer and the inner sentence (e
   assert.equal(t('无法确认 Claude 中的插件状态：设置文件 /x/settings.json 不是有效的 JSON。'), 'Cannot confirm the plugin state in Claude: The settings file /x/settings.json is not valid JSON.');
   assert.equal(t('未找到可用的 Codex CLI。 Codex 为只读：这次检查没有改动 Codex；如有新版本，需要启用 Codex 管理后才能更新。'),
     'No working Codex CLI was found. Codex is read-only: this check did not change Codex. If there is a new version, turn on Codex management to update.');
+  // Phase 5d: the background's own error, shown on the updates page.
+  assert.equal(t('已安装的 SkillDock 都低于 0.11.0，不能使用当前数据；计划暂停。请把 SkillDock 更新到最新版本。'),
+    'Every installed SkillDock is older than 0.11.0 and cannot use the current data, so the schedule is paused. Update SkillDock to the latest version.');
+  assert.match(translatorFor('ja').t('已安装的 SkillDock 都低于 0.11.0，不能使用当前数据；计划暂停。请把 SkillDock 更新到最新版本。'), /0\.11\.0 より古く/);
 });
 
 
