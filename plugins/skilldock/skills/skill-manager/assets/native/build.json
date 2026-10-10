@@ -23,7 +23,7 @@
     "server/process-lock.mjs": "2978f4ffe74d6d2c12980b03e5a28d4f00a4f7e559e6c46b3e1d5917960352c7",
     "server/skilldock-update.mjs": "5ca3d4021fbdb0267b4d9b5604d798ae3d0ecf516427654b3ea675b1c327a76e",
     "server/state-locks.mjs": "12e95ff9399e42bd2690d7e2e2c0f1127522eadc5e7e8d2cc37244dc73321b62",
-    "server/toolchain.mjs": "f64bac041db73bdb0f507432da658acdf756e85fbf0ebb70fd10e175a8e3375f",
+    "server/toolchain.mjs": "f654f95b7adf25e1f4ad452ea5e4da7e6649e735f1fca6e938ff55c43f23ce9f",
     "src/AgentEnvironments.tsx": "8559f9ebe99b1bcb4c1355e672118ab4eded8344e03083bc13793b93d2b3591d",
     "src/AgentUI.css": "f1c5a1009ed5518a61634a0a42da6c0b917c07f7285aee447c5e984dca7ce8c2",
     "src/AgentUI.tsx": "7fa0d0ba3e0ba4790132838106688ed417d4a61e0e62ff94e538d2ce83df7747",
@@ -71,7 +71,7 @@
     "src/workspace-state.ts": "5a4a7545159ff363efd22a7b99e19ce3e0cdf14fa0d21de827c8d4fd03ba6dd1"
   },
   "artifacts": {
-    "server.mjs": "98d37d99ba6366dde78be7102a6dc3d8c1bb99f7728f0e2530518e5f18401701",
+    "server.mjs": "952873b18b656dcc75483e6e20f4278f3e2cd9463b9667f489020ed6bec9cff2",
     "ui.html": "ee5c52dec2166a238418a5a4087060871957368348685f022a813fbc4f4d3d7c",
     "icon.svg": "9b7d7c19189c56b43fe691c0cb01e19b1f88abc61d1d130c974c5f5411b7288c",
     "THIRD_PARTY_NOTICES.txt": "0580c525bbaf94d006050bf773e482a470c9f983971e23b26e8048505e11bd4f"

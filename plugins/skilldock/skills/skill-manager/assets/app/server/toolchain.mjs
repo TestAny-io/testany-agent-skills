@@ -1,23 +1,12 @@
 // SPDX-License-Identifier: AGPL-3.0-only
 import fs from 'node:fs/promises';
-import { createWriteStream } from 'node:fs';
 import path from 'node:path';
 import os from 'node:os';
-import crypto from 'node:crypto';
 import { execFile } from 'node:child_process';
 import { promisify } from 'node:util';
-import { Transform, Readable } from 'node:stream';
-import { pipeline } from 'node:stream/promises';
 import { nodeCandidates, readSavedNode, writeSavedNode } from './node-candidates.mjs';
 
 const execute = promisify(execFile);
-export const NODE_RELEASE = Object.freeze({
-  version: '24.21.0',
-  sha256: Object.freeze({
-    arm64: 'bed7eea5325e1108f32ce5228ddd6a5f0f08a499ee42aa7442aea583702f6057',
-    x64: '1462cb3b3046b815cf8ea436d3da450ec1a9f11dac7e5a46b0ada5305d7e8097',
-  }),
-});
 const npmRelative = 'lib/node_modules/npm/bin/npm-cli.js';
 const unique = values => [...new Set(values.filter(Boolean))];
 const shellQuote = value => `'${value.replaceAll("'", "'\\''")}'`;
@@ -89,71 +78,6 @@ export async function findNpm(node, { env = process.env, apps = appRoots(env), v
     } catch { /* Try the next independently installed npm CLI. */ }
   }
   return null;
-}
-
-function privateLocation(stateDir, arch) {
-  const name = `node-v${NODE_RELEASE.version}-darwin-${arch}`;
-  return { name, root: path.join(stateDir, 'node', name), sha256: NODE_RELEASE.sha256[arch] };
-}
-
-async function privateReady(root, sha256) {
-  try { return Boolean(sha256 && JSON.parse(await fs.readFile(path.join(root, '.skilldock-runtime.json'), 'utf8')).archiveSha256 === sha256); }
-  catch { return false; }
-}
-
-export async function downloadVerified(url, destination, expected, { fetcher = fetch } = {}) {
-  const response = await fetcher(url, { redirect: 'error', signal: AbortSignal.timeout(180000) });
-  if (!response.ok || !response.body) throw new Error(`Node.js 下载失败（HTTP ${response.status}）。`);
-  let size = 0; const hash = crypto.createHash('sha256');
-  const check = new Transform({ transform(chunk, _encoding, next) {
-    size += chunk.length;
-    if (size > 128 * 1024 * 1024) return next(new Error('Node.js 下载超过大小限制。'));
-    hash.update(chunk); next(null, chunk);
-  } });
-  try {
-    await pipeline(Readable.fromWeb(response.body), check, createWriteStream(destination, { flags: 'wx', mode: 0o600 }));
-    if (hash.digest('hex') !== expected) throw new Error('Node.js 下载的 SHA-256 不匹配；未提取或启用该文件。');
-  } catch (error) { if (error.code !== 'EEXIST') await fs.rm(destination, { force: true }); throw error; }
-}
-
-export async function installPrivateRuntime({ stateDir, arch = process.arch, platform = process.platform,
-  download = downloadVerified, inspect = inspectNode, log = message => process.stderr.write(`SkillDock：${message}\n`) }) {
-  const spec = privateLocation(stateDir, arch);
-  if (platform !== 'darwin' || !spec.sha256) throw new Error('自动准备专用 Node.js 当前仅支持 macOS arm64/x64。');
-  const directory = path.dirname(spec.root);
-  await fs.mkdir(directory, { recursive: true, mode: 0o700 });
-  const lockFile = path.join(directory, 'install.lock'); let lock;
-  try { lock = await fs.open(lockFile, 'wx', 0o600); }
-  catch (error) { if (error.code === 'EEXIST') throw new Error('另一个启动器正在准备 Node.js，请稍后重试。'); throw error; }
-  let stage;
-  try {
-    if (await privateReady(spec.root, spec.sha256)) {
-      const node = await inspect(path.join(spec.root, 'bin/node'), { platform });
-      const npm = node.node && await findNpm(node.node, { env: {}, apps: [] });
-      if (npm && node.nodeVersion === `v${NODE_RELEASE.version}`) return { ...node, ...npm, source: 'skilldock-private' };
-    }
-    stage = await fs.mkdtemp(path.join(directory, '.install-'));
-    const archive = path.join(stage, 'node.tar.gz');
-    log(`正在准备专用 Node.js ${NODE_RELEASE.version}（首次下载约 53 MB）…`);
-    await download(`https://nodejs.org/dist/v${NODE_RELEASE.version}/${spec.name}.tar.gz`, archive, spec.sha256);
-    // Only the archive matching the release's pinned digest reaches the extractor.
-    await execute('/usr/bin/tar', ['-xzf', archive, '-C', stage], { timeout: 60000, maxBuffer: 1024 * 1024 });
-    const extracted = path.join(stage, spec.name);
-    const node = await inspect(path.join(extracted, 'bin/node'), { platform });
-    if (!node.node || node.nodeVersion !== `v${NODE_RELEASE.version}`) throw new Error('下载的 Node.js 未通过运行验证。');
-    const npm = await findNpm(node.node, { env: {}, apps: [] });
-    if (!npm) throw new Error('下载的 npm 未通过运行验证。');
-    await fs.writeFile(path.join(extracted, '.skilldock-runtime.json'), JSON.stringify({ archiveSha256: spec.sha256, version: NODE_RELEASE.version }), { mode: 0o600 });
-    // Preserve an incomplete prior directory; never replace a running binary in place.
-    try { await fs.rename(spec.root, `${spec.root}.incomplete-${crypto.randomUUID()}`); }
-    catch (error) { if (error.code !== 'ENOENT') throw error; }
-    await fs.rename(extracted, spec.root);
-    return { node: path.join(spec.root, 'bin/node'), nodeVersion: node.nodeVersion,
-      npmCli: path.join(spec.root, npmRelative), npmVersion: npm.npmVersion, source: 'skilldock-private' };
-  } finally {
-    if (stage) await fs.rm(stage, { recursive: true, force: true });
-    await lock.close(); await fs.rm(lockFile, { force: true });
-  }
 }
 
 /**

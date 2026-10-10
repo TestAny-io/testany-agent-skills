@@ -1,8 +1,8 @@
 # SkillDock
 
-一个在 Codex 原生主内容区、右侧浏览器面板或普通浏览器中运行的本地技能管理器。支持中文、英文、日文，以及浅色、深色和跟随系统外观；包含技能库、插件、市场来源、更新和操作记录。打开即加载本机技能库，直接查看与管理自己的安装。
+一个在 Codex 原生主内容区、Codex 或 Claude 的浏览器面板、或普通浏览器中运行的本地技能管理器，同时管理本机 Codex 与 Claude 的技能、插件和 marketplace。支持中文、英文、日文，以及浅色、深色和跟随系统外观；包含技能库、插件、市场来源、更新、操作记录与 Agent 环境。打开即加载本机技能库，直接查看与管理自己的安装。
 
-此目录是可复现的 app 源码，随独立 `skilldock` 插件分发，包含 `skill-manager` skill 与原生 MCP 应用入口。当前版本为 0.10.3，是跨 Agent 版本（0.11.0）之前的过渡版：遇到 0.11 或更高版本写下的数据时不再接管，转交给本机较新的 SkillDock 或提示更新本侧；自更新失败后逐次延长等待；修复启动失败时原生界面只显示 “redact is not a function” 的问题。英文与日文服务提示的修复继续保留。保留第三方 marketplace 的重复版本兼容与 strict 校验，并提供非阻断的兼容性提示。支持 Miro 等官方应用插件的真实名称搜索、介绍、Logo 和安装预览，安装与账号连接分别核对。保留完整主页面与按需启动、断线恢复、Skills 页的重复筛选、本地插件安装前的技能清单和逐项启用选择；Skills / Plugins 沿用统一的布局与安装流程，支持从本地目录或 Git 目录链接直接安装单个插件，并提供已有项目下拉选择与文件夹选择器。插件外部同步后的基线恢复、macOS 独立后台定时更新、更新进度、逐行 diff、私仓认证、CLI 回退、自定义目录兼容性和同名技能按路径选择移除继续可用。
+此目录是可复现的 app 源码，随独立 `skilldock` 插件分发，包含 `skill-manager` skill 与 Codex 原生 MCP 应用入口。当前版本为 0.11.0（跨 Agent 版本）：同一个本地实例同时管理 Codex 与 Claude，在两边都能打开；Claude 一侧的技能、插件与 marketplace 支持安装、启停、移除恢复、更新和后台计划，改动经 Claude 命令行执行并读回；“Agent 环境”页显示两侧状态，并决定 SkillDock 是否修改某一侧；SkillDock 自身可一键更新较旧的一侧。要点见下文[跨 Agent（0.11.0）](#跨-agent0110)。此前版本的能力继续保留：第三方 marketplace 的重复版本兼容与 strict 校验、Miro 等官方应用插件的真实名称搜索与安装预览、完整主页面与按需启动、重复技能筛选、安装前的技能清单与逐项启用、从本地目录或 Git 链接安装单个插件、项目选择、macOS 独立后台定时更新、逐行 diff、私仓认证、CLI 回退、自定义目录兼容性与同名技能按路径移除。
 
 ## 安装技能与插件
 
@@ -66,15 +66,17 @@ printf 'Using Codex CLI: %s\n' "$CODEX_CLI"
 
 开启新的 Codex 任务，用 `$skill-manager 打开技能管理面板` 启动。这只安装独立 SkillDock 应用，不会安装 testany-eng 研发工具集。CLI 版本缺少 `plugin add` 时，可在 Codex 插件页面从同名市场安装。
 
+在 Claude 中安装：在 Claude Code 对话中运行 `/plugin marketplace add TestAny-io/testany-agent-skills` 与 `/plugin install skilldock@testany-agent-skills`，新开会话或 `/reload-plugins` 后用 `/skilldock:skill-manager` 打开。更新用 `claude plugin marketplace update testany-agent-skills` 与 `claude plugin update skilldock@testany-agent-skills`，再 `/reload-plugins`。Claude 不加载 Codex 原生入口，打开的是同一个网页面板。
+
 获取新版本先执行 `"$CODEX_CLI" plugin marketplace upgrade testany-agent-skills`，再执行同一条 `"$CODEX_CLI" plugin add` 更新安装副本，之后在新任务调用 `$skill-manager`。源码、市场目录和已安装副本各有自己的生命周期；只执行 `git pull` 不保证已安装缓存同步。源码包下载是 AGPL 对应源码，不能当 marketplace 注册包直接安装。
 
 需要固定版本时，向 `marketplace add` 传递已发布的 `--ref`（tag 或 commit）。仓库支持的安装格式依据 [OpenAI Package your plugin](https://developers.openai.com/plugins/build/plugins)，已存在的 Claude-compatible marketplace 可以继续使用。
 
 ## 启动
 
-macOS 用户无需先手动安装 Node.js/npm。启动器优先复用 Codex Workspace Dependencies 中的 Node.js，并可搭配应用包自带的 npm；已有兼容环境也可使用。没有完整可用组合时，自动在 SkillDock 数据目录中准备固定版本、经过 SHA-256 校验的官方 Node.js 运行环境。应用内部要求 Node.js **22.12 或更新版本**。
+应用需要 Node.js **22.12 或更新版本**。启动器按固定顺序查找本机已有的：显式指定、上次保存的选择、Codex Workspace Dependencies 中的 Node、此前版本下载过的专用 Node、Homebrew、nvm/fnm/Volta/asdf/mise/nodenv 与 PATH，并可搭配应用包自带的 npm。选中后保存，供 Codex 入口、Claude 入口与后台任务共用，失效时重新查找。找不到时弹出安装引导（打开下载页，或安装后“重新检测”），不会自动下载；没有图形界面时可设 `SKILLDOCK_NO_DIALOG=1` 关闭对话框。
 
-首次运行需要获取 lockfile 锁定的 npm 依赖；必要时从 nodejs.org 下载专用运行时。不会修改用户 shell 配置、系统 Node 或 Codex 签名。应用没有远程字体、云端数据库或外部分析服务。
+首次运行需要获取 lockfile 锁定的 npm 依赖。不会修改用户 shell 配置、系统 Node 或 Codex 签名。应用没有远程字体、云端数据库或外部分析服务。
 
 明确指定希望扫描的项目，脚本路径按实际安装位置替换：
 
@@ -82,9 +84,9 @@ macOS 用户无需先手动安装 Node.js/npm。启动器优先复用 Codex Work
 /bin/sh "/实际安装位置/skill-manager/scripts/launch.sh" start --project "/用户项目的绝对路径"
 ```
 
-启动打印请求目录、最终扫描目录和 Codex CLI；请求中存在符号链接时解释真实路径。选择优先级为 `--project`、`SKILLDOCK_PROJECT_DIR`、GUI 保存选择、调用工作目录。界面“当前项目”旁可切换目录，非法路径保留原状态；选择会保存，切换后核对计划中的项目目标。
+启动打印请求目录、最终扫描目录、Codex CLI，以及本机有 Claude 配置目录时所选的 Claude 命令行；请求中存在符号链接时解释真实路径。选择优先级为 `--project`、`SKILLDOCK_PROJECT_DIR`、GUI 保存选择、调用工作目录。界面“当前项目”旁可切换目录，非法路径保留原状态；选择会保存，切换后核对计划中的项目目标。
 
-成功后返回实际 URL，默认 [http://127.0.0.1:4771](http://127.0.0.1:4771)。在 Codex 中可让 agent 将该 URL 用 browser target 打开在右侧面板。普通浏览器也可以直接访问。
+成功后返回实际 URL，默认 [http://127.0.0.1:4771](http://127.0.0.1:4771)。在 Codex 中可让 agent 将该 URL 用 browser target 打开在右侧面板；在 Claude 中打开在内置浏览器面板。普通浏览器也可以直接访问。
 
 启动器将源码复制到应用数据目录并安装、构建，避免把依赖或运行状态写到已安装插件中。相同源码复用构建和服务；源码或项目目录改变时，重启经过核实的本实例。`status` 查询状态，`stop` 停止，`restart` 主动重启：
 
@@ -101,6 +103,8 @@ macOS 用户无需先手动安装 Node.js/npm。启动器优先复用 Codex Work
 | `PORT` | `4771` | IPv4 loopback 端口 |
 | `SKILLDOCK_CODEX_BIN` | 运行时自动探测 | 显式可执行 Codex CLI 路径 |
 | `SKILLDOCK_CODEX_APP_DIR` | 标准 Applications 目录 | 自定义安装位置的 Codex/ChatGPT `.app` 绝对路径 |
+| `SKILLDOCK_CLAUDE_BIN` | 自动选择 | 显式 Claude 命令行绝对路径；无效时明确失败，不换用其他文件 |
+| `SKILLDOCK_NO_DIALOG` | 未设置 | 设为 `1` 时找不到 Node 也不弹出安装引导 |
 | `SKILLDOCK_WORKSPACE_RUNTIME` | Codex 标准运行环境缓存 | 宿主工作区依赖根目录，内含 `dependencies/node/bin/node` |
 | `SKILLDOCK_NODE_BIN` | 自动选择 | 显式 Node 可执行文件绝对路径；错误配置会明确失败 |
 | `SKILLDOCK_NPM_CLI` | 自动选择 | 显式 `npm-cli.js` 绝对路径，由选定 Node 执行 |
@@ -121,6 +125,15 @@ macOS 用户无需先手动安装 Node.js/npm。启动器优先复用 Codex Work
 关联或安装 Git 技能时，可直接粘贴 GitHub 的目录地址，例如 `https://github.com/TestAny-io/testany-agent-skills/tree/main/plugins/testany-llm/skills/prompt-optimizer`。应用根据实际 refs 解析仓库、分支/标签及子目录，预览时列出结果；填写“分支或标签”会覆盖链接中的版本，保持同一子目录。对于仓库根地址或其他 Git 托管服务，可展开“高级：手动指定子目录”；GitHub 目录链接无需填写此项。原有来源记录和 SSH 地址继续可用。
 
 有变更的来源关联、技能更新和可应用的插件更新预览都提供“查看代码差异”。默认折叠，展开后点选文件加载 unified diff，显示增删颜色、旧/新行号和上下文。预览基线变化或过期时需重新检查；查看差异不应用更新。二进制/非 UTF-8、符号链接、超过 256 KB 或含超长行的文件显示省略原因，复杂 diff 有计算上限，最多显示 2000 行。设计与验证见 [链接与 diff 整改记录](../../references/20-source-links-and-diff.md)。
+
+## 跨 Agent（0.11.0）
+
+- **同一个实例**：Codex 入口、Claude 入口与后台任务共用一个服务和同一个数据目录。较旧的入口把请求转交给最新版本；任一侧出现更高版本后，正在运行的实例自动切换过去。
+- **Agent 环境**：列出本机的 Codex 与 Claude（配置目录、命令行、计数、各自装的 SkillDock 版本）和管理状态，保存在数据目录的 `settings/agents.json`。首次出现时，装有 SkillDock 的一侧默认“已启用管理”，另一侧只读。只读的一侧以及无法确认的 Claude，写操作都由服务端拒绝，计划中的对应目标暂停；Codex 命令行不可用时只作提示，技能照常管理。
+- **Claude 的读与写**：Claude 清单来自 Claude 命令行与本机文件（个人与项目的 `.claude/skills`、插件缓存、marketplace 副本）；可安装插件取自本机保存的 marketplace 副本，不调用联网的 `--available` 清单。写操作在 Claude 配置目录的锁下进行：插件与 marketplace 经 Claude 命令行（显式作用域、机器可读输出），技能文件经 SkillDock 的文件事务，启停与可见性只改 Claude 设置中的对应一项；每次都读回核对。由 claude.ai 同步或组织托管的对象不代为修改。
+- **数据迁移与门槛**：0.11 首次打开 0.10.x 的数据目录时迁移到新格式（数据代号 2），计划、绑定、历史与偏好保留。迁移前确认两侧装的 SkillDock 都不低于 0.10.3，否则以退出码 4 停下且不改动数据（一键更新的用法见 `SKILL.md`）；数据已由更高版本管理时退出码 3。
+- **回退**：需要回到 0.10.x 时为旧版本使用独立数据目录，或保留 0.11.x。0.10.3 不接管 0.11 的数据并提示更新；0.10.2 及更早版本拒绝启动或启动失败，不改写数据。
+- **设计与验证**：[PRD](../../references/34-cross-agent-prd.md)、[HLD](../../references/35-cross-agent-hld.md)、[接口契约](../../references/36-cross-agent-api-contract.md)、[实施计划与进度](../../references/37-cross-agent-implementation-plan.md)。
 
 ## 私有 Git 仓库
 
@@ -188,7 +201,9 @@ SKILLDOCK_PROJECT_DIR="/你的项目路径" npm start
 
 可选独立分发演练：在 macOS 执行 `node tests/seed-distribution-smoke.mjs`，模拟损坏的 PATH wrapper，通过桌面应用 CLI 安装本仓库的 skilldock，并验证只有一个 skill、安装文件字节及执行权限与源码一致。旧版迁移演练：设置上述 CLI 变量与 `SKILLDOCK_LEGACY_PLUGIN`（已发布 testany-eng 2.4.0 的插件目录绝对路径），执行 `node tests/seed-migration-smoke.mjs`；验证显式迁移、保留计划和历史，再单独更新旧工具集到 2.4.1，确认其余 21 个技能保留。两种演练均使用新的临时 Codex 配置，不操作用户安装。
 
-可选 macOS 无系统 Node/npm 演练：`node tests/runtime-smoke.mjs` 验证 Codex 环境复用；增加 `SKILLDOCK_SMOKE_PRIVATE=1` 验证工作区依赖缺失时的官方运行时下载、构建及重启。测试子进程 PATH 排除 Homebrew/nvm，并使用独立源码副本、数据目录与端口。专用运行时下载测试需要网络。
+可选 macOS 无系统 Node/npm 演练：`node tests/runtime-smoke.mjs` 验证 Codex 环境复用、构建及重启。测试子进程 PATH 排除 Homebrew/nvm，并使用独立源码副本、数据目录与端口。
+
+可选真实 Claude 演练（都在临时 HOME 与 Claude 配置目录中进行，请在断网沙箱中运行）：`SKILLDOCK_SMOKE_CLAUDE=<claude 命令行> node tests/claude-writes-smoke.mjs` 用真实 Claude 命令行走通添加 marketplace、安装、启停、保留数据卸载、刷新与移除；`node tests/claude-distribution-smoke.mjs` 把当前提交作为本地 marketplace 安装到 Claude，确认只装上 SkillDock 且不加载 Codex 原生入口。
 
 可选真实 GitHub 地址演练：`node tests/github-source-smoke.mjs` 在全新临时配置中访问上面的公开目录链接，验证规范来源、实际 commit、diff、关联不覆盖文件，以及后续检查更新；不会使用或修改用户技能目录。浏览器测试中的同一 GitHub 传输由本机 Git 夹具替代，解析、clone、关联与更新仍走真实服务逻辑。
 

@@ -9,6 +9,7 @@
 - 检查 Git 和当前 Codex 的插件安装能力；按 README 添加 marketplace 并仅安装 `skilldock`；不要安装整个 `testany-eng` 代替应用。PATH 的 codex 不可执行或缺少 plugin 能力时，按 README 检查桌面应用内 CLI，并记录最终绝对路径。打开应用时使用其 `launch.sh`：它查找并保存本机可用的 Node.js 22.12+（Codex 用户通常可直接复用 Codex 工作区的 Node），找不到时弹出安装引导；不要预先要求用户安装全局 Node，也不要自行下载 Node 或修改 shell 配置。
 - 读回安装结果，确认包含 `skill-manager`；不要将 clone、仅添加 marketplace 或复制源码表述为安装完成。
 - 用户要求同时打开时，读取实际安装目录中的 `skills/skill-manager/SKILL.md` 并按其启动说明执行。后续可在新的 Codex 任务中用 `$skill-manager` 打开面板。
+- 在 Claude（Claude Code 或桌面应用）中要求安装时，读 [README 的 Claude 说明](README.md#在-claude-中使用-skilldock)：添加本仓库 marketplace 后只安装 `skilldock@testany-agent-skills`，用 `claude plugin list --json` 读回已启用；新会话或 `/reload-plugins` 后用 `/skilldock:skill-manager` 打开。不要为了列出可安装插件而运行会联网下载目录的 `claude plugin list --available`。
 - 缺少工具或当前宿主不支持所需能力时，明确说明缺少项和可执行的下一步。普通浏览、审查或编辑仓库不触发安装。
 
 ## 安装 TeamDesk

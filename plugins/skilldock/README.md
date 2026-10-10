@@ -5,13 +5,13 @@
   <img src="assets/readme/brand-light.svg" alt="SkillDock" width="300" height="64">
 </picture>
 
-<h3>给 Codex 的技能库，一个清晰的管理界面。</h3>
+<h3>给 Codex 与 Claude 的技能库，一个清晰的管理界面。</h3>
 
 <p>浏览、安装、整理和更新 skills、plugins 与 Marketplace。<br>
-在 Codex 里打开，让常用能力各就其位。</p>
+在 Codex 或 Claude 里打开，两边共用同一个本地实例。</p>
 
 <p>
-  <img src="https://img.shields.io/badge/macOS-Codex-0764D9?style=flat-square" alt="macOS · Codex">
+  <img src="https://img.shields.io/badge/macOS-Codex%20%7C%20Claude-0764D9?style=flat-square" alt="macOS · Codex · Claude">
   <img src="https://img.shields.io/badge/语言-中文%20%2F%20EN%20%2F%20日本語-586174?style=flat-square" alt="中文 / English / 日本語">
   <a href="LICENSE"><img src="https://img.shields.io/badge/license-AGPL--3.0--only-586174?style=flat-square" alt="AGPL-3.0-only"></a>
 </p>
@@ -49,11 +49,21 @@
 $skill-manager 打开技能管理面板
 ```
 
+**在 Claude 中（Claude Code 或 Claude 桌面应用）：**
+
+```text
+/plugin marketplace add TestAny-io/testany-agent-skills
+/plugin install skilldock@testany-agent-skills
+```
+
+新开会话（或运行 `/reload-plugins`）后，用 `/skilldock:skill-manager` 打开，或直接说“打开 SkillDock”；界面打开在 Claude 的内置浏览器面板中。两边打开的是同一个实例、同一份数据，只装在一边也能管理另一边。
+
 <details>
 <summary><strong>安装要求、入口不见了，或命令报错？</strong></summary>
 
 - 需要 **macOS、Git，以及支持 plugin 管理的 Codex CLI**。
-- 无需预装全局 Node.js/npm；启动器会选择或准备运行环境。首次启动需要联网准备依赖。
+- 需要 **Node.js 22.12+**：启动器先查找本机已有的（Codex 工作区自带的 Node、Homebrew、nvm 等）并保存所选路径，找不到时弹出安装引导，不会自动下载。首次启动需要联网安装依赖。
+- 在 Claude 中使用时，需要 Claude Code 或 Claude 桌面应用；更新 SkillDock 后在已打开的会话中运行 `/reload-plugins`。
 - 安装或更新后入口、图标或界面仍是旧的，先完全退出并重新打开 Codex。原生入口已在桌面版 `26.924.22138` 验证；未提供该入口的宿主版本可用上述浏览器方式。
 - PATH 中的 `codex` 不可用时，按[完整安装说明](../../README.md#在-codex-中使用-skilldock)检查桌面应用内 CLI；不要把损坏的旧 npm wrapper 当成可用命令。
 - 曾随 `testany-eng 2.4.0` 安装旧版 SkillDock？按[迁移说明](../../README.md#从旧版-testany-eng-迁移)保留已有计划、历史与来源记录。
@@ -68,6 +78,7 @@ $skill-manager 打开技能管理面板
 | **同名副本** — “仅显示重复”集中列出重名技能，再按路径选择保留或移除。 | **逐项启禁** — 独立开关插件内的技能，插件总开关仍控制整个包。 |
 | **来源与位置** — 查看项目、安装位置，以及能够核实的来源和版本。 | **更新与 diff** — 跟踪检查进度，展开文件差异，再决定是否应用。 |
 | **项目切换** — 选择已有 Codex 项目、最近目录或本地文件夹。 | **操作记录与恢复** — 查看每次操作结果，恢复已移除的个人或项目技能。 |
+| **Codex 与 Claude 一起看** — 同一界面列出两边的技能、插件和 marketplace，可按 Agent 筛选。 | **按 Agent 管理** — 每一侧可设为只读或启用管理；改动经该 Agent 自己的命令行执行并读回。 |
 
 ### 安装一个插件，先知道会得到什么
 
@@ -103,7 +114,7 @@ $skill-manager 打开技能管理面板
 
 ### 设好更新计划，平时可以关掉应用
 
-在 **更新 → 配置计划** 中选择目标、以小时为单位的周期，以及是否自动应用。把 **`skilldock` 自身**加入计划，也能更新应用。
+在 **更新 → 配置计划** 中选择目标、以小时为单位的周期，以及是否自动应用。Claude 的技能和插件也可以加入计划；把 **`skilldock` 自身**加入计划，也能更新应用。两边都装了 SkillDock 而版本不同时，可在 **Agent 环境** 页一键更新较旧的一侧。
 
 启用后，由 macOS 按需启动独立更新任务，完成后退出。**SkillDock 和 Codex 都可以关闭**；电脑重启并登录后继续执行，休眠或离线错过的检查会补做一次。
 
@@ -113,7 +124,8 @@ $skill-manager 打开技能管理面板
 - 只处理你选中的、支持自动应用的目标。系统内置或平台托管项会显示所属管理器和可用操作。
 - 系统每五分钟判断任务是否到期；通常可能比计划时间晚约五分钟，睡眠、离线或系统调度也会延后执行。失败原因与重试状态可在“更新”页查看。
 - 运行依赖用户登录与 macOS 允许后台任务。关闭计划会移除该系统任务。
-- 自身更新后，已运行的 SkillDock 服务会重启、重连；Codex 中的入口或缓存 UI 可能仍需重启 Codex 才刷新。
+- 自身更新后，已运行的 SkillDock 服务会重启、重连，并切换到两边中最新的版本；Codex 中的入口或缓存 UI 可能仍需重启 Codex 才刷新，Claude 中运行 `/reload-plugins`。
+- Claude 管理停用或 Claude 命令行不可用时，计划中的 Claude 目标暂停，不算失败。
 - 本地 clone 来源不会被自动 `git pull`；先更新 clone，再刷新安装副本。
 - 旧版计划在第一次运行支持独立后台任务的新版时迁移；若只更新了插件文件，仍需打开一次新版完成迁移。
 
@@ -128,6 +140,20 @@ $skill-manager 打开技能管理面板
 中文、English、日本語可随时切换；支持浅色、深色、跟随系统，以及减少透明度。
 
 ## 常见问题
+
+<details>
+<summary>SkillDock 会改动我的 Claude（或 Codex）吗？</summary>
+
+只在那一侧“已启用管理”时才会。SkillDock 首次见到某个 Agent 时，装有 SkillDock 的一侧默认启用管理，另一侧只读；只读的一侧只看不改。在 **Agent 环境** 页启用前，会列出启用后可能写入的位置。对 Claude 的安装、启停、卸载和更新都经 Claude 自己的命令行执行并读回；由 claude.ai 同步或组织托管的对象不代为修改。停用管理不会撤销已经做过的改动。
+
+</details>
+
+<details>
+<summary>需要回到旧版本怎么办？</summary>
+
+0.11 会把数据目录迁移到新格式。需要回到 0.10.x 时，请为旧版本使用独立的数据目录（设置 `SKILLDOCK_STATE_DIR`），或保留 0.11.x。0.10.3 遇到 0.11 的数据不会接管，并提示更新；0.10.2 及更早版本会拒绝启动或启动失败，但不改写数据。
+
+</details>
 
 <details>
 <summary>第三方 marketplace 重复声明版本，或使用 strict:false，能安装吗？</summary>
@@ -170,7 +196,7 @@ $skill-manager 打开技能管理面板
 
 [安装与使用求助](https://github.com/TestAny-io/testany-agent-skills/discussions/categories/q-a) · [建议与试用感受](https://github.com/TestAny-io/testany-agent-skills/discussions/categories/ideas) · [报告 Bug](https://github.com/TestAny-io/testany-agent-skills/issues/new?template=bug-report.yml)
 
-附上 SkillDock 版本、Codex 版本和复现步骤会更容易定位；截图与日志请去掉私人路径和凭据。详见[反馈指南](../../.github/SUPPORT.md)。
+附上 SkillDock 版本、Codex 或 Claude 的版本和复现步骤会更容易定位；截图与日志请去掉私人路径和凭据。详见[反馈指南](../../.github/SUPPORT.md)。
 
 ## 来自 Testany
 
@@ -193,6 +219,8 @@ $skill-manager 打开技能管理面板
 
 <details>
 <summary>设计与实现记录</summary>
+
+跨 Agent（0.11）：[PRD](skills/skill-manager/references/34-cross-agent-prd.md) · [HLD](skills/skill-manager/references/35-cross-agent-hld.md) · [接口契约](skills/skill-manager/references/36-cross-agent-api-contract.md) · [实施计划](skills/skill-manager/references/37-cross-agent-implementation-plan.md)
 
 [原生入口](skills/skill-manager/references/30-native-app.md) · [界面设计](skills/skill-manager/references/31-desktop-interface.md) · [品牌与图标](skills/skill-manager/references/32-provider-icons.md) · [目录兼容性](skills/skill-manager/references/33-directory-compatibility.md)
 

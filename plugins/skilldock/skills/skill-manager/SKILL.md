@@ -27,7 +27,7 @@ Codex CLI 逐个验证 PATH、桌面应用内置 CLI 与 Codex 管理的副本�
 
 运行环境发现失败时先执行 `launch.sh doctor`（只读，不写任何文件）。宿主若提供 `load_workspace_dependencies`，可读取其返回的真实 Node 路径，以 `SKILLDOCK_NODE_BIN` 指定；自定义 Codex 应用位置使用 `SKILLDOCK_CODEX_APP_DIR`。无人值守或没有图形界面的环境可设 `SKILLDOCK_NO_DIALOG=1` 关闭安装引导对话框。不要修改 Codex 的签名或用户 shell 配置来绕过加载限制。诊断及兼容边界见 [运行环境接入](references/18-codex-node-runtime.md)。
 
-核对启动前后打印的请求目录和最终扫描目录、目录来源与 Codex CLI 绝对路径。真实路径与请求路径不同会有符号链接说明；若最终目录不符合用户意图，修正 `--project` 后重新打开，不把 HTTP 200 当作扫描目录正确的证据。
+核对启动前后打印的请求目录和最终扫描目录、目录来源、Codex CLI 绝对路径，以及本机有 Claude 时所选的 Claude 命令行。真实路径与请求路径不同会有符号链接说明；若最终目录不符合用户意图，修正 `--project` 后重新打开，不把 HTTP 200 当作扫描目录正确的证据。
 
 读取启动器返回的实际 URL，按当前宿主打开：
 
@@ -70,6 +70,6 @@ macOS 计划首次开启时注册当前用户 LaunchAgent，结束即退出；Co
 
 ## 维护与完成标准
 
-本轮独立分发与项目选择整改见 [种子反馈记录](references/19-seed-feedback.md)。维护源码时读取 [工程设计](references/03-engineering-design.md) 与 [测试计划](references/04-test-plan.md)；需求或交互变更分别读取 [PRD](references/01-product-requirements.md) 与 [界面设计](references/02-interface-design.md)。第一轮 UAT 的主题、三语言、来源及定时更新变更见 [变更基线](references/07-uat-round1-changes.md)。最新产品边界与验证见 [第三轮整改交付](references/14-uat-round3-delivery.md)；Sandbox 已从产品移除，隔离夹具仅供开发测试使用。本软件许可为 [AGPL-3.0-only](LICENSE)，第三方材料保留自己的许可。
+跨 Agent（0.11）的需求、设计、接口契约与实施进度见 [PRD](references/34-cross-agent-prd.md)、[HLD](references/35-cross-agent-hld.md)、[接口契约](references/36-cross-agent-api-contract.md) 与 [实施计划](references/37-cross-agent-implementation-plan.md)；改动跨版本识别、启动转交或数据格式前先读契约。本轮独立分发与项目选择整改见 [种子反馈记录](references/19-seed-feedback.md)。维护源码时读取 [工程设计](references/03-engineering-design.md) 与 [测试计划](references/04-test-plan.md)；需求或交互变更分别读取 [PRD](references/01-product-requirements.md) 与 [界面设计](references/02-interface-design.md)。第一轮 UAT 的主题、三语言、来源及定时更新变更见 [变更基线](references/07-uat-round1-changes.md)。最新产品边界与验证见 [第三轮整改交付](references/14-uat-round3-delivery.md)；Sandbox 已从产品移除，隔离夹具仅供开发测试使用。本软件许可为 [AGPL-3.0-only](LICENSE)，第三方材料保留自己的许可。
 
 启动成功须有实际健康检查和可访问页面；操作成功须由后端读回证明。缓存目录存在不等于有效安装，市场刷新不等于技能/插件升级；保护系统和来源不明确的托管组件。失败、部分完成、恢复和用户 UAT 各自如实报告。

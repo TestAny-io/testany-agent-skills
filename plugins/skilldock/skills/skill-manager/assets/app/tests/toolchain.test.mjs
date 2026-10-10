@@ -3,11 +3,10 @@ import assert from 'node:assert/strict';
 import fs from 'node:fs/promises';
 import path from 'node:path';
 import os from 'node:os';
-import crypto from 'node:crypto';
 import { execFile, spawn } from 'node:child_process';
 import { promisify } from 'node:util';
 import { fileURLToPath } from 'node:url';
-import { resolveToolchain, hasLibraryRestriction, inspectNode, downloadVerified, installPrivateRuntime, buildEnvironment } from '../server/toolchain.mjs';
+import { resolveToolchain, hasLibraryRestriction, inspectNode, buildEnvironment } from '../server/toolchain.mjs';
 import { nodeCandidates, readSavedNode, shellBlock, CANDIDATES } from '../server/node-candidates.mjs';
 import { staleEntries } from '../scripts/node-candidates.mjs';
 import { runScript, backgroundPaths } from '../server/background-registration.mjs';
@@ -76,23 +75,6 @@ test('without a usable Node nothing is downloaded or written; the entry shows gu
     assert.equal(result.available, false); assert.ok(result.rejected.length >= 1);
   }
   await assert.rejects(fs.stat(f.stateDir), { code: 'ENOENT' });
-});
-
-test('download bytes must match the pinned hash; corrupt and failed downloads leave no usable archive', async t => {
-  const f = await fixture(t); const destination = path.join(f.root, 'node.tar.gz');
-  const bytes = Buffer.from('verified archive fixture'); const expected = crypto.createHash('sha256').update(bytes).digest('hex');
-  await downloadVerified('https://nodejs.org/fixture', destination, expected, { fetcher: async () => new Response(bytes) });
-  assert.deepEqual(await fs.readFile(destination), bytes); await fs.rm(destination);
-  await assert.rejects(downloadVerified('https://nodejs.org/fixture', destination, expected, { fetcher: async () => new Response('corrupt') }), /SHA-256/);
-  await assert.rejects(fs.stat(destination), { code: 'ENOENT' });
-  await assert.rejects(downloadVerified('https://nodejs.org/fixture', destination, expected, { fetcher: async () => new Response('', { status: 503 }) }), /HTTP 503/);
-  await assert.rejects(fs.stat(destination), { code: 'ENOENT' });
-});
-
-test('a failed private-runtime download does not activate an installation or leave a lock', async t => {
-  const f = await fixture(t);
-  await assert.rejects(installPrivateRuntime({ stateDir: f.stateDir, arch: 'arm64', platform: 'darwin', log() {}, download: async () => { throw new Error('offline'); } }), /offline/);
-  assert.deepEqual(await fs.readdir(path.join(f.stateDir, 'node')), []);
 });
 
 test('the shell entry locates a custom desktop app without Node/npm on PATH and doctor creates no state', async t => {

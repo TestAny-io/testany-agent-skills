@@ -2,7 +2,7 @@
 
 **把需求、设计、评审、内容创作与测试中的工作方法，交给你的 AI Agent。**
 
-[Testany](https://testany.io) 出品的开源工具集：四组按领域组织的 plugin / skills，以及用于管理 Codex 本机技能的 **SkillDock** 和组织本地 AI 团队的 **TeamDesk** 图形应用。每个插件独立安装，按你要做的事选择。
+[Testany](https://testany.io) 出品的开源工具集：四组按领域组织的 plugin / skills，以及管理本机 Codex 与 Claude 技能的 **SkillDock** 和组织本地 AI 团队的 **TeamDesk** 图形应用。每个插件独立安装，按你要做的事选择。
 
 [English](README.en.md) · [选择插件](#选择适合你的插件) · [SkillDock 界面与安装](plugins/skilldock/README.md) · [TeamDesk 安装](plugins/teamdesk/README.md#安装与启动) · [交流与反馈](#交流与反馈) · [了解 Testany](https://testany.io)
 
@@ -14,10 +14,10 @@
 | 改写和优化提示词 | **[testany-llm](plugins/testany-llm/README.md)** | 把原提示词和目标交给 `prompt-optimizer` |
 | 创作多平台营销内容 | **[testany-mrkt](plugins/testany-mrkt/README.md)** | 用 `media-writer` 说明受众、平台和写作目标 |
 | 在 Testany 上编写、编排、执行和诊断测试 | **[testany-bot](plugins/testany-bot/README.md)** | 连接 Testany MCP，按用例、流水线或执行结果选择入口 |
-| 在图形界面中整理、安装和更新 Codex skills / plugins | **[SkillDock](plugins/skilldock/README.md)** | 安装独立 `skilldock` 插件，用 `$skill-manager` 打开面板 |
+| 在图形界面中整理、安装和更新 Codex 与 Claude 的 skills / plugins | **[SkillDock](plugins/skilldock/README.md)** | 安装独立 `skilldock` 插件；Codex 中用 `$skill-manager`、Claude 中用 `/skilldock:skill-manager` 打开面板 |
 | 在现有 Codex 中组织 AI 员工、业务任务和共享工作记录 | **[TeamDesk](plugins/teamdesk/README.md)** | 运行 [统一安装入口](plugins/teamdesk/README.md#安装与启动)，创建启动图标；0.3.0 种子测试修正版 |
 
-研发、AI、营销与测试插件的命令和说明见下方[技能目录](#包含的-skills)。SkillDock 和 TeamDesk 当前面向 macOS 上的 Codex；其他插件的宿主能力与前置条件见各自 README。
+研发、AI、营销与测试插件的命令和说明见下方[技能目录](#包含的-skills)。SkillDock 面向 macOS 上的 Codex 与 Claude，TeamDesk 面向 macOS 上的 Codex；其他插件的宿主能力与前置条件见各自 README。
 
 ## 在 Codex 中使用领域插件
 
@@ -40,7 +40,7 @@
 /plugin install testany-eng@testany-agent-skills
 ```
 
-把第二行中的 `testany-eng` 换成 `testany-llm`、`testany-mrkt` 或 `testany-bot` 即可分别安装。也可以打开 `/plugin`，在 Discover 中选择本 marketplace 的插件。添加 marketplace 只添加目录，不会自动安装所有插件。
+把第二行中的 `testany-eng` 换成 `testany-llm`、`testany-mrkt` 或 `testany-bot` 即可分别安装。也可以打开 `/plugin`，在 Discover 中选择本 marketplace 的插件。添加 marketplace 只添加目录，不会自动安装所有插件。SkillDock 同样可以装在 Claude 中，见[在 Claude 中使用 SkillDock](#在-claude-中使用-skilldock)；TeamDesk 仅支持 Codex。
 
 ### 使用
 
@@ -70,13 +70,13 @@ claude plugin update testany-eng@testany-agent-skills
 
 查看 [SkillDock 产品页与界面](plugins/skilldock/README.md)，了解标签与重复技能筛选、同名技能管理、更新 diff 与自动更新。
 
-**安装 `skilldock` 只会添加一个 SkillDock 应用入口，不会安装 testany-eng 的研发 skills。** 当前版本为 SkillDock **0.10.3**，支持按真实名称查找 Miro 等 Codex 官方应用插件，查看介绍与 Logo、预览安装，并分别核对安装与账号连接状态。自 0.2.0 起独立分发；旧版 testany-eng 2.4.0 所带的 SkillDock 0.1.0 用户请按下方迁移说明接续数据。
+**安装 `skilldock` 只会添加一个 SkillDock 应用入口，不会安装 testany-eng 的研发 skills。** 当前版本为 SkillDock **0.11.0**：同一个本地实例同时管理 Codex 与 Claude 的技能、插件和 marketplace，两边都能打开（见[在 Claude 中使用 SkillDock](#在-claude-中使用-skilldock)）；仍支持按真实名称查找 Miro 等 Codex 官方应用插件、预览安装，并分别核对安装与账号连接状态。自 0.2.0 起独立分发；旧版 testany-eng 2.4.0 所带的 SkillDock 0.1.0 用户请按下方迁移说明接续数据。
 
 无需用户手动 clone。可以在 Codex 中提出：
 
 > 请从 https://github.com/TestAny-io/testany-agent-skills 安装独立的 SkillDock 插件，并打开技能管理面板。
 
-安装需要 Git 和支持 plugin 管理的 Codex CLI。macOS 用户无需预装 Node.js/npm，应用启动器会自动选择或准备运行环境。
+安装需要 Git 和支持 plugin 管理的 Codex CLI。打开时需要本机有 Node.js 22.12+：启动器先查找已有的（Codex 工作区自带的 Node、Homebrew、nvm 等）并保存所选路径，找不到时弹出安装引导；不会自动下载 Node，也不修改 shell 配置。首次启动需要联网安装依赖。
 
 <details>
 <summary>手动安装、CLI 回退与启动目录排查</summary>
@@ -124,7 +124,7 @@ CODEX_CLI="$(/bin/sh plugins/skilldock/skills/skill-manager/scripts/launch.sh cl
 
 GitHub 来源更新：先执行 `"$CODEX_CLI" plugin marketplace upgrade testany-agent-skills`，再执行 `"$CODEX_CLI" plugin add skilldock@testany-agent-skills`。本地来源先自行更新 clone，再刷新安装副本；定时计划不会替用户执行本地仓库的 `git pull`。
 
-在应用的“更新”页面，将独立的 `skilldock` 插件加入计划，启用计划和“自动应用”。自 0.4.0 起，macOS 会按需启动更新任务并在完成后退出，SkillDock 网页服务和 Codex 无需打开；重启并登录后自动恢复。睡眠或离线错过的检查补做一次，失败退避重试；系统每五分钟判断是否到期。自身更新后，下次任务使用新版；已经打开的网页服务会自动重启、重连。旧版已开启的计划在新版首次启动时迁移，更新后的自动重启也会完成迁移；只有插件文件已更新、应用尚未运行过新版时，才需手动启动一次。系统禁用后台运行时，更新页会明确提示。
+在应用的“更新”页面，将独立的 `skilldock` 插件加入计划，启用计划和“自动应用”。Codex 与 Claude 都装了 SkillDock 而版本不同时，也可以在“Agent 环境”页一键更新较旧的一侧。自 0.4.0 起，macOS 会按需启动更新任务并在完成后退出，SkillDock 网页服务和 Codex 无需打开；重启并登录后自动恢复。睡眠或离线错过的检查补做一次，失败退避重试；系统每五分钟判断是否到期。自身更新后，下次任务使用新版；已经打开的网页服务会自动重启、重连。旧版已开启的计划在新版首次启动时迁移，更新后的自动重启也会完成迁移；只有插件文件已更新、应用尚未运行过新版时，才需手动启动一次。系统禁用后台运行时，更新页会明确提示。
 
 </details>
 
@@ -148,6 +148,25 @@ GitHub 来源更新：先执行 `"$CODEX_CLI" plugin marketplace upgrade testany
 </details>
 
 详见 [SkillDock 使用说明](plugins/skilldock/skills/skill-manager/assets/app/README.md)。本次采用 Git 仓库分发，官方目录上架留待后续。
+
+## 在 Claude 中使用 SkillDock
+
+自 0.11.0 起，SkillDock 也可以装在 Claude Code 或 Claude 桌面应用中。两边打开的是同一个本地实例、同一份数据；只装在一边，也能在界面中看到并管理另一边。
+
+在 Claude Code 对话中添加本仓库并安装：
+
+```text
+/plugin marketplace add TestAny-io/testany-agent-skills
+/plugin install skilldock@testany-agent-skills
+```
+
+新开会话（或在已打开的会话中运行 `/reload-plugins`）后，用 `/skilldock:skill-manager` 打开，或直接说“打开 SkillDock”。Claude 会把界面打开在内置浏览器面板中，没有浏览器工具时给出链接；Claude 中没有 Codex 那样的原生侧栏入口。
+
+- **要求**：macOS、Git 和 Node.js 22.12+（查找与安装引导同上）。
+- **管理状态**：SkillDock 首次见到某个 Agent 时，装有 SkillDock 的一侧默认“已启用管理”，另一侧只读。只读的一侧只看不改；在“Agent 环境”页启用后，SkillDock 才会改动它，启用前会列出可能写入的位置。对 Claude 的改动都经 Claude 自己的命令行执行并读回。
+- **更新**：在终端运行 `claude plugin marketplace update testany-agent-skills` 与 `claude plugin update skilldock@testany-agent-skills`，再 `/reload-plugins`；两边版本不同时，也可在“Agent 环境”页一键更新较旧的一侧。
+- **两边都装了 SkillDock**：0.11 首次打开旧数据时会确认两边都不低于 0.10.3，否则停下并说明处理办法（可经你确认一键更新），不改动任何数据。
+- **回退**：需要回到 0.10.x 时，请用独立的数据目录（设置 `SKILLDOCK_STATE_DIR`），或保留 0.11.x。0.10.3 遇到 0.11 的数据不会接管，并提示更新；0.10.2 及更早版本会拒绝启动或启动失败，但不改写数据。
 
 ## 包含的 Skills
 

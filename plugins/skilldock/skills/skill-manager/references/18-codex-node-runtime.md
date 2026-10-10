@@ -43,7 +43,7 @@ macOS 用户安装 SkillDock 后，通过 Codex 打开应用时无需事先手�
 
 ## 0.11 起的规则（HLD 3.10，DEC-SDX-012）
 
-上面的“自动下载专用 Node”已停用：Codex 与 Claude 两侧统一为“扫描本机 Node → 保存并复用 → 失效时重扫 → 找不到时弹窗引导安装”。
+上面的“自动下载专用 Node”已停用：Codex 与 Claude 两侧统一为“扫描本机 Node → 保存并复用 → 失效时重扫 → 找不到时弹窗引导安装”。0.11.0 起，下载专用 Node 的代码（`installPrivateRuntime`、`downloadVerified`）与 `runtime-smoke.mjs` 的下载分支已从仓库删除；0.10.x 下载过的专用 Node 仍作为候选复用。
 
 - 扫描顺序：`SKILLDOCK_NODE_BIN` → 保存值 → Codex 工作区 Node → 已下载的专用 Node（0.10.x 下载过的继续可用，不删除）→ Homebrew 与官方安装包位置 → nvm、fnm、Volta、asdf、mise、nodenv（各自取最高版本）→ PATH。应用包内的 Node 仍只用于运行引导程序。
 - 候选清单只有一份定义（`assets/app/server/node-candidates.mjs`），`launch.sh`、`native.sh` 与后台 `run.sh` 中的 shell 片段由它生成，两层都在同一位置内取能运行的最高版本；`node assets/app/scripts/node-candidates.mjs` 检查三处是否一致，`--write` 重新生成。

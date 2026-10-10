@@ -210,6 +210,7 @@
 - Codex 原生入口的 MCP 配置改名为 `codex.mcp.json`；Claude 不加载原生入口，从技能或 `/skilldock:skill-manager` 打开网页面板。
 - 0.10.x 的界面连接 0.11 服务时保持 0.10.2 的行为：看不到 Claude 的对象、计划目标与 Agent 环境类操作记录。
 - 清单读取超过 5 秒时，在 `server.log` 记录各部分耗时，便于排查。
+- 删去已停用的专用 Node 下载代码；0.10.x 下载过的专用 Node 仍作为候选复用。
 
 ### 文档与分发
 
