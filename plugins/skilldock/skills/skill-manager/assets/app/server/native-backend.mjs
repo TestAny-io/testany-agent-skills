@@ -41,7 +41,7 @@ async function json(file) {
   catch (error) { if (error.code === 'ENOENT') return null; throw error; }
 }
 
-export function createNativeBackend({ skillRoot, env = process.env, fetchImpl = fetch, startImpl } = {}) {
+export function createNativeBackend({ skillRoot, env = process.env, fetchImpl = fetch, startImpl, execImpl = exec, gateCheck } = {}) {
   const state = path.resolve(env.SKILLDOCK_STATE_DIR || path.join(os.homedir(), '.local/share/skilldock'));
   const codexHome = path.resolve(env.CODEX_HOME || path.join(os.homedir(), '.codex'));
   const appSource = path.join(skillRoot, 'assets/app');
@@ -111,13 +111,22 @@ export function createNativeBackend({ skillRoot, env = process.env, fetchImpl = 
     return h;
   }
 
-  async function start(config) {
+  // HLD 3.7 (G-01): the Agents whose older SkillDock stopped the migration gate, read again
+  // from the same evidence the launcher used; the interface offers to update them.
+  async function gateAgents(config) {
+    const { planLaunch } = await import('./launch-plan.mjs');
+    const plan = await planLaunch({ action: 'start', env: { ...env, SKILLDOCK_STATE_DIR: state, SKILLDOCK_UPDATE_AGENT: '' }, appDir: path.join(config.launchRoot, 'assets/app'),
+      update: async () => { throw new Error('not here'); }, log() {} });
+    return [...new Set((plan.error?.output?.blockers ?? []).map(item => item.agent))];
+  }
+
+  async function start(config, extra = {}) {
     const saved = await json(path.join(state, 'project.json'));
     const project = env.SKILLDOCK_PROJECT_DIR || saved?.path || config.record?.project || os.homedir();
-    const startupEnv = { ...env, SKILLDOCK_STATE_DIR: state, PORT: new URL(config.origin).port };
+    const startupEnv = { ...env, SKILLDOCK_STATE_DIR: state, PORT: new URL(config.origin).port, ...extra };
     if (startImpl) return startImpl({ skillRoot: config.launchRoot, state, project, env: startupEnv });
     try {
-      await exec('/bin/sh', [path.join(config.launchRoot, 'scripts/launch.sh'), 'start', '--project', project], {
+      await execImpl('/bin/sh', [path.join(config.launchRoot, 'scripts/launch.sh'), 'start', '--project', project], {
         cwd: project, env: startupEnv, timeout: 600000, maxBuffer: 1024 * 1024,
       });
     } catch (error) {
@@ -125,16 +134,19 @@ export function createNativeBackend({ skillRoot, env = process.env, fetchImpl = 
       // unrestricted command output in a tool result.
       const { redact } = await import('./errors.mjs');
       const details = redact(String(error.stderr || error.message).slice(-2500));
+      const agents = error.code === 4 ? await (gateCheck ?? gateAgents)(config).catch(() => []) : [];
+      if (agents.length) throw new Error('SKILLDOCK_ERROR:' + JSON.stringify({ code: 'MIGRATION_BLOCKED', message: 'SkillDock 后台启动未完成。' + details, agents }));
       throw new Error('SkillDock 后台启动未完成。' + details);
     }
   }
 
-  async function ensure() {
+  // `updateAgent`: the user agreed to the gate's one-click update of that Agent's SkillDock.
+  async function ensure({ updateAgent } = {}) {
     const config = await configuration();
     const live = await health(config);
     if (live && prepared) return { ...config, health: live };
     if (starting) return starting;
-    if (lastError && Date.now() - lastAttempt < 10000) throw lastError;
+    if (lastError && !updateAgent && Date.now() - lastAttempt < 10000) throw lastError;
     starting = (async () => {
       let release;
       const deadline = Date.now() + 600000;
@@ -149,7 +161,7 @@ export function createNativeBackend({ skillRoot, env = process.env, fetchImpl = 
           }
         }
         const current = await configuration(); const ready = await health(current);
-        if (!ready || !prepared) await start(current);
+        if (!ready || !prepared) await start(current, updateAgent ? { SKILLDOCK_UPDATE_AGENT: updateAgent } : {});
         const next = await configuration(); const checked = await health(next);
         if (!checked) throw new Error('SkillDock 后台尚未就绪，请重试。');
         lastError = undefined;
@@ -186,6 +198,11 @@ export function createNativeBackend({ skillRoot, env = process.env, fetchImpl = 
       } catch {
         throw new Error('操作响应中断，结果尚未确认。请先刷新操作记录和清单，确认后再决定是否重试。');
       }
+    },
+    async updateAtGate(agent) {
+      if (!['codex', 'claude'].includes(agent)) throw new Error('Invalid agent.');
+      await ensure({ updateAgent: agent });
+      return { status: 200, data: { ok: true } };
     },
     async download(name) {
       if (!['license', 'source'].includes(name)) throw new Error('Unsupported download.');

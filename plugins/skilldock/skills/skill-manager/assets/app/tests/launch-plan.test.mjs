@@ -9,6 +9,7 @@ import path from 'node:path';
 import { resolveLaunchProject } from '../server/project-context.mjs';
 import { installationContext, delegationTarget, legacyOwnership, legacyOwnershipDetail, planLaunch, refreshInstallations, migrationCheck, backgroundFamily } from '../server/launch-plan.mjs';
 import { resolveFamilySource, refreshBackgroundRuntime } from '../server/background-worker.mjs';
+import { gateUpdate } from '../server/gate-cli.mjs';
 import { fileURLToPath } from 'node:url';
 import { buildRecord, legacyFields, ensureLegacyProject, writeRecord, readRecord } from '../server/launcher-record.mjs';
 import { writeRestart } from '../server/installation.mjs';
@@ -288,4 +289,51 @@ test('generation 2: a background moved to the other side takes that installation
     installation: { kind: 'plugin', codexHome: w.codexHome, marketplace: MARKET, plugin: 'skilldock', appPath: 'skills/skill-manager/assets/app' }, digest: (await captureSource(codex)).sourceDigest };
   const next = await refreshBackgroundRuntime(context, unexpectedScan, { prepare: async () => '/new-runtime' });
   assert.deepEqual([next.source, next.runtime, next.installation], [claude, '/new-runtime', { kind: 'directory', source: claude }]);
+});
+
+// HLD 3.7 (G-01, phase 5d2b): the gate's one-click update, run by the launcher.
+test('with the user\'s agreement the gate updates the Agent it stopped at and checks again; never for another Agent or a restart job', async t => {
+  const w = await world(t);
+  const codex = await w.install('codex', '0.11.0'); await w.install('claude', '0.10.2');
+  const env = { ...w.env, SKILLDOCK_STATE_DIR: w.state };
+  const updates = []; const notes = [];
+  const replace = async version => { await fs.rm(path.join(w.claudeConfig, 'plugins/cache', MARKET, 'skilldock', 'sha-0.10.2'), { recursive: true }); await w.install('claude', version); };
+  const update = async request => { updates.push(request); await replace('0.11.0'); return { message: '已更新。' }; };
+  const plan = options => planLaunch({ action: 'start', home: w.home, appDir: codex, update, log: note => notes.push(note), ...options, env: { ...env, ...options.env } });
+  assert.equal((await plan({ env: { SKILLDOCK_UPDATE_AGENT: 'codex' } })).kind, 'error', '只更新被门槛拦下的一侧');
+  assert.equal((await plan({ action: 'restart', env: { SKILLDOCK_UPDATE_AGENT: 'claude', SKILLDOCK_RESTART_JOB: 'j' } })).kind, 'error', '重启任务不更新');
+  assert.equal(updates.length, 0);
+  const passed = await plan({ env: { SKILLDOCK_UPDATE_AGENT: 'claude' } });
+  assert.deepEqual([passed.kind, passed.gateChecked], ['continue', true]);
+  assert.deepEqual([updates[0].agent, updates[0].marketplace, updates[0].state, updates[0].claudeRoot.configDir], ['claude', MARKET, w.state, w.claudeConfig]);
+  assert.deepEqual(notes, ['已更新。']);
+});
+
+test('a gate update that brings a newer member runs it instead; a failed one says why, with the steps (G-01)', async t => {
+  const w = await world(t);
+  const codex = await w.install('codex', '0.11.0'); await w.install('claude', '0.10.2');
+  const env = { ...w.env, SKILLDOCK_STATE_DIR: w.state, SKILLDOCK_UPDATE_AGENT: 'claude' };
+  const newer = async () => { await fs.rm(path.join(w.claudeConfig, 'plugins/cache', MARKET, 'skilldock', 'sha-0.10.2'), { recursive: true }); await w.install('claude', '0.11.1'); return { message: 'ok' }; };
+  const failed = await planLaunch({ action: 'start', env, home: w.home, appDir: codex, log() {}, update: async () => { throw Object.assign(new Error('Claude 中的 SkillDock 更新失败（offline）。\n手动步骤'), { code: 'SKILLDOCK_UPDATE_FAILED' }); } });
+  assert.deepEqual([failed.kind, failed.error.exitCode, failed.error.output.status], ['error', 4, 'migration-blocked']);
+  assert.match(failed.error.message, /^一键更新没有完成：Claude 中的 SkillDock 更新失败（offline）。\n手动步骤$/); assert.ok(failed.error.output.steps.length > 1, '仍附处理步骤');
+  const delegated = await planLaunch({ action: 'start', env, home: w.home, appDir: codex, log() {}, update: newer });
+  assert.deepEqual([delegated.kind, delegated.target.agent, delegated.target.version], ['delegate', 'claude', '0.11.1']);
+});
+
+test('the gate update runs that Agent\'s own commands under the launch lock and reads the version back (G-01)', async t => {
+  const w = await world(t);
+  const calls = path.join(w.root, 'calls'); const listed = path.join(w.root, 'listed.json'); const next = path.join(w.root, 'next.json');
+  const entry = version => JSON.stringify({ installed: [{ name: 'skilldock', marketplaceName: MARKET, version }] });
+  await fs.writeFile(listed, entry('0.10.2')); await fs.writeFile(next, entry('0.11.0'));
+  const cli = path.join(w.root, 'codex-stand-in');
+  await fs.writeFile(cli, `#!/bin/sh\necho "$*" >> '${calls}'\ncase "$1 $2" in\n"--version ") echo "codex-cli 0.200.0" ;;\n"plugin --help") echo "list marketplace" ;;\n"plugin list") cat '${listed}' ;;\n"plugin add") cp '${next}' '${listed}' ;;\nesac\n`, { mode: 0o755 });
+  const request = { agent: 'codex', marketplace: MARKET, state: w.state, codexHome: w.codexHome, claudeRoot: { configDir: w.claudeConfig }, env: { ...w.env, SKILLDOCK_CODEX_BIN: cli }, home: w.home };
+  const held = acquireFileLock(path.join(w.state, 'launcher.lock'));
+  try { await assert.rejects(gateUpdate(request), { code: 'BUSY' }, '启动锁被占用时不更新'); } finally { held(); }
+  const result = await gateUpdate(request);
+  assert.deepEqual([result.from, result.to], ['0.10.2', '0.11.0']);
+  const ran = (await fs.readFile(calls, 'utf8')).split('\n').filter(line => line.startsWith('plugin') && !line.includes('--help'));
+  assert.deepEqual(ran, ['plugin list --json', `plugin marketplace upgrade ${MARKET} --json`, `plugin add skilldock@${MARKET} --json`, 'plugin list --json']);
+  await assert.rejects(gateUpdate({ ...request, env: w.env }), error => error.code === 'CLI_UNAVAILABLE' && /\n在 Codex 的插件页更新 SkillDock/.test(error.message));
 });

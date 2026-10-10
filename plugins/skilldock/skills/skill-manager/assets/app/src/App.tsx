@@ -6,6 +6,7 @@ import packageInfo from "../package.json";
 import brandIcon from "./native-icon.svg";
 import brandWordmark from "./brand-wordmark.svg";
 import { apiFetch, nativeMode, openDownload } from "./transport";
+import { GateUpdate, gateAgents } from "./GateUpdate";
 import {
   ArrowDownToLine,
   ArrowLeft,
@@ -851,6 +852,7 @@ export default function App() {
               <div>
                 <strong>{t("无法刷新清单")}</strong>
                 <ServiceMessage value={loadError} error />
+                {nativeMode && gateAgents(loadError).length > 0 && <GateUpdate agents={gateAgents(loadError)} onDone={() => void refresh()} />}
               </div>
               <Button onClick={() => void refresh()} busy={loading}>
                 {t("重试")}

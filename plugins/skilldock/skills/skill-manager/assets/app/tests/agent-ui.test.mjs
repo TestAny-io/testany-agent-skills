@@ -249,3 +249,30 @@ test('the plan lists the cross-side skills waiting for confirmation, and confirm
   assert.doesNotMatch(render(UpdatesWorkspace, { ...props, data: { ...data, schedule: { ...schedule, autoApply: false } } }), /uw-pending-confirmation/);
   assert.match(pendingConfirmation(data, 'en').description, /changes those plugins/); assert.match(pendingConfirmation(data, 'ja').title, /自動適用しますか/);
 });
+
+// HLD 3.7 (G-01, phase 5d2b): the native start failure's one-click update.
+const gateBundle = await build({
+  stdin: { contents: 'export * from "./src/GateUpdate"; export { setPreferences } from "./src/preferences";', resolveDir: app, loader: 'ts' },
+  bundle: true, platform: 'node', format: 'cjs', packages: 'external', jsx: 'automatic', write: false, loader: { '.css': 'empty' },
+});
+function gateUi(language = 'zh') {
+  const module = { exports: {} }, storage = new Map();
+  runInNewContext(gateBundle.outputFiles[0].text, { module, exports: module.exports, require,
+    localStorage: { getItem: key => storage.get(key), setItem: (key, value) => storage.set(key, value) },
+    document: { documentElement: { dataset: { skilldockHost: 'mcp' }, style: {} }, getElementById: () => null },
+    window: { matchMedia: () => ({ matches: false, addEventListener() {} }), addEventListener() {} } });
+  module.exports.setPreferences({ language }); return module.exports;
+}
+
+test('a native start the gate stopped offers to update the Agents it names, each confirmed first (phase 5d2b)', () => {
+  const { gateAgents, GateUpdate } = gateUi();
+  const error = agents => 'SKILLDOCK_ERROR:' + JSON.stringify({ code: 'MIGRATION_BLOCKED', message: 'SkillDock 后台启动未完成。', agents });
+  assert.deepEqual([...gateAgents(error(['claude', 'other']))], ['claude'], '只认 codex 与 claude');
+  assert.deepEqual([...gateAgents('SkillDock 后台启动未完成。')], []);
+  assert.deepEqual([...gateAgents('SKILLDOCK_ERROR:' + JSON.stringify({ code: 'OTHER', agents: ['codex'] }))], []);
+  assert.deepEqual([...gateAgents('SKILLDOCK_ERROR:{broken')], []);
+  const html = render(GateUpdate, { agents: ['codex', 'claude'], onDone() {} });
+  assert.match(html, /一键更新 Codex 中的 SkillDock/); assert.match(html, /一键更新 Claude 中的 SkillDock/);
+  assert.doesNotMatch(html, /确认更新/, '点击后才出现确认');
+  assert.match(render(gateUi('en').GateUpdate, { agents: ['claude'], onDone() {} }), /Update SkillDock in Claude/);
+});

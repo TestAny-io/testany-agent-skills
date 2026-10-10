@@ -13,7 +13,7 @@ import { acquireFileLock } from './process-lock.mjs';
 import { withStateLocks } from './state-locks.mjs';
 import { resolveClaudeRoot } from './claude-root.mjs';
 import { migrationGate, gateGuidance, repeatedFailure } from './migration.mjs';
-import { commandLineGateEvidence } from './gate-cli.mjs';
+import { commandLineGateEvidence, gateUpdate } from './gate-cli.mjs';
 
 export const EXIT_UPDATE_REQUIRED = 3;
 export const EXIT_MIGRATION_BLOCKED = 4;
@@ -152,7 +152,7 @@ export async function migrationCheck({ state, context, restartJob, env = process
  * Bootstrap-time planning, before any toolchain work: newer data stops here, a newer
  * installation of the family runs instead, and generation-1 data passes the gate first.
  */
-export async function planLaunch({ action, env = process.env, home = os.homedir(), appDir }) {
+export async function planLaunch({ action, env = process.env, home = os.homedir(), appDir, update = gateUpdate, log = note => process.stderr.write(`SkillDock：${note}\n`) }) {
   if (!['start', 'restart', 'status', 'stop'].includes(action)) return { kind: 'continue' };
   const state = await canonical(path.resolve(env.SKILLDOCK_STATE_DIR || path.join(home, '.local/share/skilldock')));
   const generation = await readGeneration(state);
@@ -164,7 +164,24 @@ export async function planLaunch({ action, env = process.env, home = os.homedir(
   const target = delegationTarget(context, { action, env });
   if (target) return { kind: 'delegate', target, state };
   const gated = ['start', 'restart'].includes(action) && generation < CURRENT_GENERATION;
-  const blocked = gated && await migrationCheck({ state, context, restartJob: env.SKILLDOCK_RESTART_JOB, env, home, codexHome });
+  let blocked = gated && await migrationCheck({ state, context, restartJob: env.SKILLDOCK_RESTART_JOB, env, home, codexHome });
+  // HLD 3.7 (G-01): an interactive entry that has the user's agreement names the Agent the gate
+  // stopped at; its SkillDock is updated, then the gate is checked again. Never for a restart job.
+  const blocker = blocked?.code === 'MIGRATION_BLOCKED' && !env.SKILLDOCK_RESTART_JOB && blocked.output?.blockers?.find(item => item.agent === env.SKILLDOCK_UPDATE_AGENT);
+  if (blocker) {
+    try {
+      log((await update({ agent: blocker.agent, marketplace: blocker.marketplace, state, codexHome: codexHome ?? context.roots.caches.find(cache => cache.agent === 'codex')?.home ?? path.join(home, '.codex'),
+        claudeRoot: context.claudeRoot, env, home })).message);
+    } catch (error) {
+      const message = `一键更新没有完成：${error.message}`;
+      return { kind: 'error', error: Object.assign(new Error(message), { code: 'MIGRATION_BLOCKED', exitCode: EXIT_MIGRATION_BLOCKED, output: { ...blocked.output, message } }) };
+    }
+    blocked = await migrationCheck({ state, context, env, home, codexHome });
+    // The updated side may now hold a newer member of the family, which runs instead.
+    const refreshed = !blocked && await installationContext({ env, home, state, appDir, record, codexHome });
+    const newer = refreshed && delegationTarget(refreshed, { action, env });
+    if (newer) return { kind: 'delegate', target: newer, state };
+  }
   return blocked ? { kind: 'error', error: blocked } : { kind: 'continue', state, context, gateChecked: gated };
 }
 

@@ -13,9 +13,18 @@ import { resolveClaudeCli, listClaudePlugins } from './claude-cli.mjs';
 import { childEnvironment } from './process-env.mjs';
 import { atLeast, parseVersion, readJsonFile } from './installs.mjs';
 import { GATE_MINIMUM } from './migration.mjs';
-import { claudeAppVersion } from './skilldock-update.mjs';
+import { claudeAppVersion, manualUpdate, updateSkilldockIn } from './skilldock-update.mjs';
+import { claudeWriter } from './claude-writer.mjs';
+import { acquireFileLock, operationLock } from './process-lock.mjs';
+import { AppError } from './errors.mjs';
 
 const exists = async directory => (await fs.stat(directory).catch(() => null))?.isDirectory() ?? false;
+
+function codexCommand(cli, codexHome, env, timeout) {
+  return args => new Promise((resolve, reject) => {
+    execFile(cli, args, { timeout, maxBuffer: 4 * 1024 * 1024, env: childEnvironment(env, { CODEX_HOME: codexHome }), shell: false }, error => error ? reject(error) : resolve());
+  });
+}
 
 function codexInstalled(cli, codexHome, env, timeout) {
   return new Promise((resolve, reject) => {
@@ -69,4 +78,36 @@ export async function commandLineGateEvidence({ codexHome, claudeRoot, state, en
     }
   }
   return { blockers, notes };
+}
+
+/**
+ * HLD 3.7 (G-01): once the user agreed, the launcher updates the SkillDock of an Agent the gate
+ * stopped at, with the same update and readback as `agent.updateSkilldock`. It holds the launch
+ * lock, which 0.10.x background refreshes and self-updates also take, and that Agent's lock.
+ */
+export async function gateUpdate({ agent, marketplace, state, codexHome, claudeRoot, env = process.env, home = os.homedir(), timeout = 300000 }) {
+  const manual = manualUpdate[agent](marketplace);
+  const releases = [acquireFileLock(path.join(state, 'launcher.lock'))];
+  try {
+    if (agent === 'codex') {
+      const cli = await resolveCodexCli({ codexHome, env, home });
+      if (!cli.available) throw new AppError(422, 'CLI_UNAVAILABLE', `未找到可用的 Codex 命令行，无法一键更新。\n${manual}`);
+      if (await exists(codexHome)) releases.push(acquireFileLock(operationLock(codexHome)));
+      const list = async () => (await codexInstalled(cli.path, codexHome, env, timeout)).filter(plugin => plugin?.name === 'skilldock')
+        .map(plugin => ({ id: `skilldock@${plugin.marketplaceName}`, marketplace: plugin.marketplaceName, version: plugin.version }));
+      return await updateSkilldockIn('codex', { list, run: codexCommand(cli.path, codexHome, env, timeout) });
+    }
+    const cli = await resolveClaudeCli({ state, env, home, claudeRoot, save: false });
+    if (!cli.available) throw new AppError(422, 'CLI_UNAVAILABLE', `未找到可用的 Claude 命令行，无法一键更新。\n${manual}`);
+    if (await exists(claudeRoot.configDir)) releases.push(acquireFileLock(operationLock(claudeRoot.configDir)));
+    const command = claudeWriter({ cli, claudeRoot, env, timeout });
+    const list = async () => {
+      const items = [];
+      // An installation the organization manages is left to Claude (HLD 3.4).
+      for (const item of await listClaudePlugins(cli.path, { env, claudeRoot, timeout })) if (typeof item?.id === 'string' && item.id.startsWith('skilldock@') && item.scope !== 'managed')
+        items.push({ id: item.id, marketplace: item.id.slice('skilldock@'.length), version: await claudeAppVersion(item.installPath), scope: item.scope, ...(item.scope === 'user' ? {} : { cwd: item.projectPath }) });
+      return items;
+    };
+    return await updateSkilldockIn('claude', { list, run: (args, { cwd }) => command(args, { cwd: cwd ?? home }) });
+  } finally { for (const release of releases.reverse()) release(); }
 }

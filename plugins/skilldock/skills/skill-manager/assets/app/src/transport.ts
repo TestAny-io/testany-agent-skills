@@ -49,6 +49,12 @@ export async function apiFetch(route: string, options: RequestInit = {}): Promis
   return Response.json(result.data, { status: result.status });
 }
 
+/** HLD 3.7 (G-01): the gate's one-click update, once the user agreed (native entry only). */
+export async function gateUpdate(agent: 'codex' | 'claude') {
+  if (!nativeMode) throw new Error('Unsupported SkillDock request.');
+  await call('skilldock_gate_update', { agent });
+}
+
 export async function openDownload(name: 'license' | 'source') {
   if (!nativeMode) { window.open('/api/' + name, '_blank', 'noopener,noreferrer'); return; }
   const response = await call('skilldock_download', { name });

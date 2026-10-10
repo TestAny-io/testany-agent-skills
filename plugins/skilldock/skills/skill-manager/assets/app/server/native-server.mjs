@@ -43,6 +43,9 @@ appTool('skilldock_read', 'Read the SkillDock application. Starts its owned loca
 appTool('skilldock_action', 'Perform a user-selected SkillDock action. May install, update, disable or remove local skills, plugins and scheduled tasks.', {
   body: z.record(z.string(), z.unknown()), session: z.string().max(256),
 }, ({ body, session }) => backend.action(body, session), true);
+// HLD 3.7 (G-01): after the user agreed in the interface, the launcher updates that Agent's SkillDock.
+appTool('skilldock_gate_update', 'Update the older SkillDock in one Agent that stopped SkillDock from starting, after the user agreed, then start SkillDock.', { agent: z.enum(['codex', 'claude']) },
+  ({ agent }) => backend.updateAtGate(agent), true);
 appTool('skilldock_download', 'Get a local link to the software license or corresponding source archive.', { name: z.enum(['license', 'source']) }, async ({ name }) => ({ url: await backend.download(name) }));
 
 registerAppResource(server, 'skilldock', resourceUri, { mimeType: RESOURCE_MIME_TYPE }, async () => ({ contents: [{

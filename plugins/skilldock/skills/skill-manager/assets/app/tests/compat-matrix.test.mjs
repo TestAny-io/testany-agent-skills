@@ -722,6 +722,32 @@ gated('G-07 代号 2、launcher.json 被删除：0.11 服务补写反映实际�
   await invariants(w);
 });
 
+gated('G-01 一键更新（阶段 5d2b）：交互入口经用户同意后，启动器经该侧命令行更新被门槛拦下的 SkillDock，读回后重新检查并接管', async t => {
+  const w = await world(t, { generation: 1 });
+  const stale = await install(w, 'claude', 'frozen', '0.10.2'); const real = await install(w, 'codex', 'real', '0.11.0');
+  const next = await install(w, 'claude', 'sample', '0.10.3');
+  const listed = path.join(w.root, 'claude-listed.json'); const calls = path.join(w.root, 'claude-calls');
+  const entry = (version, installPath) => JSON.stringify([{ id: `skilldock@${MARKET}`, scope: 'user', enabled: true, version, installPath }]);
+  await fs.writeFile(listed, entry('0.10.2', stale.dest));
+  // A stand-in Claude command line: updating marks the replaced version orphaned, as Claude does.
+  const cli = path.join(w.root, 'claude-stand-in');
+  await fs.writeFile(cli, `#!${process.execPath}
+const fs = require('node:fs'); const a = process.argv.slice(2);
+fs.appendFileSync(${JSON.stringify(calls)}, a.join(' ') + '\\n');
+if (a[0] === '--version') console.log('2.1.288 (Claude Code)');
+else if (a[0] === 'plugin' && a[1] === 'list') console.log(fs.readFileSync(${JSON.stringify(listed)}, 'utf8'));
+else if (a[0] === 'plugin' && a[1] === 'update') { fs.writeFileSync(${JSON.stringify(path.join(stale.dest, '.orphaned_at'))}, '1'); fs.writeFileSync(${JSON.stringify(listed)}, ${JSON.stringify(entry('0.10.3', next.dest))}); console.log('{"outcome":"ok"}'); }
+else console.log('{"outcome":"ok"}');
+`, { mode: 0o755 });
+  const result = await launchOf(w, real, ['start', '--project', w.projectA], { extraEnv: { SKILLDOCK_UPDATE_AGENT: 'claude', SKILLDOCK_CLAUDE_BIN: cli } });
+  assert.equal(result.code, 0, result.stderr);
+  assert.match(result.stderr, /已把 Claude 中的 SkillDock 从 0\.10\.2 更新到 0\.10\.3/);
+  const ran = (await fs.readFile(calls, 'utf8')).split('\n').filter(line => / (update|marketplace) /.test(` ${line} `) && !line.startsWith('plugin list'));
+  assert.deepEqual(ran.slice(0, 2), [`plugin marketplace update ${MARKET} --json`, `plugin update skilldock@${MARKET} --scope user --json`]);
+  assert.equal(JSON.parse(await fs.readFile(path.join(w.state, 'generation.json'), 'utf8')).generation, 2, '门槛通过后接管');
+  assert.deepEqual([(await record(w)).status, (await record(w)).running.appPath], ['running', real.appPath]);
+});
+
 gated('G-08 0.10.x 自更新以重启任务调用 0.11：门槛通过后按固定顺序迁移，任务记为 ready', async t => {
   const w = await world(t, { generation: 1 });
   const old = await install(w, 'codex', 'frozen', '0.10.2'); await install(w, 'codex', 'released', '0.10.3');

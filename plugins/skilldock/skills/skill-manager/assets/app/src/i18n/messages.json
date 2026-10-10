@@ -2506,5 +2506,13 @@
   "将安装这个插件及其附带组件。安装后可在插件详情中启停或卸载，在更新页检查与更新。": {
     "en": "This plugin and its bundled components will be installed. Afterwards you can turn it on or off or uninstall it in the plugin details, and check for and apply updates on the Updates page.",
     "ja": "このプラグインと付属コンポーネントをインストールします。インストール後はプラグインの詳細で有効化・無効化やアンインストールができ、更新ページで更新を確認・適用できます。"
+  },
+  "将通过 {v0} 的命令行更新其中的 SkillDock，然后重新检查并启动。只改动 SkillDock 本身。": {
+    "en": "{v0}'s command line will update the SkillDock in it, then SkillDock checks again and starts. Only SkillDock itself changes.",
+    "ja": "{v0} のコマンドラインでその中の SkillDock を更新し、再確認してから起動します。変更するのは SkillDock 本体だけです。"
+  },
+  "一键更新 {v0} 中的 SkillDock": {
+    "en": "Update SkillDock in {v0}",
+    "ja": "{v0} の SkillDock を更新"
   }
 }
