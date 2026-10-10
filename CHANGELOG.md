@@ -189,6 +189,37 @@
   - `testany-llm` 的命令列表和 plugin 描述改为仅保留 `prompt-optimizer`
   - 根 README、`AGENTS.md`、`CLAUDE.md` 不再引用已删除的 `skill-creator` 脚本与路径
 
+## [skilldock 0.11.0] - 未发布（合并 main 时填写日期）
+
+跨 Agent 版本：一个本地实例同时管理 Codex 与 Claude（Claude Code 与 Claude 桌面应用）的技能、插件和 marketplace。在 Codex 或 Claude 中都能安装和打开 SkillDock，两边打开的是同一个实例、同一份数据。需求、设计与接口契约随本版发布：PRD-SKILLDOCK-002、HLD-SDX-001、API-SDX-001（`plugins/skilldock/skills/skill-manager/references/34`～`37`）。
+
+### 新增
+
+- **Agent 环境页**：列出本机的 Codex 与 Claude，显示配置目录、命令行、技能与插件数量、各自装的 SkillDock 版本，以及 SkillDock 对它的管理状态（已启用、只读、无法确认）。首次出现时，装有 SkillDock 的一侧默认启用管理，另一侧只读；启用前列出可能写入的位置；停用 Claude 管理时可一并清理 SkillDock 生成的本地 marketplace。
+- **Claude 技能**：从本地目录或 Git 安装到个人技能目录或当前项目的 `.claude/skills`；启停与可见性写入 Claude 设置；移除后可从操作记录恢复。两侧共用的技能修改前提示“两侧看到的内容都会改变”，两侧关联了不同来源时拒绝更新并说明冲突。
+- **Claude 插件与 marketplace**：从 marketplace 安装（用户、项目、本地三种范围）、启停、卸载（可保留插件数据）；从本地目录或 Git 安装：带 Claude manifest 的放入技能目录，否则由 SkillDock 生成一个本地 marketplace。添加、刷新、移除 marketplace。所有改动经 Claude 自己的命令行执行，并读回核对。
+- **Claude 对象的更新**：Claude 技能、技能目录插件和从 marketplace 安装的插件进入更新页。检查时按插件来源（本地目录、Git、npm、压缩包）暂存 Claude 将装入的内容，可看逐文件差异；应用前再核对一次，应用后读回。插件内容变了而版本号没变时提示维护者递增版本；没有版本号的插件更新前先复制一份。由 claude.ai 同步或组织托管的对象，以及来源为命令、需要凭证命令或项目目录已不存在的插件，不代为更新，并说明原因。
+- **后台计划**可以加入 Claude 目标。Claude 管理停用或 Claude 命令行不可用时，这些目标暂停而不算失败；一侧的技能内容在另一侧插件目录中时，加入自动应用前先确认。
+- **SkillDock 自身的更新**：某一侧的 SkillDock 比另一侧旧时，Agent 环境页可一键经该侧命令行更新并读回；更新后正在运行的实例自动切换到最高版本。迁移门槛处（另一侧还装着低于 0.10.3 的 SkillDock）也可经确认一键更新。
+- **运行环境**：启动器按固定顺序查找并保存本机可用的 Node.js 22.12+（Codex 工作区、Homebrew、nvm、应用自带等），失效时重新查找，找不到时弹出安装引导；不再自动下载 Node。启动输出同时打印所选的 Codex 与 Claude 命令行。
+
+### 变更
+
+- **数据迁移**：首次以 0.11 打开 0.10.x 的数据目录时迁移到新格式（数据代号 2），计划、来源绑定、操作记录与偏好保留。迁移前确认两侧装的 SkillDock 都不低于 0.10.3，否则以退出码 4 停下并说明处理办法，不改动任何数据。
+- **单实例**：Codex 入口、Claude 入口与后台任务共用一个实例与同一份数据；较旧的入口把请求转交给最新版本。
+- Codex 原生入口的 MCP 配置改名为 `codex.mcp.json`；Claude 不加载原生入口，从技能或 `/skilldock:skill-manager` 打开网页面板。
+- 0.10.x 的界面连接 0.11 服务时保持 0.10.2 的行为：看不到 Claude 的对象、计划目标与 Agent 环境类操作记录。
+- 清单读取超过 5 秒时，在 `server.log` 记录各部分耗时，便于排查。
+
+### 文档与分发
+
+- SkillDock 从 0.10.3 升至 0.11.0；同步插件 manifest、应用版本与 lockfile、中英文 README、应用 README，以及 Codex 原生构建产物。
+- 仓库的 Claude marketplace（`.claude-plugin/marketplace.json`）收录 SkillDock，并给 TeamDesk 条目注明“仅支持 Codex”。
+
+### 验证
+
+- （合并前填写：单元测试、真实 0.11.0 兼容矩阵、V17、V18、浏览器端到端测试与最终 UAT 的结果。）
+
 ## [skilldock 0.10.3] - 2026-10-08
 
 跨 Agent 版本（0.11.0）之前的过渡版。它让 0.10.x 用户在另一侧或本侧升级到 0.11 之后，旧入口不接管、不改写新数据，并尽量直接转到新版本。行为按 API 契约 API-SDX-001 冻结；契约、PRD 与 HLD 随 0.11.0 一起发布。

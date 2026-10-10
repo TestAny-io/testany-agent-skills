@@ -187,7 +187,7 @@ $skill-manager 打开技能管理面板
 
 ## 版本、许可与开发
 
-通过 GitHub 仓库分发，当前版本为 **0.10.3**。[变更记录](../../CHANGELOG.md) · [AGPL-3.0-only](LICENSE) · [第三方声明](skills/skill-manager/THIRD_PARTY_NOTICES.md)。其他插件遵循各自的许可证。
+通过 GitHub 仓库分发，当前版本为 **0.11.0**。[变更记录](../../CHANGELOG.md) · [AGPL-3.0-only](LICENSE) · [第三方声明](skills/skill-manager/THIRD_PARTY_NOTICES.md)。其他插件遵循各自的许可证。
 
 开发、启动与验证命令见[应用 README](skills/skill-manager/assets/app/README.md)。
 

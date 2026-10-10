@@ -123,7 +123,7 @@ const nav = [
     label: "技能库",
     icon: Layers3,
     english: "YOUR CAPABILITIES",
-    description: "在一个地方，整理你的 Codex 能力。",
+    description: "在一个地方，整理你在 Codex 与 Claude 中的能力。",
   },
   {
     id: "plugins",

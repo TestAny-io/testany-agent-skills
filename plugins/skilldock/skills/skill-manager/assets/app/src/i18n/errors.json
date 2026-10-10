@@ -52,8 +52,8 @@
     "ja": "この操作は現在のサービスまたは CLI に対応していません。"
   },
   "CLI_FAILED": {
-    "en": "The Codex command failed. Review its original output before retrying.",
-    "ja": "Codex コマンドが失敗しました。元の出力を確認してから再試行してください。"
+    "en": "The Agent's command line failed. Review its original output before retrying.",
+    "ja": "Agent のコマンドラインが失敗しました。元の出力を確認してから再試行してください。"
   },
   "CLI_JSON": {
     "en": "The response or input is not valid JSON. Refresh and inspect the original details.",
@@ -68,8 +68,8 @@
     "ja": "コマンドがタイムアウトし、最終状態は不明です。一覧を再読み込みしてから再試行してください。"
   },
   "CLI_UNAVAILABLE": {
-    "en": "Codex CLI is unavailable. Configure a working executable and restart the service.",
-    "ja": "Codex CLI を利用できません。有効な実行ファイルを設定してサービスを再起動してください。"
+    "en": "The Agent's command line is unavailable. Configure a working executable and restart the service.",
+    "ja": "Agent のコマンドラインを利用できません。有効な実行ファイルを設定してサービスを再起動してください。"
   },
   "COMPONENT_ENTRY_MISSING": {
     "en": "Plugin components or their source could not be verified. Use the owning plugin manager and inspect the details.",

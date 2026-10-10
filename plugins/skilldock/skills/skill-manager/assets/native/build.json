@@ -1,7 +1,7 @@
 {
   "inputs": {
-    "package-lock.json": "6687fa0f1496d5536cdcea067298bbbbead9b30ec94d84ccf5b75500fe15b1ed",
-    "package.json": "b1848d4c900658dd47c4e3ed7217093dd84572e3511f8e378603897017a80a48",
+    "package-lock.json": "42b4a903f0500da5bd9b08f7d2860638d5285ef36e41e2af2382c5beceea54c5",
+    "package.json": "0cf3d1174a679b2f3b0dbc1b37fb14354ebeed998f8b37f508cf7616f54a8875",
     "scripts/native-bundle.mjs": "122d7fe7b48c71f0b27892bdc97f152cbff9acf23886d1387619134c45a9e80c",
     "server/cache-paths.mjs": "8b1afee122352a7e8a0cb977f5f56cd712da1c87700ed945d695fb87535c90ff",
     "server/claude-cli.mjs": "e45b0a6d787f0c5c0920967f9e1aa820732b09905a497271aba1a1e0794700fc",
@@ -27,7 +27,7 @@
     "src/AgentEnvironments.tsx": "8559f9ebe99b1bcb4c1355e672118ab4eded8344e03083bc13793b93d2b3591d",
     "src/AgentUI.css": "f1c5a1009ed5518a61634a0a42da6c0b917c07f7285aee447c5e984dca7ce8c2",
     "src/AgentUI.tsx": "7fa0d0ba3e0ba4790132838106688ed417d4a61e0e62ff94e538d2ce83df7747",
-    "src/App.tsx": "65e4822d0100ad13b48073ab285a73959bedc4842d4902aff19bf2ea69232c22",
+    "src/App.tsx": "ca71d0cf8b871b60374cef4432df389549c50210094347d1d31809a1c437ad2a",
     "src/CompatibilityWarnings.tsx": "dc7f57da6a06829e5e24fc6149535f69bd6128bd0cbae93e10ee423a623d1f62",
     "src/ConfirmDialog.tsx": "cf838a952b8c17690d1e54ad1538326a372890f5ca921efffe18635b04a790bc",
     "src/DesktopUI.tsx": "a827ba36401fa368b332297efea7dc1d0a8151844b4179e0d7eae189fb99d063",
@@ -57,8 +57,8 @@
     "src/brand-wordmark.svg": "789e0b992714535d5b223f764808de60f66c36728bd9871ee1db1f4d51135932",
     "src/desktop.css": "15814dc52392f308d2afa57b9c076d9149e22e06228e3424264984d939ec03ce",
     "src/i18n.tsx": "dc09254cbb69d72741c0975ce96e70e8b3bf0c56332757833f6effbab0d51a7b",
-    "src/i18n/errors.json": "0439683b3255bbf6d6d127483e666c2b9d5b6efa10f387a0efd9b7e3e09ad9f3",
-    "src/i18n/messages.json": "868db7fa805f06515475f21aaadf900b89957664d6aa6266e141568f13c69c42",
+    "src/i18n/errors.json": "ca75384e819ed5402148ee5c06b5d0eb9d0ebdd667474baab299605378215c7e",
+    "src/i18n/messages.json": "a37c00d5de5087a48ed3dd5f54bb2e240d9410bceb605f12a2a95bdce0375f13",
     "src/i18n/server-messages.json": "1f1df7e7b98ec8769800ff02853f9fd8d9d0286a22e322928657b4e988bb6bb8",
     "src/main.tsx": "0b17df37f3ddac17ba356b85184252cd545e0afa93a2246a8202b30b8a879fff",
     "src/native-icon.svg": "9b7d7c19189c56b43fe691c0cb01e19b1f88abc61d1d130c974c5f5411b7288c",
@@ -72,7 +72,7 @@
   },
   "artifacts": {
     "server.mjs": "98d37d99ba6366dde78be7102a6dc3d8c1bb99f7728f0e2530518e5f18401701",
-    "ui.html": "f9194e957260482a725ec291744710b460d681fe6347ea5c729f808898709e0e",
+    "ui.html": "ee5c52dec2166a238418a5a4087060871957368348685f022a813fbc4f4d3d7c",
     "icon.svg": "9b7d7c19189c56b43fe691c0cb01e19b1f88abc61d1d130c974c5f5411b7288c",
     "THIRD_PARTY_NOTICES.txt": "0580c525bbaf94d006050bf773e482a470c9f983971e23b26e8048505e11bd4f"
   }

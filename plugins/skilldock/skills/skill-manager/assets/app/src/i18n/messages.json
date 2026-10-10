@@ -23,9 +23,9 @@
     "en": "Skills",
     "ja": "スキル"
   },
-  "在一个地方，整理你的 Codex 能力。": {
-    "en": "Organize your Codex capabilities in one place.",
-    "ja": "Codex の機能を一か所で整理。"
+  "在一个地方，整理你在 Codex 与 Claude 中的能力。": {
+    "en": "Organize your capabilities in Codex and Claude in one place.",
+    "ja": "Codex と Claude の機能を一か所で整理。"
   },
   "插件": {
     "en": "Plugins",

@@ -18,7 +18,7 @@ import { installationContext, delegationTarget, delegate, newerDataError, legacy
 import { convertPlan, snapshotFiles, writeMigrationFailure, clearMigrationFailure } from '../assets/app/server/migration.mjs';
 import { backgroundPaths, registrationExists, takeOverRegistration } from '../assets/app/server/background-registration.mjs';
 import { writeClaudeRoot, startedFromClaude, recordClaudeSessionRoot } from '../assets/app/server/claude-root.mjs';
-import { recordSessionCli } from '../assets/app/server/claude-cli.mjs';
+import { recordSessionCli, resolveClaudeCli } from '../assets/app/server/claude-cli.mjs';
 import { childEnvironment } from '../assets/app/server/process-env.mjs';
 import { defaultUpdateState } from '../assets/app/server/update-state.mjs';
 import { writeSavedNode } from '../assets/app/server/node-candidates.mjs';
@@ -355,6 +355,12 @@ export async function launch(action = 'start', options = {}) {
     const cli = await resolveCodexCli({ codexHome, explicit: options.codexBin || env.SKILLDOCK_CODEX_BIN, env, home });
     for (const attempt of cli.attempts) process.stderr.write(`SkillDock：跳过 CLI ${attempt.path}：${attempt.error}\n`);
     process.stderr.write(cli.available ? `SkillDock：Codex CLI ${cli.path}（${cli.version}）\n` : `SkillDock：${cli.error}\n`);
+    // The Claude command line the service will use, when Claude is on this computer (UAT 2026-10-10).
+    if (await fs.stat(plan.claudeRoot.configDir).then(stat => stat.isDirectory(), () => false)) {
+      const claudeCli = await resolveClaudeCli({ state, env, home, claudeRoot: plan.claudeRoot, save: false });
+      for (const attempt of claudeCli.attempts) process.stderr.write(`SkillDock：跳过 Claude 命令行 ${attempt.path}：${attempt.error}\n`);
+      process.stderr.write(claudeCli.available ? `SkillDock：Claude 命令行 ${claudeCli.path}（${claudeCli.version}）\n` : `SkillDock：${claudeCli.error}\n`);
+    }
     const expected = JSON.stringify(live ? current : await readRecord(state));
     await report('preparing');
     // Dependency installation and build run third-party code: allowed variables and npm's own settings only.

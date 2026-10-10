@@ -433,3 +433,23 @@ test('either side uses the instance the other side started, and a newer installa
   } finally { await launch('stop', claude); }
   assert.equal(await probe(newest.url), null);
 });
+
+test('the launch output names the Claude command line only when Claude is on this computer (UAT 2026-10-10)', async t => {
+  const f = await fixture(t); const options = { ...f, port: await freePort() };
+  const claudeBin = path.join(f.root, 'claude-stand-in');
+  await fs.writeFile(claudeBin, '#!/bin/sh\necho "2.1.288 (Claude Code)"\n', { mode: 0o755 });
+  const env = { ...f.env, SKILLDOCK_CLAUDE_BIN: claudeBin };
+  const output = async run => {
+    const lines = []; const write = process.stderr.write;
+    process.stderr.write = chunk => { lines.push(String(chunk)); return true; };
+    try { await run(); } finally { process.stderr.write = write; }
+    return lines.join('');
+  };
+  try {
+    assert.doesNotMatch(await output(() => launch('start', { ...options, env })), /Claude 命令行/, '没有 Claude 配置目录时不查找、不打印');
+    await fs.mkdir(path.join(f.home, '.claude'));
+    assert.match(await output(() => launch('restart', { ...options, env })), new RegExp(`SkillDock：Claude 命令行 ${claudeBin.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}（2\\.1\\.288）`));
+    await fs.writeFile(claudeBin, '#!/bin/sh\nexit 1\n', { mode: 0o755 });
+    assert.match(await output(() => launch('restart', { ...options, env })), /SkillDock：跳过 Claude 命令行 .*\nSkillDock：未找到可用的 Claude 命令行。/);
+  } finally { await launch('stop', { ...options, env }); }
+});
