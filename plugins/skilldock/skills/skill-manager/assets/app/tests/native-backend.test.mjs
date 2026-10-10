@@ -147,9 +147,21 @@ test('a start the migration gate stopped names the Agents to update; the update 
   assert.deepEqual([detail.code, detail.agents], ['MIGRATION_BLOCKED', ['claude']]); assert.match(detail.message, /^SkillDock 后台启动未完成。.*低于 0\.10\.3/s);
   await assert.rejects(backend.updateAtGate('other'), /Invalid agent/);
   assert.deepEqual(await backend.updateAtGate('claude'), { status: 200, data: { ok: true } }, '不必等上次失败的 10 秒');
-  assert.deepEqual(runs, [undefined, 'claude']);
+  assert.deepEqual(runs, ['', 'claude'], '普通启动显式不带同意（5d 评审 P3-04）');
   assert.equal((await backend.read('/api/health')).status, 200);
   // Any other failure stays a plain message.
   const plain = createNativeBackend({ skillRoot, env: { ...f.env, PORT: '1' }, execImpl: async () => { throw Object.assign(new Error('exit 1'), { code: 1, stderr: 'broken' }); }, gateCheck: async () => ['claude'] });
   assert.match((await plain.read('/api/health').catch(failure => failure)).message, /^SkillDock 后台启动未完成。broken$/);
+});
+
+test('without a stand-in, the native entry reads the gate again itself, with no handover, and names the Agent (5d review P3-03)', async t => {
+  const f = await fixture(t);
+  const home = path.join(f.root, 'gate-home'); const old = path.join(home, '.claude/plugins/cache/m/skilldock/old/skills/skill-manager/assets/app');
+  await fs.mkdir(old, { recursive: true }); await fs.writeFile(path.join(old, 'package.json'), JSON.stringify({ name: 'skilldock', version: '0.10.2' }));
+  const env = { ...f.env, HOME: home, SKILLDOCK_CODEX_BIN: path.join(home, 'no-cli/codex'), SKILLDOCK_CLAUDE_BIN: path.join(home, 'no-cli/claude') };
+  const starts = [];
+  const backend = createNativeBackend({ skillRoot, env, execImpl: async (file, args, options) => { starts.push(options.env.SKILLDOCK_UPDATE_AGENT); throw Object.assign(new Error('exit 4'), { code: 4, stderr: 'gate' }); } });
+  const error = await backend.read('/api/health').catch(failure => failure);
+  assert.deepEqual(JSON.parse(error.message.slice('SKILLDOCK_ERROR:'.length)).agents, ['claude']);
+  assert.deepEqual(starts, [''], '普通启动不带一键更新的同意');
 });

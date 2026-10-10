@@ -10,6 +10,8 @@ import { createService } from '../server/service.mjs';
 import { updateSkilldockIn } from '../server/skilldock-update.mjs';
 import { writeGeneration } from '../server/generation.mjs';
 import { assertTranslated } from './i18n-helper.mjs';
+import { childEnvironment } from '../server/process-env.mjs';
+import { acquireFileLock, operationLock } from '../server/process-lock.mjs';
 
 const MARKET = 'testany-agent-skills';
 const SOURCE = 'https://github.com/TestAny-io/testany-agent-skills.git';
@@ -35,6 +37,26 @@ test('the shared update refreshes the marketplace, updates each installation whe
   const gone = await updateSkilldockIn('codex', { list: async () => (reads++ % 2 ? [] : codex), run: async () => {} }).catch(see);
   assert.equal(gone.code, 'READBACK_FAILED');
   assert.equal((await updateSkilldockIn('claude', { list: async () => [], run: async () => {} }).catch(see)).code, 'NOT_FOUND');
+});
+
+test('installations are read back one by one; a gone project is skipped and said so; a timeout stays unknown (5d review P3-01, P3-02)', async () => {
+  // A fork at 0.12.0 next to the official 0.10.1: only the official one moves, and that is a success.
+  let official = '0.10.1';
+  const codex = () => [{ id: 'skilldock@fork', marketplace: 'fork', version: '0.12.0' }, { id: 'skilldock@official', marketplace: 'official', version: official }];
+  const both = await updateSkilldockIn('codex', { list: async () => codex(), run: async args => { if (args.join(' ') === 'plugin add skilldock@official --json') official = '0.11.0'; } });
+  assert.equal(see(both).message, '已把 Codex 中的 SkillDock 从 0.10.1 更新到 0.11.0。新的 Codex 会话或重载后生效。\n另有 1 处安装的版本没有变化。');
+  // A project installation whose project is gone is not run; the others are.
+  let user = '0.10.2'; const ran = [];
+  const claude = () => [{ id: 'skilldock@m', marketplace: 'm', version: '0.10.2', scope: 'project', cwd: '/gone', missing: true }, { id: 'skilldock@m', marketplace: 'm', version: user, scope: 'user' }];
+  const skipped = await updateSkilldockIn('claude', { list: async () => claude(), run: async (args, { cwd }) => { ran.push([args.join(' '), cwd]); if (args[1] === 'update') user = '0.11.0'; } });
+  assert.match(see(skipped).message, /\n1 处安装所在的项目目录不存在，没有更新。$/);
+  assert.deepEqual(ran.map(([command]) => command), ['plugin marketplace update m --json', 'plugin update skilldock@m --scope user --json']);
+  const none = await updateSkilldockIn('claude', { list: async () => [claude()[0]], run: async () => {} }).catch(see);
+  assert.equal(none.code, 'PROJECT_PATH_MISSING');
+  const timeout = await updateSkilldockIn('codex', { list: async () => codex(), run: async () => { throw Object.assign(new Error('Claude 命令行 plugin update 超时，执行结果尚未确认；请刷新查看实际状态后再决定是否重试。'), { code: 'CLI_TIMEOUT' }); } }).catch(see);
+  assert.equal(timeout.code, 'CLI_TIMEOUT', '超时是“结果未确认”，不是失败');
+  // The one-time agreement never reaches a long-lived process (P3-04).
+  assert.equal(childEnvironment({ HOME: '/h', SKILLDOCK_UPDATE_AGENT: 'claude', SKILLDOCK_STATE_DIR: '/s' }).SKILLDOCK_UPDATE_AGENT, undefined);
 });
 
 async function world(t) {
@@ -126,6 +148,20 @@ test('a side that cannot run its command line or cannot be confirmed is not upda
   const failed = await w.act({ action: 'agent.updateSkilldock', agent: 'claude' });
   assert.equal(failed.code, 'SKILLDOCK_UPDATE_FAILED');
   assert.deepEqual((await w.activity()).map(item => [item.agent, item.status, item.reasonCode]), [['claude', 'error', 'SKILLDOCK_UPDATE_FAILED']]);
+});
+
+test('the one-click update holds the Claude lock and is not offered while Claude cannot be confirmed (5d review M9, M14)', async t => {
+  const w = await world(t);
+  await w.install('codex', '0.11.2'); w.codex.version = '0.11.2'; w.claude.next = '0.11.2';
+  const configDir = path.join(w.project, '..', 'home', '.claude');
+  const held = acquireFileLock(operationLock(configDir));
+  try { assert.equal((await w.act({ action: 'agent.updateSkilldock', agent: 'claude' })).code, 'BUSY'); } finally { held(); }
+  assert.deepEqual(w.calls, [], '没有运行命令');
+  // A settings file Claude cannot read leaves Claude unconfirmed although its command line works.
+  await fs.writeFile(path.join(configDir, 'settings.json'), '{ broken');
+  const claude = (await w.agents()).claude;
+  assert.deepEqual([claude.management, claude.skilldock.canUpdate], ['unconfirmed', false]);
+  assert.equal((await w.act({ action: 'agent.updateSkilldock', agent: 'claude' })).code, 'AGENT_UNCONFIRMED');
 });
 
 test('every message seen above has a whole English and Japanese translation', async () => {

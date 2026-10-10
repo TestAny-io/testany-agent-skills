@@ -14,7 +14,7 @@ import { prepareRuntime } from './runtime.mjs';
 import { resolveCodexCli } from './codex-runtime.mjs';
 import { readGeneration, CURRENT_GENERATION, CURRENT_GENERATION_MINIMUM } from './generation.mjs';
 import { restoreMissingRecord } from './launcher-record.mjs';
-import { backgroundFamily, refreshInstallations } from './launch-plan.mjs';
+import { backgroundFamily, inPluginCache, refreshInstallations } from './launch-plan.mjs';
 
 // DEC-SDX-010: instance lock → Codex lock for a version-2 context (the Codex root is never
 // created by locking); a version-1 context keeps 0.10.x locking. Throws BUSY.
@@ -63,6 +63,11 @@ export async function resolveFamilySource(context, adapter) {
     const found = await backgroundFamily({ state: context.stateDir, codexHome: context.codexHome, home: context.home, env: {} });
     if (found?.best) return found.best.appPath;
     if (found?.family.length) throw new Error(`已安装的 SkillDock 都低于 ${CURRENT_GENERATION_MINIMUM}，不能使用当前数据；计划暂停。请把 SkillDock 更新到最新版本。`);
+    // No record to name the family: a source in a plugin cache that is gone may be a version Claude
+    // removed after replacing it, so it is not taken for an uninstall (5d review P3-05).
+    if (!found && context.installation.kind !== 'plugin' && !await fs.stat(context.source).then(() => true, () => false)
+      && await inPluginCache({ state: context.stateDir, codexHome: context.codexHome, home: context.home, env: {}, appDir: context.source }))
+      throw new Error('无法确认 SkillDock 是否仍安装：启动记录缺失，运行来源目录已不存在；计划暂停，重新打开 SkillDock 后恢复。');
   }
   return resolveBackgroundSource(context, adapter);
 }

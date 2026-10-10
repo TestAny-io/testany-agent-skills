@@ -180,7 +180,12 @@ test('generation 2: an equal version, another instance\'s record, a changed targ
   const updater = createSelfUpdater({ ...f, startTimer: false, worker: async () => { calls++; } });
   t.after(() => updater.close());
   const tick = async () => { updater.request(); await updater.tick(); };
-  await modern(f, { preferred: ['2.5.0', '2.4.0'] }); await tick(); assert.equal(calls, 0, '版本相同时保持正在运行的（DEC-SDX-008）');
+  // Another copy of the same version, its directory agreeing with the record: the running one stays (DEC-SDX-008).
+  await modern(f, { preferred: ['2.5.0', '2.4.0'] });
+  const other = path.join(f.versions['2.5.0'], 'package.json'); await fs.writeFile(other, JSON.stringify({ ...JSON.parse(await fs.readFile(other, 'utf8')), version: '2.4.0' }));
+  await tick(); assert.equal(calls, 0, '版本相同时保持正在运行的（DEC-SDX-008）');
+  // A lower preferred one (the running higher version is still there) never restarts into it (5d review M1).
+  await modern(f, { running: ['2.5.0', '2.5.0'], preferred: ['2.4.0', '2.4.0'] }); await tick(); assert.equal(calls, 0, '不降级');
   await modern(f, { pid: process.pid + 1 }); await tick(); assert.equal(calls, 0, '别的实例的记录');
   await modern(f, { runtime: path.join(f.root, 'elsewhere') }); await tick(); assert.equal(calls, 0, '别的运行目录');
   await modern(f, { status: 'stopped' }); await tick(); assert.equal(calls, 0);

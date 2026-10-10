@@ -102,6 +102,13 @@ export async function backgroundFamily({ state, codexHome, env = process.env, ho
   return { family, best: selectRunSource(family.filter(item => atLeast(item.version, CURRENT_GENERATION_MINIMUM)), { runningAppPath: running.appPath }) };
 }
 
+/** Whether `appDir` lies in one of the plugin caches SkillDock knows (Codex's, the saved Claude root's). */
+export async function inPluginCache({ state, codexHome, env = process.env, home = os.homedir(), appDir }) {
+  const claudeRoot = await resolveClaudeRoot({ state, env, home });
+  const roots = await agentRoots({ env: { ...env, CODEX_HOME: codexHome }, home, claudeRoot: { configDir: claudeRoot.configDir, pluginCacheDir: claudeRoot.pluginCacheDir } });
+  return roots.caches.some(cache => within(cache.cacheDir, path.resolve(appDir)));
+}
+
 /** Health check summary of installations (36c §4): no paths or credentials. */
 export async function installationSummary({ env = process.env, home = os.homedir(), state, appDir }) {
   const context = await installationContext({ env, home, state, appDir, record: await readRecordQuietly(state) });
@@ -164,6 +171,10 @@ export async function planLaunch({ action, env = process.env, home = os.homedir(
   const target = delegationTarget(context, { action, env });
   if (target) return { kind: 'delegate', target, state };
   const gated = ['start', 'restart'].includes(action) && generation < CURRENT_GENERATION;
+  // 36b §7.4 on generation 2 too (5d review P2-01): a restart job into a target that failed and was
+  // rolled back is refused before any toolchain work; a newer version or an interactive start lifts it.
+  const failed = !gated && action === 'restart' && env.SKILLDOCK_RESTART_JOB && await repeatedFailure(state, { appDir: context.own.appPath, version: context.own.version });
+  if (failed) return { kind: 'error', error: Object.assign(new Error(`上次切换到 SkillDock ${failed.version} 失败，已恢复旧版本；后台不再自动切换到这个版本。请从 SkillDock 入口重新打开以重试。`), { code: 'SWITCH_FAILED_BEFORE', exitCode: 1 }) };
   let blocked = gated && await migrationCheck({ state, context, restartJob: env.SKILLDOCK_RESTART_JOB, env, home, codexHome });
   // HLD 3.7 (G-01): an interactive entry that has the user's agreement names the Agent the gate
   // stopped at; its SkillDock is updated, then the gate is checked again. Never for a restart job.

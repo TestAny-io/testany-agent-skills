@@ -1890,5 +1890,25 @@
   "这个插件没有版本号，Claude 会原地覆盖它；更新前 SkillDock 会先复制一份，供需要时手动恢复。": {
     "en": "This plugin has no version, so Claude overwrites it in place; SkillDock copies it first so it can be restored by hand if needed.",
     "ja": "このプラグインにはバージョンがないため、Claude はその場で上書きします。必要なときに手動で戻せるよう、更新前に SkillDock がコピーを作成します。"
+  },
+  "{v0} 中 SkillDock 的安装所在的项目目录都不存在，无法更新。": {
+    "en": "The project folders of every SkillDock installation in {v0} no longer exist, so it cannot be updated.",
+    "ja": "{v0} にある SkillDock のインストールは、どれもプロジェクトフォルダーが存在しないため、更新できません。"
+  },
+  "另有 {v0} 处安装的版本没有变化。": {
+    "en": "{v0} other installations kept their version.",
+    "ja": "ほかに {v0} 件のインストールはバージョンが変わりませんでした。"
+  },
+  "{v0} 处安装所在的项目目录不存在，没有更新。": {
+    "en": "{v0} installations were not updated because their project folders no longer exist.",
+    "ja": "{v0} 件のインストールはプロジェクトフォルダーが存在しないため、更新していません。"
+  },
+  "无法确认 SkillDock 是否仍安装：启动记录缺失，运行来源目录已不存在；计划暂停，重新打开 SkillDock 后恢复。": {
+    "en": "Cannot confirm that SkillDock is still installed: the launch record is missing and the source it ran from is gone. The schedule is paused and resumes once SkillDock is opened again.",
+    "ja": "SkillDock がまだインストールされているか確認できません。起動記録がなく、実行元のディレクトリも存在しません。スケジュールを一時停止しました。SkillDock をもう一度開くと再開します。"
+  },
+  "另一个 SkillDock 进程正在执行操作，请稍后重试。": {
+    "en": "Another SkillDock process is carrying out an operation. Try again later.",
+    "ja": "別の SkillDock プロセスが操作を実行中です。しばらくしてから再試行してください。"
   }
 }

@@ -566,5 +566,17 @@
   "SCOPE_INEFFECTIVE": {
     "en": "A higher-precedence settings layer decides this; writing the chosen layer would not take effect.",
     "ja": "より優先度の高い設定レイヤーで決まっているため、選んだレイヤーに書き込んでも反映されません。"
+  },
+  "SKILLDOCK_UPDATE_FAILED": {
+    "en": "SkillDock could not be updated in that Agent. Update it there by hand; the original details say how.",
+    "ja": "その Agent の SkillDock を更新できませんでした。その Agent で手動で更新してください。手順は元の詳細を確認してください。"
+  },
+  "READBACK_CONTENT_CHANGED": {
+    "en": "What was installed differs from the preview. Check again before applying.",
+    "ja": "インストールされた内容がプレビューと異なります。もう一度確認してから適用してください。"
+  },
+  "SOURCE_CONFLICT": {
+    "en": "The two sides name different sources for this skill. Link the same source on both sides first.",
+    "ja": "このスキルは両側で異なる取得元が関連付けられています。先に両側で同じ取得元を関連付けてください。"
   }
 }

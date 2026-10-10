@@ -105,7 +105,8 @@ export async function gateUpdate({ agent, marketplace, state, codexHome, claudeR
       const items = [];
       // An installation the organization manages is left to Claude (HLD 3.4).
       for (const item of await listClaudePlugins(cli.path, { env, claudeRoot, timeout })) if (typeof item?.id === 'string' && item.id.startsWith('skilldock@') && item.scope !== 'managed')
-        items.push({ id: item.id, marketplace: item.id.slice('skilldock@'.length), version: await claudeAppVersion(item.installPath), scope: item.scope, ...(item.scope === 'user' ? {} : { cwd: item.projectPath }) });
+        items.push({ id: item.id, marketplace: item.id.slice('skilldock@'.length), version: await claudeAppVersion(item.installPath), scope: item.scope,
+          ...(item.scope === 'user' ? {} : { cwd: item.projectPath, missing: !item.projectPath || !await exists(item.projectPath) }) });
       return items;
     };
     return await updateSkilldockIn('claude', { list, run: (args, { cwd }) => command(args, { cwd: cwd ?? home }) });

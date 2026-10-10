@@ -369,8 +369,10 @@ export async function launch(action = 'start', options = {}) {
       if (!stopped || !rollback) return error;
       try {
         await startRuntime(rollback, recordFile, { env, projectContext: null });
-        // 36b §7.4: a migration that failed after the gate is not retried by restart jobs.
-        if (!isCurrentRecord(rollback)) await writeMigrationFailure(state, { appDir, version: plan.own.version, message: error.message }).catch(() => {});
+        // 36b §7.4: a migration that failed after the gate is not retried by restart jobs; nor, on
+        // generation 2, a switch to a newer version (5d review P2-01), or the restored instance's
+        // self-updater would stop and restore it again at once.
+        await writeMigrationFailure(state, { appDir, version: plan.own.version, message: error.message }).catch(() => {});
         return Object.assign(error, { restored: true, note: '；已恢复上一运行版本。' });
       } catch (failure) { return Object.assign(error, { note: `；恢复上一运行版本失败：${failure.message}` }); }
     };

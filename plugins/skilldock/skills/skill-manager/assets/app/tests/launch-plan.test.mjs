@@ -14,7 +14,8 @@ import { fileURLToPath } from 'node:url';
 import { buildRecord, legacyFields, ensureLegacyProject, writeRecord, readRecord } from '../server/launcher-record.mjs';
 import { writeRestart } from '../server/installation.mjs';
 import { writeMigrationFailure } from '../server/migration.mjs';
-import { acquireFileLock } from '../server/process-lock.mjs';
+import { acquireFileLock, operationLock } from '../server/process-lock.mjs';
+import { writeGeneration } from '../server/generation.mjs';
 import { absentCommandLines } from './helpers/launcher-fixture.mjs';
 import { createApp } from '../server/index.mjs';
 
@@ -331,9 +332,56 @@ test('the gate update runs that Agent\'s own commands under the launch lock and 
   const request = { agent: 'codex', marketplace: MARKET, state: w.state, codexHome: w.codexHome, claudeRoot: { configDir: w.claudeConfig }, env: { ...w.env, SKILLDOCK_CODEX_BIN: cli }, home: w.home };
   const held = acquireFileLock(path.join(w.state, 'launcher.lock'));
   try { await assert.rejects(gateUpdate(request), { code: 'BUSY' }, '启动锁被占用时不更新'); } finally { held(); }
+  const codexHeld = acquireFileLock(operationLock(w.codexHome));
+  try { await assert.rejects(gateUpdate(request), { code: 'BUSY' }, 'Codex 锁被占用时不更新'); } finally { codexHeld(); }
   const result = await gateUpdate(request);
   assert.deepEqual([result.from, result.to], ['0.10.2', '0.11.0']);
   const ran = (await fs.readFile(calls, 'utf8')).split('\n').filter(line => line.startsWith('plugin') && !line.includes('--help'));
   assert.deepEqual(ran, ['plugin list --json', `plugin marketplace upgrade ${MARKET} --json`, `plugin add skilldock@${MARKET} --json`, 'plugin list --json']);
   await assert.rejects(gateUpdate({ ...request, env: w.env }), error => error.code === 'CLI_UNAVAILABLE' && /\n在 Codex 的插件页更新 SkillDock/.test(error.message));
+});
+
+// 5d review (50).
+test('generation 2: a restart job into a target whose switch failed and was rolled back is refused at once; an interactive start or another version is not (P2-01)', async t => {
+  const w = await world(t);
+  const own = await w.install('codex', '0.11.1'); await writeGeneration(w.state, 'test');
+  const env = { ...w.env, SKILLDOCK_STATE_DIR: w.state };
+  assert.equal((await planLaunch({ action: 'restart', env: { ...env, SKILLDOCK_RESTART_JOB: 'j' }, home: w.home, appDir: own })).kind, 'continue');
+  await writeMigrationFailure(w.state, { appDir: own, version: '0.11.1', message: 'x' });
+  const refused = await planLaunch({ action: 'restart', env: { ...env, SKILLDOCK_RESTART_JOB: 'j' }, home: w.home, appDir: own });
+  assert.deepEqual([refused.kind, refused.error.code, refused.error.exitCode], ['error', 'SWITCH_FAILED_BEFORE', 1]);
+  assert.equal((await planLaunch({ action: 'start', env, home: w.home, appDir: own })).kind, 'continue', '交互入口不受限制');
+  await writeMigrationFailure(w.state, { appDir: own, version: '0.11.0', message: 'x' });
+  assert.equal((await planLaunch({ action: 'restart', env: { ...env, SKILLDOCK_RESTART_JOB: 'j' }, home: w.home, appDir: own })).kind, 'continue', '目标版本变化后解除');
+});
+
+test('generation 2 without a record: a source gone from a plugin cache is not an uninstall (P3-05)', async t => {
+  const w = await world(t);
+  const claude = await w.install('claude', '0.11.0');
+  await fs.rm(path.join(claude, '../../../..'), { recursive: true });
+  const context = { version: 2, stateDir: w.state, codexHome: w.codexHome, home: w.home, source: claude, installation: { kind: 'directory', source: claude } };
+  await assert.rejects(resolveFamilySource(context, unexpectedScan), /无法确认 SkillDock 是否仍安装：启动记录缺失/);
+  // A development copy outside the caches keeps the 0.10.2 check.
+  const copy = path.join(w.root, 'gone-copy');
+  assert.equal(await resolveFamilySource({ ...context, source: copy, installation: { kind: 'directory', source: copy } }, unexpectedScan), null);
+});
+
+test('a gate update that still leaves the gate stopping exits 4 with the reason (M20)', async t => {
+  const w = await world(t);
+  const codex = await w.install('codex', '0.11.0'); await w.install('claude', '0.10.2');
+  const plan = await planLaunch({ action: 'start', env: { ...w.env, SKILLDOCK_STATE_DIR: w.state, SKILLDOCK_UPDATE_AGENT: 'claude' }, home: w.home, appDir: codex, log() {}, update: async () => ({ message: 'ran' }) });
+  assert.deepEqual([plan.kind, plan.error.exitCode], ['error', 4]); assert.match(plan.error.message, /Claude 中装有 SkillDock 0\.10\.2/);
+});
+
+test('the gate update waits for nobody: a held Codex or Claude lock refuses it; an installation the organisation manages is left alone (M17, M18, M19)', async t => {
+  const w = await world(t);
+  const listed = path.join(w.root, 'claude-listed.json'); const calls = path.join(w.root, 'claude-calls');
+  await fs.writeFile(listed, JSON.stringify([{ id: `skilldock@${MARKET}`, scope: 'managed', installPath: path.join(w.root, 'x') }]));
+  const cli = path.join(w.root, 'claude-stand-in');
+  await fs.writeFile(cli, `#!${process.execPath}\nconst fs = require('node:fs'); const a = process.argv.slice(2); fs.appendFileSync(${JSON.stringify(calls)}, a.join(' ') + '\\n');\nif (a[0] === '--version') console.log('2.1.288 (Claude Code)'); else if (a[1] === 'list') console.log(fs.readFileSync(${JSON.stringify(listed)}, 'utf8')); else console.log('{}');\n`, { mode: 0o755 });
+  const claude = { agent: 'claude', marketplace: MARKET, state: w.state, codexHome: w.codexHome, claudeRoot: { configDir: w.claudeConfig, pluginCacheDir: path.join(w.claudeConfig, 'plugins/cache') }, env: { ...w.env, SKILLDOCK_CLAUDE_BIN: cli }, home: w.home };
+  await assert.rejects(gateUpdate(claude), { code: 'NOT_FOUND' }, '托管范围不由 SkillDock 更新');
+  const held = acquireFileLock(operationLock(w.claudeConfig));
+  try { await assert.rejects(gateUpdate(claude), { code: 'BUSY' }); } finally { held(); }
+  assert.doesNotMatch(await fs.readFile(calls, 'utf8'), /plugin (update|marketplace)/, '没有运行写命令');
 });

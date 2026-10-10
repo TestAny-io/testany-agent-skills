@@ -2012,7 +2012,8 @@ export async function createService(options = {}) {
         const items = [];
         // An installation the organization manages is left to Claude (HLD 3.4).
         for (const item of lists.plugins) if (item.id.startsWith('skilldock@') && item.scope !== 'managed')
-          items.push({ id: item.id, marketplace: item.id.slice('skilldock@'.length), version: await claudeAppVersion(item.installPath), scope: item.scope, ...(item.scope === 'user' ? {} : { cwd: item.projectPath }) });
+          items.push({ id: item.id, marketplace: item.id.slice('skilldock@'.length), version: await claudeAppVersion(item.installPath), scope: item.scope,
+            ...(item.scope === 'user' ? {} : { cwd: item.projectPath, missing: !item.projectPath || !await fs.stat(item.projectPath).then(stat => stat.isDirectory(), () => false) }) });
         return items;
       };
     }

@@ -286,6 +286,10 @@ test('a registration skipped while the launcher held the locks is made by a late
   release = hold();
   try { assert.equal(await service.catchUpBackground(), false); } finally { release(); }
   assert.equal(ensured, 0, '仍被占用：留到下一轮');
+  // Not while this instance is about to be replaced (5d review M8).
+  assert.equal(service.pauseForRestart(), true);
+  assert.equal(await service.catchUpBackground(), false); assert.equal(ensured, 0);
+  service.resumeAfterRestart();
   assert.equal(await service.catchUpBackground(), true); assert.equal(ensured, 1);
   assert.equal(await service.catchUpBackground(), false); assert.equal(ensured, 1, '只补做一次');
 });

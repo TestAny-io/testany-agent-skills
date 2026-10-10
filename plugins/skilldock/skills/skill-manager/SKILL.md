@@ -47,7 +47,7 @@ Codex CLI 逐个验证 PATH、桌面应用内置 CLI 与 Codex 管理的副本�
 
 退出码 3 表示数据已由更高版本的 SkillDock 管理、需要先更新本侧 SkillDock：把输出中的提示原样告诉用户，不要重试，也不要改用其他数据目录。
 
-退出码 4 表示某个 Agent 中还装有低于 0.10.3 的 SkillDock，0.11 暂不接管数据（旧版本照常工作，没有改动任何数据）：把 stderr 中的说明与处理步骤告诉用户，并询问是否由 SkillDock 一键更新 stderr 中列出的那个 Agent（Codex 或 Claude）里的 SkillDock。用户同意后，在原启动命令前加上 `SKILLDOCK_UPDATE_AGENT=codex` 或 `SKILLDOCK_UPDATE_AGENT=claude` 重新运行一次（只针对列出的 Agent），启动器会经该 Agent 的命令行更新、读回并重新检查；用户不同意时什么都不改动，请用户在对应 Agent 中更新或卸载旧版 SkillDock 后重新打开。一键更新失败时把 stderr 中的原因与手动步骤告诉用户，不要反复重试；不要跳过检查，也不要改用其他数据目录。非 0 退出时 stdout 没有内容。
+退出码 4 表示某个 Agent 中还装有低于 0.10.3 的 SkillDock，0.11 暂不接管数据（旧版本照常工作，没有改动任何数据）：把 stderr 中的说明与处理步骤告诉用户，并询问是否由 SkillDock 一键更新 stderr 中列出的那个 Agent（Codex 或 Claude）里的 SkillDock。用户同意后，在原启动命令前加上 `SKILLDOCK_UPDATE_AGENT=codex` 或 `SKILLDOCK_UPDATE_AGENT=claude` 重新运行一次（只针对列出的 Agent），启动器会经该 Agent 的命令行更新、读回并重新检查；用户不同意时什么都不改动，请用户在对应 Agent 中更新或卸载旧版 SkillDock 后重新打开。两侧都被拦下时每次只指名一侧，更新后若仍被另一侧拦下，再询问用户一次；一键更新失败时把 stderr 中的原因与手动步骤告诉用户，不要反复重试；不要跳过检查，也不要改用其他数据目录。非 0 退出时 stdout 没有内容。
 
 启动是网页后台服务操作，中断调用不一定停止已创建的服务；先用 `status` 核实实际结果，需要停止网页服务时执行 `stop`。自 0.4.0 起，自动更新由独立的 macOS 用户后台任务负责；`stop` 不关闭自动更新。用户要求停止自动更新时，在更新页关闭计划并读回后台任务已移除。
 

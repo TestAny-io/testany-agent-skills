@@ -115,15 +115,17 @@ export function createNativeBackend({ skillRoot, env = process.env, fetchImpl = 
   // from the same evidence the launcher used; the interface offers to update them.
   async function gateAgents(config) {
     const { planLaunch } = await import('./launch-plan.mjs');
-    const plan = await planLaunch({ action: 'start', env: { ...env, SKILLDOCK_STATE_DIR: state, SKILLDOCK_UPDATE_AGENT: '' }, appDir: path.join(config.launchRoot, 'assets/app'),
-      update: async () => { throw new Error('not here'); }, log() {} });
+    // The gate's blockers do not depend on which installation judges, so no handover here (5d review P3-03).
+    const plan = await planLaunch({ action: 'start', env: { ...env, SKILLDOCK_STATE_DIR: state, SKILLDOCK_UPDATE_AGENT: '', SKILLDOCK_DELEGATED: '1' }, home: env.HOME || os.homedir(),
+      appDir: path.join(config.launchRoot, 'assets/app'), update: async () => { throw new Error('not here'); }, log() {} });
     return [...new Set((plan.error?.output?.blockers ?? []).map(item => item.agent))];
   }
 
   async function start(config, extra = {}) {
     const saved = await json(path.join(state, 'project.json'));
     const project = env.SKILLDOCK_PROJECT_DIR || saved?.path || config.record?.project || os.homedir();
-    const startupEnv = { ...env, SKILLDOCK_STATE_DIR: state, PORT: new URL(config.origin).port, ...extra };
+    // The gate's update runs only with the agreement given in the interface (5d review P3-04).
+    const startupEnv = { ...env, SKILLDOCK_STATE_DIR: state, PORT: new URL(config.origin).port, SKILLDOCK_UPDATE_AGENT: '', ...extra };
     if (startImpl) return startImpl({ skillRoot: config.launchRoot, state, project, env: startupEnv });
     try {
       await execImpl('/bin/sh', [path.join(config.launchRoot, 'scripts/launch.sh'), 'start', '--project', project], {
