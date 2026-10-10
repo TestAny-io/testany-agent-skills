@@ -3,6 +3,7 @@
 > 这份说明交给另一台电脑上的 Codex 执行，用户在旁操作界面。
 > 目的：完成 HLD 9.3 的 V17——“真实 Codex 中，插件更新后原生入口的长连接进程是否保留，以及转交是否生效”，结果用于校正 PRD Q9 的说法，是 0.11.0 发布前的关口之一（HLD 11A 第 3 条）。
 > 代码来源：公开仓库 `TestAny-io/testany-agent-skills` 的分支 `feature/skilldock-0.11-cross-agent`（提交 `122ef9f` 或之后），尚未发布到 `main`。
+> 修订（2026-10-10，据第一次执行的报告；上一版 sha256 `aeb85b1e2721dff5d0a692559cea1fff3d40e95dccf1df4108a26120d04628e4`）：第一次执行时，`marketplace add --ref` 返回“marketplace 'testany-agent-skills' is already added from a different source; remove it before adding this source”，按说明停在第 6 步，什么都没改。本版第 6 步不再运行 `marketplace add`，经用户同意后直接给现有 marketplace 加一行 `ref`；刷新后先核对 marketplace 副本的提交，再更新插件；并提醒计划的下次运行时间。第一次执行已完成的第 3～5 步（含备份）可以沿用，若之后没有改动过 SkillDock，不必重做备份。
 
 ## 1. 这次会真实改动什么（先读给用户听）
 
@@ -75,26 +76,32 @@ date
 
 **保持 SkillDock 原生页面开着。**
 
-1. 先试命令行自带的方式：
+先看“更新”页中计划的下次运行时间：如果计划开着、目标含 SkillDock 且开启了自动应用，第 1 步之后后台任务到点也会自己把 SkillDock 更新到 0.11.0。请在那之前完成第 7 节的观察（或请用户先在更新页暂时关闭计划，观察完再打开）。
 
-   ```bash
-   "$CODEX" plugin marketplace add TestAny-io/testany-agent-skills --ref feature/skilldock-0.11-cross-agent --json
-   node -e "$REF" "$CONFIG"
-   ```
-
-   如果 `ref` 已显示为 `feature/skilldock-0.11-cross-agent`，跳到第 3 步。
-
-2. 如果输出 `alreadyAdded: true` 而 `ref` 没变：告诉用户需要在 `config.toml` 的 `[marketplaces.testany-agent-skills]` 段中加一行 `ref = "feature/skilldock-0.11-cross-agent"`（已在第 4 步备份），同意后运行：
+1. 不要运行 `marketplace add` 或 `marketplace remove`（第一次执行时 `add` 返回“已从不同来源添加”的错误，`remove` 会卸载从它安装的插件）。告诉用户：需要在 `config.toml` 的 `[marketplaces.testany-agent-skills]` 段中加一行 `ref = "feature/skilldock-0.11-cross-agent"`（已在第 4 步备份），其他内容不动。同意后运行：
 
    ```bash
    node -e 'const fs=require("fs");const [f,ref]=process.argv.slice(1);const L=fs.readFileSync(f,"utf8").split("\n");const h=L.findIndex(l=>l.trim()==="[marketplaces.testany-agent-skills]");if(h<0){console.log("没有这个 marketplace 段，未修改");process.exit(1)}let e=L.findIndex((l,i)=>i>h&&/^\s*\[/.test(l));if(e<0)e=L.length;const i=L.slice(h+1,e).findIndex(l=>/^\s*ref\s*=/.test(l));if(i>=0)L[h+1+i]=`ref = "${ref}"`;else L.splice(h+1,0,`ref = "${ref}"`);fs.writeFileSync(f+".tmp-skilldock",L.join("\n"));fs.renameSync(f+".tmp-skilldock",f);console.log("已设置 ref")' "$CONFIG" "feature/skilldock-0.11-cross-agent"
    node -e "$REF" "$CONFIG"
    ```
 
-3. 刷新 marketplace 并更新插件：
+   脚本只在该段标题下加一行（已有 `ref` 时只改这一行），重复运行不会多加；它打印“没有这个 marketplace 段”时停下，告诉用户。
+
+2. 刷新 marketplace，并核对副本确实来自开发分支：
 
    ```bash
    "$CODEX" plugin marketplace upgrade testany-agent-skills --json
+   ROOT=$("$CODEX" plugin marketplace list --json | node -e 'let s="";process.stdin.on("data",d=>s+=d).on("end",()=>{const v=JSON.parse(s);const m=(v.marketplaces??v).find(x=>x.name==="testany-agent-skills");console.log(m?.root??"")})')
+   echo "副本位置：$ROOT"
+   git -C "$ROOT" log -1 --format='%h %ad %s' --date=iso 2>/dev/null || echo "（副本不是 Git 工作树，无法读取提交）"
+   node -e 'console.log(require(process.argv[1]).version)' "$ROOT/plugins/skilldock/.codex-plugin/plugin.json"
+   ```
+
+   应显示开发分支上 `122ef9f` 或之后的提交，`plugin.json` 中的版本为 `0.11.0`。不符时停下，告诉用户。
+
+3. 更新插件：
+
+   ```bash
    "$CODEX" plugin add skilldock@testany-agent-skills --json
    "$CODEX" plugin list --json | node -e 'let s="";process.stdin.on("data",d=>s+=d).on("end",()=>{const v=JSON.parse(s);for(const x of (Array.isArray(v)?v:v.installed??[]))if(String(x.id??x.name).startsWith("skilldock"))console.log(x.id??x.name,x.version??"",x.enabled??"")})'
    date
@@ -135,7 +142,7 @@ node -e 'const fs=require("fs");const f=process.argv[1];const L=fs.readFileSync(
 "$CODEX" plugin add skilldock@testany-agent-skills --json
 ```
 
-第 6 步若是用命令行的 `--ref` 设置的，去掉 `ref` 的方式以命令行的说明为准（`"$CODEX" plugin marketplace --help`），先告诉用户再做。确认 0.11.0 正常后，经用户同意把 `~/skilldock-v17` 移到废纸篓。
+确认 0.11.0 正常后，经用户同意把 `~/skilldock-v17` 移到废纸篓。
 
 ## 9. 汇报
 
@@ -143,7 +150,7 @@ node -e 'const fs=require("fs");const f=process.argv[1];const L=fs.readFileSync(
 
 | 项 | 结果 |
 |----|------|
-| 更新方式（`--ref` 或改 `config.toml`） | |
+| 设置 `ref` 的结果、副本的提交与版本 | |
 | 更新后原生入口的长连接进程是否保留（进程号前后） | |
 | 服务何时切到 0.11.0（时间、`appVersion`、`dataGeneration`） | |
 | 开着的原生页面：是否自动重连、有无报错、是否出现“Agent 环境” | |

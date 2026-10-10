@@ -212,6 +212,7 @@
 | 6d 复核（2026-10-10） | 第 26 轮（[58](58-cross-agent-6d-rereview.md)，对 `258fd24`）：APPROVED，P3 5，证书重新绑定到 HLD v1.30、契约 0.31、PRD 0.10；5 项 P3 已处理（插件安装窗口带 Agent、服务端与界面用例、36c 写明 1 版运行计数不过滤、文字），HLD v1.31、契约 0.32、36c 0.31、PRD 0.11 待只看文档的增量复核。流程：按评审意见做的契约同步可与代码同提交，随下一轮增量复核；其余契约改动先复核再编码 | 否 |
 | 6e 准备（2026-10-10） | Owner 同意推送（远端 `122ef9f`），V17 在另一台电脑上做。说明：[60](60-v17-real-codex-update.md)（给那台电脑上的 Codex：把 marketplace 指向开发分支，在原生入口开着时从 0.10.3 更新到 0.11.0，观察长连接进程与转交，含备份与发布后改回）、[61](61-final-uat-claude-desktop.md)（给 Claude 桌面版：添加 marketplace、插件浏览器安装、无错误、同一实例、不用终端更新，发布后改回 `main`） | 是 |
 | 6d 复核 r2（2026-10-10） | [59](59-cross-agent-6d-rereview-r2.md)（对 `122ef9f`）：APPROVED，第 26 轮 5 项全部关闭，证书重新绑定到 HLD v1.31、契约 0.32 / 36c 0.31、PRD 0.11；P3 3 项：用例缺口登记于 56；“从本地目录或 Git 把插件装到 Claude”的界面路径是第一次接通（HLD v1.31 表与 `122ef9f` 说明中写成“恢复”有误），列入最终 UAT（61 第 7A 节）；36c 第 10 节关于 1 版运行进度的说法不完整（运行中 `current` 会显示 Claude 目标名称，`/api/updates/progress` 同样不过滤，其 `agent` 参数未实现）。后两项文字不在发布前改动已绑定证书的文档，记入“0.11.0 之后” | 否 |
+| V17 第一次执行（2026-10-10） | 另一台电脑：只读预检、备份与 0.10.3 原生页面基准完成；第 6 步 `codex plugin marketplace add TestAny-io/testany-agent-skills --ref …` 返回“already added from a different source”，按说明停下，未改动任何东西（未刷新、未更新、未迁移）。说明 60 已修订：不再运行 `marketplace add`，经同意直接给现有 marketplace 加一行 `ref`，刷新后先核对副本的提交与版本；并提醒计划下次运行时间 | 是 |
 
 ## 0.11.0 之后
 
