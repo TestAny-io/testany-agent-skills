@@ -193,3 +193,39 @@ test('nested service messages translate both the outer and the inner sentence (e
     'No working Codex CLI was found. Codex is read-only: this check did not change Codex. If there is a new version, turn on Codex management to update.');
 });
 
+
+// The updates page alone; like the confirmation dialog, its Modal renders in place.
+const updatesBundle = await build({
+  stdin: { contents: 'export * from "./src/UpdatesWorkspace"; export { setPreferences } from "./src/preferences";', resolveDir: app, loader: 'ts' },
+  bundle: true, platform: 'node', format: 'cjs', packages: 'external', jsx: 'automatic', write: false, loader: { '.css': 'empty' },
+  plugins: [{ name: 'modal-in-place', setup(build) {
+    build.onResolve({ filter: /^\.\/Modal$/ }, () => ({ path: 'modal', namespace: 'in-place' }));
+    build.onLoad({ filter: /.*/, namespace: 'in-place' }, () => ({ contents: 'export function Modal({ children }) { return children; }', loader: 'js' }));
+  } }],
+});
+function updatesUi(language = 'zh') {
+  const module = { exports: {} }, storage = new Map();
+  runInNewContext(updatesBundle.outputFiles[0].text, { module, exports: module.exports, require,
+    localStorage: { getItem: key => storage.get(key), setItem: (key, value) => storage.set(key, value) },
+    document: { documentElement: { dataset: {}, style: {} }, getElementById: () => null },
+    window: { matchMedia: () => ({ matches: false, addEventListener() {} }), addEventListener() {}, setInterval: () => 0, clearInterval() {} } });
+  module.exports.setPreferences({ language }); return module.exports;
+}
+
+test('the plan lists the cross-side skills waiting for confirmation, and confirming saves it as it is (phase 5c)', () => {
+  const { UpdatesWorkspace, pendingConfirmation } = updatesUi();
+  const inner = { kind: 'skill', id: 'a'.repeat(24) }; const plain = { kind: 'skill', id: 'b'.repeat(24) };
+  const item = (target, name) => ({ target, name, owner: 'SkillDock', route: 'skill-source', status: 'unknown', canCheck: true, canApply: false, canAutoApply: false });
+  const schedule = { enabled: true, intervalMinutes: 60, timezone: 'UTC', autoApply: true, running: false, nextRunAt: '2026-10-10T01:00:00Z', targets: [{ ...inner, confirmation: 'pending' }, plain] };
+  const data = { mode: 'local', skills: [], plugins: [], marketplaces: [], activity: [], diagnostics: [], updates: [item(inner, 'inner'), item(plain, 'plain')], updateRuns: [], schedule };
+  const props = { data, runPending: false, onClearFocus() {}, busy: false, language: 'zh', execute: async () => undefined, onDetails() {}, onRefresh() {}, onConfirm() {} };
+  const html = render(UpdatesWorkspace, props);
+  assert.match(html, /确认后计划才会自动应用它们的更新/); assert.match(html, /<li>inner<\/li>/); assert.doesNotMatch(html, /<li>plain<\/li>/);
+  const content = pendingConfirmation(data, 'zh');
+  assert.deepEqual(content.affected, ['inner']);
+  assert.deepEqual(JSON.parse(JSON.stringify(content.request)), { action: 'schedule.configure', confirm: true, schedule: { enabled: true, intervalMinutes: 60, timezone: 'UTC', autoApply: true, targets: [inner, plain] } }, '原样保存，去掉显示用的字段');
+  // A plan that only checks applies nothing, so nothing waits.
+  assert.equal(pendingConfirmation({ ...data, schedule: { ...schedule, autoApply: false } }, 'zh'), undefined);
+  assert.doesNotMatch(render(UpdatesWorkspace, { ...props, data: { ...data, schedule: { ...schedule, autoApply: false } } }), /uw-pending-confirmation/);
+  assert.match(pendingConfirmation(data, 'en').description, /changes those plugins/); assert.match(pendingConfirmation(data, 'ja').title, /自動適用しますか/);
+});

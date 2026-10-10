@@ -1299,6 +1299,7 @@ export default function App() {
                   execute={action}
                   onDetails={(skill) => inspectSkill(skill)}
                   onRefresh={() => void refresh()}
+                  onConfirm={(content) => setDialog({ type: "confirm", ...content })}
                 />
               )}
               {page === "agents" && (

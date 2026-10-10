@@ -1798,5 +1798,21 @@
   "来源中的插件名称已改为 {v0}；请卸载后从来源重新安装。": {
     "en": "The plugin in the source is now named {v0}; uninstall it and install again from the source.",
     "ja": "ソース内のプラグイン名が {v0} に変わりました。アンインストールしてからソースから再インストールしてください。"
+  },
+  "计划中有技能的内容在另一侧插件的目录中，请确认后重试。": {
+    "en": "Some skills in the schedule have their contents inside the other side's plugins. Confirm, then try again.",
+    "ja": "スケジュール内の一部のスキルは、内容がもう一方のプラグインのディレクトリ内にあります。確認してから再試行してください。"
+  },
+  "计划中的这些技能，内容在另一侧插件的目录中；自动应用会改写这些插件：": {
+    "en": "These skills in the schedule have their contents inside the other side's plugins; applying updates automatically changes those plugins:",
+    "ja": "スケジュール内のこれらのスキルは、内容がもう一方のプラグインのディレクトリ内にあります。自動適用するとそのプラグインが書き換えられます："
+  },
+  "这项技能的内容在另一侧插件的目录中；这次批量执行没有确认，只检查、不应用。": {
+    "en": "This skill's contents are inside the other side's plugin. This batch was not confirmed, so it was only checked, not applied.",
+    "ja": "このスキルの内容はもう一方のプラグインのディレクトリ内にあります。今回の一括実行は確認されていないため、確認のみ行い、適用していません。"
+  },
+  "这项技能的内容在另一侧插件的目录中；须先在 SkillDock 0.11 的计划设置中确认后才会自动应用（0.10.x 界面无法确认），这次只检查。": {
+    "en": "This skill's contents are inside the other side's plugin. It is applied automatically only after you confirm it in the schedule settings of SkillDock 0.11 (the 0.10.x interface cannot confirm it); this time it was only checked.",
+    "ja": "このスキルの内容はもう一方のプラグインのディレクトリ内にあります。SkillDock 0.11 のスケジュール設定で確認するまで自動適用されません（0.10.x の画面では確認できません）。今回は確認のみ行いました。"
   }
 }

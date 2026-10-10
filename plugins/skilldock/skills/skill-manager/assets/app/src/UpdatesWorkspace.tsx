@@ -26,6 +26,7 @@ import { ExternalLink } from "./ExternalLink";
 import { SourceProvenance } from "./SourceProvenance";
 import { DiffBrowser } from "./DiffBrowser";
 import { GitSourceFields, ResolvedGitSource } from "./GitSourceFields";
+import type { ConfirmContent } from "./ConfirmDialog";
 import "./UpdatesWorkspace.css";
 
 type Language = "zh" | "en" | "ja";
@@ -168,6 +169,11 @@ const copy = {
     result: "运行结果",
     selectedOnly: "计划仅适用于已选择的安装。",
     cadence: "间隔从每轮完成时计算，时区用于显示时间。",
+    pendingConfirm: "这些技能的内容在另一侧插件的目录中，确认后计划才会自动应用它们的更新：",
+    confirmPending: "确认",
+    confirmPendingTitle: "让计划自动应用这些技能的更新？",
+    confirmPendingHelp: "这些技能的内容在另一侧插件的目录中，自动应用会改写所在的插件。确认会按当前设置重新保存计划。",
+    confirmPendingAffected: "待确认的技能",
   },
   en: {
     checkOnly: "Check only",
@@ -313,6 +319,11 @@ const copy = {
     selectedOnly: "This schedule applies only to the selected installations.",
     cadence:
       "The interval starts when a run finishes. The time zone controls displayed times.",
+    pendingConfirm: "These skills’ contents are inside the other side’s plugins. The schedule applies their updates automatically only once you confirm:",
+    confirmPending: "Confirm",
+    confirmPendingTitle: "Let the schedule apply updates to these skills?",
+    confirmPendingHelp: "These skills’ contents are inside the other side’s plugins, so applying updates automatically changes those plugins. Confirming saves the schedule again with its current settings.",
+    confirmPendingAffected: "Skills awaiting confirmation",
   },
   ja: {
     checkOnly: "更新の確認のみ",
@@ -457,6 +468,11 @@ const copy = {
     selectedOnly: "この設定は選択したインストールのみに適用されます。",
     cadence:
       "各実行の完了時から間隔を計算します。タイムゾーンは時刻の表示に使用します。",
+    pendingConfirm: "これらのスキルの内容はもう一方のプラグインのディレクトリ内にあります。確認するまで、スケジュールはこれらの更新を自動適用しません：",
+    confirmPending: "確認",
+    confirmPendingTitle: "これらのスキルの更新をスケジュールで自動適用しますか？",
+    confirmPendingHelp: "これらのスキルの内容はもう一方のプラグインのディレクトリ内にあるため、自動適用するとそのプラグインが書き換えられます。確認すると、現在の設定でスケジュールを保存し直します。",
+    confirmPendingAffected: "確認待ちのスキル",
   },
 } as const;
 type Key = keyof typeof copy.zh;
@@ -484,6 +500,19 @@ function minutesForHours(value: string): number | undefined {
     ? wholeMinutes
     : undefined;
 }
+/**
+ * 36c §6: cross-side skills a version-2 save put in an applying plan, waiting to be confirmed in the
+ * plan settings; confirming saves the plan again as it is, with `confirm`.
+ */
+export function pendingConfirmation(data: Snapshot, language: Language): ConfirmContent | undefined {
+  const schedule = data.schedule; const t = (key: Key) => copy[language][key];
+  const pending = schedule?.autoApply ? schedule.targets.filter((target) => target.confirmation === "pending") : [];
+  if (!schedule || !pending.length) return undefined;
+  return { title: t("confirmPendingTitle"), description: t("confirmPendingHelp"), target: t("schedule"), label: t("confirmPending"), affectedTitle: t("confirmPendingAffected"),
+    affected: pending.map((target) => (data.updates || []).find((item) => targetKey(item.target) === targetKey(target))?.name ?? target.id),
+    request: { action: "schedule.configure", confirm: true, schedule: { enabled: schedule.enabled, intervalMinutes: schedule.intervalMinutes, timezone: schedule.timezone, autoApply: schedule.autoApply,
+      targets: schedule.targets.map(({ confirmation: _shown, ...target }) => target) } } };
+}
 interface Props {
   data: Snapshot;
   runPending: boolean;
@@ -496,6 +525,7 @@ interface Props {
   ) => Promise<ActionResult | undefined>;
   onDetails: (skill: Skill) => void;
   onRefresh: () => void;
+  onConfirm: (content: ConfirmContent) => void;
 }
 
 export function UpdatesWorkspace({
@@ -508,6 +538,7 @@ export function UpdatesWorkspace({
   execute,
   onDetails,
   onRefresh,
+  onConfirm,
 }: Props) {
   const t = (key: Key) => copy[language][key];
   const [search, setSearch] = useState("");
@@ -579,6 +610,7 @@ export function UpdatesWorkspace({
       return undefined;
     }
   };
+  const pending = pendingConfirmation(data, language);
   const openSchedule = () => {
     const schedule = data.schedule;
     if (!schedule) {
@@ -734,6 +766,13 @@ export function UpdatesWorkspace({
             </span>
             <span>{data.schedule.timezone}</span>
           </p>
+        )}
+        {pending && (
+          <div className="uw-pending-confirmation" role="status">
+            <p>{t("pendingConfirm")}</p>
+            <ul>{pending.affected!.map((name, index) => <li key={index}>{name}</li>)}</ul>
+            <button className="button button-secondary" onClick={() => onConfirm(pending)} disabled={busy}>{t("confirmPending")}</button>
+          </div>
         )}
         {background && (
           <div className={`uw-background-status${needsAttention ? " needs-attention" : ""}`} role="status">

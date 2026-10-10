@@ -1,16 +1,19 @@
 import path from 'node:path';
 import crypto from 'node:crypto';
-import { fail, readJson, writeJson, verifyDirectoryRoot, redact } from './files.mjs';
+import { AppError, fail, readJson, writeJson, verifyDirectoryRoot, redact } from './files.mjs';
 import { buildUpdateItems, applyObservations, targetKey } from './sources.mjs';
 import { defaultSchedule, defaultUpdateState } from './update-state.mjs';
 
 export { defaultSchedule, defaultUpdateState };
 
 export function validateTarget(target) {
-  if (!target || typeof target !== 'object' || Array.isArray(target) || Object.keys(target).some(key => !['kind', 'id', 'agent'].includes(key)) || !['skill', 'plugin', 'host'].includes(target.kind) || typeof target.id !== 'string' || !target.id || target.id.length > 300 || /[\x00-\x1f]/.test(target.id)) fail(400, 'INVALID_TARGET', '更新目标无效。');
+  if (!target || typeof target !== 'object' || Array.isArray(target) || Object.keys(target).some(key => !['kind', 'id', 'agent', 'confirmation'].includes(key)) || !['skill', 'plugin', 'host'].includes(target.kind) || typeof target.id !== 'string' || !target.id || target.id.length > 300 || /[\x00-\x1f]/.test(target.id)) fail(400, 'INVALID_TARGET', '更新目标无效。');
   // 36c §6: a target names its side; Codex is the default and is written without it.
   if (target.agent !== undefined && !['codex', 'claude'].includes(target.agent) || target.agent === 'claude' && target.kind === 'host') fail(400, 'INVALID_TARGET', '更新目标无效。');
   if (target.agent === 'codex') delete target.agent;
+  // A snapshot's target may come back with its confirmation; only `confirm` confirms (36c §6).
+  if (target.confirmation !== undefined && !['pending', 'confirmed'].includes(target.confirmation)) fail(400, 'INVALID_TARGET', '更新目标无效。');
+  delete target.confirmation;
   return target;
 }
 export function validateSchedule(schedule) {
@@ -23,6 +26,7 @@ export function validateSchedule(schedule) {
   return schedule;
 }
 
+const sameIdentity = (before, after) => { const { fingerprint: a, ...left } = before; const { fingerprint: b, ...right } = after; return JSON.stringify(left) === JSON.stringify(right); };
 function sameBindingIdentity(before, after) {
   if (!before || !after || typeof before.fingerprint !== 'string' || typeof after.fingerprint !== 'string') return false;
   const { fingerprint: oldContent, ...oldIdentity } = before;
@@ -31,7 +35,7 @@ function sameBindingIdentity(before, after) {
 }
 
 
-export async function createScheduler({ environments, snapshot, perform, signature, verifySynchronized, hasPreview, coreBusy, clock = () => Date.now(), pollMs = 1000, startTimer = false, recover = true, beforeConfigure, disabledSchedule = async () => null, planVersion = 1, paused = async () => null, migrate = async () => null }) {
+export async function createScheduler({ environments, snapshot, perform, signature, verifySynchronized, hasPreview, coreBusy, clock = () => Date.now(), pollMs = 1000, startTimer = false, recover = true, beforeConfigure, disabledSchedule = async () => null, planVersion = 1, paused = async () => null, migrate = async () => null, crossSide = null }) {
   const states = {}; const writes = {}; const configuring = new Set(); let running = false; let activeMode; let closed = false; let runningPromise; let timer; let readGeneration = 0;
   const timestamp = () => new Date(clock()).toISOString();
   async function persist(mode) {
@@ -93,23 +97,51 @@ export async function createScheduler({ environments, snapshot, perform, signatu
     for (const original of targets) { const target = canonicalTarget(original, current); const key = targetKey(target); if (!seen.has(key)) { seen.add(key); result.push(target); } }
     return result;
   }
-  async function configure(mode, input) {
+  async function configure(mode, input, options = {}) {
     if (configuring.has(mode)) fail(409, 'BUSY', '计划配置正在保存，请完成后重试。');
     configuring.add(mode);
-    try { return await configureTransaction(mode, input); } finally { configuring.delete(mode); }
+    try { return await configureTransaction(mode, input, options); } finally { configuring.delete(mode); }
   }
-  async function configureTransaction(mode, input) {
+  /** Each plan target's origin (`v1` or `v2`) and, for a cross-side skill, its confirmation (36c §6). */
+  function targetMeta(mode) { return structuredClone(states[mode].targetMeta ?? {}); }
+  /** 36c §6: a version-1 request replaces Codex's targets only; another side's stay. */
+  function requestedTargets(mode, input, version2) {
+    return version2 ? input.targets : [...input.targets.filter(target => !target.agent), ...states[mode].schedule.targets.filter(target => target.agent && target.agent !== 'codex')];
+  }
+  async function configureTransaction(mode, input, { version2 = false, confirm = false } = {}) {
     validateSchedule(input); const state = states[mode];
     if (running && input.enabled) fail(409, 'BUSY', '一轮更新正在执行；可先关闭计划，执行结束后再调整。');
-    let targets = input.targets; const bindings = {};
+    const prior = state.schedule; const priorKeys = new Set(prior.targets.map(targetKey)); const priorMeta = state.targetMeta ?? {};
+    // Another side's targets kept from a version-1 request keep their state too.
+    const kept = version2 ? [] : prior.targets.filter(target => target.agent && target.agent !== 'codex');
+    let targets = requestedTargets(mode, input, version2); const bindings = {}; let current;
     if (input.enabled) {
-      const current = await snapshot(mode); targets = await normalize(mode, targets, current);
+      current = await snapshot(mode); targets = await normalize(mode, targets, current);
       if (!targets.length) fail(400, 'EMPTY_TARGETS', '启用计划前至少选择一个有效目标。');
       for (const target of targets) {
-        const item = current.updates.find(item => targetKey(item.target) === targetKey(target));
+        const key = targetKey(target);
+        // Targets kept from outside the request, and a version-2 request's targets whose Agent is
+        // paused, keep their binding and do not stop the plan (HLD 3.6, 3.8).
+        if (kept.some(entry => targetKey(entry) === key) || version2 && await paused(mode, target)) { if (state.bindings[key]) bindings[key] = state.bindings[key]; continue; }
+        const item = current.updates.find(item => targetKey(item.target) === key);
         if (!item || !item.canCheck) fail(422, 'TARGET_NOT_READY', '所选目标尚不能检查更新，请先确认来源。');
-        bindings[targetKey(target)] = await signature(mode, target, current);
+        bindings[key] = await signature(mode, target, current);
       }
+    }
+    // A target submitted as it was keeps its state; a new or changed one is this request's (36c §6).
+    const resubmitted = key => priorKeys.has(key) && (!bindings[key] || !state.bindings[key] || sameIdentity(state.bindings[key], bindings[key]));
+    const meta = {};
+    for (const target of targets) { const key = targetKey(target); meta[key] = resubmitted(key) ? { ...(priorMeta[key] ?? { origin: 'v1' }) } : { origin: version2 ? 'v2' : 'v1' }; }
+    if (version2 && crossSide) {
+      // A skill whose content lies in the other side's plugin is confirmed for a plan while that side is managed.
+      const cross = await crossSide(current ?? await snapshot(mode), targets);
+      const counted = targets.filter(target => cross.get(targetKey(target))?.otherEnabled && meta[targetKey(target)].origin === 'v2');
+      const unconfirmed = counted.filter(target => meta[targetKey(target)].confirmation !== 'confirmed');
+      const starts = input.enabled && input.autoApply && (!prior.enabled || !prior.autoApply);
+      const needed = counted.some(target => !resubmitted(targetKey(target))) || starts;
+      if (unconfirmed.length && needed && !confirm) throw new AppError(409, 'CONFIRMATION_REQUIRED', '计划中有技能的内容在另一侧插件的目录中，请确认后重试。', { nativeRules: [{ kind: 'affected-plugins',
+        message: '计划中的这些技能，内容在另一侧插件的目录中；自动应用会改写这些插件：', items: unconfirmed.map(target => { const info = cross.get(targetKey(target)); return `${info.name}（${info.plugins.join('、')}）`; }) }] });
+      for (const target of unconfirmed) meta[targetKey(target)].confirmation = confirm ? 'confirmed' : 'pending';
     }
     await beforeConfigure?.(mode, input);
     const event = { id: crypto.randomUUID(), action: 'schedule.configure', target: mode, createdAt: timestamp(), status: 'success', message: input.enabled ? `已启用固定 ${input.intervalMinutes} 分钟周期，${targets.length} 个明确目标；${input.autoApply ? '自动应用已验证更新' : '仅检查'}。` : '已关闭自动更新；在途单项安全结束后不启动后续对象。', canRestore: false };
@@ -117,7 +149,7 @@ export async function createScheduler({ environments, snapshot, perform, signatu
     // saves must never leave an unacknowledged plan enabled in memory.
     writes[mode] = (writes[mode] || Promise.resolve()).catch(() => {}).then(async () => {
       const proposed = structuredClone(state);
-      proposed.schedule = { ...proposed.schedule, ...structuredClone(input), targets };
+      proposed.schedule = { ...proposed.schedule, ...structuredClone(input), targets }; proposed.targetMeta = meta;
       if (input.enabled) { proposed.schedule.nextRunAt = new Date(clock() + input.intervalMinutes * 60000).toISOString(); proposed.schedule.failureCount = 0; }
       else delete proposed.schedule.nextRunAt;
       if (input.enabled) proposed.bindings = bindings;
@@ -127,11 +159,12 @@ export async function createScheduler({ environments, snapshot, perform, signatu
       // The active run keeps this state object; preserve runtime fields that may
       // have advanced while the atomic file write was awaiting IO.
       const runtime = { running: state.schedule.running, lastRunAt: state.schedule.lastRunAt, lastOutcome: state.schedule.lastOutcome };
-      state.schedule = { ...proposed.schedule, ...runtime };
+      state.schedule = { ...proposed.schedule, ...runtime }; state.targetMeta = meta;
       if (input.enabled) state.bindings = bindings;
       state.activity.unshift(event); state.activity = state.activity.slice(0, 100);
     });
-    await writes[mode]; return { message: event.message, schedule: { ...state.schedule } };
+    // Like a version-1 snapshot, a version-1 answer names Codex's targets only.
+    await writes[mode]; return { message: event.message, schedule: { ...state.schedule, ...(version2 ? {} : { targets: state.schedule.targets.filter(target => !target.agent || target.agent === 'codex') }) } };
   }
   async function observe(mode, target, updateItem) {
     const { sourceInfo, installedPath, affectedSkillIds, ...publicState } = updateItem;
@@ -178,7 +211,16 @@ export async function createScheduler({ environments, snapshot, perform, signatu
     states[mode].bindings[targetKey(target)] = actual;
     await persist(mode);
   }
-  async function run(mode, { targets, autoApply, trigger = 'manual' }) {
+  // 36c §6: a plan applies a cross-side skill saved by a version-2 request only once confirmed while the
+  // other side is managed; a version-2 manual batch applies one only with the request's confirmation.
+  async function crossHold(mode, target, current, { trigger, version2, confirm }) {
+    if (!crossSide) return null;
+    const info = (await crossSide(current, [target])).get(targetKey(target)); if (!info) return null;
+    if (trigger === 'manual') return version2 && info.discovered && !confirm ? '这项技能的内容在另一侧插件的目录中；这次批量执行没有确认，只检查、不应用。' : null;
+    const meta = states[mode].targetMeta?.[targetKey(target)];
+    return info.otherEnabled && meta?.origin === 'v2' && meta.confirmation !== 'confirmed' ? '这项技能的内容在另一侧插件的目录中；须先在 SkillDock 0.11 的计划设置中确认后才会自动应用（0.10.x 界面无法确认），这次只检查。' : null;
+  }
+  async function run(mode, { targets, autoApply, trigger = 'manual', version2 = false, confirm = false }) {
     if (typeof autoApply !== 'boolean') fail(400, 'INVALID_ACTION', 'autoApply 必须显式为布尔值。');
     if (closed || running || coreBusy()) fail(409, 'BUSY', '已有写操作或更新批次正在执行，请稍后重试。');
     running = true; activeMode = mode;
@@ -215,6 +257,7 @@ export async function createScheduler({ environments, snapshot, perform, signatu
               const from = targetKey(target), to = targetKey(moved);
               state.schedule.targets = state.schedule.targets.map(entry => targetKey(entry) === from ? moved : entry);
               if (state.bindings[from]) { state.bindings[to] = { ...state.bindings[from], target: moved }; delete state.bindings[from]; }
+              if (state.targetMeta?.[from]) { state.targetMeta[to] = state.targetMeta[from]; delete state.targetMeta[from]; }
               state.activity.unshift({ id: crypto.randomUUID(), action: 'schedule.migrate', target: moved.id, createdAt: timestamp(), status: 'success', message: '技能已变为两侧共用，计划中的这一项已随对象 ID 迁移。', canRestore: false });
               state.activity = state.activity.slice(0, 100);
               target = moved; item = currentState.updates.find(candidate => targetKey(candidate.target) === to); name = item?.name || target.id;
@@ -229,9 +272,13 @@ export async function createScheduler({ environments, snapshot, perform, signatu
           if (!item.canCheck) { appendResult({ status: 'skipped', message: item.message, reasonCode: item.reasonCode }); await persist(mode); continue; }
           try {
             checked = (await perform({ mode, action: 'update.check', target })).updateItem;
+            const wantsApply = !checked.updatedDuringCheck && checked.status === 'available' && autoApply && checked.canAutoApply && checked.canApply && (trigger === 'manual' || !await disabledSchedule(mode));
+            const hold = wantsApply ? await crossHold(mode, target, currentState, { trigger, version2, confirm }) : null;
             if (checked.updatedDuringCheck) {
               appendResult({ status: 'updated', message: checked.message });
-            } else if (checked.status === 'available' && autoApply && checked.canAutoApply && checked.canApply && (trigger === 'manual' || !await disabledSchedule(mode))) {
+            } else if (hold) {
+              appendResult({ status: 'available', message: hold, reasonCode: 'CONFIRMATION_REQUIRED' });
+            } else if (wantsApply) {
               if (trigger !== 'manual') {
                 const actual = await signature(mode, target);
                 if (JSON.stringify(actual) !== JSON.stringify(state.bindings[targetKey(target)])) {
@@ -281,5 +328,5 @@ export async function createScheduler({ environments, snapshot, perform, signatu
     initialTick = false;
   }
   if (startTimer) { timer = setInterval(() => { tick().catch(() => {}); }, pollMs); timer.unref(); setTimeout(() => { tick().catch(() => {}); }, 0).unref(); }
-  return { reload, data, decorate, progress, configure, observe, observeError, reconcileBinding, beforeOwnUpdate, afterOwnUpdate, afterOwnerRefresh, run, tick, canonicalTarget, isRunning: () => running, close: async () => { closed = true; clearInterval(timer); if (runningPromise) await runningPromise.catch(() => {}); await Promise.all(Object.values(writes).map(promise => promise.catch(() => {}))); } };
+  return { reload, data, decorate, targetMeta, requestedTargets, progress, configure, observe, observeError, reconcileBinding, beforeOwnUpdate, afterOwnUpdate, afterOwnerRefresh, run, tick, canonicalTarget, isRunning: () => running, close: async () => { closed = true; clearInterval(timer); if (runningPromise) await runningPromise.catch(() => {}); await Promise.all(Object.values(writes).map(promise => promise.catch(() => {}))); } };
 }

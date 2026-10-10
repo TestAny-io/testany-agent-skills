@@ -261,6 +261,8 @@ export async function createService(options = {}) {
     if (!multiAgent) result.activity = result.activity.filter(item => (item.agent ?? 'codex') === 'codex');
     if (scheduler) { const { extraActivity, ...updateState } = scheduler.data(mode, result); Object.assign(result, updateState); result.activity = [...result.activity, ...extraActivity].sort((a, b) => b.createdAt.localeCompare(a.createdAt)).slice(0, 200); }
     else { result.activity = result.activity.slice(0, 200); result.updates = buildUpdateItems(result, {}, hasPreview); }
+    // 36c §6: a version-1 client does not see another side's plan targets.
+    if (result.schedule && !multiAgent) result.schedule = { ...result.schedule, targets: result.schedule.targets.filter(target => !target.agent || target.agent === 'codex') };
     for (const file of (await fs.readdir(env.root)).filter(name => /^pending-plugin-update-[a-f0-9-]+\.json$/.test(name)).slice(0, 20)) result.diagnostics.push(`存在未确认的包更新记录 ${file}；请核对插件版本和启用状态，旧写请求不会自动重放。`);
     if (mode === 'local' && background && result.schedule) {
       result.schedule.background = await background.status(result.schedule.enabled);
@@ -286,6 +288,12 @@ export async function createService(options = {}) {
         // is listed once, under Claude.
         const led = claudeLedSkills(result); const items = claudeUpdateItems(result, await claudeUpdateMaps(result, registry, roots));
         result.updates = [...result.updates.filter(item => !(item.target.kind === 'skill' && !item.target.agent && led.has(item.target.id))), ...(scheduler ? scheduler.decorate(mode, items) : items)];
+      }
+      // 36c §6: a cross-side skill a version-2 request put in the plan shows whether it waits for confirmation.
+      if (scheduler && result.schedule?.targets?.length) {
+        const meta = scheduler.targetMeta(mode); const cross = await crossSide(result, result.schedule.targets, found);
+        result.schedule = { ...result.schedule, targets: result.schedule.targets.map(target => { const key = targetKey(target); const state = meta[key];
+          return cross.get(key)?.otherEnabled && state?.origin === 'v2' ? { ...target, confirmation: state.confirmation === 'confirmed' ? 'confirmed' : 'pending' } : { ...target }; }) };
       }
       if (found.stored.codex?.management === 'read-only') markReadOnly(result, 'codex', CODEX_READ_ONLY_REASON);
       // Claude objects offer changes only while Claude management is enabled and confirmed.
@@ -1766,6 +1774,27 @@ export async function createService(options = {}) {
   async function schedulerSnapshot(mode) {
     return mode === 'local' && (await readManagement(stateDir)).claude?.management === 'enabled' ? snapshot(mode, false, { multiAgent: true }) : snapshot(mode);
   }
+  /**
+   * 36c §6 cross-side skills among plan targets: a skill of one side whose content lies inside a plugin
+   * of the other. Whether the other side is found (a manual batch asks then) and managed (a plan asks then).
+   * A multi-Agent snapshot passes its own discovery, since it asks before it is complete.
+   */
+  async function crossSide(current, targets, found) {
+    const map = new Map(); const skills = targets.filter(target => target.kind === 'skill');
+    if (!skills.length) return map;
+    const view = found || current.agents ? current : await snapshot('local', false, { multiAgent: true });
+    found ??= await agentLayer.discover(); const stored = found.stored;
+    for (const target of skills) {
+      const skill = view.skills.find(item => item.id === target.id);
+      if (!skill || skill.agents?.length === 2) continue;
+      const other = (target.agent ?? 'codex') === 'codex' ? 'claude' : 'codex'; const real = path.dirname(skill.realPath ?? skill.path);
+      const plugins = view.plugins.filter(plugin => (plugin.agents ?? ['codex']).includes(other) && plugin.installed && plugin.realPath && inside(plugin.realPath, real)).map(plugin => plugin.displayName || plugin.name);
+      if (!plugins.length) continue;
+      map.set(targetKey(target), { name: skill.name, plugins, discovered: !!found.installed[other],
+        otherEnabled: other === 'claude' ? stored.claude?.management === 'enabled' : !!found.installed.codex && stored.codex?.management !== 'read-only' });
+    }
+    return map;
+  }
   /** A Claude skill that became shared: its plan target follows by the real directory it bound. */
   async function migrateTarget(mode, target, binding, current) {
     if (mode !== 'local' || target.kind !== 'skill' || !binding?.real) return null;
@@ -1949,9 +1978,9 @@ export async function createService(options = {}) {
     if (!internal) { const gated = await sharedSkillGate(request); request = gated.request; context.notes = gated.notes; }
     if (request.action === 'schedule.configure') {
       if (!disabling && busy) fail(409, 'BUSY', '另一个操作正在执行。');
-      return scheduler.configure(mode, request.schedule);
+      return scheduler.configure(mode, request.schedule, { version2: request.agent !== undefined, confirm: request.confirm === true });
     }
-    if (request.action === 'updates.run') return scheduler.run(mode, { targets: request.targets, autoApply: request.autoApply });
+    if (request.action === 'updates.run') return scheduler.run(mode, { targets: request.targets, autoApply: request.autoApply, version2: request.agent !== undefined, confirm: request.confirm === true });
     if (request.agent === 'claude' && CLAUDE_WRITES.has(request.action)) {
       requestBusy = true;
       try { return await claudeAction(request); } finally { requestBusy = false; claudeCache = undefined; }
@@ -2054,7 +2083,8 @@ export async function createService(options = {}) {
       // The current atomic item completes, then the worker observes the stop.
       await ensureGeneration();
       await verifyDirectoryRoot(applicationBoundary);
-      await writeJson(disabledFile(request.mode), request.schedule);
+      // The plan takes this record over on each save, so it holds the targets the plan keeps (36c §6).
+      await writeJson(disabledFile(request.mode), { ...request.schedule, targets: scheduler.requestedTargets(request.mode, request.schedule, request.agent !== undefined) });
       if (request.mode === 'local') await background?.remove({ deferBootout: isOperationActive(codexHome) });
       if (operationActive) return { message: '已关闭自动更新；当前单项完成后停止。', schedule: { ...request.schedule, running: scheduler.isRunning() } };
       try { return await withOperation(() => executeRequest(request)); }
@@ -2083,7 +2113,7 @@ export async function createService(options = {}) {
     try { return await dispatchRequest(request); } finally { release(); }
   }
   const isBusy = () => busy || requestBusy || operationActive || restarting || closing || scheduler.isRunning();
-  scheduler = await createScheduler({ environments, snapshot: schedulerSnapshot, perform: request => action(request, true), signature: targetSignature, hasPreview, migrate: migrateTarget,
+  scheduler = await createScheduler({ environments, snapshot: schedulerSnapshot, perform: request => action(request, true), signature: targetSignature, hasPreview, migrate: migrateTarget, crossSide: (current, targets) => crossSide(current, targets),
     planVersion: generation >= CURRENT_GENERATION ? 2 : 1,
     verifySynchronized: async (mode, target, expectedSignature) => {
       if (target.kind !== 'plugin' || target.agent === 'claude') return false;
