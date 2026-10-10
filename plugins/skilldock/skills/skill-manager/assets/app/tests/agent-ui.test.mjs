@@ -82,6 +82,22 @@ test('the Agent environments page offers what each state allows and opens a conf
   assert.match(html, /桌面应用/); assert.match(html, /无法确认 Claude 中的插件状态：stand-in。/);
   assert.equal((html.match(/>启用管理</g) || []).length, 1, '无法确认的环境不提供启用');
   assert.match(html, /切换 Claude 根目录/); assert.match(html, /Node\.js/);
+  assert.doesNotMatch(html, /一键更新/, '不能更新时不提供');
+});
+
+test('an older SkillDock on one side is offered a one-click update, confirmed first (phase 5d2)', () => {
+  const { AgentEnvironments, skilldockUpdateConfirmation } = ui();
+  const claude = environment('claude', 'read-only', { skilldock: { version: '0.11.0', running: false, canUpdate: true, reason: '比 Codex 中的 SkillDock 0.11.1 旧。在 Claude 中用 /plugin 更新 SkillDock，或在终端运行 claude plugin update skilldock@m，然后重载插件。' } });
+  const html = render(AgentEnvironments, { environments: [environment('codex', 'enabled', { skilldock: { version: '0.11.1', running: true, canUpdate: false } }), claude],
+    skills: [], plugins: [], marketplaces: [], busy: false, onRun() {}, onConfirm() {} });
+  assert.equal((html.match(/一键更新 SkillDock/g) || []).length, 1, '只有较旧的一侧');
+  const spec = skilldockUpdateConfirmation(claude);
+  assert.deepEqual(JSON.parse(JSON.stringify(spec.request)), { action: 'agent.updateSkilldock', agent: 'claude' });
+  assert.match(spec.description, /只改动 SkillDock 本身/);
+  const english = ui('en');
+  const en = english.skilldockUpdateConfirmation(claude);
+  assert.equal(/[一-鿿]/.test(`${en.title}${en.description}${en.label}`), false, '英文界面不残留中文');
+  assert.match(render(english.AgentEnvironments, { environments: [claude], skills: [], plugins: [], marketplaces: [], busy: false, onRun() {}, onConfirm() {} }), /Update SkillDock/);
 });
 
 test('turning Claude management off offers the clean-up only for marketplaces SkillDock generated, unticked at first', () => {

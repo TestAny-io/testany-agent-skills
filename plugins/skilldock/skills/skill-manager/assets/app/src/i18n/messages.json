@@ -2399,10 +2399,6 @@
     "en": "This version of SkillDock only reads items in Claude. Once on, later versions can change skills, plugins and marketplaces in Claude when you ask them to, and add them to background update plans. This does not change Claude's own settings.",
     "ja": "このバージョンの SkillDock は Claude の項目を読み取るだけです。有効にすると、以降のバージョンで、操作に応じて Claude のスキル・プラグイン・マーケットプレイスを変更し、バックグラウンド更新プランに追加できるようになります。Claude 自体の設定は変更しません。"
   },
-  "这一版只读取 Claude；启用管理后，修改功能会在后续版本开放。": {
-    "en": "This version only reads Claude; with management on, changes become available in a later version.",
-    "ja": "このバージョンは Claude を読み取るだけです。管理を有効にすると、変更機能は以降のバージョンで使えるようになります。"
-  },
   "这一版只读取 Claude 插件，附带技能不单独列出。": {
     "en": "This version only reads Claude plugins; their skills are not listed one by one.",
     "ja": "このバージョンは Claude のプラグインを読み取るだけで、付属スキルは個別に表示しません。"
@@ -2410,10 +2406,6 @@
   "启用后 SkillDock 可能写入的位置": {
     "en": "Where SkillDock may write once management is on",
     "ja": "有効にした後に SkillDock が書き込む可能性のある場所"
-  },
-  "启用后，SkillDock 可以按你的操作修改 Claude 中的技能、插件和 marketplace；Claude 中的对象加入后台更新计划将在后续版本提供。启用这一步本身不会改动任何文件。": {
-    "en": "Once enabled, SkillDock can change Claude's skills, plugins and marketplaces as you ask; adding Claude's objects to background update plans comes in a later version. Enabling changes no files by itself.",
-    "ja": "有効にすると、SkillDock は操作に応じて Claude のスキル、プラグイン、marketplace を変更できます。Claude のオブジェクトをバックグラウンド更新計画に加える機能は今後のバージョンで提供します。有効にすること自体はファイルを変更しません。"
   },
   "启用后，SkillDock 可以按你的操作修改 {v0} 中的技能、插件和 marketplace，并可以把它们加入后台更新计划。启用这一步本身不会改动任何文件。": {
     "en": "Once on, SkillDock can change skills, plugins and marketplaces in {v0} when you ask it to, and can add them to background update plans. Turning management on changes no files by itself.",
@@ -2491,12 +2483,28 @@
     "en": "None",
     "ja": "なし"
   },
-  "将安装这个插件及其附带组件。安装后可在插件详情中启停或卸载；更新随后续版本提供。": {
-    "en": "This installs the plugin and its components. Afterwards you can turn it on or off or uninstall it from the plugin details; updates come in a later version.",
-    "ja": "このプラグインと付属コンポーネントをインストールします。インストール後はプラグインの詳細で有効化・無効化やアンインストールができます。更新は今後のバージョンで提供します。"
-  },
   "选择单个插件的目录：带 Claude 的 plugin.json 时放入技能目录；否则只要含 skills 或 commands，SkillDock 会生成一个本地 marketplace 再安装。": {
     "en": "Choose a single plugin's directory: with a Claude plugin.json it goes into a skills directory; otherwise, as long as it has skills or commands, SkillDock generates a local marketplace and installs from it.",
     "ja": "単一プラグインのディレクトリを選んでください。Claude の plugin.json があればスキルディレクトリに置きます。ない場合でも skills か commands があれば、SkillDock がローカル marketplace を生成してからインストールします。"
+  },
+  "更新 {v0} 中的 SkillDock？": {
+    "en": "Update SkillDock in {v0}?",
+    "ja": "{v0} の SkillDock を更新しますか？"
+  },
+  "将通过 {v0} 的命令行刷新 SkillDock 所在的 marketplace 并更新 SkillDock，然后读回版本。只改动 SkillDock 本身，不改动 {v0} 中的其他技能和插件。": {
+    "en": "{v0}'s command line refreshes the marketplace SkillDock comes from and updates SkillDock, then the version is read back. Only SkillDock itself changes, not the other skills and plugins in {v0}.",
+    "ja": "{v0} のコマンドラインで SkillDock の取得元マーケットプレイスを更新して SkillDock を更新し、バージョンを読み戻します。変更するのは SkillDock 本体だけで、{v0} のほかのスキルやプラグインは変更しません。"
+  },
+  "一键更新": {
+    "en": "Update",
+    "ja": "更新"
+  },
+  "一键更新 SkillDock": {
+    "en": "Update SkillDock",
+    "ja": "SkillDock を更新"
+  },
+  "将安装这个插件及其附带组件。安装后可在插件详情中启停或卸载，在更新页检查与更新。": {
+    "en": "This plugin and its bundled components will be installed. Afterwards you can turn it on or off or uninstall it in the plugin details, and check for and apply updates on the Updates page.",
+    "ja": "このプラグインと付属コンポーネントをインストールします。インストール後はプラグインの詳細で有効化・無効化やアンインストールができ、更新ページで更新を確認・適用できます。"
   }
 }

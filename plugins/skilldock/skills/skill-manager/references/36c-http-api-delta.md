@@ -8,8 +8,8 @@
 | 项目 | 内容 |
 |------|------|
 | 契约 | API-SDX-001-C HTTP 接口增量 |
-| 版本 | 0.22 |
-| 状态 | 第 12 轮契约复核 APPROVED（v0.12）。v0.13 处理第 12 轮的 P2；v0.14 为阶段 3 试用与阶段 4a、4b 实现中的澄清（索引 0.15），v0.15 为阶段 4d 实现中的澄清（索引 0.16），v0.16 处理阶段 4d 代码评审（索引 0.17），v0.17 处理阶段 4c 代码评审（索引 0.18），v0.18 处理 4c、4d 合并复审（索引 0.19），v0.19 为阶段 5a 实现（索引 0.20），v0.20 为阶段 5b 实现（索引 0.21），v0.21 为阶段 5c1 实现（索引 0.22），v0.22 为阶段 5c2 实现（索引 0.23），均待增量复核。第 4、5 节随 0.10.3 冻结（HLD 11A 条件 1a，0.10.3 已发布）；其余各节属条件 1b |
+| 版本 | 0.23 |
+| 状态 | 第 12 轮契约复核 APPROVED（v0.12）。v0.13 处理第 12 轮的 P2；v0.14 为阶段 3 试用与阶段 4a、4b 实现中的澄清（索引 0.15），v0.15 为阶段 4d 实现中的澄清（索引 0.16），v0.16 处理阶段 4d 代码评审（索引 0.17），v0.17 处理阶段 4c 代码评审（索引 0.18），v0.18 处理 4c、4d 合并复审（索引 0.19），v0.19 为阶段 5a 实现（索引 0.20），v0.20 为阶段 5b 实现（索引 0.21），v0.21 为阶段 5c1 实现（索引 0.22），v0.22 为阶段 5c2 实现（索引 0.23），v0.23 为阶段 5d2a 实现（索引 0.24），均待增量复核。第 4、5 节随 0.10.3 冻结（HLD 11A 条件 1a，0.10.3 已发布）；其余各节属条件 1b |
 | Owner | SkillDock 维护者（产品 Owner：用户） |
 | 服务方 | SkillDock 0.11.x 本机服务（仅监听 `127.0.0.1`） |
 | 消费方 | 0.11.x 浏览器界面与原生界面；0.10.2、0.10.3 的原生界面（经各自原生入口代理）；0.10.2 启动器与原生入口、0.10.3 转交链（只读健康检查） |
@@ -105,7 +105,7 @@ export interface AgentEnvironment {
   reason?: string;
   roots: { config: string; pluginCache: string; skills: string; origin?: "explicit" | "session" | "default" };
   cli: { available: boolean; version?: string; path?: string; error?: string };
-  /** 该 Agent 中安装的 SkillDock；没有安装时省略。 */
+  /** 该 Agent 中安装的 SkillDock；没有安装时省略。`canUpdate`：版本低于两侧最高、该 Agent 的命令行可用且环境不处于“无法确认”时为真（`agent.updateSkilldock`），与管理状态无关。 */
   skilldock?: { version: string; running: boolean; canUpdate: boolean; reason?: string };
   /** 宿主层面的已知行为说明（例如 Claude 桌面应用会话整体禁用自动更新，PRD 附录 A）；Codex 命令行不可用时，Codex 保持存储的管理状态，这一事实写在这里（MR-SDX-001：只显示、不禁用写操作）。 */
   notes?: string[];
@@ -236,7 +236,7 @@ export interface NativeRule {
 | 操作 | 说明 | 成功结果 | 主要错误 |
 |------|------|----------|----------|
 | `agent.setManagement` | 启用或停用某 Agent 环境的管理；启用前验证主证据可读、命令行可用并读回。停用 Claude 管理而 SkillDock 管理的本地 marketplace 仍在时（HLD 3.3）：不带 `confirm: true` 照常停用，`message` 列出仍登记在 Claude 中的这些 marketplace；带 `confirm: true` 先逐个按 `marketplace.remove` 的语义移除（卸载从它安装的插件、读回、删除生成的文件与登记）；Claude 中已没有的登记只删 SkillDock 自己的文件；每一项都留操作记录；全部清完才停用，任何一项失败或未清完即返回错误，管理保持启用。只在 Claude 管理已启用时执行：已是只读时带 `confirm: true` 返回 `AGENT_READ_ONLY` | `message`；快照中环境状态更新 | `AGENT_NOT_INSTALLED`、`AGENT_UNCONFIRMED`、`CLI_UNAVAILABLE`；清理时另有 `AGENT_READ_ONLY`、`marketplace.remove` 的错误与 `READBACK_FAILED` |
-| `agent.updateSkilldock` | 一键更新另一侧的 SkillDock（经该 Agent 的插件更新命令并读回） | `message`、`needsReload` | `AGENT_UNCONFIRMED`（该侧无法确认，附手动步骤）、`CLI_UNAVAILABLE`、`SKILLDOCK_UPDATE_FAILED`、`READBACK_FAILED` |
+| `agent.updateSkilldock` | 一键更新另一侧的 SkillDock（经该 Agent 的插件更新命令并读回）：先刷新 SkillDock 所在的 marketplace，再更新插件（Claude 按每个非托管的安装作用域，project、local 以其项目为工作目录），读回版本须高于更新前。只改动 SkillDock 本身，该侧只读时同样可用；该侧已是两侧最高版本时返回说明、不运行命令。错误的 `message` 第二行是手动步骤；成功与失败都写一条 `action: "agent.updateSkilldock"` 的操作记录（阶段 5d2a） | `message`、`needsReload` | `AGENT_UNCONFIRMED`（该侧无法确认，附手动步骤）、`CLI_UNAVAILABLE`、`SKILLDOCK_UPDATE_FAILED`、`READBACK_FAILED` |
 | `settings.setClaudeRoot` | 切换 Claude 根目录；切换前重新核验新目录 | `message` | `INVALID_PATH`、`AGENT_UNCONFIRMED` |
 | `settings.setNodePath` | 手动指定 Node 路径；按 HLD 3.10 核验后保存 | `message` | `NODE_UNAVAILABLE` |
 | `settings.redetectNode` | 重新扫描 Node 并保存结果 | `message` | `NODE_UNAVAILABLE` |

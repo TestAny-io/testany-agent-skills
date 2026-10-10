@@ -29,6 +29,7 @@ import { officialAppUrl } from './app-directory.mjs';
 import { createDirectoryIcons } from './directory-icons.mjs';
 import { createAgentLayer, readManagement, writeManagement, AGENT_NAME } from './agents.mjs';
 import { claudeCatalog, claudeIds, claudeLists } from './claude-catalog.mjs';
+import { updateSkilldockIn, claudeAppVersion, manualUpdate } from './skilldock-update.mjs';
 import { INSTALL_SKIP, marketplaceEntry, pluginSource, OWNER_REASON, stageCandidate, predictVersion, checkOutcome, copyInstallation, localDirectory, defaultFetchers } from './claude-plugin-updates.mjs';
 import { claudeWriter } from './claude-writer.mjs';
 import { createClaudeActions, CLAUDE_WRITES } from './claude-actions.mjs';
@@ -1906,7 +1907,63 @@ export async function createService(options = {}) {
       if (found.source !== 'saved') await writeSavedNode(stateDir, found);
       return { message: `检测到 Node ${found.nodeVersion}（${found.node}）；下次启动 SkillDock 时使用。` };
     }
-    fail(422, 'UNSUPPORTED_FOR_AGENT', '一键更新另一侧的 SkillDock 将在后续版本提供；请按“Agent 环境”页给出的步骤手动更新。');
+    return updateSkilldock(request.agent);
+  }
+  /**
+   * 36c 7.2 `agent.updateSkilldock` (phase 5d2): the SkillDock of one side, through that Agent's own
+   * command line, read back. It changes SkillDock itself, not what that Agent manages, so a
+   * read-only side is updated too; a side that cannot be confirmed is not.
+   */
+  async function updateSkilldock(agent) {
+    const found = await agentLayer.discover({ force: true }); const name = AGENT_NAME[agent];
+    if (!found.installed[agent]) fail(404, 'AGENT_NOT_INSTALLED', `本机未找到 ${name}。`);
+    // Installations carry a parsed x.y.z product version (installs.mjs).
+    const byVersion = items => [...items].sort((a, b) => compareVersions(b.version, a.version));
+    const mine = byVersion(found.installs.filter(item => item.agent === agent))[0]; const top = byVersion(found.installs)[0];
+    if (!mine) fail(404, 'NOT_FOUND', `${name} 中没有安装 SkillDock。`);
+    if (compareVersions(mine.version, top.version) >= 0) return { message: `${name} 中的 SkillDock ${mine.version} 已是两侧中最新的版本。`, needsReload: false };
+    const manual = manualUpdate[agent](mine.marketplace);
+    let list; let run; let release = () => {};
+    if (agent === 'codex') {
+      if (!found.cli.codex.available) fail(422, 'CLI_UNAVAILABLE', `未找到可用的 Codex 命令行，无法一键更新。\n${manual}`);
+      run = args => adapter.command(args, { mutation: true });
+      list = async () => {
+        const catalog = await adapter.list(); cachedCatalog = catalog; catalogTime = Date.now();
+        if (!catalog.cli?.available) throw new Error('Codex 命令行没有返回插件清单');
+        return catalog.plugins.filter(item => item.installed && item.name === 'skilldock').map(item => ({ id: item.id, marketplace: item.marketplace, version: item.version }));
+      };
+    } else {
+      const claude = await claudeFor(found, project, true);
+      const state = agentLayer.effective('claude', found, side => side === 'claude' ? claude?.unconfirmed : null);
+      if (state.management === 'unconfirmed') fail(409, 'AGENT_UNCONFIRMED', `${state.reason}\n${manual}`);
+      release = await fs.stat(found.claudeRoot.configDir).then(stat => stat.isDirectory(), () => false) ? acquireFileLock(operationLock(found.claudeRoot.configDir)) : () => {};
+      const home = await userCwdFor(found); const command = claudeRunner(found);
+      run = (args, { cwd }) => command(args, { cwd: cwd ?? home });
+      list = async () => {
+        const lists = await claudeLists({ ...options.claudeCatalog, claudeRoot: found.claudeRoot, project, cli: found.cli.claude, env: agentEnv });
+        if (!lists) throw new Error('未找到可用的 Claude 命令行');
+        const items = [];
+        // An installation the organization manages is left to Claude (HLD 3.4).
+        for (const item of lists.plugins) if (item.id.startsWith('skilldock@') && item.scope !== 'managed')
+          items.push({ id: item.id, marketplace: item.id.slice('skilldock@'.length), version: await claudeAppVersion(item.installPath), scope: item.scope, ...(item.scope === 'user' ? {} : { cwd: item.projectPath }) });
+        return items;
+      };
+    }
+    const env = environment('local');
+    const journal = async (status, message, reasonCode) => {
+      await verifyDirectoryRoot(env.stateBoundary); const registry = await registryFor(env);
+      registry.activity.unshift({ id: crypto.randomUUID(), action: 'agent.updateSkilldock', agent, target: 'SkillDock', createdAt: now(), status, message, ...(reasonCode ? { reasonCode } : {}), canRestore: false });
+      await writeJson(env.registryFile, registry);
+    };
+    try {
+      const result = await updateSkilldockIn(agent, { list, run });
+      await journal('success', result.message);
+      options.onInstallationChange?.();
+      return { message: result.message, needsReload: true };
+    } catch (error) {
+      await journal('error', redact(error.message), error.code || 'OPERATION_FAILED').catch(() => {});
+      throw error;
+    } finally { release(); if (agent === 'claude') claudeCache = undefined; }
   }
   // HLD 3.6, 6.4: enabling checks the main evidence first and reads the state back.
   async function setManagement(agent, management, cleanup = false) {

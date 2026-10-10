@@ -1818,5 +1818,45 @@
   "已安装的 SkillDock 都低于 {v0}，不能使用当前数据；计划暂停。请把 SkillDock 更新到最新版本。": {
     "en": "Every installed SkillDock is older than {v0} and cannot use the current data, so the schedule is paused. Update SkillDock to the latest version.",
     "ja": "インストールされている SkillDock はすべて {v0} より古く、現在のデータを使用できないため、スケジュールを一時停止しています。SkillDock を最新版に更新してください。"
+  },
+  "{v0} 中没有可由 SkillDock 更新的 SkillDock 安装。": {
+    "en": "{v0} has no SkillDock installation that SkillDock can update.",
+    "ja": "{v0} には SkillDock が更新できる SkillDock のインストールがありません。"
+  },
+  "{v0} 中的 SkillDock 更新失败（{v1}）。": {
+    "en": "Updating SkillDock in {v0} failed ({v1}).",
+    "ja": "{v0} の SkillDock の更新に失敗しました（{v1}）。"
+  },
+  "已运行 {v0} 的更新命令，但无法读回 SkillDock 的版本（{v1}）。请核对后重试。": {
+    "en": "{v0}'s update command ran, but the SkillDock version could not be read back ({v1}). Check it, then try again.",
+    "ja": "{v0} の更新コマンドは実行しましたが、SkillDock のバージョンを読み戻せませんでした（{v1}）。確認してから再試行してください。"
+  },
+  "已运行 {v0} 的更新命令，但读回时没有找到 SkillDock。请核对后重试。": {
+    "en": "{v0}'s update command ran, but SkillDock was not found when reading back. Check it, then try again.",
+    "ja": "{v0} の更新コマンドは実行しましたが、読み戻し時に SkillDock が見つかりませんでした。確認してから再試行してください。"
+  },
+  "{v0} 的 marketplace 中没有更新的 SkillDock（当前 {v1}）。": {
+    "en": "{v0}'s marketplace has no newer SkillDock (currently {v1}).",
+    "ja": "{v0} のマーケットプレイスに新しい SkillDock はありません（現在 {v1}）。"
+  },
+  "已把 {v0} 中的 SkillDock 从 {v1} 更新到 {v2}。已打开的 Claude 会话需重载插件后生效。": {
+    "en": "Updated SkillDock in {v0} from {v1} to {v2}. Open Claude sessions need to reload plugins for it to take effect.",
+    "ja": "{v0} の SkillDock を {v1} から {v2} に更新しました。開いている Claude セッションでは、プラグインを再読み込みすると反映されます。"
+  },
+  "已把 {v0} 中的 SkillDock 从 {v1} 更新到 {v2}。新的 Codex 会话或重载后生效。": {
+    "en": "Updated SkillDock in {v0} from {v1} to {v2}. It takes effect in new Codex sessions or after a reload.",
+    "ja": "{v0} の SkillDock を {v1} から {v2} に更新しました。新しい Codex セッションまたは再読み込み後に反映されます。"
+  },
+  "未找到可用的 Codex 命令行，无法一键更新。": {
+    "en": "No working Codex command line was found, so SkillDock cannot be updated with one click.",
+    "ja": "利用できる Codex コマンドラインが見つからないため、ワンクリック更新できません。"
+  },
+  "{v0} 中没有安装 SkillDock。": {
+    "en": "SkillDock is not installed in {v0}.",
+    "ja": "{v0} に SkillDock はインストールされていません。"
+  },
+  "{v0} 中的 SkillDock {v1} 已是两侧中最新的版本。": {
+    "en": "SkillDock {v1} in {v0} is already the newest version on either side.",
+    "ja": "{v0} の SkillDock {v1} は、両側で最新のバージョンです。"
   }
 }

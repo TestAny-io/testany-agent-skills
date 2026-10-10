@@ -105,7 +105,7 @@ export function InstallDialog({ kind, data, initialPlugin, initialMarket = false
             {!!direct.components.length && <p>{t("其他组件")}: {direct.components.map(item => t({ commands: "命令", agents: "代理", hooks: "Hooks", mcp: "MCP 服务器", apps: "应用连接" }[item] || item)).join(" · ")}</p>}
             {!!direct.duplicates.length && <p className="field-error">{t("已有同名插件，将作为另一个来源单独安装：")}{direct.duplicates.join(", ")}</p>}
           </div></>}
-          <div className="dialog-note"><ShieldCheck size={16} /><p>{t(direct?.remote ? '安装后会核对官方清单。插件安装与账号连接会分别显示状态。' : plugin ? claudePreview ? "将安装这个插件及其附带组件。安装后可在插件详情中启停或卸载；更新随后续版本提供。" : "将安装这个插件及其附带组件。安装后可在插件详情统一管理、更新或卸载。" : "安装前会再次核验文件。已存在的同名目录会保留，不会被覆盖。")}</p></div>
+          <div className="dialog-note"><ShieldCheck size={16} /><p>{t(direct?.remote ? '安装后会核对官方清单。插件安装与账号连接会分别显示状态。' : plugin ? claudePreview ? "将安装这个插件及其附带组件。安装后可在插件详情中启停或卸载，在更新页检查与更新。" : "将安装这个插件及其附带组件。安装后可在插件详情统一管理、更新或卸载。" : "安装前会再次核验文件。已存在的同名目录会保留，不会被覆盖。")}</p></div>
         </> : <>
           <div className={`source-choice ${plugin ? "source-choice-three" : ""}`}>
             {([{ id: "local", label: "本地目录", icon: FolderOpen }, { id: "git", label: "Git 仓库", icon: GitBranch }, ...(plugin ? [{ id: "market", label: "Marketplace", icon: Globe2 }] : [])] as const).map(item => <button type="button" key={item.id} aria-label={t(item.label)} disabled={!!busy} className={sourceType === item.id ? "selected" : ""} aria-pressed={sourceType === item.id} onClick={() => { setType(item.id as typeof sourceType); setSource(""); setSubpath(""); setRef(""); setError(""); }}><item.icon size={19} /><strong>{t(item.label)}</strong></button>)}

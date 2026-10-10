@@ -20,6 +20,14 @@ const ORIGIN: Record<string, string> = { default: "默认位置", session: "来�
  * Turning management off. HLD 3.3: marketplaces SkillDock wrote for Claude sources are named, and
  * can be cleaned up on the way out (an option, unticked at first).
  */
+/** Phase 5d2: the side's own command line updates its SkillDock, after a confirmation. */
+export function skilldockUpdateConfirmation(environment: AgentEnvironment): ConfirmSpec {
+  const name = AGENT_LABEL[environment.agent];
+  return { title: t("更新 {v0} 中的 SkillDock？", { v0: name }),
+    description: t("将通过 {v0} 的命令行刷新 SkillDock 所在的 marketplace 并更新 SkillDock，然后读回版本。只改动 SkillDock 本身，不改动 {v0} 中的其他技能和插件。", { v0: name }),
+    target: `SkillDock ${environment.skilldock?.version ?? ""}`, request: { action: "agent.updateSkilldock", agent: environment.agent }, label: t("一键更新") };
+}
+
 export function disableConfirmation(environment: AgentEnvironment, marketplaces: Marketplace[]): ConfirmSpec {
   const name = AGENT_LABEL[environment.agent];
   const direct = environment.agent === "claude" ? marketplaces.filter(item => item.direct && item.agents?.includes("claude")) : [];
@@ -46,11 +54,10 @@ function EnvironmentCard({ environment, skills, plugins, marketplaces, busy, onR
   const places = [t("配置根：{v0}", { v0: environment.roots.config }), t("个人技能：{v0}", { v0: environment.roots.skills }), t("插件缓存：{v0}", { v0: environment.roots.pluginCache }),
     ...(environment.agent === "claude" ? [t("当前项目的 .claude/settings.json 与 .claude/settings.local.json（只在你选择项目范围时）")] : [])];
   const enable = () => onConfirm({ title: t("启用 {v0} 管理？", { v0: name }),
-    description: environment.agent === "claude"
-      ? t("启用后，SkillDock 可以按你的操作修改 Claude 中的技能、插件和 marketplace；Claude 中的对象加入后台更新计划将在后续版本提供。启用这一步本身不会改动任何文件。")
-      : t("启用后，SkillDock 可以按你的操作修改 {v0} 中的技能、插件和 marketplace，并可以把它们加入后台更新计划。启用这一步本身不会改动任何文件。", { v0: name }),
+    description: t("启用后，SkillDock 可以按你的操作修改 {v0} 中的技能、插件和 marketplace，并可以把它们加入后台更新计划。启用这一步本身不会改动任何文件。", { v0: name }),
     affected: places, affectedTitle: "启用后 SkillDock 可能写入的位置", target: name, request: { action: "agent.setManagement", agent: environment.agent, management: "enabled" }, label: t("启用管理") });
   const disable = () => onConfirm(disableConfirmation(environment, marketplaces));
+  const update = () => onConfirm(skilldockUpdateConfirmation(environment));
   return (
     <section className="agent-card" aria-label={name}>
       <header>
@@ -59,7 +66,7 @@ function EnvironmentCard({ environment, skills, plugins, marketplaces, busy, onR
       </header>
       <p className="agent-summary">{t("配置根 {v0} · 技能 {v1} 个 · 插件 {v2} 个", { v0: environment.roots.config, v1: skillCount, v2: pluginCount })}</p>
       {environment.reason && <p className="agent-reason">{t(environment.reason)}</p>}
-      {environment.management === "read-only" && environment.installed && <p className="agent-hint">{t(environment.agent === "claude" ? "这一版只读取 Claude；启用管理后，修改功能会在后续版本开放。" : "启用后可更新插件与技能、加入后台计划。")}</p>}
+      {environment.management === "read-only" && environment.installed && <p className="agent-hint">{t("启用后可更新插件与技能、加入后台计划。")}</p>}
       <dl className="agent-details">
         <dt>{t("命令行")}</dt>
         <dd>{environment.cli.available ? `${environment.cli.path ?? ""}${environment.cli.version ? `（${environment.cli.version}）` : ""}` : t("未找到：{v0}", { v0: t(environment.cli.error ?? "无法运行") })}</dd>
@@ -70,6 +77,7 @@ function EnvironmentCard({ environment, skills, plugins, marketplaces, busy, onR
       <div className="agent-actions">
         {environment.installed && environment.management === "read-only" && <button className="button button-primary" disabled={busy} onClick={enable}>{t("启用管理")}</button>}
         {environment.management === "enabled" && <button className="button button-secondary" disabled={busy} onClick={disable}>{t("停用管理")}</button>}
+        {environment.skilldock?.canUpdate && <button className="button button-primary" disabled={busy} onClick={update}>{t("一键更新 SkillDock")}</button>}
         <button className="text-button" aria-expanded={paths} onClick={() => setPaths(value => !value)}><FolderTree size={13} />{t(paths ? "收起路径" : "查看路径")}</button>
         {environment.agent === "claude" && <button className="text-button" aria-expanded={switching} onClick={() => setSwitching(value => !value)}>{t("切换 Claude 根目录")}</button>}
       </div>

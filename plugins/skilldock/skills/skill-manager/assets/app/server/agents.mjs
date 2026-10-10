@@ -7,6 +7,7 @@ import path from 'node:path';
 import { readJson, writeJson } from './files.mjs';
 import { resolveClaudeRoot, writeClaudeRoot, readClaudeSessionRoot } from './claude-root.mjs';
 import { resolveClaudeCli } from './claude-cli.mjs';
+import { manualUpdate } from './skilldock-update.mjs';
 import { agentRoots, discoverInstalls, compareVersions, parseVersion, canonical } from './installs.mjs';
 
 export const AGENTS = ['codex', 'claude'];
@@ -39,10 +40,6 @@ export function defaultManagement(agent, installs) {
   return has('claude') ? 'enabled' : 'read-only';
 }
 
-const manualUpdate = {
-  codex: marketplace => `在 Codex 的插件页更新 SkillDock，或运行 codex plugin add skilldock@${marketplace}。`,
-  claude: marketplace => `在 Claude 中用 /plugin 更新 SkillDock，或在终端运行 claude plugin update skilldock@${marketplace}，然后重载插件。`,
-};
 
 /**
  * `codexCli()` and `claudeCli(claudeRoot)` report {available, version?, path?, error?};
@@ -111,7 +108,8 @@ export function createAgentLayer({ stateDir, home, codexHome, appDir, env = proc
       if (!found.installed[agent]) environment.reason = `本机未找到 ${AGENT_NAME[agent]}；之前启用的管理状态保留，恢复后继续生效。`;
       if (mine[0]) {
         const behind = highest && compareVersions(parseVersion(mine[0].version), parseVersion(highest.version)) < 0;
-        environment.skilldock = { version: mine[0].version, running: mine.some(item => item.appPath === own), canUpdate: false,
+        // Phase 5d2: one click, through that Agent's own command line, once its state can be read.
+        environment.skilldock = { version: mine[0].version, running: mine.some(item => item.appPath === own), canUpdate: !!behind && !!found.cli[agent]?.available && state.management !== 'unconfirmed',
           ...(behind ? { reason: `比 ${AGENT_NAME[highest.agent]} 中的 SkillDock ${highest.version} 旧。${manualUpdate[agent](mine[0].marketplace)}` } : {}) };
       }
       const notes = [];

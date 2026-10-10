@@ -11,8 +11,9 @@ import { execFile } from 'node:child_process';
 import { resolveCodexCli } from './codex-runtime.mjs';
 import { resolveClaudeCli, listClaudePlugins } from './claude-cli.mjs';
 import { childEnvironment } from './process-env.mjs';
-import { APP_TAIL, atLeast, parseVersion, readJsonFile, readText } from './installs.mjs';
+import { atLeast, parseVersion, readJsonFile } from './installs.mjs';
 import { GATE_MINIMUM } from './migration.mjs';
+import { claudeAppVersion } from './skilldock-update.mjs';
 
 const exists = async directory => (await fs.stat(directory).catch(() => null))?.isDirectory() ?? false;
 
@@ -23,14 +24,6 @@ function codexInstalled(cli, codexHome, env, timeout) {
       try { const value = JSON.parse(String(stdout)); resolve(Array.isArray(value?.installed) ? value.installed : []); } catch (problem) { reject(problem); }
     });
   });
-}
-
-// The application version of a Claude installation: its package (the plugin version of a
-// Git-sourced plugin is a commit digest). An orphaned directory is no longer in use.
-async function claudeAppVersion(installPath) {
-  if (typeof installPath !== 'string' || !path.isAbsolute(installPath)) return null;
-  if (await readText(path.join(installPath, '.orphaned_at')) !== undefined) return null;
-  return (await readJsonFile(path.join(installPath, ...APP_TAIL, 'package.json')))?.version ?? null;
 }
 
 async function claudeInstallRecord(configDir) {

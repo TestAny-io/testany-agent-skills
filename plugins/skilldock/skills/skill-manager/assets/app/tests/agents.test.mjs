@@ -88,7 +88,7 @@ test('Claude: an unavailable command line leaves it unconfirmed and enabling nee
   assert.equal(claude.management, 'enabled');
   const demo = (await w.service.snapshot('local')).skills.find(item => item.name === 'demo');
   assert.equal((await w.act({ action: 'skill.toggle', agent: 'claude', id: demo.id, enabled: false })).code, 'UNSUPPORTED_FOR_AGENT', 'Codex 侧 ID 的 Claude 一侧随 4c');
-  assert.equal((await w.act({ action: 'agent.updateSkilldock', agent: 'claude' })).code, 'UNSUPPORTED_FOR_AGENT');
+  assert.equal((await w.act({ action: 'agent.updateSkilldock', agent: 'claude' })).code, 'NOT_FOUND', '这一侧没有 SkillDock（一键更新随 5d2）');
   assert.equal((await w.act({ action: 'agent.setManagement', management: 'enabled' })).code, 'INVALID_ACTION', 'agent.* 必须带 agent');
 });
 
