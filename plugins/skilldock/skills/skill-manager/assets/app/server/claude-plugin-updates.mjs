@@ -96,19 +96,14 @@ export function defaultFetchers({ env, timeout = 60000, fetchImpl = fetch, archi
       if (!first?.filename) fail(502, 'DOWNLOAD_MISSING', '无法下载这个 npm 包。');
       return { file: path.join(directory, path.basename(first.filename)), version: first.version, integrity: first.integrity };
     },
-    npmView: async (spec, registry) => {
-      const parsed = JSON.parse((await runProcess('npm', ['view', spec, 'version', 'dist.integrity', '--json', ...(registry ? ['--registry', registry] : [])], { env, timeout })).stdout);
-      // A range that several versions satisfy lists them in order; `npm pack` takes the highest, the last.
-      const out = Array.isArray(parsed) ? parsed.at(-1) ?? {} : parsed;
-      return { version: out.version, integrity: out['dist.integrity'] };
-    },
     // Redirects are followed by hand, to https hosts other than this computer only, and the size is
     // counted while reading (5a/5b review P3-06).
     download: async (url, file) => {
       const signal = AbortSignal.timeout(timeout); let current = url;
       for (let hops = 0; ; hops++) {
         const target = new URL(current);
-        if (target.protocol !== 'https:' || /^(localhost|127\.|0\.0\.0\.0$|\[::1?\]$)/i.test(target.hostname)) fail(422, 'INVALID_SOURCE', '压缩包来源只接受 https 地址。');
+        if (target.protocol !== 'https:') fail(422, 'INVALID_SOURCE', '压缩包来源只接受 https 地址。');
+        if (/^(localhost\.?|127(\.\d{1,3}){3}|0\.0\.0\.0|\[::1?\]|\[::ffff:(127\.[\d.]+|7f[0-9a-f]{2}:[0-9a-f]{1,4})\])$/i.test(target.hostname)) fail(422, 'INVALID_SOURCE', '压缩包来源不能指向本机。');
         const response = await fetchImpl(current, { redirect: 'manual', signal });
         const next = response.headers.get('location');
         if ([301, 302, 303, 307, 308].includes(response.status) && next) {

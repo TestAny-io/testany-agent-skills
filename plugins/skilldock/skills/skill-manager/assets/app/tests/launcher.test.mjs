@@ -182,6 +182,9 @@ test('failed new-version startup restores the verified old runtime without repla
     assert.equal(restored.source, oldRecord.source); assert.equal(restored.digest, oldRecord.digest);
     assert.deepEqual(restored.running, oldRecord.running);
     assert.equal(await fs.readFile(sentinel, 'utf8'), '{"targets":["skilldock"]}');
+    // Generation 2 too: the failed target is recorded, so restart jobs into it are refused (5d review P2-01).
+    const failure = JSON.parse(await fs.readFile(path.join(first.state, 'compat/migration-failure.json'), 'utf8'));
+    assert.deepEqual([failure.version, await fs.realpath(failure.appDir)], ['0.11.1', await fs.realpath(nextOptions.appDir)]);
   } finally { await launch('stop', nextOptions); }
 });
 

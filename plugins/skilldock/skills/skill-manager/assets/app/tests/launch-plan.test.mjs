@@ -385,3 +385,17 @@ test('the gate update waits for nobody: a held Codex or Claude lock refuses it; 
   try { await assert.rejects(gateUpdate(claude), { code: 'BUSY' }); } finally { held(); }
   assert.doesNotMatch(await fs.readFile(calls, 'utf8'), /plugin (update|marketplace)/, '没有运行写命令');
 });
+
+test('the gate update skips a Claude project installation whose project is gone, and says so (re-review N33)', async t => {
+  const w = await world(t);
+  const userApp = await w.install('claude', '0.10.2'); const newer = await w.install('claude', '0.11.0');
+  const listed = path.join(w.root, 'claude-listed.json'); const calls = path.join(w.root, 'claude-calls');
+  const entry = (installPath, extra = {}) => ({ id: `skilldock@${MARKET}`, installPath: path.resolve(installPath, '../../../..'), ...extra });
+  await fs.writeFile(listed, JSON.stringify([entry(userApp, { scope: 'project', projectPath: path.join(w.root, 'gone') }), entry(userApp, { scope: 'user' })]));
+  const after = JSON.stringify([entry(userApp, { scope: 'project', projectPath: path.join(w.root, 'gone') }), entry(newer, { scope: 'user' })]);
+  const cli = path.join(w.root, 'claude-stand-in');
+  await fs.writeFile(cli, `#!${process.execPath}\nconst fs = require('node:fs'); const a = process.argv.slice(2); fs.appendFileSync(${JSON.stringify(calls)}, a.join(' ') + '\\n');\nif (a[0] === '--version') console.log('2.1.288 (Claude Code)'); else if (a[1] === 'list') console.log(fs.readFileSync(${JSON.stringify(listed)}, 'utf8'));\nelse { if (a[1] === 'update') fs.writeFileSync(${JSON.stringify(listed)}, ${JSON.stringify(after)}); console.log('{"outcome":"ok"}'); }\n`, { mode: 0o755 });
+  const result = await gateUpdate({ agent: 'claude', marketplace: MARKET, state: w.state, codexHome: w.codexHome, claudeRoot: { configDir: w.claudeConfig, pluginCacheDir: path.join(w.claudeConfig, 'plugins/cache') }, env: { ...w.env, SKILLDOCK_CLAUDE_BIN: cli }, home: w.home });
+  assert.match(result.message, /从 0\.10\.2 更新到 0\.11\.0。.*\n1 处安装所在的项目目录不存在，没有更新。$/s);
+  assert.deepEqual((await fs.readFile(calls, 'utf8')).split('\n').filter(line => line.startsWith('plugin update')), [`plugin update skilldock@${MARKET} --scope user --json`]);
+});

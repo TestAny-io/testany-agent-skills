@@ -499,6 +499,22 @@ test('a generated marketplace\'s copy and entry come back when Claude\'s update 
   assert.ok(kept && await exists(path.join(kept, 'skills/help-more/SKILL.md')), failed.message);
 });
 
+test('a generated marketplace\'s plugin whose source has node_modules is current once installed, and keeps them through an update (phase 5 re-review P2-02)', async t => {
+  const w = await world(t);
+  await write(path.join(w.root, 'codex-only/node_modules/dep/index.js'), 'module.exports = 1;');
+  await installHelper(w); const market = await marketOf(w); const copy = path.join(dirOf(w, market), 'plugins/helper');
+  const target = (await w.snapshot()).updates.find(item => item.name === 'helper').target;
+  const check = async () => (await w.act({ action: 'update.check', agent: 'claude', target })).updateItem;
+  const fresh = await check();
+  assert.deepEqual([fresh.status, fresh.reasonCode], ['current', undefined], '依赖不算内容变化');
+  await write(path.join(w.root, 'codex-only/.codex-plugin/plugin.json'), { name: 'helper', version: '2.1.0', description: 'Helper plugin.' });
+  const available = await check();
+  assert.equal(available.changes.some(change => change.path.startsWith('node_modules')), false);
+  assert.match((await w.act({ action: 'update.apply', agent: 'claude', target, previewId: available.previewId })).message, /已更新 Claude 插件 helper（2\.0\.0 → 2\.1\.0）/);
+  assert.ok(await exists(path.join(copy, 'node_modules/dep/index.js')), '副本仍带依赖');
+  assert.equal((await check()).status, 'current');
+});
+
 // New messages the cases above do not reach (4d review P3-09).
 const UNREACHED = ['同名安装目录已存在，不能覆盖。', '只能移除个人技能目录或当前项目 .claude/skills 中的技能目录插件。', '插件目录的实际位置越出 Claude 的技能根。',
   '未找到可用的 Claude 命令行，暂不能修改 Claude。', '之前为 Claude 生成的同一来源目录仍然存在且内容不同，请先核对；不再需要时，可在 Marketplace 页移除这个 marketplace 后重试。',

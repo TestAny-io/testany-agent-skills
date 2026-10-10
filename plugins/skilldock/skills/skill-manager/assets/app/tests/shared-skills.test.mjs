@@ -441,6 +441,18 @@ test('cross-side skills that keep 0.10.2 behaviour: the other side not managed, 
   assert.equal((await w.act({ action: 'updates.run', targets: [target], autoApply: true })).run.items[0].status, 'updated');
 });
 
+test('a target inherited from 0.10.x keeps 0.10.2 behaviour when a version-2 client turns the plan off as it is, or starts applying (re-review P3-02, B-M14)', async t => {
+  const { w, plan, bump, due, confirmation } = await crossWorld(t);
+  await w.act({ action: 'schedule.configure', schedule: { ...plan, autoApply: false } });
+  // As 0.10.x left it: no state for the target.
+  const file = path.join(w.service.environments.local.root, 'updates.json'); const saved = JSON.parse(await fs.readFile(file, 'utf8'));
+  delete saved.targetMeta; await fs.writeFile(file, JSON.stringify(saved));
+  await w.act({ action: 'schedule.configure', agent: 'codex', schedule: { ...plan, enabled: false, autoApply: false } });
+  assert.equal(await confirmation(), undefined, '原样关闭不把它变成待确认');
+  assert.equal((await w.act({ action: 'schedule.configure', agent: 'codex', schedule: plan })).code, undefined, '开始自动应用也不问');
+  await bump(); assert.equal((await due()).status, 'updated');
+});
+
 test('a version-1 save keeps the targets of another side it cannot see', async t => {
   const w = await world(t, { claudeOwns: true });
   await skillFile(path.join(w.project, '.claude/skills'), 'solo');

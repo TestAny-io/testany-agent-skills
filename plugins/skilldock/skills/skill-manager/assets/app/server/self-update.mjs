@@ -11,6 +11,7 @@ import { redact, safeSegment } from './files.mjs';
 import { CURRENT_GENERATION, readGeneration } from './generation.mjs';
 import { compareVersions, parseVersion } from './installs.mjs';
 import { isCurrentRecord } from './launcher-record.mjs';
+import { repeatedFailure } from './migration.mjs';
 
 function startWorker(job, { service, codexHome }) {
   return new Promise(async (resolve, reject) => {
@@ -65,7 +66,10 @@ export function createSelfUpdater({ service, codexHome, pollMs = 1000, startTime
     const modern = !closed && await readGeneration(service.stateDir).catch(() => 0) >= CURRENT_GENERATION;
     if (modern) {
       // A new target starts over (36b §7.3); the background digest is no trigger here.
-      const target = newerTarget(await readRecord());
+      // A target whose switch failed and was rolled back is not tried again until it changes or an
+      // interactive start succeeds (36b §7.4; phase 5 re-review P3-03): the launcher refuses it anyway.
+      let target = newerTarget(await readRecord());
+      if (target && await repeatedFailure(service.stateDir, { appDir: target.appPath, version: target.version }).catch(() => null)) target = null;
       const key = target ? `${target.appPath}\n${target.version}` : '';
       if (key !== trigger) { reset(); trigger = key; }
       if (target) pending = true;
@@ -84,7 +88,7 @@ export function createSelfUpdater({ service, codexHome, pollMs = 1000, startTime
     try {
       if (modern) {
         const record = await readRecord(); const target = newerTarget(record);
-        if (!target) return;
+        if (!target || await repeatedFailure(service.stateDir, { appDir: target.appPath, version: target.version }).catch(() => null)) return;
         // The target is still the version the record named.
         const pkg = await fs.readFile(path.join(target.appPath, 'package.json'), 'utf8').then(JSON.parse, () => null);
         if (pkg?.version !== target.version) return;

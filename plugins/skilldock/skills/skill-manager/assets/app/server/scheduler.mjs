@@ -41,9 +41,11 @@ export async function createScheduler({ environments, snapshot, perform, signatu
   // no state yet takes the record's request version, so a target added while turning the plan off is
   // not taken for one inherited from 0.10.x (36c §6, 5c review P1-01).
   function adoptDisabled(state, { origin, ...disabled }, { keepNextRun = false } = {}) {
+    // Only what the record adds: one already in the plan keeps what it had (0.10.x's had nothing; re-review P3-02).
+    const planned = new Set((state.schedule.targets ?? []).map(targetKey));
     Object.assign(state.schedule, disabled, { enabled: false }); if (!keepNextRun) delete state.schedule.nextRunAt;
     state.targetMeta ??= {};
-    for (const target of state.schedule.targets ?? []) state.targetMeta[targetKey(target)] ??= { origin: origin === 'v2' ? 'v2' : 'v1' };
+    for (const target of state.schedule.targets ?? []) if (!planned.has(targetKey(target))) state.targetMeta[targetKey(target)] ??= { origin: origin === 'v2' ? 'v2' : 'v1' };
   }
   async function persist(mode) {
     writes[mode] = (writes[mode] || Promise.resolve()).catch(() => {}).then(async () => { await verifyDirectoryRoot(environments[mode].stateBoundary); const disabled = await disabledSchedule(mode); if (disabled) adoptDisabled(states[mode], disabled); await writeJson(path.join(environments[mode].root, 'updates.json'), states[mode]); });
@@ -279,7 +281,9 @@ export async function createScheduler({ environments, snapshot, perform, signatu
           }
           if (!item) { appendResult({ status: 'skipped', message: '原目标已不存在；重新选择目标后才会纳入计划。', reasonCode: 'TARGET_MISSING' }); await persist(mode); continue; }
           if (trigger !== 'manual') {
-            let actual; try { actual = await signature(mode, target, currentState); } catch { actual = null; }
+            let actual; let unread; try { actual = await signature(mode, target, currentState); } catch (error) { actual = null; if (error.code === 'SOURCE_MISSING') unread = error; }
+            // What cannot be read this round is no change: the binding stays (phase 5 re-review P2-01).
+            if (unread) { appendResult({ status: 'skipped', reasonCode: 'SOURCE_MISSING', message: unread.message }); await persist(mode); continue; }
             if (!actual || !await reconcileBinding(mode, target, actual)) { appendResult({ status: 'skipped', reasonCode: 'TARGET_BINDING_CHANGED', message: '来源、所有者、安装目录或内容已变化；旧计划不接管新对象，请重新选择。' }); await persist(mode); continue; }
           }
           if (!item.canCheck) { appendResult({ status: 'skipped', message: item.message, reasonCode: item.reasonCode }); await persist(mode); continue; }

@@ -1910,5 +1910,13 @@
   "另一个 SkillDock 进程正在执行操作，请稍后重试。": {
     "en": "Another SkillDock process is carrying out an operation. Try again later.",
     "ja": "別の SkillDock プロセスが操作を実行中です。しばらくしてから再試行してください。"
+  },
+  "压缩包来源不能指向本机。": {
+    "en": "An archive source cannot point to this computer.",
+    "ja": "アーカイブの取得元にこのコンピューターを指定することはできません。"
+  },
+  "自动恢复未完成：插件目录已移回原处，但 marketplace 条目没能改回；请刷新这个 marketplace 后核对。": {
+    "en": "Automatic recovery did not finish: the plugin directory is back in place, but the marketplace entry could not be put back. Refresh this marketplace, then check it.",
+    "ja": "自動復元は完了しませんでした。プラグインディレクトリは元に戻りましたが、マーケットプレイスの項目を戻せませんでした。このマーケットプレイスを更新してから確認してください。"
   }
 }

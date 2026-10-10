@@ -38,7 +38,6 @@ async function world(t) {
   // Stand-in fetchers: an npm registry and an archive host on disk.
   const fetchers = {
     npmPack: async (spec, registry, directory) => { const file = path.join(directory, 'pkg.tgz'); await fs.copyFile(claude.fetched.npm.file, file); return { file, version: claude.fetched.npm.version, integrity: claude.fetched.npm.integrity }; },
-    npmView: async () => ({ version: claude.fetched.npm.version, integrity: claude.fetched.npm.integrity }),
     download: async (url, file) => fs.copyFile(claude.fetched.archives[url], file),
   };
   async function candidateOf(entry) {
@@ -381,6 +380,110 @@ test('hardening: a linked plugin directory outside the marketplace, and archive 
   await assert.rejects(download('https://c.example/x.zip', file), { code: 'INVALID_SOURCE' }, '重定向到 http');
   await assert.rejects(download('https://d.example/x.zip', file), { code: 'INVALID_SOURCE' }, '重定向到本机');
   await assert.rejects(download('https://e.example/x.zip', file), { code: 'SOURCE_LIMIT' });
+});
+
+// Phase 5 re-review (52).
+async function npmPacker(w) {
+  return async (version, body = `v${version}`, name = '@t/delta') => {
+    const dir = path.join(w.root, `npm-${version}-${crypto.randomUUID()}`); await plugin(path.join(dir, 'package'), 'delta', { version }); await write(path.join(dir, 'package/package.json'), { name, version });
+    await write(path.join(dir, 'package/skills/s/SKILL.md'), `---\nname: s\ndescription: delta\n---\n${body}\n`);
+    const file = path.join(dir, 'pkg.tgz'); await runProcess('tar', ['-czf', file, '-C', dir, 'package']);
+    w.claude.fetched.npm = { file, version, integrity: `sha512-${crypto.createHash('sha512').update(await fs.readFile(file)).digest('base64')}` };
+  };
+}
+
+test('a local plugin whose source has node_modules applies and reads back (re-review N14, N15)', async t => {
+  const w = await world(t);
+  await plugin(path.join(w.market, 'plugins/gamma'), 'gamma', { version: '1.0.0' }); await write(path.join(w.market, 'plugins/gamma/node_modules/dep/index.js'), 'module.exports = 1;');
+  await w.install({ name: 'gamma', source: './plugins/gamma' });
+  await plugin(path.join(w.market, 'plugins/gamma'), 'gamma', { version: '1.1.0', body: 'v2' });
+  const checked = (await w.check('gamma')).updateItem;
+  assert.equal(checked.status, 'available'); assert.equal(checked.changes.some(change => change.path.startsWith('node_modules')), false);
+  assert.match((await w.apply('gamma', checked.previewId)).message, /已更新 Claude 插件 gamma（1\.0\.0 → 1\.1\.0）/);
+});
+
+test('a plan follows a pinned entry to its next version; another package is another source (phase 5 re-review P2-01, N21)', async t => {
+  const w = await world(t); const pack = await npmPacker(w);
+  await pack('1.0.0');
+  await w.install({ name: 'delta', source: { source: 'npm', package: '@t/delta', version: '1.0.0' } });
+  const target = await w.target('delta');
+  await w.act({ action: 'schedule.configure', agent: 'claude', schedule: { enabled: true, intervalMinutes: 60, timezone: 'UTC', autoApply: true, targets: [target] } });
+  const due = async () => { w.advance(61); await w.service.tickScheduler(); return (await w.snapshot()).updateRuns[0].items[0]; };
+  // The maintainer releases by changing the pinned version in the entry.
+  await pack('1.1.0'); w.entries.find(entry => entry.name === 'delta').source.version = '1.1.0'; await w.writeMarket();
+  let run = await due(); assert.deepEqual([run.status, run.reasonCode], ['updated', undefined]);
+  run = await due(); assert.equal(run.status, 'current');
+  // Another package under the same name is a new object for the plan.
+  w.entries.find(entry => entry.name === 'delta').source.package = '@other/delta'; await w.writeMarket();
+  run = await due(); assert.deepEqual([run.status, run.reasonCode], ['skipped', 'TARGET_BINDING_CHANGED']);
+});
+
+test('after a readback mismatch, a plugin without a version is checked again without a local change (re-review N11)', async t => {
+  const w = await world(t);
+  await plugin(path.join(w.market, 'plugins/beta'), 'beta'); await w.install({ name: 'beta', source: './plugins/beta' });
+  await plugin(path.join(w.market, 'plugins/beta'), 'beta', { body: 'v2' });
+  w.claude.tamper = true;
+  const checked = (await w.check('beta')).updateItem;
+  assert.equal((await w.apply('beta', checked.previewId)).code, 'READBACK_CONTENT_CHANGED');
+  w.claude.tamper = false;
+  const again = await w.check('beta');
+  assert.equal(again.code, undefined, again.message); assert.deepEqual([again.updateItem.status, again.updateItem.canAutoApply], ['available', false]);
+});
+
+test('what changed after the preview stops the update before any command: the entry, an npm package, an archive (re-review A-M05, M08, M09); a remote marketplace is refreshed first (M19)', async t => {
+  const w = await world(t); const pack = await npmPacker(w);
+  await plugin(path.join(w.market, 'plugins/alpha'), 'alpha', { version: '1.0.0' }); await w.install({ name: 'alpha', source: './plugins/alpha' });
+  await plugin(path.join(w.market, 'plugins/alpha'), 'alpha', { version: '1.1.0', body: 'v2' });
+  let checked = (await w.check('alpha')).updateItem; let calls = w.claude.calls.length;
+  w.entries.find(entry => entry.name === 'alpha').description = 'changed'; await w.writeMarket();
+  assert.equal((await w.apply('alpha', checked.previewId)).code, 'SOURCE_CHANGED'); assert.equal(w.claude.calls.length, calls, '条目变化');
+  await pack('1.0.0'); await w.install({ name: 'delta', source: { source: 'npm', package: '@t/delta' } }); await pack('1.1.0');
+  checked = (await w.check('delta')).updateItem; await pack('1.2.0'); calls = w.claude.calls.length;
+  assert.equal((await w.apply('delta', checked.previewId)).code, 'SOURCE_CHANGED'); assert.equal(w.claude.calls.length, calls, 'npm 包变化');
+  const zip = async (name, body) => {
+    const dir = path.join(w.root, `zip-${name}`); await plugin(path.join(dir, 'epsilon-main'), 'epsilon', { body });
+    const file = path.join(w.root, `${name}.zip`); await fs.rm(file, { force: true }); await runProcess('/usr/bin/ditto', ['-c', '-k', '--keepParent', path.join(dir, 'epsilon-main'), file]);
+    w.claude.fetched.archives ??= {}; w.claude.fetched.archives['https://example.invalid/e.zip'] = file;
+  };
+  await zip('one', 'v1'); await w.install({ name: 'epsilon', source: { source: 'archive', url: 'https://example.invalid/e.zip' } });
+  await zip('two', 'v2'); checked = (await w.check('epsilon')).updateItem; await zip('three', 'v3'); calls = w.claude.calls.length;
+  assert.equal((await w.apply('epsilon', checked.previewId)).code, 'SOURCE_CHANGED'); assert.equal(w.claude.calls.length, calls, '压缩包变化');
+  // A marketplace Claude fetched from a remote: refreshed before the check.
+  w.claude.marketplaces[0].source = 'github'; calls = w.claude.calls.length;
+  await w.check('alpha');
+  assert.ok(w.claude.calls.slice(calls).some(call => call.command === 'plugin marketplace update m --json'));
+});
+
+test('a plugin without a version: a copy that fails stops the update; the copy before a readback mismatch is kept, and goes after a later success (re-review A-M11, M15, M16)', async t => {
+  const w = await world(t);
+  await plugin(path.join(w.market, 'plugins/beta'), 'beta'); await w.install({ name: 'beta', source: './plugins/beta' });
+  await plugin(path.join(w.market, 'plugins/beta'), 'beta', { body: 'v2' });
+  // The place for copies cannot be written: the update stops before Claude is asked.
+  const copies = path.join(w.service.environments.local.root, 'claude-plugin-copies');
+  let checked = (await w.check('beta')).updateItem; let calls = w.claude.calls.length;
+  await write(copies, 'not a directory');
+  const failed = await w.apply('beta', checked.previewId);
+  assert.ok(failed.code, '复制失败即中止'); assert.equal(w.claude.calls.length, calls, '没有运行 plugin update');
+  await fs.rm(copies);
+  w.claude.tamper = true; checked = (await w.check('beta')).updateItem;
+  assert.equal((await w.apply('beta', checked.previewId)).code, 'READBACK_CONTENT_CHANGED');
+  const [slot] = await fs.readdir(copies);
+  assert.ok(await fs.stat(path.join(copies, slot, 'baseline')).then(() => true, () => false), '读回不一致时保留更新前的副本');
+  w.claude.tamper = false; await plugin(path.join(w.market, 'plugins/beta'), 'beta', { body: 'v3' });
+  checked = (await w.check('beta')).updateItem;
+  assert.match((await w.apply('beta', checked.previewId)).message, /已更新 Claude 插件 beta/);
+  assert.equal(await fs.stat(path.join(copies, slot, 'baseline')).then(() => true, () => false), false, '成功后删除');
+});
+
+test('archive hosts: a name that merely starts with localhost is fine; this computer by any spelling is not (re-review P3-05)', async () => {
+  const fetchImpl = async () => new Response('zip', { status: 200 });
+  const { download } = defaultFetchers({ env: {}, fetchImpl });
+  const file = path.join(os.tmpdir(), `skilldock-host-${crypto.randomUUID()}.zip`);
+  try {
+    await download('https://localhost.example.com/x.zip', file);
+    for (const url of ['https://localhost/x.zip', 'https://127.0.0.2/x.zip', 'https://[::1]/x.zip', 'https://[::ffff:127.0.0.1]/x.zip'])
+      await assert.rejects(download(url, file), error => error.code === 'INVALID_SOURCE' && /不能指向本机/.test(error.message), url);
+  } finally { await fs.rm(file, { force: true }); }
 });
 
 test('every message seen above has a whole English and Japanese translation', async () => {

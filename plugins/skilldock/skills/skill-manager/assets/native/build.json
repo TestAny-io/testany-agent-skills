@@ -59,7 +59,7 @@
     "src/i18n.tsx": "dc09254cbb69d72741c0975ce96e70e8b3bf0c56332757833f6effbab0d51a7b",
     "src/i18n/errors.json": "0439683b3255bbf6d6d127483e666c2b9d5b6efa10f387a0efd9b7e3e09ad9f3",
     "src/i18n/messages.json": "d49259f0e1cd037593d7ecc01e55523f0714f41a20def21202bd975e04959394",
-    "src/i18n/server-messages.json": "f76e332f96bbf768605b69ba85e02f0c45ab44bd07ddbf4145b1ecf70c29b8da",
+    "src/i18n/server-messages.json": "c273869b4a82135210ea84a64d0da8f45d54644c1db1000aaa79a9a9df42fc6c",
     "src/main.tsx": "0b17df37f3ddac17ba356b85184252cd545e0afa93a2246a8202b30b8a879fff",
     "src/native-icon.svg": "9b7d7c19189c56b43fe691c0cb01e19b1f88abc61d1d130c974c5f5411b7288c",
     "src/plugin-presentation.ts": "f221117671d3b93250a16e6e54326879e6ae1a6aaf3e50dea401e8fdfb86dadf",
@@ -72,7 +72,7 @@
   },
   "artifacts": {
     "server.mjs": "98d37d99ba6366dde78be7102a6dc3d8c1bb99f7728f0e2530518e5f18401701",
-    "ui.html": "440507604d5b9c89feb005ee14daf330a48bfe10653202832540fb1461122e0c",
+    "ui.html": "d1a2610a741521cd4ae033aa4cddb23e4f10c0d20cbf041f55f64e47fc52706a",
     "icon.svg": "9b7d7c19189c56b43fe691c0cb01e19b1f88abc61d1d130c974c5f5411b7288c",
     "THIRD_PARTY_NOTICES.txt": "0580c525bbaf94d006050bf773e482a470c9f983971e23b26e8048505e11bd4f"
   }

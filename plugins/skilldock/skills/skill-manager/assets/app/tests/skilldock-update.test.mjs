@@ -164,6 +164,15 @@ test('the one-click update holds the Claude lock and is not offered while Claude
   assert.equal((await w.act({ action: 'agent.updateSkilldock', agent: 'claude' })).code, 'AGENT_UNCONFIRMED');
 });
 
+test('the service skips a Claude project installation whose project is gone, and says so (re-review N32)', async t => {
+  const w = await world(t);
+  await w.install('codex', '0.11.2'); w.codex.version = '0.11.2'; w.claude.next = '0.11.2';
+  w.claude.plugins.push({ id: `skilldock@${MARKET}`, scope: 'project', enabled: true, version: 'sha-0.11.1', installPath: w.claude.plugins[0].installPath, projectPath: path.join(w.project, '..', 'gone') });
+  const result = await w.act({ action: 'agent.updateSkilldock', agent: 'claude' });
+  assert.match(result.message, /\n1 处安装所在的项目目录不存在，没有更新。$/);
+  assert.deepEqual(w.calls.filter(call => call[1].startsWith('plugin update')).map(call => call[1]), [`plugin update skilldock@${MARKET} --scope user --json`]);
+});
+
 test('every message seen above has a whole English and Japanese translation', async () => {
   const messages = [...seen].filter(text => /[一-鿿]/.test(text));
   assert.ok(messages.length >= 8, `${messages.length}`);

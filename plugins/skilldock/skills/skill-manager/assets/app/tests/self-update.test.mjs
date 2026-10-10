@@ -8,6 +8,7 @@ import { createSelfUpdater } from '../server/self-update.mjs';
 import { createService } from '../server/service.mjs';
 import { captureSource } from '../scripts/source-bundle.mjs';
 import { writeGeneration } from '../server/generation.mjs';
+import { writeMigrationFailure } from '../server/migration.mjs';
 
 const delay = ms => new Promise(resolve => setTimeout(resolve, ms));
 async function until(predicate) { for (let i = 0; i < 100; i++) { if (await predicate()) return; await delay(10); } assert.fail('condition not reached'); }
@@ -211,4 +212,16 @@ test('generation 2: failed restarts back off, and a new target starts over (36b 
   await fs.writeFile(recordFile, JSON.stringify({ ...record, preferred: { ...record.preferred, version: '2.6.0' } }));
   await step(0, 3);
   assert.match((await updater.status()).message, /fixture launcher refused/);
+});
+
+test('generation 2: a target whose switch failed and was rolled back is not tried again; another version is (phase 5 re-review P3-03)', async t => {
+  const f = await fixture(t); let calls = 0;
+  const updater = createSelfUpdater({ ...f, startTimer: false, worker: async () => { calls++; } });
+  t.after(() => updater.close());
+  await modern(f);
+  await writeMigrationFailure(f.stateDir, { appDir: f.versions['2.5.0'], version: '2.5.0', message: 'x' });
+  updater.request(); await updater.tick();
+  assert.deepEqual([calls, f.isPaused()], [0, false], '不发起、不暂停写操作');
+  await writeMigrationFailure(f.stateDir, { appDir: f.versions['2.5.0'], version: '2.4.9', message: 'x' });
+  updater.request(); await updater.tick(); await until(async () => calls === 1);
 });

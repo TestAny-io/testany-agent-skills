@@ -444,6 +444,21 @@ export async function createService(options = {}) {
     }
     return { sources, skillsDir, owner };
   }
+  /**
+   * Where a Claude plugin's entry source lies, not which version it pins (phase 5 re-review P2-01): a
+   * maintainer releases by changing a pinned `sha`/`ref`, an npm version or an archive address, while
+   * another repository, package or download host is another source.
+   */
+  function sourcePlace(source) {
+    const at = source.spec?.lastIndexOf('@') ?? -1;
+    switch (source.kind) {
+      case 'git': return { kind: 'git', url: source.url, ...(source.subpath ? { subpath: source.subpath } : {}) };
+      case 'npm': return { kind: 'npm', package: at > 0 && !source.spec.startsWith('https:') ? source.spec.slice(0, at) : source.spec, ...(source.registry ? { registry: source.registry } : {}) };
+      case 'archive': { let origin; try { origin = new URL(source.url).origin; } catch { origin = source.url; } return { kind: 'archive', origin }; }
+      case 'local': case 'git-market': return { kind: source.kind, relative: source.relative };
+      default: return { kind: source.kind };
+    }
+  }
   /** A Claude plugin's entry source, from the marketplace copy on disk; null when it cannot be read. */
   async function claudeEntrySource(plugin, marketplaces, configDir, read = new Map()) {
     const once = async file => { if (!read.has(file)) read.set(file, await readJson(file, null).catch(() => null)); return read.get(file); };
@@ -519,10 +534,10 @@ export async function createService(options = {}) {
         updated: name => `已更新 ${name}，旧版已保留，可从操作记录恢复。`, removed: name => `已将 ${name} 移至可恢复区；可从操作记录恢复。`, restored: name => `已恢复 ${name}。` },
     };
   }
-  /** Codex's pins on links into a directory SkillDock just replaced: its next scan pins the new one. */
+  /** Codex's pins on links into a directory SkillDock just replaced, or into it (a skills-directory plugin's skill): its next scan pins the new one. */
   async function releaseCodexPins(directory) {
     const real = await realDirectory(directory).catch(() => null); if (!real) return;
-    for (const env of Object.values(environments)) for (const [linked, pin] of env.skillLinks ?? []) if (pin.real === real) env.skillLinks.delete(linked);
+    for (const env of Object.values(environments)) for (const [linked, pin] of env.skillLinks ?? []) if (inside(real, pin.real)) env.skillLinks.delete(linked);
   }
   function claudeSkillSide(env, registry, roots, request) {
     return {
@@ -804,21 +819,24 @@ export async function createService(options = {}) {
           staging = path.join(env.root, 'staging', crypto.randomUUID()); await verifyDescendantDirectory(env.stateBoundary, staging); await fs.mkdir(staging, { recursive: true, mode: 0o700 });
           staged = await stageCandidate(source, { installLocation: location, pluginRoot, staging, fetchers: claudeFetchers });
         }
+        // Compared as the installation is, without `node_modules`; a generated marketplace's candidate
+        // keeps them, since it becomes SkillDock's copy (phase 5 re-review P2-02).
+        const compared = direct ? await inspectTree(staged.candidate, { skip: INSTALL_SKIP }) : staged.tree;
         // Content equal to the source keeps no local change: the baseline follows it, and an automatic
         // applying paused by a readback resumes (5a/5b review P1-02, P3-02).
-        if (installed.fingerprint === staged.tree.fingerprint) {
+        if (installed.fingerprint === compared.fingerprint) {
           baselines[target.id] = { version: install.version, fingerprint: installed.fingerprint };
           if (registry.claudePluginReview) delete registry.claudePluginReview[target.id];
           await writeJson(env.registryFile, registry);
         } else if (changedLocally) localChanges();
         // SkillDock writes the generated entry's version from the source (HLD 3.3).
         const predicted = await predictVersion(staged.candidate, direct ? staged.detail.version ? { version: staged.detail.version } : {} : entry, direct ? { kind: 'local' } : source, staged);
-        const outcome = checkOutcome({ installedVersion: install.version, installedFingerprint: installed.fingerprint, candidateFingerprint: staged.tree.fingerprint, predicted });
+        const outcome = checkOutcome({ installedVersion: install.version, installedFingerprint: installed.fingerprint, candidateFingerprint: compared.fingerprint, predicted });
         // Without a record, the check's own view is the baseline (MR-SDX-003), checked again before applying.
         if (!baseline || baseline.version !== install.version) { baselines[target.id] = { version: install.version, fingerprint: installed.fingerprint }; await writeJson(env.registryFile, registry); }
         const id = crypto.randomUUID();
         if (outcome.status === 'available') {
-          previews.set(id, { id, kind: 'claude-plugin-update', agent: 'claude', mode: env.mode, created: previewNow(), staging, candidate: staged.candidate, tree: staged.tree, pluginId: target.id, installPath: install.installPath,
+          previews.set(id, { id, kind: 'claude-plugin-update', agent: 'claude', mode: env.mode, created: previewNow(), staging, candidate: staged.candidate, tree: compared, sourceFingerprint: staged.tree.fingerprint, pluginId: target.id, installPath: install.installPath,
             installedVersion: install.version, baseline: installed.fingerprint, entry: JSON.stringify(entry), facts: { commit: staged.commit, sha256: staged.sha256, integrity: staged.integrity, packageVersion: staged.packageVersion },
             ...(direct ? { direct: { detail: staged.detail, originalDirectory: staged.originalDirectory } } : {}) });
           keep = true;
@@ -827,7 +845,7 @@ export async function createService(options = {}) {
         // HLD 3.3A: said before applying, not only after (5a/5b review P3-08).
         const inPlace = outcome.status === 'available' && install.version === 'unknown' ? '\n这个插件没有版本号，Claude 会原地覆盖它；更新前 SkillDock 会先复制一份，供需要时手动恢复。' : '';
         const message = `${outcome.message}${inPlace}${review ? '\n上次装入的内容与预览不同；自动应用已暂停，请在更新页重新检查并手动应用。' : ''}`;
-        return { message, updateItem: item(outcome.status, { message, ...(outcome.reasonCode ? { reasonCode: outcome.reasonCode } : {}), changes: diffFiles(installed.entries, staged.tree.entries),
+        return { message, updateItem: item(outcome.status, { message, ...(outcome.reasonCode ? { reasonCode: outcome.reasonCode } : {}), changes: diffFiles(installed.entries, compared.entries),
           ...(predicted && predicted !== 'unknown' ? { availableVersion: predicted } : {}), ...(outcome.status === 'available' ? { previewId: id } : {}) }) };
       }
       // Another plugin's preview is left for it (5a/5b review P3-04).
@@ -839,11 +857,13 @@ export async function createService(options = {}) {
       // The source once more, by its kind (HLD 3.3A 应用前核对).
       if (JSON.stringify(entry) !== preview.entry) fail(409, 'SOURCE_CHANGED', 'marketplace 中这个插件的条目在预览后发生变化，请重新检查。');
       if (source.kind === 'direct') {
-        if (tracked.sourceType === 'git' ? await claudeFetchers.resolve(tracked.source, tracked.ref) !== preview.facts.commit : (await inspectTree(preview.direct.originalDirectory)).fingerprint !== preview.tree.fingerprint)
+        if (tracked.sourceType === 'git' ? await claudeFetchers.resolve(tracked.source, tracked.ref) !== preview.facts.commit : (await inspectTree(preview.direct.originalDirectory)).fingerprint !== preview.sourceFingerprint)
           fail(409, 'SOURCE_CHANGED', '来源在预览后发生变化，请重新检查。');
       } else if (['local', 'git-market'].includes(source.kind)) { if ((await inspectTree(localDirectory(source, location, pluginRoot), { skip: INSTALL_SKIP })).fingerprint !== preview.tree.fingerprint) fail(409, 'SOURCE_CHANGED', '来源在预览后发生变化，请重新检查。'); }
       else if (source.kind === 'git') { if (await claudeFetchers.resolve(source.url, source.ref) !== preview.facts.commit) fail(409, 'SOURCE_CHANGED', '来源仓库在预览后有新的提交，请重新检查。'); }
-      else if (source.kind === 'npm') { const view = await claudeFetchers.npmView(source.spec, source.registry); if (view.version !== preview.facts.packageVersion || view.integrity && preview.facts.integrity && view.integrity !== preview.facts.integrity) fail(409, 'SOURCE_CHANGED', 'npm 包在预览后发生变化，请重新检查。'); }
+      // What `npm pack` takes again, not what `npm view` lists: a range may resolve to the `latest` tag (re-review P3-05).
+      else if (source.kind === 'npm') { const again = path.join(staging, 'recheck'); await fs.mkdir(again, { recursive: true }); const packed = await claudeFetchers.npmPack(source.spec, source.registry, again);
+        if (packed.version !== preview.facts.packageVersion || packed.integrity && preview.facts.integrity && packed.integrity !== preview.facts.integrity) fail(409, 'SOURCE_CHANGED', 'npm 包在预览后发生变化，请重新检查。'); }
       else if (source.kind === 'archive' && !source.sha256) { const file = path.join(staging, 'recheck.zip'); await claudeFetchers.download(source.url, file); if (await sha256File(file) !== preview.facts.sha256) fail(409, 'SOURCE_CHANGED', '压缩包在预览后发生变化，请重新检查。'); }
       // Claude overwrites a plugin without a version in place: what it held is copied first,
       // dependencies included, and a failed copy stops the update (HLD 3.3A).
@@ -863,7 +883,7 @@ export async function createService(options = {}) {
         // A restore that fails keeps the backup and says where it is (5c review P3-01).
         undoDirect = async error => {
           try { await fs.rm(destination, { recursive: true, force: true }); await move(previous, destination); await fs.writeFile(catalogFile, catalog); }
-          catch { keep = true; error.message += `\n自动恢复未完成；更新前的插件目录保留在 ${previous}，请据此恢复 ${destination}。`; }
+          catch { keep = true; error.message += await exists(previous) ? `\n自动恢复未完成；更新前的插件目录保留在 ${previous}，请据此恢复 ${destination}。` : '\n自动恢复未完成：插件目录已移回原处，但 marketplace 条目没能改回；请刷新这个 marketplace 后核对。'; }
         };
         // Moved, not copied: the candidate is not needed afterwards, and Claude never sees half a directory.
         try { await move(preview.candidate, destination); await writeClaudeDirectMarketplace(env, { detail: preview.direct.detail }, { market: plugin.marketplace, root: tracked.root }); }
@@ -888,7 +908,7 @@ export async function createService(options = {}) {
           : `Claude 命令行已返回，但装入的内容与预览不同；请重新检查。旧版本目录 ${install.installPath} 由 Claude 保留 14 天。`);
       }
       (fresh.claudePluginBaselines ??= {})[target.id] = { version: after.version, fingerprint: preview.tree.fingerprint };
-      if (source.kind === 'direct' && fresh.claudeDirectPlugins?.[plugin.marketplace]) Object.assign(fresh.claudeDirectPlugins[plugin.marketplace], { fingerprint: preview.tree.fingerprint, ...(preview.facts.commit ? { commit: preview.facts.commit } : {}) });
+      if (source.kind === 'direct' && fresh.claudeDirectPlugins?.[plugin.marketplace]) Object.assign(fresh.claudeDirectPlugins[plugin.marketplace], { fingerprint: preview.sourceFingerprint, ...(preview.facts.commit ? { commit: preview.facts.commit } : {}) });
       if (!internal && fresh.claudePluginReview) delete fresh.claudePluginReview[target.id];
       await writeJson(env.registryFile, fresh);
       if (install.version === 'unknown') await fs.rm(path.join(copies, 'baseline'), { recursive: true, force: true });
@@ -1256,7 +1276,8 @@ export async function createService(options = {}) {
     const preview = previews.get(id);
     // 36c §6: a preview acts only for the side it was made for.
     if (!preview || preview.mode !== env.mode || preview.kind !== kind || (preview.agent ?? 'codex') !== agent || previewNow() - preview.created > 30 * 60000) fail(409, 'STALE_PREVIEW', '预览已过期或属于其他环境，请重新预览。');
-    if ((await inspectTree(preview.candidate)).fingerprint !== preview.tree.fingerprint) fail(409, 'STAGED_CHANGED', '暂存内容发生变化，请重新预览。');
+    // A Claude plugin preview compares without `node_modules`; its staged candidate is checked whole.
+    if ((await inspectTree(preview.candidate)).fingerprint !== (preview.sourceFingerprint ?? preview.tree.fingerprint)) fail(409, 'STAGED_CHANGED', '暂存内容发生变化，请重新预览。');
     if (preview.sourceType === 'local' && (await inspectTree(preview.originalDirectory)).fingerprint !== preview.tree.fingerprint) fail(409, 'SOURCE_CHANGED', '来源在预览后发生变化，请重新预览。');
     return preview;
   }
@@ -1808,7 +1829,10 @@ export async function createService(options = {}) {
     for (const key of ['kind', 'owner', 'sourceType', 'source', 'subpath', 'ref', 'commit', 'marketplace', 'pluginId']) if (source[key] !== undefined) sourceIdentity[key] = source[key];
     if (target.agent === 'claude' && item.route === 'claude-plugin') {
       const plugin = current.plugins.find(candidate => candidate.id === target.id && candidate.installed);
-      sourceIdentity.entry = await claudeEntrySource(plugin, current.marketplaces, (await agentLayer.discover()).claudeRoot.configDir);
+      const entry = await claudeEntrySource(plugin, current.marketplaces, (await agentLayer.discover()).claudeRoot.configDir);
+      // Unreadable now is not a change: this round skips the target and its saved binding stays.
+      if (!entry) fail(409, 'SOURCE_MISSING', '无法读取这个插件所在 marketplace 的本机副本；请刷新 marketplace 后再检查。');
+      sourceIdentity.entry = sourcePlace(entry);
     }
     if (target.kind === 'plugin') {
       const catalog = await catalogFor(env, registry); const plugin = catalog.plugins.find(candidate => candidate.id === target.id);

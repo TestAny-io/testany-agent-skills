@@ -182,6 +182,20 @@ test('a Claude target\'s side is its own, whatever the request names; it pauses 
   assert.deepEqual([run.status, run.reasonCode], ['skipped', 'AGENT_PAUSED']); assert.match(run.message, /本机未找到 Claude/);
 });
 
+test('a Codex link into a skill of a Claude skills-directory plugin still lists after the plugin updates (phase 5 re-review P3-01)', async t => {
+  const w = await world(t);
+  const plugin = await installPluginDir(w);
+  await fs.symlink(path.join(w.configDir, 'skills/tidy/skills/tidy-up'), path.join(w.codexHome, 'skills/tidy-up'));
+  assert.ok((await w.service.snapshot('local', true)).skills.some(item => item.name === 'tidy-up'));
+  await skillFile(path.join(w.root, 'plugin-src/skills'), 'tidy-up', 'v2\n');
+  const entry = await w.item(plugin.id);
+  const check = await w.act({ action: 'update.check', agent: 'claude', target: entry.target });
+  await w.act({ action: 'update.apply', agent: 'claude', target: entry.target, previewId: check.updateItem.previewId });
+  const codex = await w.service.snapshot('local', true);
+  assert.ok(codex.skills.some(item => item.name === 'tidy-up'), 'Codex 一侧仍列出');
+  assert.equal(codex.diagnostics.some(text => /运行中发生变化/.test(text)), false);
+});
+
 test('every message seen above has a whole English and Japanese translation', async () => {
   const messages = [...seen].filter(text => /[一-鿿]/.test(text));
   assert.ok(messages.length > 5, `${messages.length}`);
