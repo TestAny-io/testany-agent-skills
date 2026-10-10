@@ -12,7 +12,7 @@
 |------|------|------|
 | 只装 Codex、只装 Claude、两者都装时环境页正确 | 自动：`agents`（首次出现、未安装不显示、只读与启用）、`agent-ui`；UAT：Codex 与 Claude 计数与命令行读回一致 | 满足 |
 | 自定义 `CODEX_HOME`、`CLAUDE_CONFIG_DIR`、`CLAUDE_CODE_PLUGIN_CACHE_DIR` | 自动：`agents` “Claude root…”、`claude-root`、`custom-paths`；矩阵 S-14/S-15（自定义 Claude 目录） | 满足 |
-| 未启用管理时写操作不可用并说明；启用后读回成功才显示已启用 | 自动：`agents`（只读拒绝、无法确认、启用需主证据）、`claude-actions`（只读、未安装、无命令行时拒绝） | 满足 |
+| 未启用管理时写操作不可用并说明；启用后读回成功才显示已启用 | 自动：`agents`（只读拒绝、无法确认、启用需主证据）、`claude-actions`（只读、未安装、无命令行时拒绝） | 满足，一处例外经 Owner 认可：只读一侧也提供 SkillDock 自身的一键更新（逐次确认、只改 SkillDock 本身；HLD 第 10 节 DG-R24-1，2026-10-10），停用管理的确认框已注明 |
 | 从 Claude 安装者首次 Claude 已启用；从 Codex 安装者 Codex 启用、Claude 只读 | 自动：`agents` “first appearance…” | 满足 |
 
 ## AC-002 Claude 清单
@@ -88,7 +88,7 @@
 | 保存的 Node 失效后重新扫描 | 自动：`toolchain`（保存值失效时重新检测） | 满足 |
 | 没有可用 Node 时弹出对话框，不下载；安装后重新检测可继续 | 自动：`toolchain` “without a usable Node nothing is downloaded…”、“the shell entry without any usable Node exits 1 with guidance…”；实测：V12 | 满足 |
 | 两侧都装时共用同一选择与运行目录 | 自动：`launcher` “either side…” | 满足 |
-| 0.10.x 用过的 Codex 自带 Node 或已下载的私有 Node 仍被识别 | 自动：`node-candidates`（`skilldock-private` 候选） | 满足 |
+| 0.10.x 用过的 Codex 自带 Node 或已下载的私有 Node 仍被识别 | 自动：`toolchain` “candidates follow the fixed order…”（已下载的 Node 排在 Codex 工作区之后，阶段 6 评审 PH6-P3-03 后补） | 满足 |
 | 首次构建需要联网时事先说明；断网失败不影响已运行的服务与数据 | `SKILL.md`、README 写明首次启动需要联网；`launcher`（新版构建失败保留旧服务） | 部分：启动时没有单独打印“需要联网”的提示，说明在文档中。Owner 2026-10-10 同意随 0.11.0 发布，记入 41 UI-15 |
 
 ## AC-012 写入边界
@@ -103,7 +103,7 @@
 
 | 验收项 | 证据 | 结论 |
 |------|------|------|
-| 只启用 Claude 时界面无“需要 Codex”的提示；只启用 Codex 时表述不变 | 阶段 6c 修正：插件页的“Codex CLI 暂不可用”只在本机装有 Codex 时显示；没有 Codex 目录时项目选择器不再提示“尚未发现 Codex 保存的本地项目”（`projects`） | 满足（修正后；最终 UAT 中在只装 Claude 的环境复核） |
+| 只启用 Claude 时界面无“需要 Codex”的提示；只启用 Codex 时表述不变 | 阶段 6c 修正：插件页的“Codex CLI 暂不可用”只在本机装有 Codex 时显示（`agent-ui` “the "Codex CLI unavailable" notice…”）；没有 Codex 目录时项目选择器不提示 Codex 项目（`projects`）；安装窗口的 marketplace 说明在只装 Claude 时不提“Codex 官方目录”；计划说明改为“无需打开 SkillDock、Codex 或 Claude” | 满足（最终 UAT 中在只装 Claude 的环境复核） |
 | 新增文案中英日完整，无混排 | 自动：各测试文件的“every message seen above has a whole English and Japanese translation”、`i18n`；UAT：英文、日文抽查无残留中文 | 满足 |
 | README 首屏定位、徽标与安装说明覆盖 Codex 与 Claude | 文档：阶段 6b（根 README 中英、插件 README 中英） | 满足 |
 
@@ -130,7 +130,7 @@
 |------|------|------|
 | 在 Claude 桌面应用中添加本仓库 marketplace 后，可从插件浏览器安装 SkillDock，其技能出现在 Claude 中 | 实测：`claude-distribution-smoke`（命令行、临时目录）；桌面应用的插件浏览器未实测 | 待 Owner（最终 UAT） |
 | 安装 SkillDock 不会安装或启用仓库中的其他插件 | 实测：`claude-distribution-smoke` “只装上 SkillDock” | 满足 |
-| 中英文 README 有 Claude 的安装、打开与更新说明，全程不要求终端 | 文档：阶段 6c 修正（插件浏览器、`/plugin` → Installed → Update now、SkillDock 更新页；终端命令列为可选） | 满足 |
+| 中英文 README 有 Claude 的安装、打开与更新说明，全程不要求终端 | 文档：`/plugin marketplace add` 与 `/plugin install` 在对话中输入；更新用 `/plugin` → Marketplaces → Update marketplace（先刷新目录）或 SkillDock 的更新页；终端命令列为可选 | 待 Owner：随第 1 项在最终 UAT 中实测桌面应用里的添加 marketplace、插件浏览器安装、刷新后更新，按实际界面路径修订 README（阶段 6 评审 PH6-P2-01） |
 | 仅支持 Codex 的插件在 Claude 中有明确标注 | 仓库 Claude marketplace 中 TeamDesk 注明“仅支持 Codex”；实测：`claude-distribution-smoke` | 满足 |
 
 ## 回归保护
@@ -139,7 +139,7 @@
 |------|------|------|
 | MR-SDX-001 未启用 Claude 时，现有 Node 与浏览器回归全部通过，原生入口与后台更新行为不变 | 自动：全量 `npm test`；浏览器端到端 `npm run test:e2e`（见“运行结果”）；矩阵 V18-a | 满足 |
 | MR-SDX-002 从 0.10.2 升级后计划、绑定、历史、来源、项目、偏好保留；未启用的计划不被开启 | 自动：`migration`、矩阵 G-08；`background-updates` “an already enabled plan migrates…” | 满足 |
-| MR-SDX-003 手动与后台更新都不覆盖本地修改 | 自动：`claude-plugin-updates`、`claude-skill-files`、`background-updates`、`shared-skills` | 满足 |
+| MR-SDX-003 手动与后台更新都不覆盖本地修改 | 自动：`claude-plugin-updates`、`claude-skill-files`、`background-updates`、`shared-skills` | 满足，带已知残余：SkillDock 首次检查之前对 Claude 插件做的本地修改识别不出（内容可从 Claude 保留 14 天的旧版本目录或更新前副本找回）；Owner 2026-10-10 登记为已知限制（HLD 第 10 节 DG-R24-2、PRD Q11） |
 
 ## 运行结果
 
@@ -149,5 +149,28 @@
 
 ## 汇总
 
-- **待 Owner**（阶段 6e）：AC-007 第 4 项（V17）、AC-008 第 3 项与 AC-017 第 1 项（从真实 Claude 桌面应用安装 0.11.0）、AC-013 第 1 项的复核。
+- **待 Owner**（阶段 6e）：AC-007 第 4 项（V17）、AC-008 第 3 项与 AC-017 第 1、3 项（从真实 Claude 桌面应用添加 marketplace、安装与更新 0.11.0）、AC-013 第 1 项的复核。
+- **Owner 认可的例外与残余**：AC-001 第 3 项（只读一侧的 SkillDock 一键更新，DG-R24-1）、MR-SDX-003（首次检查前的本地修改，DG-R24-2）。
 - **部分**（Owner 2026-10-10 同意随 0.11.0 发布，记入 [41](41-ui-redesign-backlog.md)）：AC-003 第 1 项（UI-05、UI-02）、AC-016 第 2 项（UI-11）、AC-009 第 6 项（UI-15）。AC-016 第 3 项（UI-14）已在发布前修复。
+
+## 已知测试缺口（阶段 5 评审遗留，2026-10-10 登记）
+
+以下是阶段 4、5 评审的变异实验中存活的项，对应的功能都已实现、经代码评审核对，只是没有能发现回归的用例。登记为已知测试缺口，不影响 0.11.0 的功能；后续版本补用例时按编号划掉。
+
+| 编号 | 来源 | 未被钉住的行为 |
+|------|------|------|
+| N34 | [52](52-cross-agent-phase5-review-r2.md) | 重算门槛时跳过转交（原生入口经转交的真实路径） |
+| A-M20 | [48](48-cross-agent-phase5ab-code-review.md)、52 | 在 Claude 清单中按项目路径匹配安装 |
+| A-M27 | 48、52 | 核对压缩包声明的 sha256 |
+| A-M37 | 48、52 | 技能目录插件核对修订号 |
+| A-M38 | 48、52 | 技能目录插件排除 Git 工作树 |
+| A-M39 | 48、52 | 技能目录插件只限两个技能根 |
+| A-M42 | 48、52 | 技能目录插件的计划绑定含内容指纹 |
+| B-M10 | [49](49-cross-agent-phase5c-code-review.md)、52 | 暂停豁免只给 2 版请求 |
+| B-M23 | 49、52 | 1 版保存保留的目标豁免检查 |
+| K05、K06 | [47](47-cross-agent-phase4cd-review-r2.md) | 两侧同步、快照冲突按规范化后的内容比较（不只按原文） |
+| B55 | 47 | 批量取锁时不创建 Claude 根目录 |
+| B56 | 47 | 批量移除 Claude 链接时保留来源记录 |
+| B59 | 47 | Claude 副本的来源键用真实路径 |
+| N22、K15、K16 | 47 | 界面三项：显示专用 manifest、更新对话框与技能卡片检查带说明（与 41 的 UI-10、UI-11 同属界面重设计） |
+

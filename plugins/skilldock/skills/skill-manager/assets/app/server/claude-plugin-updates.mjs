@@ -52,12 +52,37 @@ export function pluginSource(entry, market) {
   }
 }
 
+const origin = value => { try { return new URL(value).origin; } catch { return value; } };
+/** Where a marketplace lies, by its known_marketplaces.json source; a pinned ref is not part of it. */
+function marketPlace(source) {
+  const place = { source: source.source };
+  for (const key of ['repo', 'url', 'path', 'package']) if (typeof source[key] === 'string') place[key] = key === 'url' ? publicSource(source[key]) : source[key];
+  return place;
+}
+
+/**
+ * Where a Claude plugin's entry source lies, not which version it pins (phase 5 re-review P2-01): a
+ * maintainer releases by changing a pinned `sha`/`ref`, an npm version or an archive address, while
+ * another repository, package, download host or marketplace is another source (HLD r24 P3-06).
+ */
+export function entryPlace(source) {
+  const at = source.spec?.lastIndexOf('@') ?? -1;
+  switch (source.kind) {
+    case 'git': return { kind: 'git', url: source.url, ...(source.subpath ? { subpath: source.subpath } : {}) };
+    case 'npm': return { kind: 'npm', package: source.spec.startsWith('https:') ? origin(source.spec) : at > 0 ? source.spec.slice(0, at) : source.spec, ...(source.registry ? { registry: source.registry } : {}) };
+    case 'archive': return { kind: 'archive', origin: origin(source.url) };
+    case 'local': case 'git-market': return { kind: source.kind, relative: source.relative, ...(source.marketSource ? { market: marketPlace(source.marketSource) } : {}) };
+    default: return { kind: source.kind };
+  }
+}
+
 /** A plugin's entry source as the update list and preview show it, without credentials (UAT 2026-10-10). */
 export function entrySourceInfo(source, marketplace) {
   const at = `marketplace ${marketplace}`;
   const shown = source.kind === 'git' ? publicSource(source.url) : source.kind === 'npm' ? `npm ${publicSource(source.spec)}` : source.kind === 'archive' ? publicSource(source.url)
     : ['local', 'git-market'].includes(source.kind) ? `${at} · ${source.relative}` : at;
-  return { kind: 'marketplace-entry', confidence: 'verified', owner: 'Claude', source: shown, ...(source.subpath ? { subpath: source.subpath } : {}), ...(source.ref ? { ref: source.ref } : {}),
+  // From the marketplace copy as it is now: it does not prove where the installed content came from (phase 6 review P3-04).
+  return { kind: 'marketplace-entry', confidence: 'inferred', owner: 'Claude', label: 'marketplace 条目', source: shown, ...(source.subpath ? { subpath: source.subpath } : {}), ...(source.ref ? { ref: source.ref } : {}),
     evidence: '取自本机保存的 marketplace 副本；检查与更新前重新读取。' };
 }
 

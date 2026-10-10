@@ -2163,9 +2163,9 @@
     "en": "Turn off {v0} management?",
     "ja": "{v0} の管理を無効にしますか？"
   },
-  "停用后 {v0} 回到只读：SkillDock 只显示其中的对象，不再修改它们；更新计划中属于 {v0} 的项暂停，重新启用后恢复。": {
-    "en": "{v0} becomes read-only: SkillDock still shows its items but no longer changes them. Update-plan items for {v0} pause and resume when you turn management back on.",
-    "ja": "{v0} は読み取り専用に戻ります。SkillDock は項目を表示するだけで変更しません。更新プランの {v0} の項目は一時停止し、再度有効にすると再開します。"
+  "停用后 {v0} 回到只读：SkillDock 只显示其中的对象，不再修改它们（经你确认的 SkillDock 自身一键更新除外）；更新计划中属于 {v0} 的项暂停，重新启用后恢复。": {
+    "en": "After you turn it off, {v0} is read-only again: SkillDock only shows its objects and no longer changes them (except a one-click update of SkillDock itself that you confirm); plan items for {v0} pause until you turn it back on.",
+    "ja": "無効にすると {v0} は読み取り専用に戻ります。SkillDock はオブジェクトを表示するだけで変更しません（確認したうえでの SkillDock 自身のワンクリック更新を除く）。{v0} の計画項目は再び有効にするまで一時停止します。"
   },
   "停用管理": {
     "en": "Turn off management",
@@ -2526,5 +2526,9 @@
   "这个技能随所属插件一起更新": {
     "en": "This skill is updated with its plugin",
     "ja": "このスキルは所属するプラグインと一緒に更新されます"
+  },
+  "从已连接的 Marketplace 选择插件。": {
+    "en": "Choose a plugin from a connected marketplace.",
+    "ja": "接続済みのマーケットプレイスからプラグインを選択します。"
   }
 }

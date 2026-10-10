@@ -22,7 +22,7 @@ import { instanceLock } from './state-locks.mjs';
 import { createBackgroundManager, backgroundPaths } from './background.mjs';
 import { readGeneration, CURRENT_GENERATION } from './generation.mjs';
 import { projectCatalog, createProjectIntegration } from './projects.mjs';
-import { inspectPlugin, directLocation, writeDirectMarketplace, decorateDirectCatalog, inspectClaudePlugin, claudeDirectLocation, writeClaudeDirectMarketplace, decorateClaudeDirect, ownClaudeDirect, claudeDirectRoot } from './direct-plugins.mjs';
+import { inspectPlugin, directLocation, writeDirectMarketplace, decorateDirectCatalog, inspectClaudePlugin, claudeDirectLocation, writeClaudeDirectMarketplace, decorateClaudeDirect, ownClaudeDirect, claudeDirectRoot, directSourceInfo } from './direct-plugins.mjs';
 import { localSettingsExposure, excludeLocalSettings } from './local-settings.mjs';
 import { pluginContents } from './plugin-contents.mjs';
 import { officialAppUrl } from './app-directory.mjs';
@@ -30,7 +30,7 @@ import { createDirectoryIcons } from './directory-icons.mjs';
 import { createAgentLayer, readManagement, writeManagement, AGENT_NAME } from './agents.mjs';
 import { claudeCatalog, claudeIds, claudeLists } from './claude-catalog.mjs';
 import { updateSkilldockIn, claudeAppVersion, manualUpdate } from './skilldock-update.mjs';
-import { INSTALL_SKIP, marketplaceEntry, pluginSource, entrySourceInfo, OWNER_REASON, stageCandidate, predictVersion, checkOutcome, copyInstallation, localDirectory, defaultFetchers } from './claude-plugin-updates.mjs';
+import { INSTALL_SKIP, marketplaceEntry, pluginSource, entrySourceInfo, entryPlace, OWNER_REASON, stageCandidate, predictVersion, checkOutcome, copyInstallation, localDirectory, defaultFetchers } from './claude-plugin-updates.mjs';
 import { claudeWriter } from './claude-writer.mjs';
 import { createClaudeActions, CLAUDE_WRITES } from './claude-actions.mjs';
 import { mergeClaude, markReadOnly } from './multi-agent.mjs';
@@ -264,10 +264,15 @@ export async function createService(options = {}) {
     const result = await timed('scan', async () => enrichSources(await scan(env, registry, catalog), env, registry));
     enrichTags(result, registry);
     // A version-1 snapshot keeps 0.10.2 semantics: Claude's activity is not Codex's, and it does not
-    // take places among the 200 shown (4a review P3-05); nor does it see Agent environment actions (36c §10, v0.29).
-    if (!multiAgent) result.activity = result.activity.filter(item => (item.agent ?? 'codex') === 'codex' && !item.action?.startsWith('agent.'));
-    if (scheduler) { const { extraActivity, ...updateState } = scheduler.data(mode, result); Object.assign(result, updateState); result.activity = [...result.activity, ...extraActivity].sort((a, b) => b.createdAt.localeCompare(a.createdAt)).slice(0, 200); }
-    else { result.activity = result.activity.slice(0, 200); result.updates = buildUpdateItems(result, {}, hasPreview); }
+    // take places among the 200 shown (4a review P3-05); nor does it see Agent environment actions (36c §10,
+    // v0.29), the plan's records about Claude targets, or Claude items of update runs (HLD r24 P3-04).
+    const codexOnly = item => (item.agent ?? 'codex') === 'codex' && !item.action?.startsWith('agent.');
+    if (scheduler) {
+      const { extraActivity, ...updateState } = scheduler.data(mode, result); Object.assign(result, updateState);
+      result.activity = [...result.activity, ...extraActivity];
+      if (!multiAgent) result.updateRuns = result.updateRuns.map(run => ({ ...run, items: run.items.filter(item => !item.target?.agent || item.target.agent === 'codex') }));
+    } else result.updates = buildUpdateItems(result, {}, hasPreview);
+    result.activity = (multiAgent ? result.activity : result.activity.filter(codexOnly)).sort((a, b) => b.createdAt.localeCompare(a.createdAt)).slice(0, 200);
     // 36c §6: a version-1 client does not see another side's plan targets.
     if (result.schedule && !multiAgent) result.schedule = { ...result.schedule, targets: result.schedule.targets.filter(target => !target.agent || target.agent === 'codex') };
     for (const file of (await fs.readdir(env.root)).filter(name => /^pending-plugin-update-[a-f0-9-]+\.json$/.test(name)).slice(0, 20)) result.diagnostics.push(`存在未确认的包更新记录 ${file}；请核对插件版本和启用状态，旧写请求不会自动重放。`);
@@ -454,30 +459,17 @@ export async function createService(options = {}) {
     }
     return { sources, skillsDir, owner };
   }
-  /**
-   * Where a Claude plugin's entry source lies, not which version it pins (phase 5 re-review P2-01): a
-   * maintainer releases by changing a pinned `sha`/`ref`, an npm version or an archive address, while
-   * another repository, package or download host is another source.
-   */
-  function sourcePlace(source) {
-    const at = source.spec?.lastIndexOf('@') ?? -1;
-    switch (source.kind) {
-      case 'git': return { kind: 'git', url: source.url, ...(source.subpath ? { subpath: source.subpath } : {}) };
-      case 'npm': return { kind: 'npm', package: at > 0 && !source.spec.startsWith('https:') ? source.spec.slice(0, at) : source.spec, ...(source.registry ? { registry: source.registry } : {}) };
-      case 'archive': { let origin; try { origin = new URL(source.url).origin; } catch { origin = source.url; } return { kind: 'archive', origin }; }
-      case 'local': case 'git-market': return { kind: source.kind, relative: source.relative };
-      default: return { kind: source.kind };
-    }
-  }
   /** A Claude plugin's entry source, from the marketplace copy on disk; null when it cannot be read. */
   async function claudeEntrySource(plugin, marketplaces, configDir, read = new Map()) {
     const once = async file => { if (!read.has(file)) read.set(file, await readJson(file, null).catch(() => null)); return read.get(file); };
     const market = marketplaces.find(item => item.agents?.includes('claude') && item.name === plugin.marketplace);
-    const location = (await once(path.join(configDir, 'plugins/known_marketplaces.json')))?.[plugin.marketplace]?.installLocation;
+    const known = (await once(path.join(configDir, 'plugins/known_marketplaces.json')))?.[plugin.marketplace];
+    const location = known?.installLocation;
     if (!market || typeof location !== 'string') return null;
     const catalog = await once(path.join(location, '.claude-plugin/marketplace.json'));
     const entry = Array.isArray(catalog?.plugins) ? catalog.plugins.find(item => item?.name === plugin.name) : null;
-    return entry ? pluginSource(entry, { source: market.type }) : null;
+    // The marketplace's own source travels with an entry inside it, for the plan binding (HLD r24 P3-06).
+    return entry ? { ...pluginSource(entry, { source: market.type }), ...(known.source && typeof known.source === 'object' ? { marketSource: known.source } : {}) } : null;
   }
   async function claudeSkillRecord(id, capability, request) {
     const current = await snapshot('local', true, { multiAgent: true });
@@ -819,7 +811,7 @@ export async function createService(options = {}) {
       if (applying && changedLocally) localChanges();
       if (!applying) {
         const item = (status, extra) => ({ target, agent: 'claude', name, owner: 'Claude', route: 'claude-plugin', status, canCheck: true, canApply: status === 'available', canAutoApply: status === 'available' && !registry.claudePluginReview?.[target.id], checkedAt: now(), installedVersion: install.version, installedPath: install.installPath,
-          sourceInfo: direct ? { source: publicSource(tracked.source), sourceType: tracked.sourceType, subpath: tracked.subpath, ref: tracked.ref, label: '单插件来源' } : entrySourceInfo(source, plugin.marketplace), ...extra });
+          sourceInfo: direct ? directSourceInfo(tracked) : entrySourceInfo(source, plugin.marketplace), ...extra });
         if (['command', 'helper', 'unknown'].includes(source.kind)) return { message: OWNER_REASON[source.kind], updateItem: item('blocked', { message: OWNER_REASON[source.kind], reasonCode: 'OWNER_MANAGED' }) };
         let staged;
         if (direct) {
@@ -1844,7 +1836,7 @@ export async function createService(options = {}) {
       const entry = await claudeEntrySource(plugin, current.marketplaces, (await agentLayer.discover()).claudeRoot.configDir);
       // Unreadable now is not a change: this round skips the target and its saved binding stays.
       if (!entry) fail(409, 'SOURCE_MISSING', '无法读取这个插件所在 marketplace 的本机副本；请刷新 marketplace 后再检查。');
-      sourceIdentity.entry = sourcePlace(entry);
+      sourceIdentity.entry = entryPlace(entry);
     }
     if (target.kind === 'plugin') {
       const catalog = await catalogFor(env, registry); const plugin = catalog.plugins.find(candidate => candidate.id === target.id);

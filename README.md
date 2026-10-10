@@ -160,13 +160,13 @@ GitHub 来源更新：先执行 `"$CODEX_CLI" plugin marketplace upgrade testany
 /plugin install skilldock@testany-agent-skills
 ```
 
-在 Claude 桌面应用的 Code 标签页中，也可以点提示框旁的 **+** → **Plugins** → **Add plugin**，在插件浏览器中选择 SkillDock。新开会话（或在已打开的会话中运行 `/reload-plugins`）后，用 `/skilldock:skill-manager` 打开，或直接说“打开 SkillDock”。Claude 会把界面打开在内置浏览器面板中，没有浏览器工具时给出链接；Claude 中没有 Codex 那样的原生侧栏入口。
+添加本仓库 marketplace 之后，在 Claude 桌面应用的 Code 标签页中，也可以点提示框旁的 **+** → **Plugins** → **Add plugin**，在插件浏览器中选择 SkillDock。新开会话（或在已打开的会话中运行 `/reload-plugins`）后，用 `/skilldock:skill-manager` 打开，或直接说“打开 SkillDock”。Claude 会把界面打开在内置浏览器面板中，没有浏览器工具时给出链接；Claude 中没有 Codex 那样的原生侧栏入口。
 
 - **要求**：macOS、Git 和 Node.js 22.12+（查找与安装引导同上）。
 - **管理状态**：SkillDock 首次见到某个 Agent 时，装有 SkillDock 的一侧默认“已启用管理”，另一侧只读。只读的一侧只看不改；在“Agent 环境”页启用后，SkillDock 才会改动它，启用前会列出可能写入的位置。对 Claude 的改动都经 Claude 自己的命令行执行并读回。
-- **更新**：在 Claude 会话中运行 `/plugin`，在 **Installed** 中选中 SkillDock 后选 **Update now**；或在 SkillDock 的“更新”页检查并更新 Claude 中的 SkillDock（两边版本不同时，“Agent 环境”页也提供一键更新）。更新后运行 `/reload-plugins` 或新开会话。也可以在终端运行 `claude plugin marketplace update testany-agent-skills` 与 `claude plugin update skilldock@testany-agent-skills`。
+- **更新**：在 Claude 会话中运行 `/plugin`，在 **Marketplaces** 中选中 `testany-agent-skills` 后选 **Update marketplace**（会先刷新本仓库的目录，再更新从它安装的插件）；或在 SkillDock 的“更新”页检查并更新 Claude 中的 SkillDock（两边版本不同时，“Agent 环境”页也提供一键更新）。更新后运行 `/reload-plugins` 或新开会话。也可以在终端运行 `claude plugin marketplace update testany-agent-skills` 与 `claude plugin update skilldock@testany-agent-skills`。
 - **两边都装了 SkillDock**：0.11 首次打开旧数据时会确认两边都不低于 0.10.3，否则停下并说明处理办法（可经你确认一键更新），不改动任何数据。
-- **回退**：需要回到 0.10.x 时，请用独立的数据目录（设置 `SKILLDOCK_STATE_DIR`），或保留 0.11.x。0.10.3 遇到 0.11 的数据不会接管，并提示更新；0.10.2 及更早版本会拒绝启动或启动失败，但不改写数据。
+- **回退**：需要回到 0.10.x 时，请用独立的数据目录（设置 `SKILLDOCK_STATE_DIR`），或保留 0.11.x。0.10.3 遇到 0.11 的数据不会接管，并提示更新；0.10.2 及更早版本会拒绝启动或启动失败，不改动计划、绑定、历史与偏好（可能删除启动记录，0.11 下次打开时补写）。独立数据目录只对从技能或命令行启动的 SkillDock 生效，见 `SKILL.md`。
 
 ## 包含的 Skills
 

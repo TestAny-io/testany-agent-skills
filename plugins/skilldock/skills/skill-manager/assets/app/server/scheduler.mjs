@@ -197,7 +197,7 @@ export async function createScheduler({ environments, snapshot, perform, signatu
     } catch { return false; }
     if (await disabledSchedule(mode) || JSON.stringify(state.bindings[key]) !== JSON.stringify(expected)) return false;
     state.bindings[key] = actual;
-    state.activity.unshift({ id: crypto.randomUUID(), action: 'schedule.reconcile', target: target.id, createdAt: timestamp(), status: 'success', message: '已核实插件外部同步，已恢复原定时计划绑定。', canRestore: false });
+    state.activity.unshift({ id: crypto.randomUUID(), action: 'schedule.reconcile', target: target.id, ...(target.agent ? { agent: target.agent } : {}), createdAt: timestamp(), status: 'success', message: '已核实插件外部同步，已恢复原定时计划绑定。', canRestore: false });
     state.activity = state.activity.slice(0, 100);
     await persist(mode);
     return true;
@@ -273,7 +273,7 @@ export async function createScheduler({ environments, snapshot, perform, signatu
               state.schedule.targets = state.schedule.targets.map(entry => targetKey(entry) === from ? moved : entry);
               if (state.bindings[from]) { state.bindings[to] = { ...state.bindings[from], target: moved }; delete state.bindings[from]; }
               if (state.targetMeta?.[from]) { state.targetMeta[to] = state.targetMeta[from]; delete state.targetMeta[from]; }
-              state.activity.unshift({ id: crypto.randomUUID(), action: 'schedule.migrate', target: moved.id, createdAt: timestamp(), status: 'success', message: '技能的共用状态已变化，计划中的这一项已随对象 ID 迁移。', canRestore: false });
+              state.activity.unshift({ id: crypto.randomUUID(), action: 'schedule.migrate', target: moved.id, ...(moved.agent ? { agent: moved.agent } : {}), createdAt: timestamp(), status: 'success', message: '技能的共用状态已变化，计划中的这一项已随对象 ID 迁移。', canRestore: false });
               state.activity = state.activity.slice(0, 100);
               target = moved; item = currentState.updates.find(candidate => targetKey(candidate.target) === to); name = item?.name || target.id;
               await persist(mode);

@@ -451,5 +451,11 @@ test('the launch output names the Claude command line only when Claude is on thi
     assert.match(await output(() => launch('restart', { ...options, env })), new RegExp(`SkillDock：Claude 命令行 ${claudeBin.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}（2\\.1\\.288）`));
     await fs.writeFile(claudeBin, '#!/bin/sh\nexit 1\n', { mode: 0o755 });
     assert.match(await output(() => launch('restart', { ...options, env })), /SkillDock：跳过 Claude 命令行 .*\nSkillDock：未找到可用的 Claude 命令行。/);
+    // Found on PATH (a source that would be saved elsewhere): printed, never saved by the launcher (phase 6 review P3-01).
+    const bin = path.join(f.root, 'path-bin'); await fs.mkdir(bin); await fs.writeFile(path.join(bin, 'claude'), '#!/bin/sh\necho "2.1.290 (Claude Code)"\n', { mode: 0o755 });
+    const { SKILLDOCK_CLAUDE_BIN, ...withoutExplicit } = env;
+    const found = await output(() => launch('restart', { ...options, env: { ...withoutExplicit, PATH: `${bin}:${env.PATH}` } }));
+    assert.match(found, /SkillDock：Claude 命令行 .*path-bin\/claude（2\.1\.290）/);
+    assert.equal(await fs.stat(path.join(f.stateDir, 'settings/claude-cli.json')).then(() => true, () => false), false, '启动器不保存所选命令行');
   } finally { await launch('stop', { ...options, env }); }
 });

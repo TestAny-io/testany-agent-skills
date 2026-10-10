@@ -295,3 +295,12 @@ test('"Manage updates" from any Agent\'s object focuses its own item, or the plu
   html = render(UpdatesWorkspace, { ...props, focusTarget: plugin.id });
   assert.match(html, /更新整个插件及其附带技能/);
 });
+
+test('the "Codex CLI unavailable" notice appears only where Codex is on this computer (PRD AC-013)', () => {
+  const { showsCodexCliNotice } = ui();
+  const off = { available: false };
+  assert.equal(showsCodexCliNotice({ cli: off, agents: [{ agent: 'claude' }] }), false, '只装 Claude');
+  assert.equal(showsCodexCliNotice({ cli: off, agents: [{ agent: 'codex' }, { agent: 'claude' }] }), true);
+  assert.equal(showsCodexCliNotice({ cli: off }), true, '1 版快照照旧');
+  assert.equal(showsCodexCliNotice({ cli: { available: true }, agents: [{ agent: 'codex' }] }), false);
+});

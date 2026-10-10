@@ -14,7 +14,7 @@ import { createService } from '../server/service.mjs';
 import { writeGeneration } from '../server/generation.mjs';
 import { claudeWriteArgs } from '../server/claude-writer.mjs';
 import { runProcess } from '../server/cli.mjs';
-import { defaultFetchers, entrySourceInfo, pluginSource } from '../server/claude-plugin-updates.mjs';
+import { defaultFetchers, entrySourceInfo, entryPlace, pluginSource } from '../server/claude-plugin-updates.mjs';
 import { assertTranslated } from './i18n-helper.mjs';
 
 const write = async (file, value) => { await fs.mkdir(path.dirname(file), { recursive: true }); await fs.writeFile(file, typeof value === 'string' ? value : JSON.stringify(value)); };
@@ -500,6 +500,20 @@ test('the list and the preview say where a Claude plugin is installed and what i
   const remote = entrySourceInfo(pluginSource({ source: { source: 'git-subdir', url: 'https://someone:secret@example.com/r.git', path: 'plugins/p', sha: 'abc123' } }, { source: 'github' }), 'm');
   assert.deepEqual([remote.source, remote.subpath, remote.ref], ['https://example.com/r.git', 'plugins/p', 'abc123']);
   assert.doesNotMatch(JSON.stringify(remote), /secret|someone/);
+});
+
+test('the plan binds where an entry lies, not the version it pins; a marketplace moved elsewhere is another place (HLD r24 P3-05, P3-06)', () => {
+  const place = (entry, market) => entryPlace(pluginSource(entry, market));
+  const git = ref => place({ source: { source: 'git-subdir', url: 'https://example.com/r.git', path: 'p', ...(ref ? { sha: ref } : {}) } }, { source: 'github' });
+  assert.deepEqual(git('abc'), git('def')); assert.deepEqual(git('abc'), { kind: 'git', url: 'https://example.com/r.git', subpath: 'p' });
+  assert.deepEqual(place({ source: { source: 'archive', url: 'https://dl.example.com/v1/p.zip' } }, {}), place({ source: { source: 'archive', url: 'https://dl.example.com/v2/p.zip?x=1' } }, {}));
+  assert.notDeepEqual(place({ source: { source: 'archive', url: 'https://dl.example.com/p.zip' } }, {}), place({ source: { source: 'archive', url: 'https://other.example.com/p.zip' } }, {}));
+  assert.deepEqual(place({ source: { source: 'npm', package: '@t/p', version: '1.0.0' } }, {}), place({ source: { source: 'npm', package: '@t/p', version: '2.0.0' } }, {}));
+  assert.deepEqual(place({ source: { source: 'npm', package: 'https://registry.example.com/p-1.0.0.tgz' } }, {}).package, 'https://registry.example.com');
+  const local = (marketSource) => entryPlace({ ...pluginSource({ source: './plugins/p' }, { source: 'github' }), marketSource });
+  assert.deepEqual(local({ source: 'github', repo: 'owner/repo', ref: 'v1' }), local({ source: 'github', repo: 'owner/repo', ref: 'v2' }), '所固定的版本不进绑定');
+  assert.notDeepEqual(local({ source: 'github', repo: 'owner/repo' }), local({ source: 'github', repo: 'someone/else' }), '换了仓库是另一个来源');
+  assert.doesNotMatch(JSON.stringify(local({ source: 'git', url: 'https://user:secret@example.com/m.git' })), /secret/);
 });
 
 test('every message seen above has a whole English and Japanese translation', async () => {

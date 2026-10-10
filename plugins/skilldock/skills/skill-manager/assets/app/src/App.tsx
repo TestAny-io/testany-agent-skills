@@ -94,7 +94,7 @@ import { LibraryFilters, ViewSwitch, CollectionFooter } from "./LibraryUI";
 import { NativeConfirmDialog, NativeRuleList, type NativeConfirmation } from "./NativeConfirm";
 import { AgentFilter, AgentBadges, AgentSplit, ClaudePluginFacts, ClaudeSkillFacts, MarketAutoUpdate, matchesAgent, showsAgents, objectAgents, type AgentFilterValue } from "./AgentUI";
 import { AgentEnvironments } from "./AgentEnvironments";
-import { creationAgent, requestAgent, requestRevision, stateUrl } from "./agent-requests";
+import { creationAgent, requestAgent, requestRevision, showsCodexCliNotice, stateUrl } from "./agent-requests";
 
 type Page = "skills" | "plugins" | "markets" | "updates" | "activity" | "agents";
 type Metric = "all" | "enabled" | "standalone" | "attention";
@@ -1115,8 +1115,7 @@ export default function App() {
               {page === "plugins" && (
                 <>
                   {data.directoryError && <div className="notice" role="status"><CircleAlert size={18} /><p><ServiceMessage value={data.directoryError} /></p></div>}
-                  {/* Only where Codex is on this computer (PRD AC-013); a version-1 snapshot lists no environments. */}
-                  {!data.cli.available && (!data.agents || data.agents.some(item => item.agent === "codex")) && (
+                  {showsCodexCliNotice(data) && (
                     <div className="notice">
                       <Terminal size={18} />
                       <div>

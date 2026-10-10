@@ -37,3 +37,8 @@ export function requestRevision(request: Omit<ActionRequest, "mode">, snapshot: 
 export function creationAgent(managed: Agent[], chosen: Agent): Agent | undefined {
   return managed.length ? (managed.includes(chosen) ? chosen : managed[0]) : undefined;
 }
+
+/** The plugins page's "Codex CLI unavailable" notice, only where Codex is on this computer (PRD AC-013); a version-1 snapshot lists no environments. */
+export function showsCodexCliNotice(data: Pick<Snapshot, "cli" | "agents">) {
+  return !data.cli.available && (!data.agents || data.agents.some(item => item.agent === "codex"));
+}

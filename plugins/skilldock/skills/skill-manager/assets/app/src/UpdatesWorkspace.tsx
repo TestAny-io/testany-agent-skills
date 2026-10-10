@@ -82,7 +82,7 @@ const copy = {
     last: "上次更新检查",
     none: "尚未记录",
     lifecycle:
-      "由 macOS 在后台按需执行，完成即退出；无需打开 SkillDock 或 Codex。重启并登录后自动恢复，休眠或离线错过的检查会补做。实际开始时间可能比计划晚最多约 5 分钟。",
+      "由 macOS 在后台按需执行，完成即退出；无需打开 SkillDock、Codex 或 Claude。重启并登录后自动恢复，休眠或离线错过的检查会补做。实际开始时间可能比计划晚最多约 5 分钟。",
     interval: "检查周期（小时）",
     customInterval: "自定义间隔（小时）",
     hours: "小时",
@@ -227,7 +227,7 @@ const copy = {
     last: "Last update check",
     none: "Not recorded",
     lifecycle:
-      "macOS runs updates on demand, then the task exits. SkillDock and Codex can stay closed. Scheduling resumes after restarting and signing in, with catch-up after sleep or offline periods. Runs may start up to about 5 minutes after the planned time.",
+      "macOS runs updates on demand, then the task exits. SkillDock, Codex and Claude can stay closed. Scheduling resumes after restarting and signing in, with catch-up after sleep or offline periods. Runs may start up to about 5 minutes after the planned time.",
     interval: "Check interval (hours)",
     customInterval: "Custom interval (hours)",
     hours: "hours",
@@ -377,7 +377,7 @@ const copy = {
     last: "前回の更新確認",
     none: "未記録",
     lifecycle:
-      "macOSが必要なときだけ更新を実行し、完了後に終了します。SkillDockやCodexを開く必要はありません。再起動・ログイン後に自動再開し、スリープやオフライン中の確認を補います。予定時刻から約5分遅れる場合があります。",
+      "macOSが必要なときだけ更新を実行し、完了後に終了します。SkillDock、Codex、Claude を開く必要はありません。再起動・ログイン後に自動再開し、スリープやオフライン中の確認を補います。予定時刻から約5分遅れる場合があります。",
     interval: "確認間隔（時間）",
     customInterval: "カスタム間隔（時間）",
     hours: "時間",

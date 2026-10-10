@@ -1922,5 +1922,13 @@
   "取自本机保存的 marketplace 副本；检查与更新前重新读取。": {
     "en": "Taken from the marketplace copy saved on this computer; read again before checking and updating.",
     "ja": "このコンピューターに保存されたマーケットプレイスのコピーから取得しています。確認と更新の前に読み直します。"
+  },
+  "marketplace 条目": {
+    "en": "Marketplace entry",
+    "ja": "マーケットプレイスの項目"
+  },
+  "单插件来源": {
+    "en": "Single-plugin source",
+    "ja": "単一プラグインのソース"
   }
 }

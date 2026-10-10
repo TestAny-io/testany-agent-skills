@@ -58,7 +58,7 @@ export interface SkillSide {
   revision?: string;
 }
 export interface SourceInfo {
-  kind: "tracked" | "git-checkout" | "plugin" | "system" | "unknown";
+  kind: "tracked" | "git-checkout" | "plugin" | "system" | "unknown" | "marketplace-entry";
   confidence: "verified" | "inferred" | "user-confirmed" | "unknown";
   owner: string;
   label: string;

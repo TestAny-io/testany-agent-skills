@@ -104,9 +104,11 @@ test('candidates follow the fixed order, newest first within a version manager; 
   const nvmNew = await make('.nvm/versions/node/v24.1.0/bin/node', 'v24.1.0');
   const volta = await make('.volta/tools/image/node/23.0.0/bin/node', 'v23.0.0');
   const mise = await make('.local/share/mise/installs/node/22.15.0/bin/node', 'v22.15.0');
+  // A Node downloaded by 0.10.x is still found after the Codex workspace's (phase 6 review P3-03).
+  const downloaded = path.join(f.stateDir, 'node/node-v24.21.0-darwin-arm64/bin/node'); await fs.mkdir(path.dirname(downloaded), { recursive: true }); await wrapper(downloaded, 'v24.21.0');
   const list = (await nodeCandidates({ env: { PATH: '/usr/bin:/bin', SKILLDOCK_WORKSPACE_RUNTIME: f.workspace }, home, stateDir: f.stateDir, system: false }))
     .map(item => [item.source, item.file]);
-  assert.deepEqual(list, [['codex-workspace', f.node], ['nvm', nvmNew], ['nvm', nvmOld], ['volta', volta], ['mise', mise]]);
+  assert.deepEqual(list, [['codex-workspace', f.node], ['skilldock-private', downloaded], ['nvm', nvmNew], ['nvm', nvmOld], ['volta', volta], ['mise', mise]]);
   assert.equal(CANDIDATES.findIndex(item => item.source === 'saved'), 1, '保存值紧随显式变量');
   assert.ok(CANDIDATES.filter(item => item.bootstrapOnly).every(item => item.source === 'app'), '应用包内 Node 只用于引导');
   assert.deepEqual(await staleEntries(), [], 'launch.sh 与 native.sh 的候选块与单一定义一致');

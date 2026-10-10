@@ -56,12 +56,12 @@ $skill-manager 打开技能管理面板
 /plugin install skilldock@testany-agent-skills
 ```
 
-桌面应用中也可以点提示框旁的 **+** → **Plugins** → **Add plugin** 安装。新开会话（或运行 `/reload-plugins`）后，用 `/skilldock:skill-manager` 打开，或直接说“打开 SkillDock”；界面打开在 Claude 的内置浏览器面板中。以后更新：`/plugin` → **Installed** → SkillDock → **Update now**，或在 SkillDock 的“更新”页更新。两边打开的是同一个实例、同一份数据，只装在一边也能管理另一边。
+添加本仓库 marketplace 之后，桌面应用中也可以点提示框旁的 **+** → **Plugins** → **Add plugin** 安装。新开会话（或运行 `/reload-plugins`）后，用 `/skilldock:skill-manager` 打开，或直接说“打开 SkillDock”；界面打开在 Claude 的内置浏览器面板中。以后更新：`/plugin` → **Marketplaces** → `testany-agent-skills` → **Update marketplace**（先刷新目录再更新插件），或在 SkillDock 的“更新”页更新。两边打开的是同一个实例、同一份数据，只装在一边也能管理另一边。
 
 <details>
 <summary><strong>安装要求、入口不见了，或命令报错？</strong></summary>
 
-- 需要 **macOS、Git，以及支持 plugin 管理的 Codex CLI**。
+- 在 Codex 中使用时，需要 **macOS、Git，以及支持 plugin 管理的 Codex CLI**。
 - 需要 **Node.js 22.12+**：启动器先查找本机已有的（Codex 工作区自带的 Node、Homebrew、nvm 等）并保存所选路径，找不到时弹出安装引导，不会自动下载。首次启动需要联网安装依赖。
 - 在 Claude 中使用时，需要 Claude Code 或 Claude 桌面应用；更新 SkillDock 后在已打开的会话中运行 `/reload-plugins`。
 - 安装或更新后入口、图标或界面仍是旧的，先完全退出并重新打开 Codex。原生入口已在桌面版 `26.924.22138` 验证；未提供该入口的宿主版本可用上述浏览器方式。
@@ -151,7 +151,7 @@ $skill-manager 打开技能管理面板
 <details>
 <summary>需要回到旧版本怎么办？</summary>
 
-0.11 会把数据目录迁移到新格式。需要回到 0.10.x 时，请为旧版本使用独立的数据目录（设置 `SKILLDOCK_STATE_DIR`），或保留 0.11.x。0.10.3 遇到 0.11 的数据不会接管，并提示更新；0.10.2 及更早版本会拒绝启动或启动失败，但不改写数据。
+0.11 会把数据目录迁移到新格式。需要回到 0.10.x 时，请为旧版本使用独立的数据目录（设置 `SKILLDOCK_STATE_DIR`），或保留 0.11.x。0.10.3 遇到 0.11 的数据不会接管，并提示更新；0.10.2 及更早版本会拒绝启动或启动失败，不改动计划、绑定、历史与偏好（可能删除启动记录，0.11 下次打开时补写）。独立数据目录只对从技能或命令行启动的 SkillDock 生效，见 `SKILL.md`。
 
 </details>
 

@@ -99,6 +99,9 @@ test('turning management on or off is listed with the other changes, for a multi
   const listed = (await w.service.snapshot('local', true, { multiAgent: true })).activity.filter(item => item.action === 'agent.setManagement');
   assert.deepEqual(listed.map(item => [item.agent, item.target, item.status, item.canRestore]), [['claude', 'Claude', 'success', false], ['claude', 'Claude', 'success', false]]);
   assert.deepEqual(listed.map(item => item.message.split('\n')[0]).sort(), ['已启用 Claude 管理。', '已把 Claude 设为只读；SkillDock 不再修改其中的技能和插件，计划中的相关项暂停。']);
+  // The Codex side's records pass the Agent condition: only the agent.* rule hides them (phase 6 review P3-01).
+  await w.act({ action: 'agent.setManagement', agent: 'codex', management: 'read-only' }); await w.act({ action: 'agent.setManagement', agent: 'codex', management: 'enabled' });
+  assert.equal((await w.service.snapshot('local', true, { multiAgent: true })).activity.filter(item => item.action === 'agent.setManagement' && item.agent === 'codex').length, 2);
   assert.equal((await w.service.snapshot('local', true)).activity.some(item => item.action.startsWith('agent.')), false, '1 版客户端不认识 Agent 环境的操作');
   assert.match(lines.findLast(line => line.includes('claude-list')), /读取清单用时 \d+ ms：codex-list \d+，scan \d+，agents \d+，claude-list \d+，其余 -?\d+。$/);
 });

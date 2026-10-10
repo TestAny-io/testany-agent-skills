@@ -61,7 +61,9 @@ async function builtRuntime(appPath, builder = appPath) {
     const runtime = path.join(root, 'runtime');
     await bundle.materializeRuntime(snapshot, runtime);
     await fs.symlink(path.join(appRoot, 'node_modules'), path.join(runtime, 'node_modules'));
-    const result = await run('npm', ['run', 'build'], { env: { ...process.env, npm_config_update_notifier: 'false' }, cwd: runtime, timeout: 300000 });
+    // npm reads no user configuration and writes its logs and cache next to the runtime, never in the real home (phase 6 review P3-08).
+    const result = await run('npm', ['run', 'build'], { env: { ...process.env, npm_config_update_notifier: 'false', npm_config_userconfig: '/dev/null',
+      npm_config_logs_dir: path.join(root, 'npm-logs'), npm_config_cache: path.join(root, 'npm-cache') }, cwd: runtime, timeout: 300000 });
     assert.equal(result.code, 0, result.stderr.slice(-4000));
     await runtimeModule.verifyRuntime(runtime, snapshot.sourceDigest);
     await fs.writeFile(path.join(runtime, '.build-complete'), snapshot.sourceDigest);
@@ -195,6 +197,13 @@ async function killed(pid) {
   try { process.kill(pid, 'SIGTERM'); } catch { return; }
   for (let i = 0; i < 100; i++) { try { process.kill(pid, 0); } catch { return; } await new Promise(resolve => setTimeout(resolve, 50)); }
   throw new Error(`实例 ${pid} 未退出`);
+}
+// 36b R-03 (Q8): the 0.10.2 launcher removed the record and started itself; its service stopped on the
+// version-2 plan, leaving no record and nothing on the port (phase 6 review P2-02).
+async function failedOnPlan(w) {
+  assert.equal(await exists(path.join(w.state, 'launcher.json')), false, '不留启动记录');
+  assert.match(await fs.readFile(path.join(w.state, 'server.log'), 'utf8').catch(() => ''), /INVALID_UPDATE_STATE/, '服务因计划文件 version 2 退出');
+  await assert.rejects(fetch(`http://127.0.0.1:${w.port}/api/health`, { signal: AbortSignal.timeout(1500) }), '端口上没有留下服务');
 }
 async function record(w) { return JSON.parse(await fs.readFile(path.join(w.state, 'launcher.json'), 'utf8')); }
 async function recordBytes(w) { return fs.readFile(path.join(w.state, 'launcher.json'), 'utf8').catch(() => null); }
@@ -378,8 +387,7 @@ gated('N-12 代号 2、launcher.json 已被删除：0.10.2 原生入口调用自
   // SkillDock may run: this case alone gives the native entry the world's port.
   const entry = () => native0102(w, { PORT: String(w.port) });
   await assert.rejects((await entry()).read('/api/health'), /redact is not a function/, '缓存仍在：0.10.2 回退路径启动失败（同 R-03）');
-  assert.equal(await exists(path.join(w.state, 'launcher.json')), false);
-  await assert.rejects(fetch(`http://127.0.0.1:${w.port}/api/health`, { signal: AbortSignal.timeout(1500) }), '端口上没有留下服务');
+  await failedOnPlan(w);
   await fs.rm(path.join(old.skillRoot, 'scripts/launch.sh'));
   await assert.rejects((await entry()).read('/api/health'), /redact is not a function/, '自身脚本已不在');
   assert.equal((await invocations(w)).length, 0, '不调用任何 0.11 启动脚本');
@@ -411,6 +419,7 @@ for (const eleven of ELEVEN) gated(named('N-14 旧 source 所指 Codex 缓存被
   await seedInstance(w, codex011, { project: w.projectA, stopped: true });
   await fs.rm(codex011.dest, { recursive: true });
   await assert.rejects((await native0102(w)).read('/api/health'), /redact is not a function/);
+  await failedOnPlan(w);
   assert.equal((await invocations(w)).length, 0);
   await invariants(w);
 });
@@ -791,7 +800,8 @@ for (const eleven of ELEVEN) gated(named('R-03 0.11 实例未运行时执行 0.1
   await seedRuntime(w, old.appPath);
   await seedInstance(w, codex011, { project: w.projectA, stopped: true });
   const result = await run(process.execPath, [path.join(old.skillRoot, 'scripts/launch.mjs'), 'start', '--project', w.projectA], { env: w.env, cwd: w.projectA, timeout: 120000 });
-  assert.notEqual(result.code, 0, result.stdout);
+  assert.notEqual(result.code, 0, result.stdout); assert.match(result.stderr, /未能启动/);
+  await failedOnPlan(w);
   await invariants(w);
 });
 
@@ -837,6 +847,7 @@ gated('V18-a 只有 Codex 装着 SkillDock，Claude 配置目录存在但 Claude
   assert.equal(await exists(w.claudeConfig), true, 'Claude 配置目录存在');
   const result = await launchOf(w, real, ['start', '--project', w.projectA]);
   assert.equal(result.code, 0, result.stderr);
+  assert.match(result.stderr, /Claude 命令行不可用，改用安装记录/, '门槛走的是“无法确认”分支');
   assert.equal(JSON.parse(await fs.readFile(path.join(w.state, 'generation.json'), 'utf8')).generation, 2);
   assert.equal((await record(w)).running.appPath, real.appPath);
 });

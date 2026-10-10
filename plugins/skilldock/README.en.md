@@ -56,12 +56,12 @@ $skill-manager Open the skill management panel
 /plugin install skilldock@testany-agent-skills
 ```
 
-In the desktop app you can also install it from **+** next to the prompt box → **Plugins** → **Add plugin**. Start a new session (or run `/reload-plugins`), then open it with `/skilldock:skill-manager` or ask Claude to open SkillDock; it opens in Claude's built-in browser panel. To update later: `/plugin` → **Installed** → SkillDock → **Update now**, or SkillDock's **Updates** page. Both sides open the same instance with the same data, and installing on one side is enough to manage the other.
+Once this marketplace is added, the desktop app can also install it from **+** next to the prompt box → **Plugins** → **Add plugin**. Start a new session (or run `/reload-plugins`), then open it with `/skilldock:skill-manager` or ask Claude to open SkillDock; it opens in Claude's built-in browser panel. To update later: `/plugin` → **Marketplaces** → `testany-agent-skills` → **Update marketplace** (it refreshes the catalog, then updates the plugins), or SkillDock's **Updates** page. Both sides open the same instance with the same data, and installing on one side is enough to manage the other.
 
 <details>
 <summary><strong>Requirements, a missing entry, or a broken command?</strong></summary>
 
-- You need **macOS, Git, and a Codex CLI with plugin management support**.
+- To use it in Codex, you need **macOS, Git, and a Codex CLI with plugin management support**.
 - You need **Node.js 22.12 or later**. The launcher looks for one already on your Mac (the Node bundled with the Codex workspace, Homebrew, nvm and others) and saves its choice; if none is found, it shows installation guidance instead of downloading one. The first launch needs internet access to install dependencies.
 - In Claude, you need Claude Code or the Claude desktop app; after updating SkillDock, run `/reload-plugins` in open sessions.
 - If an installation or update leaves the old entry, icon, or UI, fully quit and reopen Codex. The native entry has been verified in desktop build `26.924.22138`; use the browser flow when your host does not expose it.
@@ -151,7 +151,7 @@ Only while that side is managed. When SkillDock first sees an Agent, the side wh
 <details>
 <summary>How do I go back to an older version?</summary>
 
-SkillDock 0.11 migrates its data directory to a new format. To return to 0.10.x, give the older version a separate data directory (`SKILLDOCK_STATE_DIR`), or keep 0.11.x. SkillDock 0.10.3 does not take over 0.11 data and asks you to update; 0.10.2 and earlier refuse to start or fail to start, without rewriting your data.
+SkillDock 0.11 migrates its data directory to a new format. To return to 0.10.x, give the older version a separate data directory (`SKILLDOCK_STATE_DIR`), or keep 0.11.x. SkillDock 0.10.3 does not take over 0.11 data and asks you to update; 0.10.2 and earlier refuse to start or fail to start without changing your plans, bindings, history or preferences (they may remove the launch record, which 0.11 writes back next time). A separate data directory applies to SkillDock started from the skill or the command line; see `SKILL.md`.
 
 </details>
 

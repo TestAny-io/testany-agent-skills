@@ -66,7 +66,7 @@ printf 'Using Codex CLI: %s\n' "$CODEX_CLI"
 
 开启新的 Codex 任务，用 `$skill-manager 打开技能管理面板` 启动。这只安装独立 SkillDock 应用，不会安装 testany-eng 研发工具集。CLI 版本缺少 `plugin add` 时，可在 Codex 插件页面从同名市场安装。
 
-在 Claude 中安装：在 Claude Code 对话中运行 `/plugin marketplace add TestAny-io/testany-agent-skills` 与 `/plugin install skilldock@testany-agent-skills`，新开会话或 `/reload-plugins` 后用 `/skilldock:skill-manager` 打开。更新：在会话中 `/plugin` → **Installed** → SkillDock → **Update now**，或在 SkillDock 的“更新”页更新；终端中用 `claude plugin marketplace update testany-agent-skills` 与 `claude plugin update skilldock@testany-agent-skills`。之后 `/reload-plugins`。Claude 不加载 Codex 原生入口，打开的是同一个网页面板。
+在 Claude 中安装：在 Claude Code 对话中运行 `/plugin marketplace add TestAny-io/testany-agent-skills` 与 `/plugin install skilldock@testany-agent-skills`，新开会话或 `/reload-plugins` 后用 `/skilldock:skill-manager` 打开。更新：在会话中 `/plugin` → **Marketplaces** → `testany-agent-skills` → **Update marketplace**（先刷新目录再更新插件），或在 SkillDock 的“更新”页更新；终端中用 `claude plugin marketplace update testany-agent-skills` 与 `claude plugin update skilldock@testany-agent-skills`。之后 `/reload-plugins`。Claude 不加载 Codex 原生入口，打开的是同一个网页面板。
 
 获取新版本先执行 `"$CODEX_CLI" plugin marketplace upgrade testany-agent-skills`，再执行同一条 `"$CODEX_CLI" plugin add` 更新安装副本，之后在新任务调用 `$skill-manager`。源码、市场目录和已安装副本各有自己的生命周期；只执行 `git pull` 不保证已安装缓存同步。源码包下载是 AGPL 对应源码，不能当 marketplace 注册包直接安装。
 
@@ -132,7 +132,7 @@ printf 'Using Codex CLI: %s\n' "$CODEX_CLI"
 - **Agent 环境**：列出本机的 Codex 与 Claude（配置目录、命令行、计数、各自装的 SkillDock 版本）和管理状态，保存在数据目录的 `settings/agents.json`。首次出现时，装有 SkillDock 的一侧默认“已启用管理”，另一侧只读。只读的一侧以及无法确认的 Claude，写操作都由服务端拒绝，计划中的对应目标暂停；Codex 命令行不可用时只作提示，技能照常管理。
 - **Claude 的读与写**：Claude 清单来自 Claude 命令行与本机文件（个人与项目的 `.claude/skills`、插件缓存、marketplace 副本）；可安装插件取自本机保存的 marketplace 副本，不调用联网的 `--available` 清单。写操作在 Claude 配置目录的锁下进行：插件与 marketplace 经 Claude 命令行（显式作用域、机器可读输出），技能文件经 SkillDock 的文件事务，启停与可见性只改 Claude 设置中的对应一项；每次都读回核对。由 claude.ai 同步或组织托管的对象不代为修改。
 - **数据迁移与门槛**：0.11 首次打开 0.10.x 的数据目录时迁移到新格式（数据代号 2），计划、绑定、历史与偏好保留。迁移前确认两侧装的 SkillDock 都不低于 0.10.3，否则以退出码 4 停下且不改动数据（一键更新的用法见 `SKILL.md`）；数据已由更高版本管理时退出码 3。
-- **回退**：需要回到 0.10.x 时为旧版本使用独立数据目录，或保留 0.11.x。0.10.3 不接管 0.11 的数据并提示更新；0.10.2 及更早版本拒绝启动或启动失败，不改写数据。
+- **回退**：需要回到 0.10.x 时为旧版本使用独立数据目录，或保留 0.11.x。0.10.3 不接管 0.11 的数据并提示更新；0.10.2 及更早版本拒绝启动或启动失败，不改动计划、绑定、历史与偏好（可能删除启动记录，0.11 下次运行时补写）。
 - **设计与验证**：[PRD](../../references/34-cross-agent-prd.md)、[HLD](../../references/35-cross-agent-hld.md)、[接口契约](../../references/36-cross-agent-api-contract.md)、[实施计划与进度](../../references/37-cross-agent-implementation-plan.md)。
 
 ## 私有 Git 仓库

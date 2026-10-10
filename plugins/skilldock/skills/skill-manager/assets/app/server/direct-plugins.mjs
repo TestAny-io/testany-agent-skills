@@ -96,6 +96,10 @@ function samePath(shown, root) {
 }
 
 /** A marketplace SkillDock wrote for a Claude source shows that source. */
+/** The source of a plugin in a marketplace SkillDock generated, as the update list and preview show it (HLD r24 P3-03). */
+export const directSourceInfo = tracked => ({ kind: 'tracked', confidence: 'verified', owner: 'SkillDock', label: '单插件来源', evidence: '已记录来源及当前安装内容指纹；更新前重新校验。',
+  source: publicSource(tracked.source), sourceType: tracked.sourceType, subpath: tracked.subpath, ref: tracked.ref });
+
 export function decorateClaudeDirect(claude, registry, env) {
   for (const [name, tracked] of Object.entries(registry.claudeDirectPlugins || {})) {
     const market = claude.marketplaces.find(item => item.name === name);
@@ -103,7 +107,7 @@ export function decorateClaudeDirect(claude, registry, env) {
     market.displayName = tracked.name; market.source = publicSource(tracked.source); market.type = tracked.sourceType;
     market.reason = '由单个插件安装自动登记的来源。'; market.direct = true;
     for (const plugin of claude.plugins.filter(item => item.marketplace === name))
-      plugin.sourceInfo = { ...plugin.sourceInfo, source: publicSource(tracked.source), sourceType: tracked.sourceType, subpath: tracked.subpath, ref: tracked.ref, label: '单插件来源' };
+      plugin.sourceInfo = directSourceInfo(tracked);
   }
   return claude;
 }

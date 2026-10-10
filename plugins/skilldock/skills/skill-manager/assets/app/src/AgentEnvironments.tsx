@@ -33,7 +33,7 @@ export function disableConfirmation(environment: AgentEnvironment, marketplaces:
   const direct = environment.agent === "claude" ? marketplaces.filter(item => item.direct && item.agents?.includes("claude")) : [];
   const disabling: Request = { action: "agent.setManagement", agent: environment.agent, management: "read-only" };
   return { title: t("停用 {v0} 管理？", { v0: name }),
-    description: t("停用后 {v0} 回到只读：SkillDock 只显示其中的对象，不再修改它们；更新计划中属于 {v0} 的项暂停，重新启用后恢复。", { v0: name }),
+    description: t("停用后 {v0} 回到只读：SkillDock 只显示其中的对象，不再修改它们（经你确认的 SkillDock 自身一键更新除外）；更新计划中属于 {v0} 的项暂停，重新启用后恢复。", { v0: name }),
     target: name, request: disabling, label: t("停用管理"), danger: true,
     ...(direct.length ? { affected: direct.map(item => `${item.name}（${item.displayName ?? item.name}）`), affectedTitle: "SkillDock 为单插件来源生成的本地 marketplace",
       option: { label: t("一并清理：卸载从它们安装的插件，再从 Claude 移除这些 marketplace"), request: { ...disabling, confirm: true } } } : {}) };
