@@ -42,3 +42,8 @@ export function creationAgent(managed: Agent[], chosen: Agent): Agent | undefine
 export function showsCodexCliNotice(data: Pick<Snapshot, "cli" | "agents">) {
   return !data.cli.available && (!data.agents || data.agents.some(item => item.agent === "codex"));
 }
+
+/** The marketplace note of the plugin install dialog: the Codex directory only where Codex is managed (PRD AC-013). */
+export function pluginMarketIntro(agents: Agent[]) {
+  return agents.includes("codex") || !agents.length ? "从 Codex 官方目录或已连接的 Marketplace 选择插件。" : "从已连接的 Marketplace 选择插件。";
+}

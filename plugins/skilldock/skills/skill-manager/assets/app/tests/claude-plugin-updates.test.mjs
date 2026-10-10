@@ -516,6 +516,22 @@ test('the plan binds where an entry lies, not the version it pins; a marketplace
   assert.doesNotMatch(JSON.stringify(local({ source: 'git', url: 'https://user:secret@example.com/m.git' })), /secret/);
 });
 
+test('the plan binding takes the marketplace\'s own source from Claude: a pinned ref is not a new object, another path is (HLD r24 P3-06; re-review RR6-P3-02)', async t => {
+  const w = await world(t);
+  await plugin(path.join(w.market, 'plugins/alpha'), 'alpha', { version: '1.0.0' });
+  await w.install({ name: 'alpha', source: './plugins/alpha' });
+  await w.act({ action: 'schedule.configure', agent: 'claude', schedule: { enabled: true, intervalMinutes: 60, timezone: 'UTC', autoApply: false, targets: [await w.target('alpha')] } });
+  const due = async () => { w.advance(61); await w.service.tickScheduler(); return (await w.snapshot()).updateRuns[0].items[0]; };
+  const known = path.join(w.configDir, 'plugins/known_marketplaces.json');
+  const source = async value => { const all = JSON.parse(await fs.readFile(known, 'utf8')); all.m.source = value; await fs.writeFile(known, JSON.stringify(all)); };
+  assert.notEqual((await due()).reasonCode, 'TARGET_BINDING_CHANGED');
+  await source({ source: 'directory', path: w.market, ref: 'v2' });
+  assert.notEqual((await due()).reasonCode, 'TARGET_BINDING_CHANGED', '所固定的 ref 不进绑定');
+  await source({ source: 'directory', path: path.join(w.root, 'elsewhere') });
+  const moved = await due();
+  assert.deepEqual([moved.status, moved.reasonCode], ['skipped', 'TARGET_BINDING_CHANGED'], 'marketplace 改指别处，要求重新选择');
+});
+
 test('every message seen above has a whole English and Japanese translation', async () => {
   const messages = [...seen].filter(text => /[一-鿿]/.test(text));
   assert.ok(messages.length > 5, `${messages.length}`);

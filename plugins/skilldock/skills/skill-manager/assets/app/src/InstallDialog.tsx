@@ -10,6 +10,7 @@ import { ServiceMessage, t } from "./i18n";
 import { PluginSkillPicker } from "./PluginSkillPicker";
 import { ExternalLink } from './ExternalLink';
 import { matchesPlugin, pluginTitle } from './plugin-presentation';
+import { pluginMarketIntro } from './agent-requests';
 
 export function InstallDialog({ kind, data, initialPlugin, initialMarket = false, busy, action, onClose, onMarket, agents = [] }: {
   kind: "skill" | "plugin"; data: Snapshot; initialPlugin?: Plugin; initialMarket?: boolean; busy: string | null; action: ActionHandler; onClose: () => void; onMarket: () => void;
@@ -111,7 +112,7 @@ export function InstallDialog({ kind, data, initialPlugin, initialMarket = false
             {([{ id: "local", label: "本地目录", icon: FolderOpen }, { id: "git", label: "Git 仓库", icon: GitBranch }, ...(plugin ? [{ id: "market", label: "Marketplace", icon: Globe2 }] : [])] as const).map(item => <button type="button" key={item.id} aria-label={t(item.label)} disabled={!!busy} className={sourceType === item.id ? "selected" : ""} aria-pressed={sourceType === item.id} onClick={() => { setType(item.id as typeof sourceType); setSource(""); setSubpath(""); setRef(""); setError(""); }}><item.icon size={19} /><strong>{t(item.label)}</strong></button>)}
           </div>
           {sourceType === "market" ? <div className="market-install">
-            <div className="catalog-intro"><p>{t(agents.includes("codex") || !agents.length ? "从 Codex 官方目录或已连接的 Marketplace 选择插件。" : "从已连接的 Marketplace 选择插件。")}</p><Button onClick={onMarket} disabled={!!busy}><Plus size={15} />{t("添加来源")}</Button></div>
+            <div className="catalog-intro"><p>{t(pluginMarketIntro(agents))}</p><Button onClick={onMarket} disabled={!!busy}><Plus size={15} />{t("添加来源")}</Button></div>
             {data.directoryError && <p className="field-error" role="status"><ServiceMessage value={data.directoryError} /></p>}
             <div className="toolbar"><label className="search-field"><Search size={17} /><input type="search" aria-label={t("搜索插件")} placeholder={t("搜索插件或市场…")} value={query} onChange={e => { setQuery(e.target.value); setLimit(30); }} /></label>
               <label className="select-control"><Globe2 size={15} /><select aria-label={t("筛选插件市场")} value={market} onChange={e => { setMarket(e.target.value); setLimit(30); }}><option value="all">{t("全部市场")}</option>{[...new Set([...data.marketplaces.map(item => item.name), ...data.plugins.map(item => item.marketplace)])].map(name => <option key={name} value={name}>{data.marketplaces.find(item => item.name === name)?.displayName || name}</option>)}</select></label>

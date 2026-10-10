@@ -27,7 +27,7 @@
     "src/AgentEnvironments.tsx": "264b0a688c3f14a1a8ecb1e0beba3f861578a32a20d611ced0111356a4de5263",
     "src/AgentUI.css": "f1c5a1009ed5518a61634a0a42da6c0b917c07f7285aee447c5e984dca7ce8c2",
     "src/AgentUI.tsx": "7fa0d0ba3e0ba4790132838106688ed417d4a61e0e62ff94e538d2ce83df7747",
-    "src/App.tsx": "9bf55c4d3b21ba3bc61cfe7a1ed43721c8febfd4e00b2ca4a94f63207f566f2d",
+    "src/App.tsx": "883d861e91ca386a4397ce57eea759f7171a112a8112eacfbcbed542b72ccd05",
     "src/CompatibilityWarnings.tsx": "dc7f57da6a06829e5e24fc6149535f69bd6128bd0cbae93e10ee423a623d1f62",
     "src/ConfirmDialog.tsx": "cf838a952b8c17690d1e54ad1538326a372890f5ca921efffe18635b04a790bc",
     "src/DesktopUI.tsx": "a827ba36401fa368b332297efea7dc1d0a8151844b4179e0d7eae189fb99d063",
@@ -38,7 +38,7 @@
     "src/ExternalLink.tsx": "c1900acfd24c1ebbaba2125c30063368a593ec0c2c06022496cf54cf6e433a96",
     "src/GateUpdate.tsx": "ab22aee40cc438f5e1ce0551e4acabebab8a52f0b0f590c5f197aa91e8433a96",
     "src/GitSourceFields.tsx": "8086774f5a6973d77be0b5b7b15403db37bd2b224f9ea34966f6a65f9e6e2b12",
-    "src/InstallDialog.tsx": "0968cd523b3080a785b4b62ec179caebc4e2a8729e825889f14b11fbaa67bcde",
+    "src/InstallDialog.tsx": "b3b9c018cc0452a5a305a277061197d1521d0ff1defc36609f7687f3f64d53fa",
     "src/LibraryUI.tsx": "b75579cfd53f320476ca6352d2d40584fa1b96b91409a7bcc4dd660a77a64108",
     "src/Modal.tsx": "77548e5ee4a95fbea3a62841fecf81761abe9f8a84976d1217c108bdce860e8f",
     "src/NativeConfirm.tsx": "7d7aaf7cec7b8852e96ad0d955879b9766fd8eb019a429cf6fa7025d8a02dd97",
@@ -53,7 +53,7 @@
     "src/UpdateProgress.tsx": "1971aeaa605ff45fe8dcb80c61e67c365123462a154375236739e73ef88d9f65",
     "src/UpdatesWorkspace.css": "64bf49a593f5ccf98b3450a2930d9363b15ef27f64c85d67d0bcd566d707c176",
     "src/UpdatesWorkspace.tsx": "873214a238ec1f913e47f1eebfa23b9678a6397b64415e17e10350c8885de515",
-    "src/agent-requests.ts": "ab4b0492f9e0efea9185fea0b7a8b386524183d85020394e6df3989ebca9d1f9",
+    "src/agent-requests.ts": "55b49b19f7982d68f18811c328a5e294c5b44e2d4adb3b8d0b219335b39567ae",
     "src/brand-wordmark.svg": "789e0b992714535d5b223f764808de60f66c36728bd9871ee1db1f4d51135932",
     "src/desktop.css": "15814dc52392f308d2afa57b9c076d9149e22e06228e3424264984d939ec03ce",
     "src/i18n.tsx": "dc09254cbb69d72741c0975ce96e70e8b3bf0c56332757833f6effbab0d51a7b",
@@ -72,7 +72,7 @@
   },
   "artifacts": {
     "server.mjs": "952873b18b656dcc75483e6e20f4278f3e2cd9463b9667f489020ed6bec9cff2",
-    "ui.html": "9466a5478a6afbac60dce3c70d62e99c2b990c29cda384760313a7cf969654e9",
+    "ui.html": "e1994a6156e3d34b986b3c81bd131decb02a60ed79b7e4351c3fe52fa1cbaa8f",
     "icon.svg": "9b7d7c19189c56b43fe691c0cb01e19b1f88abc61d1d130c974c5f5411b7288c",
     "THIRD_PARTY_NOTICES.txt": "0580c525bbaf94d006050bf773e482a470c9f983971e23b26e8048505e11bd4f"
   }

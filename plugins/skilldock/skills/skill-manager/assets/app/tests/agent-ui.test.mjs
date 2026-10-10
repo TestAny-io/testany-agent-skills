@@ -304,3 +304,20 @@ test('the "Codex CLI unavailable" notice appears only where Codex is on this com
   assert.equal(showsCodexCliNotice({ cli: off }), true, '1 版快照照旧');
   assert.equal(showsCodexCliNotice({ cli: { available: true }, agents: [{ agent: 'codex' }] }), false);
 });
+
+
+test('the plugin install dialog does not mention the Codex directory on a Claude-only computer, and gets the managed Agents (re-review RR6-P3-01)', async () => {
+  const { pluginMarketIntro } = ui();
+  assert.doesNotMatch(pluginMarketIntro(['claude']), /Codex/);
+  assert.match(pluginMarketIntro(['codex', 'claude']), /Codex 官方目录/);
+  assert.match(pluginMarketIntro([]), /Codex 官方目录/, '1 版快照照旧');
+});
+
+test('"Manage updates" stays available for Claude-only objects, and turning management off names the SkillDock exception (UI-14; DG-R24-1)', async () => {
+  const { disableConfirmation } = ui();
+  const spec = disableConfirmation({ agent: 'claude', installed: true, management: 'enabled' }, []);
+  assert.match(spec.description, /经你确认的 SkillDock 自身一键更新除外/);
+  const source = await (await import('node:fs/promises')).readFile(new URL('../src/App.tsx', import.meta.url), 'utf8');
+  assert.match(source, /label: t\("管理更新"\), icon: <RefreshCw size=\{15\} \/>, disabled: kind === "plugin" && !\(item as Plugin\)\.installed,/, '菜单只对未安装的插件禁用');
+  assert.match(source, /kind="plugin"[^>]*\n\s*agents=\{\(data\.agents/, '插件安装窗口带上已启用管理的 Agent');
+});

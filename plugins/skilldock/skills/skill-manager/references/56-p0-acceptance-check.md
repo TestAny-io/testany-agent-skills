@@ -103,7 +103,7 @@
 
 | 验收项 | 证据 | 结论 |
 |------|------|------|
-| 只启用 Claude 时界面无“需要 Codex”的提示；只启用 Codex 时表述不变 | 阶段 6c 修正：插件页的“Codex CLI 暂不可用”只在本机装有 Codex 时显示（`agent-ui` “the "Codex CLI unavailable" notice…”）；没有 Codex 目录时项目选择器不提示 Codex 项目（`projects`）；安装窗口的 marketplace 说明在只装 Claude 时不提“Codex 官方目录”；计划说明改为“无需打开 SkillDock、Codex 或 Claude” | 满足（最终 UAT 中在只装 Claude 的环境复核） |
+| 只启用 Claude 时界面无“需要 Codex”的提示；只启用 Codex 时表述不变 | 阶段 6c 修正：插件页的“Codex CLI 暂不可用”只在本机装有 Codex 时显示（`agent-ui` “the "Codex CLI unavailable" notice…”）；没有 Codex 目录时项目选择器不提示 Codex 项目（`projects`）；插件安装窗口带上已启用管理的 Agent 后，marketplace 说明在只装 Claude 时不提“Codex 官方目录”（`agent-ui` “the plugin install dialog…”，第 26 轮 RR6-P3-01 后生效）；计划说明改为“无需打开 SkillDock、Codex 或 Claude” | 满足（最终 UAT 中在只装 Claude 的环境复核） |
 | 新增文案中英日完整，无混排 | 自动：各测试文件的“every message seen above has a whole English and Japanese translation”、`i18n`；UAT：英文、日文抽查无残留中文 | 满足 |
 | README 首屏定位、徽标与安装说明覆盖 Codex 与 Claude | 文档：阶段 6b（根 README 中英、插件 README 中英） | 满足 |
 
@@ -120,7 +120,7 @@
 |------|------|------|
 | 5.6 中“提供”的能力在只启用 Claude 的环境中可完成并读回 | 自动：阶段 4、5 各 Claude 测试（安装、启停、可见性、移除恢复、关联来源、更新、计划）；实测：`claude-writes-smoke` | 满足（入口方面见下一行） |
 | “按原生语义调整”的项在确认框或详情中显示原生规则 | 自动：`claude-actions`、`shared-skills`（`nativeRules`） | 部分：更新页检查结果中的原生规则只在应用需要确认时列出（UI-11）。Owner 2026-10-10 同意随 0.11.0 发布 |
-| “不提供 / 不适用”的项在 Claude 对象上没有可点击入口并显示原因 | 自动：`claude-catalog`（能力按原生规则计算） | 满足：原有的反方向问题（Claude 对象上“管理更新”不可用，UI-14）已按 Owner 2026-10-10 的要求修复，见 `agent-ui` “"Manage updates" from any Agent's object…” |
+| “不提供 / 不适用”的项在 Claude 对象上没有可点击入口并显示原因 | 自动：`claude-catalog`（能力按原生规则计算） | 满足：原有的反方向问题（Claude 对象上“管理更新”不可用，UI-14）已按 Owner 2026-10-10 的要求修复，见 `agent-ui` “"Manage updates" from any Agent's object…”（定位）与 “"Manage updates" stays available for Claude-only objects…”（菜单入口、停用确认框的例外） |
 | 写操作前重新读取；发现在 Claude 中做过的改动时停止并提示 | 自动：`claude-actions`（锁内重读、`expectedRevision`、`SNAPSHOT_STALE`） | 满足 |
 | 插件已被 Claude 自身更新到最新时，计划记为无需更新 | 自动：`claude-plugin-updates` “a plan keeps a versioned Claude plugin that Claude updated itself…” | 满足 |
 
@@ -173,4 +173,6 @@
 | B56 | 47 | 批量移除 Claude 链接时保留来源记录 |
 | B59 | 47 | Claude 副本的来源键用真实路径 |
 | N22、K15、K16 | 47 | 界面三项：显示专用 manifest、更新对话框与技能卡片检查带说明（与 41 的 UI-10、UI-11 同属界面重设计） |
+| B37 | 47（45 M37） | 共用技能的 Claude 一侧不在技能根中时不可移除 |
+| B39 | 47（45 M39） | Claude 一侧更新时同步 Codex 一侧的来源记录 |
 

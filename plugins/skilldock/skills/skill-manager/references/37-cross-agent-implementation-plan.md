@@ -1,6 +1,6 @@
 # SkillDock 0.11.0 实现顺序
 
-> 上游：[PRD-SKILLDOCK-002 v0.10](34-cross-agent-prd.md)、[HLD-SDX-001 v1.30](35-cross-agent-hld.md)、[API-SDX-001 v0.31](36-cross-agent-api-contract.md)
+> 上游：[PRD-SKILLDOCK-002 v0.11](34-cross-agent-prd.md)、[HLD-SDX-001 v1.31](35-cross-agent-hld.md)、[API-SDX-001 v0.32](36-cross-agent-api-contract.md)
 > 前置版本：0.10.3 已于 2026-10-08 发布（PR #54，main `337547a`）
 > 日期：2026-10-08
 
@@ -209,6 +209,7 @@
 | 6e | V17（真实 Codex 中把 SkillDock 从 0.10.3 更新到 0.11.0，观察原生入口长连接与转交）；最终 UAT；决定 TeamDesk 是否升版（只有根目录 Claude marketplace 中的说明变化）；确认合并 `main`（即发布）与发布间隔 | 是 |
 | Owner 决定（2026-10-10） | TeamDesk 不升版（只有根目录 Claude marketplace 中的说明变化，PR 中写明）；0.11.0 尽快发布，不再为 0.10.3 留长间隔；P0 核对中的“部分”项 UI-02、UI-05、UI-11、UI-15 随 0.11.0 发布、记入 41，UI-14 在发布前修复 | — |
 | 6d 结果（2026-10-10） | HLD 第 25 轮与契约第 15 轮（[报告](35-cross-agent-hld-review-r24.md)）：带条件 APPROVED，证书重新绑定到 HLD v1.29、契约 0.30；阶段 6 代码评审（[57](57-cross-agent-phase6-review.md)）：APPROVED。两项需 Owner 决定的事项：只读一侧的一键更新接受（DG-R24-1），首次检查前的本地修改登记为已知残余（DG-R24-2、PRD 0.10 Q11）。其余 P2、P3 已处理（HLD v1.30、契约索引 0.31、36c 0.30），待对处理部分做增量复核。契约 0.15～0.30 属事后复核（HLDR24-P2-04）：0.11.0 合并前若再改契约，先复核再编码 | 否 |
+| 6d 复核（2026-10-10） | 第 26 轮（[58](58-cross-agent-6d-rereview.md)，对 `258fd24`）：APPROVED，P3 5，证书重新绑定到 HLD v1.30、契约 0.31、PRD 0.10；5 项 P3 已处理（插件安装窗口带 Agent、服务端与界面用例、36c 写明 1 版运行计数不过滤、文字），HLD v1.31、契约 0.32、36c 0.31、PRD 0.11 待只看文档的增量复核。流程：按评审意见做的契约同步可与代码同提交，随下一轮增量复核；其余契约改动先复核再编码 | 否 |
 
 ## 0.11.0 之后
 

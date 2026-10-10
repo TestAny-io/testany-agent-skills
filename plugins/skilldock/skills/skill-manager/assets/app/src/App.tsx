@@ -1424,7 +1424,8 @@ export default function App() {
       {dialog?.type === "tags" && data && <TagsDialog key={`${mode}:${dialog.subject.kind}:${dialog.subject.id}`} subject={dialog.subject}
         suggestions={[...data.skills, ...data.plugins].flatMap(item => item.tags || [])} busy={!!busy} execute={action} onClose={() => setDialog(null)} />}
       {dialog?.type === "project" && data && <ProjectDialog project={data.paths.project} catalog={data.projects} busy={busy} action={action} onClose={() => setDialog(null)} />}
-      {dialog?.type === "plugin-install" && data && <InstallDialog kind="plugin" data={data} initialPlugin={dialog.plugin} initialMarket={dialog.market} busy={busy} action={action} onClose={() => setDialog(null)} onMarket={() => setDialog({ type: "market", fromInstall: true })} />}
+      {dialog?.type === "plugin-install" && data && <InstallDialog kind="plugin" data={data} initialPlugin={dialog.plugin} initialMarket={dialog.market} busy={busy} action={action}
+        agents={(data.agents ?? []).filter(item => item.installed && item.management === "enabled").map(item => item.agent)} onClose={() => setDialog(null)} onMarket={() => setDialog({ type: "market", fromInstall: true })} />}
       {displayPlugin && data && <PluginDetail plugin={displayPlugin} skills={data.skills.filter(skill => skill.pluginId === displayPlugin.id)} busy={busy}
         onClose={() => setInspection(null)} onSkill={inspectSkill} onRemove={() => confirmRemovePlugin(displayPlugin)}
         onInstall={() => setDialog({ type: "plugin-install", plugin: displayPlugin })} onToggle={() => run({ action: "plugin.toggle", id: displayPlugin.id, enabled: !displayPlugin.enabled })}

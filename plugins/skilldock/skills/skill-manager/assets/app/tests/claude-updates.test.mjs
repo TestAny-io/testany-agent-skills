@@ -128,7 +128,11 @@ test('a Claude skill that becomes shared keeps its place in the plan; the Codex 
   const state = await w.snapshot();
   assert.deepEqual(state.schedule.targets, [{ kind: 'skill', id: shared.id, agent: 'claude' }]);
   assert.equal(state.updateRuns[0].items[0].status, 'current');
-  assert.ok(state.activity.some(item => item.action === 'schedule.migrate'), '迁移留有记录');
+  assert.ok(state.activity.some(item => item.action === 'schedule.migrate' && item.agent === 'claude'), '迁移留有记录，带目标的 Agent');
+  // A version-1 client sees neither the plan's record about a Claude target nor the Claude item of the run (HLD r24 P3-04).
+  const plain = await w.service.snapshot('local', true);
+  assert.equal(plain.activity.some(item => item.action === 'schedule.migrate'), false);
+  assert.deepEqual([plain.updateRuns[0].items.length, plain.schedule.targets.length], [0, 0]);
 });
 
 test('a shared skill Claude leads, updated by an applying plan, stays shared under its ID; the run is updated, the next current (5a/5b review P1-01)', async t => {
