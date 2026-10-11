@@ -18,7 +18,7 @@ options:
   - label: "提供所有路径"
     description: "沙箱目录、PRD、User Journey、交付摘要的路径"
   - label: "从 Manifest 中读取"
-    description: "已有 _prototype-manifest.md，从中提取 PRD 和 Journey 路径"
+    description: "已有 _prototype-manifest.md，从中提取输入模式、PRD/Journey 路径或需求推断卡"
   - label: "部分文档缺失"
     description: "说明缺失项（上游对齐无法准出，但工程隔离继续）"
 ```
@@ -28,7 +28,8 @@ options:
 |------|--------|------|
 | 所有路径可访问 | — | 继续审查 |
 | 从 Manifest 读取成功 | — | 继续审查 |
-| PRD 或 Journey 缺失 | evidence_gap | 上游对齐待补，工程隔离继续 |
+| 正式模式下 PRD 或 Journey 缺失 | evidence_gap | 上游对齐待补，工程隔离继续 |
+| 部分/独立模式（Manifest 有需求推断卡和原始需求） | — | 以推断卡为基线继续审查，不记 evidence_gap |
 | 交付摘要未提供 | evidence_gap | 仅限制依赖它的结论；专项检查不强制补做 Gate 4，不自动生成 P1 |
 
 ---

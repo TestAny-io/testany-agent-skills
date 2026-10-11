@@ -10,7 +10,7 @@ Open-source tools by [Testany](https://testany.io): four domain plugins plus **S
 
 | Your task | Plugin | Start with |
 | --- | --- | --- |
-| Turn an idea into requirements, designs, reviews, tests, and delivery preparation | **[testany-eng](plugins/testany-eng/README.md)** | `guide`, or one of the 23 engineering and coordination skills |
+| Turn an idea into requirements, designs, reviews, tests, and delivery preparation | **[testany-eng](plugins/testany-eng/README.md)** | `guide`, or one of the 24 engineering and coordination skills |
 | Improve a prompt | **[testany-llm](plugins/testany-llm/README.md)** | `prompt-optimizer` with your prompt and intended outcome |
 | Write content for different platforms | **[testany-mrkt](plugins/testany-mrkt/README.md)** | `media-writer` with your audience, platform, and goal |
 | Author, orchestrate, run, and diagnose tests in Testany | **[testany-bot](plugins/testany-bot/README.md)** | Connect Testany MCP, then choose a case, pipeline, or execution workflow |
@@ -19,6 +19,8 @@ Open-source tools by [Testany](https://testany.io): four domain plugins plus **S
 The [skill catalog](README.md#包含的-skills) and detailed plugin documentation are maintained in Chinese. Host-specific capabilities and prerequisites are documented per plugin; SkillDock currently targets Codex on macOS.
 
 `code-reviewer` saves complete machine evidence to files and returns bounded summaries, with reusable evidence verification tools. See the [artifact tool guide](plugins/testany-eng/skills/code-reviewer/references/artifact-tools.md) for usage and the `--full-json` option for consumers of the previous full snapshot stdout.
+
+`testany-eng 2.8.0` adds [ui-designer](plugins/testany-eng/skills/ui-designer/SKILL.md): it infers visual direction, components and interactions from a spoken request or a PRD, builds both candidate directions as pages when the direction is open, and delivers a design language with high-fidelity screens. With a frontend repository it writes into the isolated sandbox so [prototype-designer](plugins/testany-eng/skills/prototype-designer/SKILL.md) can complete flows and states; both share the [design guides](plugins/testany-eng/references/design/) and the [frontend sandbox rules](plugins/testany-eng/references/frontend-sandbox.md). Update the complete plugin to use this version.
 
 `testany-eng 2.7.1` improves recovery for [code-writer](plugins/testany-eng/skills/code-writer/SKILL.md) and Reviewer: core fields share a total output budget, oversized fields return exact continuation arguments pinned to their sources, and known tasks resume directly from their stable entry, reducing directory discovery and parameter retries. See [workflow setup and host boundaries](plugins/testany-eng/references/workflow-runtime.md). Update the complete plugin to use this version; publication does not establish local installation, adoption by active threads, or token savings in real engineering work.
 
