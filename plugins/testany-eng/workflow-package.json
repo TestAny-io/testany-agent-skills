@@ -1,7 +1,7 @@
 {
   "schema_version": 1,
   "files": {
-    ".claude-plugin/plugin.json": "db086d6f4926fdc0026cac1a3b664d54efdba67ac6bfeaefa624099297dd4c3e",
+    ".claude-plugin/plugin.json": "9439e8c452b1c9dae4fa13b333a490fb090c36898b7d7be4981fec207f5d1dc0",
     "references/browser-context.md": "69247ccad5cad70bc43755e112a0414267137a59f90cdd1e842cc86ea352c0c8",
     "references/workflow-runtime.md": "56d71b5f4b49dbb01e8daa8d6a71cf98cffa73434d4f27faefa8e60db2927b50",
     "scripts/browser_context.js": "9a8482c7ea7fd4860fe33e4d516bc19948f2a0194c7471522c86be18048ae17a",

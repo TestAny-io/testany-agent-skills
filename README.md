@@ -10,7 +10,7 @@
 
 | 你想做什么 | Plugin | 从这里开始 |
 | --- | --- | --- |
-| 把业务想法推进到需求、设计、评审、测试与交付准备 | **[testany-eng](plugins/testany-eng/README.md)** | 从 `guide` 判断下一步，或直接使用 23 个研发与协作 skills 中的一项 |
+| 把业务想法推进到需求、设计、评审、测试与交付准备 | **[testany-eng](plugins/testany-eng/README.md)** | 从 `guide` 判断下一步，或直接使用 24 个研发与协作 skills 中的一项 |
 | 改写和优化提示词 | **[testany-llm](plugins/testany-llm/README.md)** | 把原提示词和目标交给 `prompt-optimizer` |
 | 创作多平台营销内容 | **[testany-mrkt](plugins/testany-mrkt/README.md)** | 用 `media-writer` 说明受众、平台和写作目标 |
 | 在 Testany 上编写、编排、执行和诊断测试 | **[testany-bot](plugins/testany-bot/README.md)** | 连接 Testany MCP，按用例、流水线或执行结果选择入口 |
@@ -153,13 +153,15 @@ GitHub 来源更新：先执行 `"$CODEX_CLI" plugin marketplace upgrade testany
 
 ### testany-eng（研发流程）
 
-[插件说明与工作流](plugins/testany-eng/README.md) · 23 个研发与协作 skills
+[插件说明与工作流](plugins/testany-eng/README.md) · 24 个研发与协作 skills
 
 `testany-eng` 默认跟随用户输入语言输出；用户显式指定语言时以用户指定为准；`TRACEABILITY-METADATA` 的字段名、枚举值与稳定 ID 保持英文。
 
 正式新功能按完整流程推进；存量系统有限修复按问题层级进入 HLD/LLD/Code，不强制重做全链文档。四个相关 skill 共用 [评审边界规则](plugins/testany-eng/references/review-boundaries.md)：技术合理性、设计授权与执行许可分离，技术理由不能自授权，旧 review comment 不能循环变成批准基线。P2 在 HLD/LLD/Code Review 中均不阻断。
 
 `code-reviewer` 的机器证据默认完整落盘、仅返回有上限的摘要，并提供可复用的证据校验工具；调用方式及旧版全量 stdout 的 `--full-json` 选项见[机器证据工具约定](plugins/testany-eng/skills/code-reviewer/references/artifact-tools.md)。
+
+`testany-eng 2.8.0` 新增 [ui-designer](plugins/testany-eng/skills/ui-designer/SKILL.md)：从口述需求或 PRD 判读视觉方向、组件和交互，方向开放时把两个方向做成页面供选择，产出设计语言与高保真界面；有前端仓库时写进隔离沙箱，可直接交给 [prototype-designer](plugins/testany-eng/skills/prototype-designer/SKILL.md) 补全流程与状态。两者共用 [设计指南](plugins/testany-eng/references/design/) 与 [前端仓库与原型沙箱](plugins/testany-eng/references/frontend-sandbox.md) 规则。使用新版需要更新完整插件。
 
 `testany-eng 2.7.1` 修复 [code-writer](plugins/testany-eng/skills/code-writer/SKILL.md) 与 Reviewer 的恢复读取：核心字段按总预算一次取全，超长字段返回固定来源的精确续读参数，已知任务直接从稳定入口恢复，减少目录探索和参数重试。配置与宿主边界见[持久入口](plugins/testany-eng/references/workflow-runtime.md)。使用新版需要更新完整插件；发布不表示本机已安装或在线线程已采用，真实工程 Token 节省仍须观察。
 
