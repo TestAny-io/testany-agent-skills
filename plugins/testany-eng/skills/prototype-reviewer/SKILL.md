@@ -128,7 +128,8 @@ PRD/Journey、Manifest/Visual Brief、必要截图或运行证据不可得时，
   □ 状态矩阵覆盖检查
   □ 跨页面导航检查
   □ P1/P2 预算裁剪合规
-  □ Visual Brief 与视觉品质
+  □ Visual Brief、方向/构图与反模板审计
+  □ P0 Interaction Choreography 与组件状态
   □ 当前实现的截图、真实操作和复验证据
 □ 阶段三：第三道门 - 工程隔离
   □ 沙箱目录完整性
@@ -160,7 +161,7 @@ PRD/Journey、Manifest/Visual Brief、必要截图或运行证据不可得时，
    - 交付摘要路径——全量下游可用性评审所需；未提供记 evidence_gap，专项隔离检查不因此扩大任务
 
 2. **读取关键文件**
-   - 从 Manifest 读取 Visual Brief、保真度、token 来源、目标视口和范围；从交付摘要读取实现版本/变更基线及视觉/交互证据。缺口只限制相应结论，不取消独立检查
+   - 从 Manifest 读取 Visual Brief、方向取舍、三个校准轴、六层视觉语言、P0 Interaction Choreography、组件状态、token 来源、目标视口和范围；从交付摘要读取实现版本/变更基线及视觉/交互证据。缺口只限制相应结论，不取消独立检查
    - 读取沙箱目录内的 `_prototype-manifest.md`
      - **Manifest 缺失 → 记录 evidence_gap，整体不批准；继续可独立完成的工程隔离检查**
    - 读取交付摘要
@@ -219,7 +220,7 @@ PRD/Journey、Manifest/Visual Brief、必要截图或运行证据不可得时，
 
 ### 阶段二：第二道门 - 原型体验与完整性
 
-**同时核查设计品质、真实交互和状态覆盖。** 先读 [共享质量清单](../prototype-designer/references/quality-checklist.md)；需要理解视觉决策或运行取证时读 [视觉设计指南](../prototype-designer/references/visual-design-guide.md)。按用户约定保真度评价，线框稿不因缺少装饰被拒绝。
+**同时核查设计品质、真实交互和状态覆盖。** 先读 [共享质量清单](../prototype-designer/references/quality-checklist.md)；视觉方向/构图读取 [视觉方向与构图决策指南](../prototype-designer/references/design-direction-guide.md)，组件选择/组合读取 [组件选择与组合指南](../prototype-designer/references/component-composition-guide.md)，交互连续性/动效读取 [交互编排与动效设计指南](../prototype-designer/references/interaction-design-guide.md)，运行取证读取 [视觉设计指南](../prototype-designer/references/visual-design-guide.md)。按用户约定保真度评价，线框稿不因缺少装饰被拒绝。
 
 #### 2.1 P0 Journey Happy Path 可达性
 
@@ -230,7 +231,8 @@ PRD/Journey、Manifest/Visual Brief、必要截图或运行证据不可得时，
 #### 2.2 状态与交互检查
 
 - 对照 Manifest 状态矩阵与 Journey edge case，实际切换正常/加载/空/错误/边界态；仅有条件渲染代码不足以证明状态可演示。
-- 检查适用的提交、防重复操作、输入保留、错误恢复、空态 CTA、弹窗焦点、键盘、返回与上下文保持。
+- 对照每条 P0 Interaction Choreography，实际执行触发、即时反馈、连续变化、完成结果和至少一个适用恢复路径；检查上下文、焦点/播报、键盘/触屏等价及减少动效。只看到 CSS/事件代码或某一帧截图不算通过。
+- 拖拽/滑动检查跟手、距离/速度阈值、合法吸附与取消；hover 不得承载唯一信息；提交、防重复、输入保留、错误恢复、空态 CTA、弹窗焦点、返回与上下文保持按场景核查。
 - 缺失关键状态或 Manifest 声称已实现但运行证据证明不成立，按影响判级；无运行能力时记 evidence_gap，不猜通过或自动断言缺陷。
 
 #### 2.3 导航与范围
@@ -241,9 +243,9 @@ PRD/Journey、Manifest/Visual Brief、必要截图或运行证据不可得时，
 
 #### 2.4 视觉品质
 
-- 先核实设计依据：用户要求、有效品牌/设计系统、Visual Brief 和页面例外；无旧页面不构成跳过理由，应有本轮最小基线。
-- 实际查看本轮非占位页面及关键状态的截图/页面，对照共享清单检查任务焦点、排版、配色、间距、密度、组件细节和适配。
-- 既有组件不等于页面已精美；需指出具体失衡、可读性或层级问题及其对任务的影响。卡片、渐变、系统字体本身不构成缺陷。
+- 先核实设计依据：用户要求、有效品牌/设计系统、页面主轨、方向句、三个校准轴、六层视觉语言、设计签名、模板碰撞与页面例外；无旧页面不构成跳过理由，应有本轮最小基线。
+- 实际查看本轮非占位页面及关键状态的截图/页面，执行三秒扫视、构图/语言、交互/状态、辨识/韧性四遍观察；核查内容主角、第一屏分配、视觉重量、真实内容、最窄视口和反模板结果。
+- 既有组件不等于页面已精美；需指出具体构图失衡、通用模板碰撞、可读性或层级问题及其对任务的影响。卡片、渐变、系统字体本身不构成缺陷，无任务依据的组合及其影响才可能构成问题。
 - 重大视觉/交互缺陷按 P0/P1 处理；纯偏好和轻微润色为 P2。不能用任意“审美分数”或 P2 数量阻断。
 
 #### 2.5 证据覆盖与复验

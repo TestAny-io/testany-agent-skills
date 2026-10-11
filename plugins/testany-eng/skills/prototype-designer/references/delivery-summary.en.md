@@ -17,7 +17,7 @@ Upon completion of Phase 3.6, a delivery summary must be output according to thi
 | Startup command | [Specific commands, including package manager and workspace location] |
 | Entry route | [/prototype/ or /prototype/index] |
 | Implementation binding | [commit / current diff or file digests; evidence capture time] |
-| Visual Brief | [Manifest location; fidelity, representative page, target viewports/themes] |
+| Visual Brief | [Manifest location; fidelity, direction statement/axes/design signatures, representative page, target viewports/themes] |
 | Delivery status | [self-check complete / draft, experience validation incomplete; reason] |
 
 ### Coverage Statistics
@@ -57,15 +57,16 @@ Upon completion of Phase 3.6, a delivery summary must be output according to thi
 
 ### Quality check results
 
-Record all five dimensions from `references/quality-checklist.md`. Use “verified / defect found / unverified / not applicable with reason”; do not prefill success. Separate visual and behavioral evidence. Missing required evidence is not a pass.
+Record all six dimensions from `references/quality-checklist.md`. Use “verified / defect found / unverified / not applicable with reason”; do not prefill success. Separate visual and behavioral evidence. Missing required evidence is not a pass.
 
 | Dimension | Result | Evidence summary |
 |---|---|---|
 | Accessibility | [actual result] | [keyboard/focus/semantics; contrast measurement method/results; unchecked items] |
 | Mock data quality | [actual result] | [normal/empty/boundary data; fields not defined by PRD] |
 | Component discipline | [actual result] | [reused/new components; style/token scope] |
-| Visual quality and consistency | [actual result] | [hierarchy, type, color, density, details, adaptation against Brief; new projects also checked] |
-| UX walkthrough | [actual result] | [actual Journey, submit/recovery, return, dialog/keyboard results] |
+| Visual direction and composition | [actual result] | [track/direction statement, axes, content protagonist, composition, six-layer language, signatures, anti-template and adaptation] |
+| Interaction choreography and motion | [actual result] | [P0 trigger → feedback → transition → result → recovery → focus; direct manipulation, component states, reduced motion] |
+| UX walkthrough | [actual result] | [actual Journey, submit/recovery, return, information organization and responsive behavior] |
 
 ### Visual and Interaction Evidence
 
@@ -77,7 +78,8 @@ Bind evidence to the implementation above. Recheck changes and update affected s
 
 - **Coverage**: [observed pages/states/viewports and executed behavior; list placeholders separately]
 - **Unverified scope and reasons**: [capability gaps, failed commands, affected conclusions; none if complete]
-- **Visual refinement**: [specific issue → adjustment → recheck; explain observations when no changes were needed]
+- **Direction and visual refinement**: [composition/template collision/axis/detail issue → adjustment → recheck; explain the four-pass observations when no changes were needed]
+- **Interaction refinement**: [trigger/feedback/continuity/recovery/focus issue → adjustment → actual behavior recheck]
 
 ### Issues and Suggestions
 

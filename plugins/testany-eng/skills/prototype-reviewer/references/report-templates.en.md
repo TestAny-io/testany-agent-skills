@@ -23,7 +23,7 @@ This document defines the output format template of prototype-reviewer.
 | PRD source | [path] |
 | User Journey Source | [Path] |
 | Delivery Summary | [path / missing: evidence_gap and affected conclusions; scoped review stays scoped] |
-| Visual Brief | [location, fidelity, visual authority, target viewports/themes] |
+| Visual Brief | [location, fidelity, direction statement/axes/design signatures, visual authority, target viewports/themes] |
 | Change baseline | [commit range / worktree + ownership confirmation] |
 | Review time | YYYY-MM-DD |
 | Review Rounds | Round N |
@@ -45,7 +45,8 @@ This document defines the output format template of prototype-reviewer.
 - P0 Journey Happy Path: [actually exercised / breakpoints / unverified with reason]
 - State matrix coverage: M covered / total T (Z%)
 - Navigation: [actually exercised / missing paths / unverified with reason]
-- Visual quality: [hierarchy, type, color, density, details, page/state consistency and adaptation against Brief]
+- Visual direction and composition: [page track, direction statement, axes, content protagonist, composition, six-layer language, design signatures, anti-template, page/state consistency and adaptation]
+- Interaction choreography: [actual P0 trigger → feedback → transition → result → recovery → focus; direct manipulation, component states and reduced motion]
 - Usability: [actual keyboard/focus/contrast/forms/recovery results as applicable]
 - Evidence coverage: [current implementation binding; inspected screenshots and executed actions; valid reuse; unchecked scope]
 

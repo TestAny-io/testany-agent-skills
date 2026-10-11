@@ -29,18 +29,36 @@ After Phase 1.6 is completed, `_prototype-manifest.md` must be generated in the 
 ### Visual Brief
 
 - **Audience and task**: [primary task, usage frequency, language, devices]
-- **Fidelity and direction**: [high fidelity by default / explicitly requested wireframe; visual character expressed as concrete choices]
+- **Primary page track**: [brand/conversion, data/monitoring, operation/configuration, browse/discovery, reading/understanding, mobile quick action; primary and local secondary tracks]
+- **Fidelity and direction statement**: [high fidelity by default / explicitly requested wireframe; an executable sentence covering audience, task, content protagonist, composition, visual/interaction language and anti-goals]
 - **Authority and scope**: [user direction, existing brand/system, reference links or screenshots; inherit/extend/establish a baseline]
-- **Density and hierarchy**: [primary information/actions, grouping and spacing strategy with reasons]
+- **Content protagonist and composition**: [first visual priority; chosen composition family and rationale]
+- **Design signatures**: [1-3 visual/interaction identifiers tied to product meaning]
+- **Template collisions**: [unsupported repeated skeletons, colors, materials or motion to avoid; rationale for any retained common pattern]
 - **Representative page**: [page/route and rationale]
 - **Verification scope**: [target viewport width×height, themes, key states; exclusions and reasons]
 
-| Design dimension | Token/value and role | Source or new decision with rationale |
+| Calibration axis (1-10, not a quality score) | Value | Concrete meaning and task rationale |
+|---|---:|---|
+| `design_variance` | [1-10] | [how closely it follows convention or departs from it, and why] |
+| `motion_intensity` | [1-10] | [feedback-led or narrative motion intensity, and why] |
+| `visual_density` | [1-10] | [information per viewport and whitespace strategy, and why] |
+
+| Six-layer visual language | Token/rule and role | Source or new decision with rationale |
 |---|---|---|
-| Color | [background, surfaces, text, primary actions, statuses] | [actual path or sandbox addition] |
-| Typography | [headings, body, labels, supporting text, fallbacks] | [source/decision] |
-| Layout/spacing/density | [widths, breakpoints, spacing scale, control density] | [source/decision] |
-| Details/motion | [radii, borders, shadows, icons, applicable motion] | [source/decision] |
+| Composition | [first-viewport allocation, grid/columns, alignment axes, scroll rhythm, breakpoints] | [actual path or sandbox addition] |
+| Typography | [headings, body, labels, numerals/code, language fallbacks] | [source/decision] |
+| Color | [background, surfaces, text, primary actions, statuses, accent allocation] | [source/decision] |
+| Shape/material | [radii, borders, shadows, icons, imagery/glass/noise as applicable] | [source/decision] |
+| Content/imagery | [how real assets, data, charts or copy become the protagonist] | [source/decision] |
+| Motion | [feedback/spatial/direct manipulation/narrative; 1-3 signature moments and reduced motion] | [source/decision] |
+
+**Direction decision** (write “not applicable — inheriting [authority]” when direction is already established; do not invent alternatives):
+
+| Candidate | Composition and interaction language | Supporting/opposing evidence | Decision |
+|---|---|---|---|
+| A | [must differ by more than color] | [task, brand, content, component evidence] | [selected/rejected and why] |
+| B | [meaningfully different from A] | [evidence] | [selected/rejected and why] |
 
 **Page exceptions and open decisions**: [pages departing from the baseline and reasons / none; no unauthorized brand or production component changes]
 
@@ -57,7 +75,22 @@ After Phase 1.6 is completed, `_prototype-manifest.md` must be generated in the 
 |---|---|---|---|---|---|---|
 | [page] | [normal/loading/empty/error/boundary] | [S1 / EC-01; identify generic additions] | [URL/demo control/actual action] | [display and behavior] | [recovery and focus] | [reflow/scrolling etc.] |
 
-> Every declared state must be demonstrable without editing code. Verify applicable hover/focus/pressed/disabled control states with the page; do not turn the business state matrix into a style inventory.
+> Every declared state must be demonstrable without editing code. Verify applicable hover/focus-visible/pressed/selected/disabled/loading control states with the page; do not turn the business state matrix into a style inventory.
+
+### P0 Interaction Choreography
+
+| Journey / Step | Trigger / input | Immediate feedback | Transition / continuity | Result | Recovery / context | Focus / announcement | Reduced motion |
+|---|---|---|---|---|---|---|---|
+| [J1 / S1] | [click/keyboard/drag/scroll/system event] | [feedback that input was received] | [where the object comes from, how it changes, where it goes] | [final data/selection/navigation state] | [cancel/retry/undo; preserved input/filter/scroll] | [focus destination, keyboard equivalent, announcement] | [how meaning remains without large motion] |
+
+> The state matrix answers “which states exist”; this table answers “how states connect.” Every P0 choreography must demonstrate its trigger, completion and at least one applicable recovery path.
+
+### Component State Contract
+
+| Component/page | Applicable states | Visual and behavioral feedback | Keyboard/touch equivalent | Data/layout stability |
+|---|---|---|---|---|
+| [Button / Page A] | [applicable default/focus-visible/pressed/disabled/loading/success/error states] | [specific changes] | [keyboard and target size] | [duplicate prevention and width/content stability] |
+| [Row / Page B] | [hover/focus-visible/selected/expanded] | [specific changes] | [Enter/arrows/touch] | [list/detail context] |
 
 ### Navigation relationship table
 
@@ -69,12 +102,12 @@ After Phase 1.6 is completed, `_prototype-manifest.md` must be generated in the 
 
 ### Component usage list
 
-| Components | Source | Usage Page |
-|------|------|---------|
-| [Button] | The warehouse already exists (src/components/ui/Button) | Page A, Page B |
-| [Form] | The warehouse already exists (src/components/Form) | Page C |
-| [PROTOTYPE] AddressPicker | Sandbox New | Page C |
-| ... | ... | ... |
+| Component | Source | Task role and public variant/density | Usage page |
+|------|------|---------|---------|
+| [Button] | Existing repository component (src/components/ui/Button) | [primary/secondary/destructive action; variant/size] | Page A, Page B |
+| [Form] | Existing repository component (src/components/Form) | [input/validation; compact/default] | Page C |
+| [PROTOTYPE] AddressPicker | New in sandbox | [address selection; reason for gap] | Page C |
+| ... | ... | ... | ... |
 
 ### Mock data list
 
