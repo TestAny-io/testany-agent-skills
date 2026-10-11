@@ -287,6 +287,20 @@ Mutable/mixed approval 必须枚举 terminal 中的全部 repository rows。对�
 
 - 原型是“目录级工件”，不能只凭单个 Markdown 文件判定
 
+### 11.1 UI_DESIGN（设计包）
+
+强信号：
+
+- 存在 `design-brief.md` 与 `design-language.md`（沙箱 `_design/` 下，或独立的 `ui-design/<名称>/` 目录）
+
+弱信号：
+
+- 目录名含 `ui-design` 或 `_design`
+
+注意：
+
+- 设计包没有独立评审准出，存在即可作为 Prototype 的视觉依据；不要把它当成 PRD 或原型的替代
+
 ### 12. GUARDRAILS
 
 强信号：

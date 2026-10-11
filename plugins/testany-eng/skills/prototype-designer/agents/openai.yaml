@@ -3,4 +3,4 @@ interface:
   short_description: "Design distinctive prototypes with choreographed interactions"
   icon_small: "./assets/testany-logo-small.png"
   icon_large: "./assets/testany-logo.svg"
-  default_prompt: "Use $prototype-designer to choose an evidence-based visual direction, design the P0 interaction choreography, create the isolated prototype from the PRD and User Journey, and validate its actual visuals and behavior."
+  default_prompt: "Use $prototype-designer to choose an evidence-based visual direction, design the P0 interaction choreography, create the isolated prototype from a PRD/User Journey or a spoken request (inferring style, components and interactions from the requirements), and validate its actual visuals and behavior."

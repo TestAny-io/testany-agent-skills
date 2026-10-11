@@ -20,7 +20,7 @@ description: 'Guide, workflow guide, 流程导航、我该用哪个 skill、下�
 - **Guide 是导航器，不是产出器**：不直接撰写 BRD/PRD/HLD/LLD/Test/Runbook，也不替代 reviewer 做准出判断。
 - **Guide 只做状态识别与路由建议**：扫描仓库、读取元数据、判断阶段、推荐下一步。
 - **Guide 服务于 `testany-eng` 主流程**，并补充五个特殊分支：
-  - **可选分支**：Prototype
+  - **可选分支**：UI 设计与 Prototype
   - **实现门禁分支**：Implementation Candidate → Code Review
   - **可选分支**：Testany Automation Landing
   - **横切分支**：Guardrails
@@ -92,13 +92,11 @@ LLD 准出后还存在一条与测试文档准备并行的实现门禁：
 - Code Review 通过只表示源码 Candidate 准出，不代表 CI、merge、deployment 或 release 已批准
 - 对应 skill：`/code-reviewer`
 
-### 可选分支：Prototype
+### 可选分支：UI 设计与 Prototype
 
-- 只在**前端仓库**或**用户明确想先验证交互/UI 流转**时显示
-- 位置：`PRD 准出` 之后、`API Contract / HLD` 之前
-- 对应 skill：
-  - `/prototype-designer`
-  - `/prototype-reviewer`
+- `/ui-designer`：用户关心界面长什么样、要定设计方向，或新产品没有设计系统时显示；不需要 PRD 批准或前端仓库，产出的设计包可交给 Prototype
+- Prototype 只在**前端仓库**或**用户明确想先验证交互/UI 流转**时显示；位置：`PRD 准出` 之后、`API Contract / HLD` 之前
+- 对应 skill：`/prototype-designer`、`/prototype-reviewer`
 
 ### 横切分支：Guardrails
 
@@ -316,6 +314,7 @@ LLD 准出后还存在一条与测试文档准备并行的实现门禁：
 否则：
 
 - 不要主动把 `/prototype-designer` 当作默认下一步
+- 用户问的是界面长什么样或设计方向时，展示 `/ui-designer`，不受上述前提限制
 
 #### 1.7 Guardrails 触发判断
 

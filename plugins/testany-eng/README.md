@@ -90,6 +90,8 @@ flowchart TD
     I --> J[📄 PRD 准出]
 
     J --> K{需要交互原型吗？}
+    K -->|是，先定设计方向| UD[/ui-designer/]
+    UD --> L
     K -->|是| L[/prototype-designer/]
     L --> M[/prototype-reviewer/]
     M --> N[📄 Prototype 准出]
@@ -156,7 +158,8 @@ flowchart TD
 | BRD 写完了，要细化或整理用户操作流程 | `/uc-interviewer` | 复用已知流程，只补问缺口，检查 Journey 内容与批准 |
 | 要写产品需求文档 | `/prd-writer` | 基于 BRD + Journey 撰写 PRD |
 | PRD 写完了，需要独立评审 | `/prd-reviewer` | 多角色视角审查 |
-| 有 PRD + User Journey，要在前端仓库先验证交互 | `/prototype-designer` | 生成视觉精美的隔离原型，验证视觉方向、交互、状态和导航 |
+| 想先看产品界面长什么样、定设计方向（口述需求即可，有无仓库都行） | `/ui-designer` | 自行判读风格、构图、组件和交互；方向开放时做两版代表页供选择，产出设计语言与高保真界面 |
+| 有 PRD + User Journey（或口述需求），要在前端仓库先验证交互 | `/prototype-designer` | 生成隔离原型，验证流程、交互、状态、导航和数据需求；有设计包时照设计包实现 |
 | Prototype 做完了，需要作为 API/HLD 前的门禁 | `/prototype-reviewer` | 审查上游对齐、视觉与交互证据、工程隔离和下游输入质量 |
 | PRD 准出了，要定义 API 契约 | `/api-writer` | 输出 OpenAPI/gRPC/Event 等契约 |
 | API 契约写完了，需要评审 | `/api-reviewer` | 检查契约完整性与一致性 |
@@ -208,6 +211,8 @@ flowchart TD
     B4 --> B6[/prd-reviewer/]
 
     C --> C1{需要先验证前端交互吗？}
+    C1 -->|是，先定设计方向| C0[/ui-designer/]
+    C0 --> C2
     C1 -->|是，且已有 User Journey| C2[/prototype-designer/]
     C2 --> C3[/prototype-reviewer/]
     C3 --> C4[/api-writer/]
@@ -355,33 +360,58 @@ flowchart TD
 
 ---
 
+### ui-designer
+
+**用途**：决定产品界面长什么样、用起来是什么感觉，产出可运行、开发能照着落地的设计；可单独使用，也可在 Prototype 之前定方向
+
+**特点**：
+- 输入可以是口述需求、PRD/Journey、截图、参考或品牌材料；缺正式文档时整理成需求推断卡
+- 自己判读设计：从使用频率、设备、任务、数据形态、行业语境等信号推出视觉性格、构图、组件和交互，写出带依据的判读单后直接动手
+- 方向开放时把两个真正不同的方向做成同一个代表页，供用户比较选择
+- 六层视觉语言逐层独立决定，token、组件规格（含状态）和交互编排写到开发能照做；生成默认样式须事前声明依据，并用测量证据核对
+- 有前端仓库时写进隔离沙箱（与 prototype-designer 共用），可直接交接；没有仓库时输出独立设计包，页面可直接在浏览器打开
+
+**输入**：口述需求，或 PRD/User Journey 路径；可附截图、参考、品牌材料和前端仓库路径
+**输出**：设计包（设计说明、设计语言、token、高保真页面与证据）
+
+**示例**：
+```
+/ui-designer 帮共享自习室做前台平板上的座位预约界面，要能快速看出哪里有空位、哪些人超时
+/ui-designer 给一家做手工陶器的工作室做官网，给我两个方向看看
+```
+
+---
+
 ### prototype-designer
 
-**用途**：在前端仓库中生成或打磨视觉精美的高保真 UI 原型，在进入 API Contract / HLD 之前验证视觉方向与交互流程
+**用途**：在前端仓库的隔离沙箱中做出可运行的高保真原型，验证流程、页面状态和数据需求；可单独使用，也可在进入 API Contract / HLD 之前使用。重点是决定界面长什么样时先用 ui-designer
 
 **特点**：
 - 视觉精美、交互完整和工程隔离共同作为质量目标；用户明确要求线框稿时按其保真度执行
-- Visual Brief 不只写风格词：按页面任务分轨，记录三轴、六层视觉语言、构图、设计签名与方向取舍
-- 为 P0 Journey 编写 Interaction Choreography，覆盖触发、反馈、连续变化、结果、恢复、焦点和减少动效
-- 代表页先过构图与反模板门槛，再扩展页面；浏览器四遍观察、真实操作和修正复验形成证据
+- 输入可以是 PRD + Journey，也可以是口述需求、截图或零散材料；缺少正式文档时整理成需求推断卡，不要求先走其他流程
+- 有 ui-designer 设计包时照设计包实现并补全流程与状态（同一沙箱，无需迁移）；没有时继承仓库设计系统，并从需求信号自行判读视觉方向
+- Visual Brief 不只写风格词：先定构图再选组件，逐页记录主轨、构图和三轴；六层视觉语言逐层独立决定，生成默认样式须事前声明依据
+- P0 交互编排分两档：招牌时刻与提交/撤销/拖拽等动作写完整链路（触发、反馈、连续变化、结果、恢复、焦点、减少动效），其余步骤一行；附不新增依赖的实现手法
+- 代表页先过构图门槛：测量区块占比、强调色落点和首屏信息块数并与 Brief 核对，再扩展页面；四遍观察、真实操作和修正复验形成证据
 - 默认沙箱隔离，避免污染生产目录
 - 优先复用仓库现有组件、路由和样式体系
 - 用 mock 数据提前暴露页面状态和数据需求
-- 页面可追溯到 User Journey 节点和 PRD 需求
+- 页面可追溯到需求基线（Journey 节点和 PRD 需求，或需求推断卡条目）
 
-**输入**：PRD 路径 + User Journey 路径
-**输出**：原型沙箱目录 + Prototype Manifest（含 Visual Brief / 方向取舍 / 状态矩阵 / P0 Interaction Choreography）+ 交付摘要（含视觉/交互证据及未验证范围）
+**输入**：PRD 路径 + User Journey 路径，或口述需求
+**输出**：原型沙箱目录 + Prototype Manifest（含需求基线 / 设计判读 / Visual Brief / 方向取舍 / 页面设计决策 / 状态矩阵 / P0 交互编排）+ 交付摘要（含视觉/交互证据、测量证据及未验证范围）
 
 **示例**：
 ```
 /prototype-designer ./docs/PRD-用户认证.md ./docs/User-Journeys-用户认证.md
+/prototype-designer 帮社区图书馆做一个志愿者排班原型，要能看出哪个时段缺人
 ```
 
 ---
 
 ### prototype-reviewer
 
-**用途**：作为 Prototype 进入 API Contract / HLD 前的独立门禁，审查上游对齐、视觉品质与真实交互、工程隔离和下游输入质量
+**用途**：作为 Prototype 的独立门禁（在研发流程中位于 API Contract / HLD 之前），审查需求对齐、设计判读、视觉品质与真实交互、工程隔离和下游输入质量
 
 **特点**：
 - 四道门审查：上游对齐 → 原型体验与完整性 → 工程隔离 → 下游可用性
@@ -390,7 +420,7 @@ flowchart TD
 - 同时检查 Prototype 对 API Contract 和 HLD 的输入是否清晰
 - 严格准出：无未关闭 P0/P1、必要证据充分；P2 不按数量阻断
 
-**输入**：原型沙箱目录路径 + PRD 路径 + User Journey 路径
+**输入**：原型沙箱目录路径 + PRD 路径 + User Journey 路径；由口述需求生成的原型以 Manifest 中的需求推断卡为基线
 **输出**：审查报告 + 准出证书（通过时）
 
 **示例**：
@@ -723,7 +753,8 @@ flowchart TD
 | BRD | uc-interviewer | User Journey |
 | BRD + Journey | prd-writer | PRD |
 | PRD | prd-reviewer | PRD（准出） |
-| PRD + User Journey | prototype-designer | Prototype 沙箱 + Manifest + 交付摘要 |
+| 口述需求或 PRD + Journey（可选前端仓库） | ui-designer | 设计包（设计说明、设计语言、token、高保真界面） |
+| PRD + User Journey（可选设计包） | prototype-designer | Prototype 沙箱 + Manifest + 交付摘要 |
 | Prototype 沙箱 + PRD + User Journey | prototype-reviewer | Prototype（准出） |
 | PRD | api-writer | API Contract |
 | PRD + API Contract | api-reviewer | API Contract（准出） |
