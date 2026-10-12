@@ -2,6 +2,8 @@
 // production components and translator.
 import test from 'node:test';
 import assert from 'node:assert/strict';
+import crypto from 'node:crypto';
+import fs from 'node:fs/promises';
 import { createRequire } from 'node:module';
 import { fileURLToPath } from 'node:url';
 import { runInNewContext } from 'node:vm';
@@ -124,6 +126,20 @@ test('Agents are shown by their marks, named for screen readers and tooltips; th
   assert.match(split, /agent-split-item agent-codex.*Codex<\/span>28/); assert.match(split, /agent-split-item agent-claude.*Claude<\/span>5/);
   const filter = render(AgentFilter, { value: 'all', onChange() {}, counts: { all: 33, codex: 28, claude: 5 } });
   assert.equal((filter.match(/<svg/g) || []).length, 2, '筛选按钮带图标');
+});
+
+test('the Agent marks are the official artwork: path data, canvas and colors as THIRD_PARTY_NOTICES.md says', async () => {
+  const { AgentMark } = ui(); const sha = text => crypto.createHash('sha256').update(text).digest('hex');
+  const codex = render(AgentMark, { agent: 'codex' }), claude = render(AgentMark, { agent: 'claude' });
+  // The path strings of OAI_OpenAI-Blossom_Black.svg and "Claude Spark - Clay.svg", character for character.
+  assert.equal(sha(codex.match(/ d="([^"]+)"/)[1]), '68f124fd05f3b1a4783d1a941d7f0ece8da163532cb23d24799fcc4ee53d7f60');
+  assert.equal(sha(claude.match(/ d="([^"]+)"/)[1]), '1097e5265789c38109fc8cbb44b39ddaff2b7e09739a51290d600f41b3e9a4b3');
+  // The Blossom on the kit's whole canvas, in the page's black or white; the Spark in Clay, never tinted.
+  assert.match(codex, /class="agent-mark-codex"[^>]* viewBox="0 0 716 716"/); assert.match(codex, /<path fill="currentColor"/);
+  assert.match(claude, /<path fill="#D97757"/); assert.equal(/currentColor|opacity|filter/.test(claude), false);
+  const css = await fs.readFile(new URL('../src/AgentUI.css', import.meta.url), 'utf8');
+  assert.match(css, /\.agent-mark-codex \{ color: light-dark\(#000000, #ffffff\); \}/);
+  assert.equal(/agent-(codex|claude|mark)[^{]*\{[^}]*(opacity|filter)/.test(css), false, '标志上不加透明度或滤镜');
 });
 
 test('Claude facts: install scope, enablement source, protection, visibility and auto-update', () => {

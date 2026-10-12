@@ -1,7 +1,7 @@
 // Opt-in: actual Claude installation of the committed tree, in a temporary HOME and Claude
 // configuration directory, never the user's (REQ-SDX-017; DEC-SDX-013, 014; HLD 9.3 V6).
 // A local clone stands in for the marketplace: a directory marketplace also copies
-// untracked files (V8), and without Git history Claude records the version as "unknown".
+// untracked files (V8).
 // Only the Claude command line is borrowed from the user's machine. It is never asked for
 // the remote plugin directory (`plugin list --available` downloads it, HLD 3.3); run this
 // inside a sandbox that denies outbound connections to be sure nothing else goes out.

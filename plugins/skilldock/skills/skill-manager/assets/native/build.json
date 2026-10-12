@@ -21,12 +21,12 @@
     "server/node-candidates.mjs": "6c2fc2c52f77f16617e977b8f4ca3fcc57f6100b9695f7e35f2163341b504ce5",
     "server/process-env.mjs": "91d2210e5277530634c6af459dbb192e54e2841887c07618ef03c50240b35caf",
     "server/process-lock.mjs": "2978f4ffe74d6d2c12980b03e5a28d4f00a4f7e559e6c46b3e1d5917960352c7",
-    "server/skilldock-update.mjs": "5ca3d4021fbdb0267b4d9b5604d798ae3d0ecf516427654b3ea675b1c327a76e",
+    "server/skilldock-update.mjs": "48682fa33a20e1acf244a36877f0310aa333b846c9cd1f12c370a38b53393df3",
     "server/state-locks.mjs": "12e95ff9399e42bd2690d7e2e2c0f1127522eadc5e7e8d2cc37244dc73321b62",
     "server/toolchain.mjs": "f654f95b7adf25e1f4ad452ea5e4da7e6649e735f1fca6e938ff55c43f23ce9f",
     "src/AgentEnvironments.tsx": "264b0a688c3f14a1a8ecb1e0beba3f861578a32a20d611ced0111356a4de5263",
-    "src/AgentUI.css": "64409c6ea5784d0bfb51842bc5fbaa8704a690f056621695dbf449062bed5211",
-    "src/AgentUI.tsx": "27b45feda573ee5c9041571c7f71773da5546a79b14bf972ed66638cac082044",
+    "src/AgentUI.css": "a66b408ab48d5383c0e650439d3e82229fb051cf2012fa82c76cb5bd601d5867",
+    "src/AgentUI.tsx": "54842e8e9df12dd3e454f97472521f403cb9c78c619be09efe4ec65715113d08",
     "src/App.tsx": "7be329cc6173611e5e39b3170a4eb3703121be5d6a2d58ca86ad34d6ec1f0279",
     "src/CompatibilityWarnings.tsx": "dc7f57da6a06829e5e24fc6149535f69bd6128bd0cbae93e10ee423a623d1f62",
     "src/ConfirmDialog.tsx": "cf838a952b8c17690d1e54ad1538326a372890f5ca921efffe18635b04a790bc",
@@ -72,7 +72,7 @@
   },
   "artifacts": {
     "server.mjs": "952873b18b656dcc75483e6e20f4278f3e2cd9463b9667f489020ed6bec9cff2",
-    "ui.html": "dede7398ae6fe64dca6810405c87b4f3963036a9085ec517a2fafcc0d6b641e3",
+    "ui.html": "a4284aea1007b3064fdc5dbf51e6534cf1cda4e9279553188bc1518486cc93d7",
     "icon.svg": "9b7d7c19189c56b43fe691c0cb01e19b1f88abc61d1d130c974c5f5411b7288c",
     "THIRD_PARTY_NOTICES.txt": "0580c525bbaf94d006050bf773e482a470c9f983971e23b26e8048505e11bd4f"
   }

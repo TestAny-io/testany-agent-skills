@@ -61,6 +61,13 @@ test('an entry mirroring a Codex manifest version is not a duplicate declaration
   catalog = await readMarketplace(root);
   assert.equal(catalog.plugins[0].version, '2.0.0', 'Codex 仍以自己的 manifest 为准');
   assert.equal(catalog.warnings.length, 1); assert.ok(catalog.warnings[0].includes('2.0.1')); assert.ok(catalog.warnings[0].includes('2.0.0'));
+  // With a Claude manifest beside it, Claude reads that one: the entry is a second declaration again.
+  await configure(root, { version: '2.0.0' }, { name: 'compat-plugin', version: '2.0.0' });
+  assert.equal((await readMarketplace(root)).warnings.length, 1, '两种 manifest 并存');
+  // A root plugin.json is not a Codex manifest.
+  await configure(root, { version: '2.0.0' }); await fs.rm(path.join(root, '.codex-plugin'), { recursive: true });
+  await writeJson(path.join(root, 'plugin.json'), { name: 'compat-plugin', version: '2.0.0' });
+  assert.equal((await readMarketplace(root)).warnings.length, 1, '根目录 plugin.json');
 });
 
 test('strict matrix uses manifest existence and the six entry component fields, including empty declarations', async t => {

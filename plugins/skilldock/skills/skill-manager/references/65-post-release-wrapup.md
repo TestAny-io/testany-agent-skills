@@ -41,12 +41,12 @@
 ✘ Failed to add marketplace: Cannot add marketplace "testany-agent-skills": its source doesn't match its extraKnownMarketplaces entry in user or managed settings; add it from the source that entry lists, or change the entry.
 ```
 
-根因（只按键读取了这一项）：`~/.claude/settings.json` 的 `extraKnownMarketplaces` 中有 `testany-agent-skills = {"source":{"source":"github","repo":"TestAny-io/testany-agent-skills","ref":"feature/skilldock-0.11-cross-agent"}}`。只要这条声明在，从任何与它不一致的来源添加同名 marketplace 都会被拒——不带分支、带 `#main`、写成 https 地址都一样。
+根因（只按键读取了这一项）：`~/.claude/settings.json` 的 `extraKnownMarketplaces` 中有 `testany-agent-skills = {"source":{"source":"github","repo":"TestAny-io/testany-agent-skills","ref":"feature/skilldock-0.11-cross-agent"}}`。只要这条声明在，从与它不一致的来源添加同名 marketplace 就会被拒：实测的是不带分支的添加（界面两次、终端一次，桌面应用实际传的是 https 地址）；带 `#main` 的写法没有实测，按报错文字推断同样被拒。
 
 两点补充：
 
 - 用户填的是 `owner/repo`，桌面应用传给命令行的是完整的 https 地址。2026-10-10 成功就地改到开发分支的那次，传的是带 `#分支` 的简写。
-- `settings.json` 的最后修改时间是 2026-10-12 08:58:32，与当天上午第二次“对同一来源再 Add + Sync”失败的时间一致：那次界面显示失败的添加改写过这个文件。声明最初是 10-10 添加带分支的来源时写入，还是 10-12 上午写入，无法从现有信息判断。
+- `settings.json` 的最后修改时间是 2026-10-12 08:58:32，与当天上午第二次“对同一来源再 Add + Sync”失败的时间一致，据此推断那次界面显示失败的添加改写过这个文件。声明最初是 10-10 添加带分支的来源时写入，还是 10-12 上午写入，无法从现有信息判断。
 
 另做了一项只读诊断：在临时目录浅克隆 `main`（`838b619`），`claude plugin validate` 对 marketplace 与 `plugins/skilldock` 均通过，排除了清单本身的问题。
 
