@@ -425,5 +425,6 @@
 .uw-pending-confirmation { margin-top: 16px; padding: 14px 16px; border: 1px solid var(--orange); border-radius: 12px; font-size: 12px; overflow-wrap: anywhere; display: grid; gap: 10px; justify-items: start; }
 .uw-pending-confirmation p { margin: 0; }
 .uw-pending-confirmation ul { margin: 0; padding-left: 18px; }
+.uw-pending-tag { margin-left: 8px; padding: 1px 7px; border: 1px solid var(--orange); border-radius: 999px; font-size: 10px; font-style: normal; white-space: nowrap; }
 .uw-run-context { display: flex; flex-wrap: wrap; gap: 4px 16px; color: var(--muted); font-size: 11px; overflow-wrap: anywhere; min-width: 0; }
 .uw-run-context > code { font-size: inherit; white-space: normal; }

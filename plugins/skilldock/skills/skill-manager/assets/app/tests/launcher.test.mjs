@@ -157,7 +157,8 @@ test('failed new-version builds leave the old service and ownership record intac
   await fs.writeFile(packageFile, JSON.stringify(metadata));
   const ownership = await fs.readFile(path.join(first.state, 'launcher.json'), 'utf8');
   try {
-    await assert.rejects(launch('start', nextOptions), /失败（9）/);
+    // A failed build is not a failed download: only dependency installation names the network (41 UI-15).
+    await assert.rejects(launch('start', nextOptions), error => /失败（9）/.test(error.message) && !error.message.includes('联网'));
     assert.equal((await probe(first.url)).pid, first.pid);
     assert.equal(await fs.readFile(path.join(first.state, 'launcher.json'), 'utf8'), ownership);
   } finally { await launch('stop', nextOptions); }
@@ -454,6 +455,17 @@ test('dependency and build output goes to build.log, which starts over past 1 Mi
     assert.match(await fs.readFile(log, 'utf8'), /source-bundle/, '本次构建输出写入 build.log');
   } finally { await launch('stop', options); }
   assert.ok(first.pid);
+});
+
+test('the launch says dependencies need the network, before preparing and when their installation fails (41 UI-15)', async t => {
+  const f = await fixture(t); const options = { ...f, port: await freePort() };
+  // An unreadable lockfile fails `npm ci` at once, with no network access.
+  await fs.writeFile(path.join(f.appDir, 'package-lock.json'), '{');
+  let failure;
+  const { stderr } = await stderrOf(() => launch('start', options).catch(error => { failure = error; }));
+  assert.match(stderr, /准备隔离运行目录与锁定的依赖（[^）]*需要联网）/);
+  assert.match(failure?.message ?? '', /失败（\d+）；安装依赖需要联网，请确认网络可用后重试，详见 .*build\.log$/);
+  assert.equal((await launch('status', options)).status, 'stopped');
 });
 
 test('the service inherits only allowed variables; the command line of a Claude session is recorded, its variables are not passed on (DEC-SDX-024)', async t => {

@@ -707,6 +707,8 @@ export default function App() {
   const titleCount = !data ? "" : titleObjects ? titleObjects.filter(item => matchesAgent(item, effectiveAgent)).length
     : page === "activity" ? visibleActivity.length : page === "agents" ? data.agents?.length ?? "" : availableUpdates || "";
   const titleSplit = titleObjects && showAgentDimension && effectiveAgent === "all" ? agentCounts(titleObjects) : null;
+  // What the number beside the title counts: the plugin page lists more than it counts (41 UI-03).
+  const titleCounted = t({ skills: "技能", plugins: "已安装的插件", markets: "市场来源", updates: "可用更新", activity: "操作记录", agents: "Agent 环境" }[page]);
   const displaySkill = inspection?.kind === "skill" ? skills.find(skill => skill.id === inspection.id) : null;
   const displayPlugin = inspection?.kind === "plugin" ? data?.plugins.find(plugin => plugin.id === inspection.id) : null;
   function showOwningPlugin(id?: string) {
@@ -782,7 +784,7 @@ export default function App() {
       <div className="workspace">
         <header className="topbar">
           <button className="icon-button sidebar-toggle" aria-label={t(sidebarCollapsed ? "展开侧边栏" : "收起侧边栏")} title={t(sidebarCollapsed ? "展开侧边栏" : "收起侧边栏")} aria-expanded={!sidebarCollapsed} onClick={() => setSidebarCollapsed(value => !value)}><PanelLeft size={19} /></button>
-          <div className="workspace-title"><h1>{t(currentNav.label)}{data && <span className="title-count">{titleCount}</span>}{titleSplit && <AgentSplit counts={titleSplit} />}</h1><p>{t({ skills: "浏览、整理与管理你的技能", plugins: "扩展工作流，管理插件与附带技能", markets: "管理插件的发现与安装来源", updates: "检查变化，让你的工具保持最新", activity: "查看操作结果，恢复之前的内容", agents: "查看本机的 Agent 环境与 SkillDock 对它们的管理" }[page])}</p></div>
+          <div className="workspace-title"><div className="workspace-heading"><h1>{t(currentNav.label)}</h1>{data && titleCount !== "" && <span className="title-count" title={`${titleCounted} ${titleCount}`}><span className="sr-only">{titleCounted}</span>{titleCount}</span>}{titleSplit && <AgentSplit counts={titleSplit} counted={titleCounted} />}</div><p>{t({ skills: "浏览、整理与管理你的技能", plugins: "扩展工作流，管理插件与附带技能", markets: "管理插件的发现与安装来源", updates: "检查变化，让你的工具保持最新", activity: "查看操作结果，恢复之前的内容", agents: "查看本机的 Agent 环境与 SkillDock 对它们的管理" }[page])}</p></div>
           <div className="heading-actions">
             {showAgentDimension && ["skills", "plugins", "markets", "activity"].includes(page) && <AgentFilter value={agentFilter} onChange={setAgentFilter} counts={pageAgentCounts} />}
             <Button variant="ghost" busy={loading} onClick={() => void refresh()} disabled={!!busy} aria-label={t("刷新清单")} title={t("刷新清单")}>{!loading && <RefreshCw size={17} />}</Button>
@@ -1570,6 +1572,7 @@ function PluginCard({ plugin, busy, onToggle, onInstall, onDetails, onEditTags, 
     <TagStrip subject={{ ...plugin, name: pluginTitle(plugin), kind: "plugin" }} disabled={!!busy || !objectAgents(plugin).includes("codex")} onEdit={onEditTags} />
     {(showAgents || plugin.installation) && <div className="agent-line">{showAgents && <AgentBadges agents={plugin.agents} />}<ClaudePluginFacts plugin={plugin} /></div>}
     {plugin.enabled === null && plugin.installed && <div className="skill-reason skill-reason-attention"><CircleAlert size={13} /><span>{t("安装或启用状态尚未核实。")}</span></div>}
+    {!plugin.installed && !plugin.canInstall && plugin.reason && <div className="skill-reason"><LockKeyhole size={13} /><span><ServiceMessage value={plugin.reason} /></span></div>}
     <div className="skill-card-footer"><span className="source-tag" title={plugin.marketplace}><Globe2 size={12} />{plugin.directSource ? t("单插件来源") : plugin.marketplace}</span><div className="card-status">
       {plugin.installed ? <Toggle checked={plugin.enabled} disabled={!plugin.canToggle || !!busy} busy={busy === `plugin.toggle:${plugin.id}`} label={`${plugin.enabled ? t("禁用") : t("启用")} ${pluginTitle(plugin)}`} reason={plugin.reason ? t(plugin.reason) : undefined} onChange={onToggle} /> : <Button variant="ghost" disabled={!plugin.canInstall || !!busy} onClick={onInstall}><Plus size={14} />{t("安装插件")}</Button>}
       <button className="icon-button row-more" aria-label={t("{v0} 的更多操作", { v0: pluginTitle(plugin) })} aria-haspopup="menu" onClick={onMenu}><MoreHorizontal size={17} /></button>

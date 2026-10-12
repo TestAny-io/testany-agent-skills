@@ -2558,5 +2558,17 @@
   "另一侧的记录可以用上方的 Agent 筛选查看。": {
     "en": "Use the Agent filter above to see the other side's activity.",
     "ja": "もう一方の履歴は、上の Agent フィルターで確認できます。"
+  },
+  "技能": {
+    "en": "Skills",
+    "ja": "スキル"
+  },
+  "已安装的插件": {
+    "en": "Installed plugins",
+    "ja": "インストール済みのプラグイン"
+  },
+  "可用更新": {
+    "en": "Available updates",
+    "ja": "利用可能な更新"
   }
 }

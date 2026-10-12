@@ -122,8 +122,10 @@ test('Agents are shown by their marks, named for screen readers and tooltips; th
   assert.equal((badges.match(/<svg/g) || []).length, 2);
   assert.match(badges, /role="img" aria-label="Codex" title="Codex"/); assert.match(badges, /aria-label="Claude" title="Claude"/);
   assert.equal(/>(Codex|Claude)</.test(badges), false, '不再用文字标识');
-  const split = render(AgentSplit, { counts: { codex: 28, claude: 5 } });
-  assert.match(split, /agent-split-item agent-codex.*Codex<\/span>28/); assert.match(split, /agent-split-item agent-claude.*Claude<\/span>5/);
+  // Each share says whose it is and what it counts, to the eye on hover and to a screen reader (41 UI-03).
+  const split = render(AgentSplit, { counts: { codex: 28, claude: 5 }, counted: '已安装的插件' });
+  assert.match(split, /agent-split-item agent-codex" title="Codex 已安装的插件 28".*<span class="sr-only">Codex 已安装的插件<\/span>28/);
+  assert.match(split, /agent-split-item agent-claude" title="Claude 已安装的插件 5".*<span class="sr-only">Claude 已安装的插件<\/span>5/);
   const filter = render(AgentFilter, { value: 'all', onChange() {}, counts: { all: 33, codex: 28, claude: 5 } });
   assert.equal((filter.match(/<svg/g) || []).length, 2, '筛选按钮带图标');
 });
@@ -294,6 +296,28 @@ test('the plan lists the cross-side skills waiting for confirmation, and confirm
   assert.equal(pendingConfirmation({ ...data, schedule: { ...schedule, autoApply: false } }, 'zh'), undefined);
   assert.doesNotMatch(render(UpdatesWorkspace, { ...props, data: { ...data, schedule: { ...schedule, autoApply: false } } }), /uw-pending-confirmation/);
   assert.match(pendingConfirmation(data, 'en').description, /changes those plugins/); assert.match(pendingConfirmation(data, 'ja').title, /自動適用しますか/);
+});
+
+test('a skill waiting for confirmation is listed with the other side\'s plugins that hold it (41 UI-12)', () => {
+  const { UpdatesWorkspace, pendingConfirmation, holdingPlugins } = updatesUi();
+  const inner = { kind: 'skill', id: 'a'.repeat(24) }; const claudeOwn = { kind: 'skill', id: 'c'.repeat(24), agent: 'claude' }; const plain = { kind: 'skill', id: 'b'.repeat(24) };
+  const item = (target, name) => ({ target, name, owner: 'SkillDock', route: 'skill-source', status: 'unknown', canCheck: true, canApply: false, canAutoApply: false, installedPath: `/skills/${name}` });
+  const skill = (target, name, directory) => ({ id: target.id, name, path: `${directory}/SKILL.md`, agents: [target.agent ?? 'codex'] });
+  const plugin = (name, agents, realPath, more = {}) => ({ id: `${name}@m`, name, agents, installed: true, realPath, ...more });
+  const data = { mode: 'local', marketplaces: [], activity: [], diagnostics: [], updateRuns: [],
+    skills: [{ ...skill(inner, 'inner', '/link/inner'), realPath: '/claude/cache/kit/1.0.0/skills/inner/SKILL.md' }, skill(claudeOwn, 'own', '/codex/cache/tools/2.0.0/skills/own'), skill(plain, 'plain', '/claude/cache/kit/1.0.0-other/skills/plain')],
+    plugins: [plugin('kit', ['claude'], '/claude/cache/kit/1.0.0', { displayName: 'Kit' }), plugin('outer', ['claude'], '/claude/cache/kit/1.0.0/skills'), plugin('absent', ['claude'], '/claude/cache/kit/1.0.0', { installed: false }),
+      plugin('same-side', ['codex'], '/claude/cache/kit/1.0.0'), plugin('tools', undefined, '/codex/cache/tools/2.0.0'), plugin('unread', ['claude'], undefined)],
+    updates: [item(inner, 'inner'), item(claudeOwn, 'own'), item(plain, 'plain')],
+    schedule: { enabled: true, intervalMinutes: 60, timezone: 'UTC', autoApply: true, running: false, nextRunAt: '2026-10-10T01:00:00Z', targets: [{ ...inner, confirmation: 'pending' }, { ...claudeOwn, confirmation: 'pending' }, plain] } };
+  // The real directory decides; only the other side's installed plugins count; a sibling directory with the same prefix does not.
+  assert.deepEqual([...holdingPlugins(data, inner)], ['Kit', 'outer']);
+  assert.deepEqual([...holdingPlugins(data, claudeOwn)], ['tools'], 'Claude 的技能看 Codex 的插件；未写 agents 的插件属于 Codex');
+  assert.deepEqual([...holdingPlugins(data, plain)], []);
+  assert.deepEqual([...holdingPlugins(data, { kind: 'plugin', id: 'kit@m' })], []);
+  assert.deepEqual([...pendingConfirmation(data, 'zh').affected], ['inner (Kit, outer)', 'own (tools)']);
+  const props = { data, runPending: false, onClearFocus() {}, busy: false, language: 'zh', execute: async () => undefined, onDetails() {}, onRefresh() {}, onConfirm() {} };
+  assert.match(render(UpdatesWorkspace, props), /<li>inner \(Kit, outer\)<\/li><li>own \(tools\)<\/li>/);
 });
 
 // HLD 3.7 (G-01, phase 5d2b): the native start failure's one-click update.

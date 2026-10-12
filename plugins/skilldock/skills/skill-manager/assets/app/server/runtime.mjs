@@ -36,7 +36,8 @@ export async function prepareRuntime(stateDir, snapshot, { environment = process
     // An incomplete or mismatched runtime contains generated files, never user state.
     await fs.rm(runtime, { recursive: true, force: true });
     await materializeRuntime(snapshot, runtime);
-    process.stderr.write('SkillDock：准备隔离运行目录与锁定的依赖…\n');
+    // Said before it can fail: offline, npm's own error does not name the cause (41 UI-15).
+    process.stderr.write('SkillDock：准备隔离运行目录与锁定的依赖（首次打开和每次更新后各一次，安装依赖需要联网）…\n');
     const npm = await findNpm(process.execPath, { env: environment });
     if (!npm) throw new Error('未找到 npm，请使用 /bin/sh scripts/launch.sh 自动选择运行环境。');
     const env = await buildEnvironment(runtime, process.execPath, npm.npmCli, { ...environment, npm_config_update_notifier: 'false' });
@@ -45,7 +46,8 @@ export async function prepareRuntime(stateDir, snapshot, { environment = process
     const handle = log ? await fs.open(log, 'a', 0o600) : null;
     try {
       if (log) process.stderr.write(`SkillDock：依赖安装与构建的输出写入 ${log}\n`);
-      await run(process.execPath, [npm.npmCli, 'ci', '--ignore-scripts', '--no-audit', '--no-fund'], runtime, env, handle?.fd);
+      await run(process.execPath, [npm.npmCli, 'ci', '--ignore-scripts', '--no-audit', '--no-fund'], runtime, env, handle?.fd)
+        .catch(error => { throw new Error(`${error.message}；安装依赖需要联网，请确认网络可用后重试`, { cause: error }); });
       await run(process.execPath, [npm.npmCli, 'run', 'build'], runtime, env, handle?.fd);
     } catch (error) {
       throw log ? Object.assign(new Error(`${error.message}，详见 ${log}`), { cause: error }) : error;

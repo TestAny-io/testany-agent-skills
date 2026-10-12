@@ -53,9 +53,10 @@ export function AgentBadges({ agents }: { agents?: Agent[] }) {
   return <span className="agent-badges">{(agents ?? ["codex"]).map(agent => <span key={agent} className={`agent-badge agent-${agent}`} role="img" aria-label={AGENT_LABEL[agent]} title={AGENT_LABEL[agent]}><AgentMark agent={agent} /></span>)}</span>;
 }
 
-/** Per-Agent counts beside a total, e.g. the installed plugins of each side. */
-export function AgentSplit({ counts }: { counts: Record<Agent, number> }) {
-  return <span className="agent-split">{(["codex", "claude"] as const).map(agent => <span key={agent} className={`agent-split-item agent-${agent}`} title={`${AGENT_LABEL[agent]} ${counts[agent]}`}><AgentMark agent={agent} size={18} /><span className="sr-only">{AGENT_LABEL[agent]}</span>{counts[agent]}</span>)}</span>;
+/** Per-Agent counts beside a total; `counted` names what both count, e.g. the installed plugins of each side. */
+export function AgentSplit({ counts, counted }: { counts: Record<Agent, number>; counted: string }) {
+  return <span className="agent-split">{(["codex", "claude"] as const).map(agent => { const label = `${AGENT_LABEL[agent]} ${counted}`;
+    return <span key={agent} className={`agent-split-item agent-${agent}`} title={`${label} ${counts[agent]}`}><AgentMark agent={agent} size={18} /><span className="sr-only">{label}</span>{counts[agent]}</span>; })}</span>;
 }
 
 const LAYER: Record<ClaudeSettingsLayer, string> = { user: "用户设置", project: "项目设置", local: "本地设置", managed: "组织托管设置" };

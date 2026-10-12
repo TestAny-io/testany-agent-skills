@@ -55,7 +55,9 @@ html[lang] .app-shell .sidebar .nav-item { flex-direction: row; font-size: 13px 
 .workspace { grid-column: 2; display: flex; flex-direction: column; min-height: 0; min-width: 0; padding: 0 0 0 10px; }
 .topbar { position: relative; inset: auto; flex: 0 0 auto; min-height: 68px; height: auto; padding: 10px 16px 10px 12px; margin-bottom: 10px; gap: 12px; border-radius: 18px; z-index: 15; }
 .workspace-title { min-width: 0; margin-right: auto; }
-.workspace-title h1 { display: flex; align-items: center; gap: 9px; font-size: 17px; letter-spacing: -.4px; line-height: 1.35; font-weight: 650; }
+/* The counts sit beside the heading, not in it: its name is the page's alone (41 UI-03). */
+.workspace-heading { display: flex; align-items: center; gap: 9px; }
+.workspace-title h1 { font-size: 17px; letter-spacing: -.4px; line-height: 1.35; font-weight: 650; }
 .workspace-title p { font-size: 11px; color: var(--muted); margin-top: 3px; white-space: nowrap; text-overflow: ellipsis; overflow: hidden; }
 .title-count { color: var(--muted); font-size: 12px; font-weight: 450; font-variant-numeric: tabular-nums; letter-spacing: 0; }
 .heading-actions { gap: 8px; padding: 0; }

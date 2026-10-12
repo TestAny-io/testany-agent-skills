@@ -87,8 +87,16 @@ test('update preview applies source changes and activity restores the original v
   await nav(page, '更新').click();
   await expect(page.getByRole('heading', { name: 'writing-assistant', exact: true })).toBeVisible();
   const row = page.locator('.update-row').filter({ has: page.getByRole('heading', { name: 'writing-assistant', exact: true }) });
+  // What the check says the update touches on the other side is shown with its result (41 UI-11).
+  await page.route('**/api/actions', async route => {
+    if (route.request().postDataJSON()?.action !== 'update.check') return route.fallback();
+    const response = await route.fetch();
+    await route.fulfill({ response, json: { ...await response.json(), nativeRules: [{ kind: 'scope', message: '这个技能目录由 Codex 与 Claude 共用，两侧看到的内容都会改变。' }] } });
+  });
   await action(page, 'update.check', () => row.getByRole('button', { name: '检查更新', exact: true }).click());
+  await page.unroute('**/api/actions');
   await expect(page.getByRole('dialog')).toContainText('checklist.md');
+  await expect(page.getByRole('dialog').locator('.native-rules')).toHaveText('这个技能目录由 Codex 与 Claude 共用，两侧看到的内容都会改变。');
   await action(page, 'update.apply', () => page.getByRole('button', { name: '确认更新', exact: true }).click());
   await expect(page.getByRole('dialog')).toHaveCount(0);
   await nav(page, '技能库').click();
@@ -154,6 +162,48 @@ test('isolated market and plugin lifecycle changes actual inventory and preserve
   expect((await state(page)).marketplaces.some(item => item.name === 'community-market')).toBe(false);
 });
 
+test('the bulk removal preview names what the removal touches on the other side (41 UI-11)', async ({ page }) => {
+  // Two copies of one name, and a preview carrying a native rule: only the interface is under test.
+  await page.route('**/api/state?mode=sandbox*', async route => {
+    const response = await route.fetch(); const snapshot: Snapshot = await response.json();
+    const first = snapshot.skills.find(skill => skill.name === 'design-review')!;
+    Object.assign(first, { duplicateNames: ['design-review'], canRemove: true });
+    snapshot.skills.push({ ...first, id: `${first.id}-copy`, path: `${first.path}.copy/SKILL.md` });
+    await route.fulfill({ response, json: snapshot });
+  });
+  await page.route('**/api/actions', async route => {
+    const request = route.request().postDataJSON();
+    if (request?.action !== 'skill.previewRemoval') return route.fallback();
+    const skills = (await state(page)).skills.filter(skill => skill.name === 'design-review');
+    await route.fulfill({ json: { message: '移除预览已准备好，请核对每份路径。', removalPreview: { id: 'preview', name: 'design-review', remove: skills.slice(0, 1), keep: [] },
+      nativeRules: [{ kind: 'scope', message: '这个技能目录由 Codex 与 Claude 共用，两侧看到的内容都会改变。' }] } });
+  });
+  await page.goto('/');
+  await page.getByRole('button', { name: '管理同名技能' }).first().click();
+  const dialog = page.getByRole('dialog');
+  await dialog.getByRole('checkbox').first().check();
+  await dialog.getByRole('button', { name: /预览|继续|下一步/ }).click();
+  await expect(dialog.getByRole('heading', { name: '确认移除范围' })).toBeVisible();
+  await expect(dialog.locator('.native-rules')).toHaveText('这个技能目录由 Codex 与 Claude 共用，两侧看到的内容都会改变。');
+});
+
+test('a plan target waiting for confirmation is marked in the plan settings (41 UI-12)', async ({ page }) => {
+  await page.route('**/api/state?mode=sandbox*', async route => {
+    const response = await route.fetch(); const snapshot: Snapshot = await response.json();
+    const target = snapshot.updates!.find(item => item.name === 'writing-assistant')!.target;
+    snapshot.schedule = { ...snapshot.schedule!, enabled: true, autoApply: true, targets: [{ ...target, confirmation: 'pending' }] };
+    await route.fulfill({ response, json: snapshot });
+  });
+  await page.goto('/');
+  await nav(page, '更新').click();
+  await expect(page.locator('.uw-pending-confirmation li')).toHaveText(['writing-assistant']);
+  await page.getByRole('button', { name: '设置计划', exact: true }).click();
+  const marked = page.getByRole('dialog').locator('.uw-check').filter({ has: page.locator('.uw-pending-tag') });
+  await expect(marked).toHaveCount(1);
+  await expect(marked).toContainText('writing-assistant');
+  await expect(marked.locator('.uw-pending-tag')).toHaveText('待确认');
+});
+
 test('large plugin catalogs render in batches while search covers all results', async ({ page }) => {
   // A version-2 interface asks for `/api/state?mode=sandbox&multiAgent=1`.
   await page.route('**/api/state?mode=sandbox*', async route => {
@@ -165,6 +215,7 @@ test('large plugin catalogs render in batches while search covers all results', 
       description: 'Synthetic large-catalog browser fixture', marketplace: 'catalog',
       installed: false, enabled: false, skillCount: 0,
       canInstall: false, canRemove: false, canToggle: false,
+      ...(index === 4105 ? { reason: '当前账号或工作区不允许安装此插件，请在 Codex 官方目录查看原因。' } : {}),
     }));
     await route.fulfill({ response, json: snapshot });
   });
@@ -178,6 +229,8 @@ test('large plugin catalogs render in batches while search covers all results', 
   await page.getByRole('searchbox', { name: '搜索' }).fill('catalog-04105');
   await expect(page.locator('.skill-card')).toHaveCount(1);
   await expect(page.getByRole('heading', { name: 'catalog-04105', exact: true })).toBeVisible();
+  // Why it cannot be installed is on the card, not only in its details (41 UI-07).
+  await expect(page.locator('.skill-card .skill-reason')).toHaveText('当前账号或工作区不允许安装此插件，请在 Codex 官方目录查看原因。');
   await page.getByRole('button', { name: '清空搜索' }).click();
   await expect(page.locator('.skill-card')).toHaveCount(48);
 });

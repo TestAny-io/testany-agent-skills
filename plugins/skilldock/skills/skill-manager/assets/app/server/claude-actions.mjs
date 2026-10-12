@@ -10,6 +10,7 @@ import { AppError, fail, redact } from './errors.mjs';
 import { acquireFileLock, operationLock } from './process-lock.mjs';
 import { localSettingsExposure, excludeLocalSettings } from './local-settings.mjs';
 import { patchClaudeSetting } from './claude-settings.mjs';
+import { copyManifests } from './claude-plugin-updates.mjs';
 
 export const CLAUDE_WRITES = new Set(['skill.toggle', 'plugin.toggle', 'plugin.previewMarketplace', 'plugin.install', 'plugin.remove', 'marketplace.add', 'marketplace.refresh', 'marketplace.remove']);
 // Whole sentences per case, so that each translates as one message.
@@ -178,10 +179,12 @@ export function createClaudeActions({ root, read, writer, journal, git, removeSk
       const plugin = find(state.claude.plugins, request.id, 'plugin');
       if (plugin.installed || !plugin.canInstall) fail(403, 'PROTECTED_PLUGIN', plugin.reason || '这个插件不能在这里安装。');
       const market = state.claude.marketplaces.find(item => item.name === plugin.marketplace);
+      const location = await readEntry(path.join(state.claudeRoot.configDir, 'plugins/known_marketplaces.json'), plugin.marketplace, 'installLocation');
+      const manifests = typeof location === 'string' ? await copyManifests(location, plugin.name) : null;
       return { message: '插件安装预览已就绪。', agent: 'claude', pluginPreview: {
         agent: 'claude', id: `claude-preview:${plugin.id}`, name: plugin.name, version: plugin.version || '', description: plugin.description || '', source: plugin.marketplace,
         sourceType: ['directory', 'file'].includes(market?.type) ? 'local' : 'git', marketplace: plugin.marketplace, pluginId: plugin.id,
-        scopes: ['user', 'local', 'project'], defaultScope: 'user', skills: [], skillDetails: [], canSelectSkills: false, components: [], duplicates: [],
+        scopes: ['user', 'local', 'project'], defaultScope: 'user', skills: [], skillDetails: [], canSelectSkills: false, components: [], duplicates: [], ...(manifests ? { manifests } : {}),
         nativeRules: [{ kind: 'scope', message: '可以安装给当前用户（默认）、只在当前项目中给你自己用（本地设置），或给项目的所有协作者（共享设置，需要确认）。' }, RELOAD] } };
     },
     async 'plugin.install'(request, state, run) {
