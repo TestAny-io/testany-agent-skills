@@ -23,6 +23,8 @@
 >
 > **修订 r10（2026-10-12）**：按复核 [63 r3](63-cross-agent-synthesized-manifest-review-r3.md) 更正措辞，上一版 sha256 `1415a01c51fa6e13b7b8ed41c2f2abaca33126e9229dbb7ce8307dc573cb3401`（提交 `c223730`）：r9 说明中的“第 4 步”指第 7 节第 6 项。
 >
+> **修订 r11（2026-10-12，发布之后）**：按收尾的实测（[65](65-post-release-wrapup.md)）更正第 8 节，上一版 sha256 `2a4d7b77554748278b17e0786f18626c3c2eba5aee3cd88812617fadd36a4214`（提交 `8dc2347`）。第 2 项的就地切换在装过带分支来源的电脑上不成立，改为说明原因并直接走第 3 项；读回的预期改为只看 `hasRef`；补上同源插件一并卸载、运行实例要停一次两点。第 1～7、9 节未改；UAT 已于发布前执行完毕，这次更正只为以后照此收尾的人。
+>
 > **进度**：第一部分（2026-10-10）做完第 3～6 节；第二部分（2026-10-12）做完第 6 节第 4、5 项，第 7 节第 2～6 项与第 7A 节。第 7 节第 6 项修复前失败（合成清单被判为本地修改），修复后用 `d2034fd` 重做通过：桌面应用 Check for updates 拉到新提交并写入合成清单，修复后的实例检查与应用都正常，读回 `d2034fdc537f`，没有用终端。剩下第 8 节（发布后）。
 
 ## 1. 这次会真实改动什么（先读给用户听）
@@ -179,8 +181,12 @@ echo "== Claude marketplace"; "$CLAUDE" plugin marketplace list --json | node -e
    ```
 
    应读到 `hasRef` 为 `true`、`ref` 为 `feature/skilldock-0.11-cross-agent`。读不到时说明 ref 不记在这里，停下来问用户，后面不能用 `hasRef` 判断是否切换成功。
-2. 在 Plugins 页 **+ Add ▾** → **Add marketplace** 中添加 `TestAny-io/testany-agent-skills`（不带 `#分支`，与现有来源不同），点 **Sync**；再运行同一条命令读回，应为 `source` 为 `github`、`repo` 为 `TestAny-io/testany-agent-skills`、`hasRef` 为 `false`；`"$CLAUDE" plugin list --json | node -e "$NAMES"` 中 SkillDock 与 testany-eng 都还在；
-3. 若没有就地切换（来源仍带 ref），再经用户同意在 **Manage marketplaces** → **⋮** → **Remove** 中移除该 marketplace（会卸载从它安装的插件，确认框会列出）、重新添加并从插件浏览器重新安装。数据目录不受影响，计划与记录都在。
+2. **不要再用“添加不带分支的同一来源”来就地切换**（r11 更正）。Claude 添加 marketplace 时会在用户设置的 `extraKnownMarketplaces` 中留下声明（命令行 2.1.295 的添加结果写明 “declared in user settings”）；执行 UAT 的电脑上，这条声明带着开发分支的 `ref`（它是哪一次添加写入的没有查清，见 65 第 2.1 节）。只要这条声明在，从与它不一致的来源添加同名 marketplace 就会被拒。桌面应用只显示 “Failed to add marketplace.”，命令行的报错是 `Cannot add marketplace "testany-agent-skills": its source doesn't match its extraKnownMarketplaces entry in user or managed settings…`。2026-10-10 那次就地改到开发分支之所以成功，推断是当时还没有这条声明。
+3. 经用户同意在 **Manage marketplaces** → **⋮** → **Remove** 中移除该 marketplace，再在 **+ Add ▾** → **Add marketplace** 中添加 `TestAny-io/testany-agent-skills`（不带 `#分支`）并 **Sync**，然后在 **Discover** 中重新安装。
+   - 移除会卸载从它安装的**全部**插件（不只 SkillDock，例如 testany-eng），并删掉上面那条声明；重装后各插件取到的是 `main` 上的当前版本，可能比原来新。先向用户说明。
+   - 读回（第 1 项的命令）只看 `hasRef` 为 `false`。经桌面应用添加时它传的是完整的 https 地址，读回是 `source` 为 `git` 加地址，而不是 `github` 加 `repo`。
+   - 数据目录不受影响，计划与记录都在。
+   - 两侧都重装到同一版本后，运行中的实例不会自己换成新装的代码（同版本不切换）。经用户同意用 `stop` 停一次；Codex 的 SkillDock 原生页面开着时会自动拉起，否则再打开一次。
 4. 提醒用户：Codex 一侧的自动更新计划里，SkillDock 这一项因 V17 期间安装目录变化而每次跳过（“旧计划不接管新对象，请重新选择”），在按 [60](60-v17-real-codex-update.md) 第 8 节改回 `main` 之后，到 SkillDock 的“更新”页重新选择它。
 
 确认正常后，经用户同意把 `~/skilldock-uat-final` 移到废纸篓。

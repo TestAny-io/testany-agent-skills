@@ -6,8 +6,8 @@
 |------|------|
 | 契约 ID | API-SDX-001 |
 | 系统 | SkillDock（`plugins/skilldock`） |
-| 版本 | 0.32 |
-| 状态 | 第 13 轮契约复核 APPROVED（[r13](36-cross-agent-api-contract-review-r13.md)），第 14 轮（[r14](36-cross-agent-api-contract-review-r14.md)）绑定 0.14，第 15 轮（与 HLD 第 25 轮合并，[报告](35-cross-agent-hld-review-r24.md)）核对 0.15～0.30 后重新绑定到 0.30。0.10.3 已于 2026-10-08 发布（PR #54）。0.14 处理第 13 轮的 P2，只涉及条件 1b；0.15～0.30 为阶段 3 试用与阶段 4、5 实现中的澄清（见第 10 节），已经第 15 轮核对；0.31 处理第 15 轮意见，经第 16 轮（[报告](58-cross-agent-6d-rereview.md)）核对后重新绑定；0.32 处理第 16 轮的文字意见，待增量复核。按 HLD 11A：条件 1a 覆盖随 0.10.3 冻结的条文；条件 1b 覆盖 0.11.0 HTTP 字段形态、操作与错误码、36b 6.3 与 7.4 的 0.11.x 义务，以及附录 A.5 的 0.11.0 关口用例，在实现 0.11.0 相应部分前通过评审 |
+| 版本 | 0.33 |
+| 状态 | 第 13 轮契约复核 APPROVED（[r13](36-cross-agent-api-contract-review-r13.md)），第 14 轮（[r14](36-cross-agent-api-contract-review-r14.md)）绑定 0.14，第 15 轮（与 HLD 第 25 轮合并，[报告](35-cross-agent-hld-review-r24.md)）核对 0.15～0.30 后重新绑定到 0.30。0.10.3 已于 2026-10-08 发布（PR #54）。0.14 处理第 13 轮的 P2，只涉及条件 1b；0.15～0.30 为阶段 3 试用与阶段 4、5 实现中的澄清（见第 10 节），已经第 15 轮核对；0.31 处理第 15 轮意见，经第 16 轮（[报告](58-cross-agent-6d-rereview.md)）核对后重新绑定；0.32 处理第 16 轮的文字意见；0.33 为最终 UAT 与 0.11.1 的修订，待增量复核。按 HLD 11A：条件 1a 覆盖随 0.10.3 冻结的条文；条件 1b 覆盖 0.11.0 HTTP 字段形态、操作与错误码、36b 6.3 与 7.4 的 0.11.x 义务，以及附录 A.5 的 0.11.0 关口用例，在实现 0.11.0 相应部分前通过评审 |
 | Owner | SkillDock 维护者；产品 Owner：用户 |
 | 消费方 | 0.10.2 冻结代码（启动器、原生入口、自更新、后台）；0.10.3（过渡版）；0.11.x 的启动器、服务、后台任务、浏览器界面与原生界面 |
 | PRD 引用 | [PRD-SKILLDOCK-002 v0.11](34-cross-agent-prd.md)（已批准；0.3～0.11 为 Owner 批准的有限修订） |
@@ -47,7 +47,7 @@
 |------|------|------|--------|----------|
 | 文件格式 | [36a 跨版本文件格式](36a-cross-version-file-formats.md) | 0.2 | 0.10.2、0.10.3、0.11.x | REQ-SDX-007、MR-SDX-002 |
 | 进程间 / 命令行 | [36b 启动脚本与转交协议](36b-launcher-handover-protocol.md)（含附录 A 期望结果表） | 0.14 | 0.10.2 原生入口、技能入口、0.10.3、0.11.x | REQ-SDX-007、008、009 |
-| HTTP | [36c HTTP 接口增量](36c-http-api-delta.md) | 0.31 | 0.11.x 界面；0.10.x 原生界面；0.10.2 启动器、0.10.3 转交链（健康检查） | REQ-SDX-001～006、009、012、015～017 |
+| HTTP | [36c HTTP 接口增量](36c-http-api-delta.md) | 0.32 | 0.11.x 界面；0.10.x 原生界面；0.10.2 启动器、0.10.3 转交链（健康检查） | REQ-SDX-001～006、009、012、015～017 |
 
 ## 5. 共享数据模型
 
@@ -158,6 +158,7 @@
 | 0.30 | 2026-10-10 | 处理另一台电脑试用的观察（[37](37-cross-agent-implementation-plan.md) 阶段 5 状态；36c 升为 0.29，待增量复核）：第 6 节写明 Claude 插件的更新列表项与检查结果带安装目录与只供显示的来源描述（`sourceInfo.kind = marketplace-entry`，不进入计划绑定）；第 10 节写明 1 版快照的操作记录不含 `agent.*` 操作。`agent.setManagement` 成功后写一条操作记录 |
 | 0.31 | 2026-10-10 | 处理第 15 轮契约复核（与 HLD 第 25 轮合并，[报告](35-cross-agent-hld-review-r24.md)）与阶段 6 代码评审（[57](57-cross-agent-phase6-review.md)）涉及契约的部分（36c 升为 0.30，待增量复核）：元信息与版本表更正（P3-02）；第 6 节写明 `marketplace-entry` 的可信度为 `inferred`、生成 marketplace 中插件的来源信息字段，以及本地目录、Git 托管条目的计划绑定位置含 marketplace 自身的来源、npm 地址只取 origin（P3-03、P3-06）；7.2 `agent.setManagement` 改为尽力写入操作记录（P3-07）；第 10 节写明 1 版快照也不含计划关于 Claude 目标的记录与运行记录中的 Claude 项（P3-04）；第 6 节 `canUpdate` 注明只读一侧的例外经 Owner 决定（DG-R24-1） |
 | 0.32 | 2026-10-10 | 处理第 16 轮复核（[58](58-cross-agent-6d-rereview.md)）的文字意见（36c 升为 0.31，待增量复核）：PRD 引用改为 0.11；36c 第 10 节写明 1 版快照中运行级的 `total`、`status` 与 `updateProgress` 不按 Agent 过滤（RR6-P3-03） |
+| 0.33 | 2026-10-12 | 最终 UAT 与 0.11.1 的修订（36c 升为 0.32，待增量复核；HLD v1.32）：`Marketplace.ref`（Git marketplace 固定的分支、标签或提交，只供显示）；从 Claude marketplace 安装的预览在条目指向副本内目录时带 `manifests`；写明 Claude 一侧的 `skills` 只含个人与项目技能；`/api/updates/progress` 的 `agent` 参数注明为“接受但不改变结果”，第 10 节补全运行级进度不过滤的范围（[59](59-cross-agent-6d-rereview-r2.md) RR7-P3-03）。上一版（提交 `122ef9f` 起未改）：索引 0.32 `239bec8ea5b942718b24e5917b9e98128a72ed656edef7e31c887e398691ef60`，36c 0.31 `b8a424f366968c83baac528c24604dbd08506ca36d784238103e1b9d61810600`。36a、36b 未改 |
 
 ## 11. 首轮契约评审意见处理（v0.2）
 

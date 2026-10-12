@@ -189,6 +189,47 @@
   - `testany-llm` 的命令列表和 plugin 描述改为仅保留 `prompt-optimizer`
   - 根 README、`AGENTS.md`、`CLAUDE.md` 不再引用已删除的 `skill-creator` 脚本与路径
 
+## [skilldock 0.11.1] - 2026-10-12
+
+补丁版本：SkillDock 在 Claude 一侧也声明版本号，Agent 标识换成官方标志，并处理最终 UAT 与界面清单（[41](plugins/skilldock/skills/skill-manager/references/41-ui-redesign-backlog.md)）里记录的具体问题。数据格式不变，不需要迁移。
+
+### 变更
+
+- **Claude 一侧声明版本**：仓库的 Claude marketplace 中，`skilldock` 条目声明版本号，与 Codex 一侧相同。Claude 中显示的版本从提交摘要变为 `0.11.1`，两侧显示同一版本，更新预览能给出目标版本；Claude 按这个版本识别新版本，也只在它变化时更新。从 0.11.0 升级的方法不变：在 SkillDock 的“更新”页检查并确认，或刷新 marketplace 后运行 `claude plugin update skilldock@testany-agent-skills`。
+- **Agent 标识换成官方标志**：Codex 用 OpenAI Blossom，Claude 用 Claude Spark，取自 OpenAI 与 Anthropic 的官方品牌资源，仍只显示图标（名称在悬停提示与读屏中）。来源与用法见 [THIRD_PARTY_NOTICES](plugins/skilldock/skills/skill-manager/THIRD_PARTY_NOTICES.md)。
+- **删除 `commands/skill-manager.md`**：Claude 因它与同名技能冲突而不加载它，Codex 也不引用它。打开方式不变：`/skilldock:skill-manager`、“打开 SkillDock”、Codex 的原生入口。
+- **市场来源**：Git marketplace 固定在某个分支、标签或提交时，卡片上写明。
+
+### 修复
+
+- **计数与空状态**：技能页的分类计数、市场来源与操作记录的数量、各页的空状态都按顶部的 Agent 筛选计算；标题旁的数字移出页面标题，并说明数的是什么（例如“已安装的插件”）。
+- **按所选 Agent 给说明与默认值**：“未安装”的说明按列表中实际出现的 Agent 给出；顶部选了 Claude 时，“安装技能”“添加来源”等对话框默认选 Claude；按 Claude 筛选而技能库为空时，说明 Claude 插件自带的技能在插件页查看。
+- **插件**：不能安装的插件，原因直接显示在卡片上；从 Claude marketplace 安装的预览显示插件带有哪一侧的专用 manifest（条目指向 marketplace 副本内的目录时）。
+- **会影响另一侧的改动**：更新页的检查结果与批量移除的预览直接列出说明，不必等到确认框；计划中待确认的技能写明所在的另一侧插件，计划设置里标出待确认的目标。
+- **加载**：第一次读取清单较慢时，4 秒后说明正在读取。
+- **启动器**：准备依赖前说明安装依赖需要联网，依赖安装失败时提示检查网络；“请求目录包含符号链接”与“使用界面保存的项目”两条提示只在与最终扫描的目录相符时输出。
+- **marketplace 兼容性检查**：只带 Codex manifest 的插件在条目中重复同一版本，不再提示“两处版本声明”。
+
+### 文档、分发与验证
+
+- SkillDock 从 0.11.0 升至 0.11.1：Codex manifest、应用版本与 lockfile、marketplace 条目、中英文 README、应用 README 与 Codex 原生构建产物；新增一条把这几处绑在一起的版本一致性用例。
+- 设计与契约：HLD v1.32、API 契约 0.33（36c 0.32），写入条目声明版本、删除命令文件、他人写入安装目录的文件的比较规则等；0.11.0 发布后的收尾记录见 [65](plugins/skilldock/skills/skill-manager/references/65-post-release-wrapup.md)，实施进展见 [37](plugins/skilldock/skills/skill-manager/references/37-cross-agent-implementation-plan.md) 的“0.11.1 进展”。
+- 单元测试 623 项、浏览器端到端测试 88 项在隔离沙箱中全部通过（本机 Chrome，临时配置）。沙箱不是 CI 等价环境。
+- 真实 Claude 命令行 2.1.295，临时配置目录、禁网：分发冒烟装入版本为 `0.11.1`、1 个技能、0 个 MCP 服务；升级实验从 0.11.0（`838b6191431a`）更新到 `0.11.1`，同一版本只改内容时不更新，条目版本升高后更新（HLD 9.3 V21）。
+- 独立评审：版本声明、校验规则、删除命令文件、官方标志与收尾记录见 [66](plugins/skilldock/skills/skill-manager/references/66-0111-packaging-review.md)；其后的界面、启动器与文档批次，以及 HLD v1.32、契约 0.33 的增量复核，尚待评审。
+- 没有验证的：Claude 桌面应用插件页的 **Update** 在声明版本后是否可用。没有改的：Codex 一侧与独立技能仍把访达的 `.DS_Store` 算作本地修改（评估见 37）。
+
+## [testany-eng 2.8.1] - 2026-10-12
+
+### 变更
+
+- 仓库校验脚本 `validate_codex_compat.py`：只带 Codex manifest 的插件可以在 marketplace 条目中重复同一版本（Claude 不读 Codex manifest，这是给它的镜像），两处必须是相同的非空字符串；其余插件仍只允许一处声明版本。`CLAUDE.md`、`AGENTS.md`、`docs/plugin-development.md` 的版本规则同步。
+
+### 文档、分发与验证
+
+- `testany-eng` 从 2.8.0 升至 2.8.1（只有校验脚本与其测试变化）；同步插件 README。版本仍仅由插件 `plugin.json` 声明。
+- 校验脚本的单元测试与仓库校验（`--profile repository`）通过。
+
 ## [skilldock 0.11.0] - 2026-10-12
 
 跨 Agent 版本：一个本地实例同时管理 Codex 与 Claude（Claude Code 与 Claude 桌面应用）的技能、插件和 marketplace。在 Codex 或 Claude 中都能安装和打开 SkillDock，两边打开的是同一个实例、同一份数据。需求、设计与接口契约随本版发布：PRD-SKILLDOCK-002、HLD-SDX-001、API-SDX-001（`plugins/skilldock/skills/skill-manager/references/34`～`37`）。

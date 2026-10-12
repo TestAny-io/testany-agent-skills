@@ -142,6 +142,8 @@ node -e 'const fs=require("fs");const f=process.argv[1];const L=fs.readFileSync(
 "$CODEX" plugin add skilldock@testany-agent-skills --json
 ```
 
+两侧都改回 `main` 并装到同一版本后，运行中的实例不会自己换成新装的代码（同版本不切换）：经用户同意用 `stop` 停一次，Codex 的 SkillDock 原生页面开着时会自动拉起（[65](65-post-release-wrapup.md) 第 4 节；2026-10-12 补，上一版 sha256 `57b9432cf90ac96d871a3f11661b77228b1c9740efb427247bda64f9654b945d`，提交 `e7bf95a`）。
+
 确认 0.11.0 正常后，经用户同意把 `~/skilldock-v17` 移到废纸篓。
 
 ## 9. 汇报
