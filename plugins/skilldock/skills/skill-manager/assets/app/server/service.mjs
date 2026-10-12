@@ -30,7 +30,7 @@ import { createDirectoryIcons } from './directory-icons.mjs';
 import { createAgentLayer, readManagement, writeManagement, AGENT_NAME } from './agents.mjs';
 import { claudeCatalog, claudeIds, claudeLists } from './claude-catalog.mjs';
 import { updateSkilldockIn, claudeAppVersion, manualUpdate } from './skilldock-update.mjs';
-import { INSTALL_SKIP, marketplaceEntry, pluginSource, entrySourceInfo, entryPlace, OWNER_REASON, stageCandidate, predictVersion, checkOutcome, copyInstallation, localDirectory, defaultFetchers } from './claude-plugin-updates.mjs';
+import { INSTALL_SKIP, asInstalled, marketplaceEntry, pluginSource, entrySourceInfo, entryPlace, OWNER_REASON, stageCandidate, predictVersion, checkOutcome, copyInstallation, localDirectory, defaultFetchers } from './claude-plugin-updates.mjs';
 import { claudeWriter } from './claude-writer.mjs';
 import { createClaudeActions, CLAUDE_WRITES } from './claude-actions.mjs';
 import { mergeClaude, markReadOnly } from './multi-agent.mjs';
@@ -800,15 +800,18 @@ export async function createService(options = {}) {
       const location = market.installLocation ?? market.path;
       const { entry, pluginRoot } = await marketplaceEntry(location, plugin.name);
       const source = direct ? { kind: 'direct' } : pluginSource(entry, market);
-      const installed = await inspectTree(install.installPath, { skip: INSTALL_SKIP });
+      // Compared with the candidate as Claude keeps it, without a manifest Claude synthesized (final UAT
+      // 2026-10-12): before applying, against the preview's candidate; when checking, once it is staged.
+      const rawInstalled = await inspectTree(install.installPath, { skip: INSTALL_SKIP });
+      let installed = applying ? asInstalled(rawInstalled, previews.get(previewId)?.tree?.entries ?? {}) : rawInstalled;
       const registry = await registryFor(env); const baselines = (registry.claudePluginBaselines ??= {}); const baseline = baselines[target.id];
       // MR-SDX-003: content changed since SkillDock last saw this version is not overwritten. An `unknown`
       // version tells nothing: Claude may have overwritten it in place (5a/5b review P1-02).
-      const changedLocally = baseline && baseline.version === install.version && baseline.fingerprint !== installed.fingerprint;
+      const changedLocally = () => baseline && baseline.version === install.version && ![installed.fingerprint, rawInstalled.fingerprint].includes(baseline.fingerprint);
       const localChanges = () => fail(409, 'LOCAL_CHANGES', install.version === 'unknown'
         ? '已安装的插件内容相对上次记录有变化，可能是 Claude 自己更新过，也可能是本地修改，不能自动覆盖；请先核对。如果没有本地修改，可在 Claude 中卸载后重新安装这个插件，再检查。'
         : '已安装的插件内容相对上次记录有本地修改，不能自动覆盖；请先核对。');
-      if (applying && changedLocally) localChanges();
+      if (applying && changedLocally()) localChanges();
       if (!applying) {
         const item = (status, extra) => ({ target, agent: 'claude', name, owner: 'Claude', route: 'claude-plugin', status, canCheck: true, canApply: status === 'available', canAutoApply: status === 'available' && !registry.claudePluginReview?.[target.id], checkedAt: now(), installedVersion: install.version, installedPath: install.installPath,
           sourceInfo: direct ? directSourceInfo(tracked) : entrySourceInfo(source, plugin.marketplace), ...extra });
@@ -825,13 +828,14 @@ export async function createService(options = {}) {
         // Compared as the installation is, without `node_modules`; a generated marketplace's candidate
         // keeps them, since it becomes SkillDock's copy (phase 5 re-review P2-02).
         const compared = direct ? await inspectTree(staged.candidate, { skip: INSTALL_SKIP }) : staged.tree;
+        installed = asInstalled(rawInstalled, compared.entries);
         // Content equal to the source keeps no local change: the baseline follows it, and an automatic
         // applying paused by a readback resumes (5a/5b review P1-02, P3-02).
         if (installed.fingerprint === compared.fingerprint) {
           baselines[target.id] = { version: install.version, fingerprint: installed.fingerprint };
           if (registry.claudePluginReview) delete registry.claudePluginReview[target.id];
           await writeJson(env.registryFile, registry);
-        } else if (changedLocally) localChanges();
+        } else if (changedLocally()) localChanges();
         // SkillDock writes the generated entry's version from the source (HLD 3.3).
         const predicted = await predictVersion(staged.candidate, direct ? staged.detail.version ? { version: staged.detail.version } : {} : entry, direct ? { kind: 'local' } : source, staged);
         const outcome = checkOutcome({ installedVersion: install.version, installedFingerprint: installed.fingerprint, candidateFingerprint: compared.fingerprint, predicted });
@@ -897,7 +901,7 @@ export async function createService(options = {}) {
         await run(['plugin', 'update', cliId, '--scope', scope, '--json'], { cwd });
       } catch (error) { if (undoDirect && error.code !== 'CLI_TIMEOUT') await undoDirect(error); throw error; }
       const { install: after } = await claudeInstall(found, cliId, scope, cwd);
-      const loadedTree = after?.installPath ? await inspectTree(after.installPath, { skip: INSTALL_SKIP }).catch(() => null) : null;
+      const loadedTree = after?.installPath ? asInstalled(await inspectTree(after.installPath, { skip: INSTALL_SKIP }).catch(() => null), preview.tree.entries) : null;
       const loaded = loadedTree?.fingerprint === preview.tree.fingerprint;
       const fresh = await registryFor(env);
       if (!loaded) {
@@ -2164,7 +2168,7 @@ export async function createService(options = {}) {
         // A Claude plugin's preview is against its installation, as its check compared it (5a/5b review P2-03).
         const claudePlugin = entry.kind === 'claude-plugin-update';
         if (!claudePlugin) await verifyDirectoryRoot(preview.targetBoundary);
-        const before = claudePlugin ? await inspectTree(preview.installPath, { skip: INSTALL_SKIP }) : await inspectTree(preview.target);
+        const before = claudePlugin ? asInstalled(await inspectTree(preview.installPath, { skip: INSTALL_SKIP }), preview.tree.entries) : await inspectTree(preview.target);
         if (before.fingerprint !== preview.baseline) fail(409, 'LOCAL_CHANGES', '本机文件在预览后发生变化，请重新检查更新。');
         const change = diffFiles(before.entries, preview.tree.entries).find(item => item.path === request.path);
         if (!change) fail(404, 'DIFF_FILE_NOT_FOUND', '该文件不在本次预览的变更清单中。');

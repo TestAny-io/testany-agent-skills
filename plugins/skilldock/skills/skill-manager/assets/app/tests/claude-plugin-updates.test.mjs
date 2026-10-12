@@ -33,7 +33,7 @@ async function world(t) {
   await fs.mkdir(project, { recursive: true }); await fs.mkdir(cache, { recursive: true });
   const market = path.join(root, 'market'); const entries = [];
   const writeMarket = () => write(path.join(market, '.claude-plugin/marketplace.json'), { name: 'm', owner: { name: 'test' }, plugins: entries });
-  const claude = { plugins: [], marketplaces: [{ name: 'm', source: 'directory', path: market, installLocation: market }], calls: [], tamper: false, fetched: {} };
+  const claude = { plugins: [], marketplaces: [{ name: 'm', source: 'directory', path: market, installLocation: market }], calls: [], tamper: false, synthesize: false, fetched: {} };
   await write(path.join(configDir, 'plugins/known_marketplaces.json'), { m: { source: { source: 'directory', path: market }, installLocation: market } });
   // Stand-in fetchers: an npm registry and an archive host on disk.
   const fetchers = {
@@ -60,6 +60,8 @@ async function world(t) {
     const dir = path.join(cache, 'm', entry.name, version);
     await fs.rm(dir, { recursive: true, force: true }); await fs.cp(facts.dir, dir, { recursive: true, filter: file => !file.includes(`${path.sep}.git`) });
     if (claude.tamper) await write(path.join(dir, 'tampered.txt'), 'not what was previewed');
+    // The desktop app writes a manifest from the entry when the source has none (final UAT 2026-10-12).
+    if (claude.synthesize && !await exists(path.join(dir, '.claude-plugin/plugin.json'))) await write(path.join(dir, '.claude-plugin/plugin.json'), { name: entry.name, description: entry.description ?? '' });
     return { id: `${entry.name}@m`, scope, enabled: true, version, installPath: dir, ...(scope === 'user' ? {} : { projectPath: cwd }) };
   }
   const writer = () => async (args, { cwd }) => {
@@ -165,6 +167,34 @@ test('local changes and source changes stop the update; nothing is run', async t
   await fs.appendFile(installed, 'late edit\n');
   assert.equal((await w.apply('alpha', again.previewId)).code, 'LOCAL_CHANGES');
   assert.equal(w.claude.calls.some(call => call.command.startsWith('plugin update')), false);
+});
+
+test('a manifest Claude synthesized into an installation is not a local change (final UAT 2026-10-12)', async t => {
+  const w = await world(t);
+  const source = path.join(w.market, 'plugins/gamma');
+  const skill = body => write(path.join(source, 'skills/s/SKILL.md'), `---\nname: s\ndescription: gamma\n---\n${body}\n`);
+  await skill('v1');
+  await w.install({ name: 'gamma', source: './plugins/gamma', description: 'Gamma', version: '1.0.0' });
+  assert.equal((await w.check('gamma')).updateItem.status, 'current', '记下基线');
+  // The desktop app's "Check for updates" writes the entry's manifest into the installation.
+  const installPath = w.claude.plugins[0].installPath;
+  await write(path.join(installPath, '.claude-plugin/plugin.json'), { name: 'gamma', description: 'Gamma' });
+  assert.equal((await w.check('gamma')).updateItem.status, 'current', '合成的清单不算本地修改');
+  // A new version is offered without the manifest among its changes, applied, and read back,
+  // also when Claude synthesizes one into the new directory.
+  await skill('v2'); w.entries[0].version = '1.1.0'; await w.writeMarket();
+  const checked = (await w.check('gamma')).updateItem;
+  assert.equal(checked.status, 'available');
+  assert.deepEqual(checked.changes.map(change => change.path), ['skills/s/SKILL.md']);
+  assert.equal((await w.act({ action: 'preview.diff', previewId: checked.previewId, path: 'skills/s/SKILL.md' })).message, '文件差异已加载。');
+  w.claude.synthesize = true;
+  const applied = await w.apply('gamma', checked.previewId);
+  assert.match(applied.message, /已更新 Claude 插件 gamma（1\.0\.0 → 1\.1\.0）/, applied.message);
+  assert.ok(await exists(path.join(w.claude.plugins[0].installPath, '.claude-plugin/plugin.json')));
+  assert.equal((await w.check('gamma')).updateItem.status, 'current');
+  // An edit of the content is still a local change.
+  await fs.appendFile(path.join(w.claude.plugins[0].installPath, 'skills/s/SKILL.md'), 'my edit\n');
+  assert.equal((await w.check('gamma')).code, 'LOCAL_CHANGES');
 });
 
 test('a readback that differs from the preview is reported, and automatic applying waits for a new preview', async t => {

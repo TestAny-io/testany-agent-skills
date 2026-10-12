@@ -8,11 +8,24 @@ import fs from 'node:fs/promises';
 import fsSync from 'node:fs';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
-import { fail, inspectTree, copySkill, inside, publicSource } from './files.mjs';
+import { fail, hash, inspectTree, copySkill, inside, publicSource } from './files.mjs';
 import { checkoutGit, runProcess } from './cli.mjs';
 
 /** What Claude writes into an installation, left out of its fingerprint (HLD 3.3A; 9.3 V11). */
 export const INSTALL_SKIP = new Set(['node_modules', '.in_use', '.orphaned_at']);
+
+/**
+ * Claude writes a manifest into an installation whose source has none, the entry standing in for it
+ * (the desktop app does so when it installs or checks a marketplace for updates; final UAT 2026-10-12).
+ * Like the markers above it is Claude's own write: an installation is compared with a candidate
+ * without it.
+ */
+export const SYNTHESIZED_MANIFEST = '.claude-plugin/plugin.json';
+export function asInstalled(tree, candidateEntries) {
+  if (!tree || !Object.hasOwn(tree.entries, SYNTHESIZED_MANIFEST) || Object.hasOwn(candidateEntries, SYNTHESIZED_MANIFEST)) return tree;
+  const { [SYNTHESIZED_MANIFEST]: _synthesized, ...entries } = tree.entries;
+  return { ...tree, entries, files: tree.files - 1, fingerprint: hash(JSON.stringify(entries)) };
+}
 
 /** A plugin's entry in a marketplace copy, and the copy's `metadata.pluginRoot`. */
 export async function marketplaceEntry(installLocation, name) {
