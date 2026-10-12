@@ -215,6 +215,8 @@
 | V17 第一次执行（2026-10-10） | 另一台电脑：只读预检、备份与 0.10.3 原生页面基准完成；第 6 步 `codex plugin marketplace add TestAny-io/testany-agent-skills --ref …` 返回“already added from a different source”，按说明停下，未改动任何东西（未刷新、未更新、未迁移）。说明 60 已修订：不再运行 `marketplace add`，经同意直接给现有 marketplace 加一行 `ref`，刷新后先核对副本的提交与版本；并提醒计划下次运行时间 | 是 |
 | 最终 UAT 第一部分（2026-10-10） | 另一台电脑（Claude 桌面应用 2.1.293）完成 [61](61-final-uat-claude-desktop.md) 第 3～6 节：桌面应用里输入 `/plugin marketplace add …` 会打开设置的 Plugins 页而不执行；用户在该页 **+ Add** 中从 Git 仓库添加 `TestAny-io/testany-agent-skills#feature/skilldock-0.11-cross-agent`，同名 marketplace 就地改为该分支，没有卸载任何插件；Discover 中 SkillDock 显示为“Skilldock”，点 **Add** 直接装成用户范围，版本为提交摘要，无需重载；从 Claude 启动沿用 Codex 侧同一实例；TeamDesk 注明仅支持 Codex。带出的问题：Codex 原生入口每次显示“已跳过无效的项目目录 …/compat/legacy-project”（违反 36b 6.3“不另弹提示”，已修复）；沿用实例时 stderr 的“最终扫描目录”与实际不符（已改为确定沿用后再打印）；UI-17～UI-19；Claude 一侧为“只读”符合 HLD 3.6（默认值在 Agent 第一次出现时确定），61 中的预期写错，已改。第 7、7A 节待做 | 是 |
 | UAT 修复评审（2026-10-12） | [62](62-cross-agent-uat-fix-review.md)（对 `73c438a`）：APPROVED，P2 2、P3 6。两项 P2 在 61：修复前启动的实例会继续带着旧提示（61 第 7 节加核对步骤与说明），续做起点会跳过“启用管理”（已改）；P3：“最终扫描目录”改到确定沿用后打印、0.10.3 转交时不再比较数据目录、用例钉住 `skipped` 不进入服务、61 的读回只打印所需字段、CHANGELOG 措辞、文档细节，均已处理；Claude 插件详情中过时的提示并入 UI-17；`selectProject` 与非回退路径不排除数据目录内的目录（早于本次）记入改进候选 | 是 |
+| UAT 修复复核 r2（2026-10-12） | [62 r2](62-cross-agent-uat-fix-review-r2.md)（对 `141d917`）：APPROVED，P2 1、P3 4；62 的 8 项关闭 7 项、部分 1 项。已处理：61 第 8 节第 2 项的 ref 读回改为从 `known_marketplaces.json` 按键读取（P2）；“使用界面保存的项目”提示也改到确定最终目录后、且只在实际采用保存项目时写；补两项用例（转交时不写该提示、换版本沿用时的最终目录），复核中存活的两个变异现在都会被发现；61 第 7 节第 5 项拆开核对与停止、改正旧提示何时消失的说法；37 文字 | 是 |
+| 最终 UAT 第二部分（2026-10-12，进行中） | 第 7 节在桌面应用中未达成：Plugins 页没有刷新 marketplace 的入口；对同一来源再添加并 Sync 报“Failed to add marketplace.”（日志：CLI 报已添加但 `known_marketplaces.json` 中找不到条目，属桌面应用问题）；经用户同意用终端刷新一次 marketplace 后，桌面应用只识别声明了版本号的插件更新（testany-eng 2.0.0 → 2.7.1），SkillDock 没有 Claude manifest、以提交摘要为版本，Update 始终不可用。桌面日志每次扫描提示 `commands/skill-manager.md` 与同名技能冲突、命令被跳过。推翻了 HLD 中“Claude 以提交摘要计算版本并据此判断更新”的一半前提（命令行成立，桌面应用不成立）。**Owner 决定（2026-10-12）**：0.11.0 保持不声明版本；README 中 Claude 的更新说明写为在 SkillDock 的“更新”页检查并应用（检查时由 SkillDock 刷新 marketplace，全程不用终端，满足 AC-017 第 3 项）；条目声明版本等三项放入 0.11.1（见下表）。第 7 节改走 SkillDock 更新页继续 | 是 |
 
 ## 0.11.0 之后
 
@@ -222,8 +224,9 @@
 |------|------|
 | M4（P1） | 同源跟踪与“两边都更新”（REQ-SDX-010，DEC-SDX-016）；完整兼容性推断与用户确认（REQ-SDX-011）；届时增补 36c |
 | M5（P2） | 作者侧声明键 `skilldock-agents`（REQ-SDX-014），本仓库补齐声明 |
+| 0.11.1（Owner 2026-10-12 定入范围） | 来自最终 UAT 第二部分：① 在 `.claude-plugin/marketplace.json` 的 `skilldock` 条目中声明版本号（与 Codex manifest、应用版本同步，版本一致性用例覆盖这一处），使 Claude 桌面应用在 marketplace 刷新后能识别 SkillDock 的更新，且两侧显示同一版本；② 删除 `commands/skill-manager.md`（Claude 因与同名技能冲突而跳过它，Codex manifest 不引用它）；③ HLD 相应修订（3.x 中“不新增 Claude manifest，Claude 以提交摘要计算版本并据此判断更新”与“斜杠命令”两处），经增量评审；README 补充桌面应用的 Update 入口。另：桌面应用里给同一来源再添加 marketplace 会失败、没有刷新入口，README 中不要引导这样操作 |
 | 0.11.x 文档修订 | 第 26 轮复核 r2 的两处文字（[59](59-cross-agent-6d-rereview-r2.md) RR7-P3-02、P3-03）：HLD v1.31 表中“恢复”改为“第一次接通”；36c 第 10 节补全 1 版运行进度与 `/api/updates/progress` 的说法，并处理该接口文档中未实现的 `agent` 参数（实现或删去）；随下一次 HLD/契约修订一并复核；最终 UAT（2026-10-10）带出的两处口径：HLD 3.6 与 PRD 写明默认管理状态只在 Agent 第一次出现时确定，之后在该侧安装 SkillDock 不改变已保存的状态；HLD/36c 写明 Claude 技能库只列个人与项目技能，插件自带技能只计入插件（UI-17） |
-| 0.11.x 改进候选 | Codex 插件的计划绑定按版本目录计算（0.10.x 起）：在 Codex 中直接更新插件、或重装后，计划跳过该项并提示重新选择（最终 UAT 中另一台电脑的计划因此连续“部分完成”）。评估改为与 Claude 一致，绑定插件的缓存目录而非某一版本的目录；另：界面“切换项目”、`SKILLDOCK_PROJECT_DIR` 与 `project.json` 这几级不按 36b 4.4 排除数据目录内的目录，固定子目录可能被选为项目（[62](62-cross-agent-uat-fix-review.md) UF-P3-05，早于 0.11，概率低），改用 `validProject` 判定 |
+| 0.11.x 改进候选 | Codex 插件的计划绑定按版本目录计算（0.10.x 起）：在 Codex 中直接更新插件、或重装后，计划跳过该项并提示重新选择（最终 UAT 中另一台电脑的计划因此连续“部分完成”）。评估改为与 Claude 一致，绑定插件的缓存目录而非某一版本的目录；另：界面“切换项目”、`SKILLDOCK_PROJECT_DIR`、`project.json` 与调用工作目录这几级不按 36b 4.4 排除数据目录内的目录，固定子目录可能被选为项目（[62](62-cross-agent-uat-fix-review.md) UF-P3-05，早于 0.11，概率低），改用 `validProject` 判定 |
 
 ## 需要 Owner 参与的节点
 

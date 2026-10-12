@@ -260,8 +260,13 @@ export async function launch(action = 'start', options = {}) {
   // The final directory is printed once it is known: a running instance may keep its own (62 UF-P3-01).
   process.stderr.write(`SkillDock：请求项目目录 ${projectInfo.requested}（${projectInfo.source}）\n`);
   for (const warning of [...skipped, ...projectInfo.warnings]) process.stderr.write(`SkillDock：提示：${warning}\n`);
-  // A 0.10.3 handover always runs in the data directory (36b 6.2): no caller directory to compare.
-  if (projectInfo.source === 'saved' && env.SKILLDOCK_HANDOVER !== '1' && await canonicalPath(process.cwd()) !== project) process.stderr.write('SkillDock：使用界面保存的项目，和本次调用目录不同；可用 --project 明确覆盖。\n');
+  // With the final directory, and only when it is the saved project. A 0.10.3 handover always runs in
+  // the data directory (36b 6.2): no caller directory to compare (62 UF-P3-01, r2 UF2-P3-01).
+  const finalProject = async final => {
+    process.stderr.write(`SkillDock：最终扫描目录 ${final}${final !== project ? '（沿用运行实例的项目）' : ''}\n`);
+    if (projectInfo.source === 'saved' && final === project && env.SKILLDOCK_HANDOVER !== '1' && await canonicalPath(process.cwd()).catch(() => null) !== project)
+      process.stderr.write('SkillDock：使用界面保存的项目，和本次调用目录不同；可用 --project 明确覆盖。\n');
+  };
   process.stderr.write('SkillDock：服务会在后台运行；中断本次调用不一定会停止服务。请用 status 核实，用 stop 停止已确认的实例。\n');
   await fs.mkdir(state, { recursive: true, mode: 0o700 });
   let releaseLock;
@@ -326,7 +331,7 @@ export async function launch(action = 'start', options = {}) {
         if (job) await report('ready', { pid: current.pid, completedAt: new Date().toISOString() });
         else await closeLeftoverJob(current.pid, running.appPath);
         await clearMigrationFailure(state);
-        process.stderr.write(`SkillDock：最终扫描目录 ${health.project}${health.project !== project ? '（沿用运行实例的项目）' : ''}\n`);
+        await finalProject(health.project);
         return { status: 'running', url, pid: current.pid, project: health.project, requestedProject: projectInfo.requested, projectContext: health.projectContext || projectContext, state, reused: true, cli: current.cli, backgroundService: true };
       } catch { /* A damaged generated runtime is rebuilt. */ }
     }
@@ -336,7 +341,7 @@ export async function launch(action = 'start', options = {}) {
     const runProject = keptProject || project;
     const runContext = keptProject ? (health.projectContext?.effective === keptProject ? health.projectContext
       : { requested: keptProject, effective: keptProject, source: 'record', workingDirectory: process.cwd(), warnings: [] }) : projectContext;
-    process.stderr.write(`SkillDock：最终扫描目录 ${runProject}${keptProject && keptProject !== project ? '（沿用运行实例的项目）' : ''}\n`);
+    await finalProject(runProject);
     // Compilation and dependency failures leave a healthy old process running.
     if (!live) {
       if (current) await stop(current, recordFile, codexHome);

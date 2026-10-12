@@ -330,7 +330,9 @@ test('a version switch keeps the running project unless one is given explicitly 
   const first = await launch('start', oldOptions);
   const { projectDir, ...nextOptions } = { ...await installedVersion(f, '0.11.1'), port };
   try {
-    const next = await launch('start', nextOptions);
+    const { result: next, stderr } = await stderrOf(() => launch('start', nextOptions));
+    assert.equal(stderr.match(/最终扫描目录 /g)?.length, 1, stderr);
+    assert.ok(stderr.includes(`最终扫描目录 ${await fs.realpath(other)}（沿用运行实例的项目）`), stderr);
     assert.notEqual(next.pid, first.pid);
     assert.equal(next.project, await fs.realpath(other));
     assert.equal((await readRecordFile(next.state)).actualProject, await fs.realpath(other));
@@ -380,6 +382,28 @@ test('a skipped --project is noted on stderr only, and the final directory is th
     assert.ok(reused.stderr.includes(`最终扫描目录 ${next.project}（沿用运行实例的项目）`), reused.stderr);
     assert.equal(reused.stderr.match(/最终扫描目录 /g)?.length, 1, reused.stderr);
   } finally { await launch('stop', options); }
+});
+
+test('the saved-project note is written only for a caller directory, never in a 0.10.3 handover (62 UF-P3-01)', async t => {
+  const f = await fixture(t); const options = { ...f, port: await freePort() };
+  const first = await launch('start', options);
+  await launch('stop', options);
+  await fs.writeFile(path.join(first.state, 'project.json'), JSON.stringify({ path: f.projectDir }));
+  const { projectDir, ...implicit } = options;
+  const elsewhere = path.join(f.root, 'elsewhere'); await fs.mkdir(elsewhere);
+  const cwd = process.cwd();
+  let handover; let caller;
+  try {
+    // 36b 6.2: a 0.10.3 handover runs in the data directory and takes the saved project.
+    process.chdir(first.state);
+    handover = await stderrOf(() => launch('start', { ...implicit, env: { ...options.env, SKILLDOCK_HANDOVER: '1' } }));
+    process.chdir(elsewhere);
+    caller = await stderrOf(() => launch('start', implicit));
+  } finally { process.chdir(cwd); await launch('stop', options); }
+  const saved = await fs.realpath(f.projectDir);
+  assert.deepEqual([handover.result.project, caller.result.project, caller.result.reused], [saved, saved, true]);
+  assert.ok(!handover.stderr.includes('使用界面保存的项目'), handover.stderr);
+  assert.ok(caller.stderr.includes('使用界面保存的项目'), caller.stderr);
 });
 
 test('dependency and build output goes to build.log, which starts over past 1 MiB (36b 6.3)', async t => {
