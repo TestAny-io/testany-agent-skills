@@ -25,8 +25,8 @@
     "server/state-locks.mjs": "12e95ff9399e42bd2690d7e2e2c0f1127522eadc5e7e8d2cc37244dc73321b62",
     "server/toolchain.mjs": "f654f95b7adf25e1f4ad452ea5e4da7e6649e735f1fca6e938ff55c43f23ce9f",
     "src/AgentEnvironments.tsx": "264b0a688c3f14a1a8ecb1e0beba3f861578a32a20d611ced0111356a4de5263",
-    "src/AgentUI.css": "f1c5a1009ed5518a61634a0a42da6c0b917c07f7285aee447c5e984dca7ce8c2",
-    "src/AgentUI.tsx": "7fa0d0ba3e0ba4790132838106688ed417d4a61e0e62ff94e538d2ce83df7747",
+    "src/AgentUI.css": "64409c6ea5784d0bfb51842bc5fbaa8704a690f056621695dbf449062bed5211",
+    "src/AgentUI.tsx": "27b45feda573ee5c9041571c7f71773da5546a79b14bf972ed66638cac082044",
     "src/App.tsx": "883d861e91ca386a4397ce57eea759f7171a112a8112eacfbcbed542b72ccd05",
     "src/CompatibilityWarnings.tsx": "dc7f57da6a06829e5e24fc6149535f69bd6128bd0cbae93e10ee423a623d1f62",
     "src/ConfirmDialog.tsx": "cf838a952b8c17690d1e54ad1538326a372890f5ca921efffe18635b04a790bc",
@@ -72,7 +72,7 @@
   },
   "artifacts": {
     "server.mjs": "952873b18b656dcc75483e6e20f4278f3e2cd9463b9667f489020ed6bec9cff2",
-    "ui.html": "0c84a8462bc9bc23fa9a7ac8a26fc8430250bbddc45f0cc6ad420b239757608b",
+    "ui.html": "15667b1e457021992f098031750288f818fff02311973cef6edafc9f0d48b4c6",
     "icon.svg": "9b7d7c19189c56b43fe691c0cb01e19b1f88abc61d1d130c974c5f5411b7288c",
     "THIRD_PARTY_NOTICES.txt": "0580c525bbaf94d006050bf773e482a470c9f983971e23b26e8048505e11bd4f"
   }
