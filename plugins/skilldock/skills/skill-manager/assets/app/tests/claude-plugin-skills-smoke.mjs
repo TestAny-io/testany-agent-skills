@@ -63,6 +63,7 @@ try {
   await fs.writeFile(path.join(home, '.gitconfig'), ['https://github.com/Fixture/declared', 'git@github.com:Fixture/declared'].flatMap(base => [`${base}.git`, base])
     .map(address => `[url "file://${remote}"]\n\tinsteadOf = ${address}\n`).join(''));
   await claude('plugin', 'marketplace', 'add', 'Fixture/declared');
+  assert.equal(JSON.parse(await fs.readFile(path.join(configDir, 'plugins/known_marketplaces.json'), 'utf8')).declared.source.source, 'github', 'marketplace 按真实来源登记');
   for (const { name } of plugins) await claude('plugin', 'install', `${name}@declared`);
   const session = await offered();
   const catalog = await claudeCatalog({ claudeRoot: { configDir, pluginCacheDir: path.join(configDir, 'plugins/cache') }, project: fixture, cli: { available: true, path: claudePath }, env, managedDir: path.join(fixture, 'no-managed') });
@@ -82,6 +83,8 @@ try {
   // The cases are not vacuous: the root's listed directories are a complete set, others add to the default;
   // a skill goes by its folder's name and is listed whatever its frontmatter holds.
   assert.deepEqual(['one', 'two', 'rootall', 'sub', 'subone'].map(name => compared[name].listed), [['x'], ['y'], ['x', 'y', 'z'], ['s1', 't1', 't2'], ['s1', 't1']]);
+  // For these five a session offers exactly what is listed; the sixth holds skills a session does not offer the model.
+  for (const name of ['one', 'two', 'rootall', 'sub', 'subone']) assert.deepEqual(compared[name].offers, compared[name].listed, name);
   assert.deepEqual(compared.man.listed, ['alias', 'bare', 'c1', 'm1', 'nodesc', 'noname', 'renamed']);
   assert.ok(['m1', 'noname', 'renamed'].every(value => compared.man.offers.includes(value)) && !compared.man.offers.includes('other-name'));
   result = { passed: true, cli: (await claude('--version')).trim(), compared };
