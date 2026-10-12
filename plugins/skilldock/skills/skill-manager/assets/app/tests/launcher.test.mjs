@@ -384,7 +384,7 @@ test('a skipped --project is noted on stderr only, and the final directory is th
   } finally { await launch('stop', options); }
 });
 
-test('the saved-project note is written only for a caller directory, never in a 0.10.3 handover (62 UF-P3-01)', async t => {
+test('the saved-project note is written only for a caller directory: not in a 0.10.3 handover, not from the native entry (62 UF-P3-01, r3 UF3-P3-02)', async t => {
   const f = await fixture(t); const options = { ...f, port: await freePort() };
   const first = await launch('start', options);
   await launch('stop', options);
@@ -392,12 +392,16 @@ test('the saved-project note is written only for a caller directory, never in a 
   const { projectDir, ...implicit } = options;
   const elsewhere = path.join(f.root, 'elsewhere'); await fs.mkdir(elsewhere);
   const cwd = process.cwd();
-  let handover; let caller; let switched;
+  let handover; let native; let caller; let switched;
+  const legacy = path.join(first.state, 'compat/legacy-project'); await fs.mkdir(legacy, { recursive: true });
   const other = path.join(f.root, 'other-project'); await fs.mkdir(other);
   try {
     // 36b 6.2: a 0.10.3 handover runs in the data directory and takes the saved project.
     process.chdir(first.state);
     handover = await stderrOf(() => launch('start', { ...implicit, env: { ...options.env, SKILLDOCK_HANDOVER: '1' } }));
+    // The 0.10.2 native entry passes the fixed legacy directory as --project and runs in it.
+    process.chdir(legacy);
+    native = await stderrOf(() => launch('start', { ...options, projectDir: legacy }));
     process.chdir(elsewhere);
     caller = await stderrOf(() => launch('start', implicit));
     // The instance switched to another project: an implicit run keeps it and says nothing of the saved one.
@@ -407,11 +411,37 @@ test('the saved-project note is written only for a caller directory, never in a 
   const saved = await fs.realpath(f.projectDir);
   assert.deepEqual([handover.result.project, caller.result.project, caller.result.reused], [saved, saved, true]);
   assert.ok(!handover.stderr.includes('使用界面保存的项目'), handover.stderr);
+  assert.deepEqual([native.result.project, native.result.reused], [saved, true]);
+  assert.match(native.stderr, /已跳过无效的项目目录 .*legacy-project（--project）/);
+  assert.ok(!native.stderr.includes('使用界面保存的项目'), native.stderr);
   assert.ok(caller.stderr.includes('使用界面保存的项目'), caller.stderr);
   const kept = await fs.realpath(other);
   assert.deepEqual([switched.result.reused, switched.result.project], [true, kept]);
   assert.ok(switched.stderr.includes(`最终扫描目录 ${kept}（沿用运行实例的项目）`), switched.stderr);
   assert.ok(!switched.stderr.includes('使用界面保存的项目'), switched.stderr);
+});
+
+test('the symlink note is written with the final directory, and only when that is the requested project (62 r3 UF3-P3-02)', async t => {
+  const f = await fixture(t); const options = { ...f, port: await freePort() };
+  const link = path.join(f.root, 'link'); await fs.symlink(f.projectDir, link);
+  const other = path.join(f.root, 'other-project'); await fs.mkdir(other);
+  const { projectDir, ...implicit } = options;
+  const note = '请求目录包含符号链接，扫描使用解析后的真实目录。';
+  let first; let kept;
+  try {
+    first = await stderrOf(() => launch('start', { ...options, projectDir: link }));
+    await fs.writeFile(path.join(first.result.state, 'project.json'), JSON.stringify({ path: link }));
+    // The saved project is the link, but the instance keeps the project it was switched to.
+    await launch('start', { ...options, projectDir: other });
+    kept = await stderrOf(() => launch('start', implicit));
+  } finally { await launch('stop', options); }
+  const real = await fs.realpath(f.projectDir);
+  assert.equal(first.result.project, real);
+  assert.equal(first.stderr.split(note).length, 2, first.stderr);
+  assert.ok(first.stderr.indexOf(note) > first.stderr.indexOf(`最终扫描目录 ${real}\n`) && first.stderr.includes(`最终扫描目录 ${real}\n`), first.stderr);
+  assert.deepEqual([kept.result.reused, kept.result.project], [true, await fs.realpath(other)]);
+  assert.ok(kept.stderr.includes(`请求项目目录 ${link}（saved）`), kept.stderr);
+  assert.ok(!kept.stderr.includes(note), kept.stderr);
 });
 
 test('dependency and build output goes to build.log, which starts over past 1 MiB (36b 6.3)', async t => {
