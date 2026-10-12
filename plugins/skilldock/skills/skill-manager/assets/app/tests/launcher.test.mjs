@@ -351,6 +351,34 @@ test('every run on migrated data restores the fixed legacy directory and keeps t
   } finally { await launch('stop', options); }
 });
 
+async function stderrOf(run) {
+  const write = process.stderr.write; let text = '';
+  process.stderr.write = (chunk, ...rest) => { text += String(chunk); return write.call(process.stderr, chunk, ...rest); };
+  try { return { result: await run(), stderr: text }; } finally { process.stderr.write = write; }
+}
+
+test('a skipped --project is noted on stderr only, and reuse names the kept project (36b 6.3; UAT 2026-10-10)', async t => {
+  const f = await fixture(t); const options = { ...f, port: await freePort() };
+  const first = await launch('start', options);
+  const legacy = path.join(first.state, 'compat/legacy-project');
+  await launch('stop', options);
+  // The native entry passes the record's legacy directory: the fallback chain picks the project, no notice.
+  const { result: next, stderr } = await stderrOf(() => launch('start', { ...options, projectDir: legacy }));
+  try {
+    assert.equal(next.reused, false);
+    assert.deepEqual(next.projectContext.warnings, [], '不另弹提示');
+    assert.match(stderr, /已跳过无效的项目目录 .*legacy-project（--project）/);
+    // Without an explicit project the running instance keeps its own; stderr says which.
+    const { projectDir, ...implicit } = options;
+    const elsewhere = path.join(f.root, 'elsewhere'); await fs.mkdir(elsewhere);
+    const cwd = process.cwd(); process.chdir(elsewhere);
+    let reused;
+    try { reused = await stderrOf(() => launch('start', implicit)); } finally { process.chdir(cwd); }
+    assert.deepEqual([reused.result.reused, reused.result.project], [true, next.project]);
+    assert.ok(reused.stderr.includes(`沿用运行实例的项目 ${next.project}`), reused.stderr);
+  } finally { await launch('stop', options); }
+});
+
 test('dependency and build output goes to build.log, which starts over past 1 MiB (36b 6.3)', async t => {
   const f = await fixture(t); const options = { ...f, port: await freePort() };
   await fs.mkdir(f.stateDir, { recursive: true });

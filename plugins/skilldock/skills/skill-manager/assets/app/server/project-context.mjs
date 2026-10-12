@@ -51,6 +51,8 @@ export async function validProject(value, stateDir) {
  * chain and never the working directory: ① --project ② SKILLDOCK_PROJECT_DIR
  * ③ project.json ④ the record's actual project ⑤ home. Levels ①② are explicit and
  * may switch a running instance; ③～⑤ never do. Otherwise 0.10.2's order applies.
+ * Skipped explicit values are noted on stderr only, never as an interface notice (36b §6.3;
+ * UAT 2026-10-10: the native entry's legacy directory showed a notice on every page).
  */
 export async function resolveLaunchProject({ projectDir, env = process.env, cwd = process.cwd(), stateDir, actualProject, home = os.homedir() } = {}) {
   const fallback = env.SKILLDOCK_HANDOVER === '1' || (projectDir !== undefined && !(await validProject(projectDir, stateDir)));
@@ -65,7 +67,7 @@ export async function resolveLaunchProject({ projectDir, env = process.env, cwd 
   for (const [value, source, explicit] of levels) {
     if (value === undefined || value === null || value === '') continue;
     const real = await validProject(value, stateDir);
-    if (real) return { requested: value, effective: real, source, workingDirectory: cwd, explicit, warnings: skipped };
+    if (real) return { requested: value, effective: real, source, workingDirectory: cwd, explicit, warnings: [], skipped };
     if (explicit) skipped.push(`已跳过无效的项目目录 ${value}（${source === 'argument' ? '--project' : 'SKILLDOCK_PROJECT_DIR'}）。`);
   }
   throw Object.assign(new Error('找不到可用的项目目录；未使用工作目录作为项目。'), { code: 'PROJECT_UNAVAILABLE', status: 422 });

@@ -213,6 +213,7 @@
 | 6e 准备（2026-10-10） | Owner 同意推送（远端 `122ef9f`），V17 在另一台电脑上做。说明：[60](60-v17-real-codex-update.md)（给那台电脑上的 Codex：把 marketplace 指向开发分支，在原生入口开着时从 0.10.3 更新到 0.11.0，观察长连接进程与转交，含备份与发布后改回）、[61](61-final-uat-claude-desktop.md)（给 Claude 桌面版：添加 marketplace、插件浏览器安装、无错误、同一实例、不用终端更新，发布后改回 `main`） | 是 |
 | 6d 复核 r2（2026-10-10） | [59](59-cross-agent-6d-rereview-r2.md)（对 `122ef9f`）：APPROVED，第 26 轮 5 项全部关闭，证书重新绑定到 HLD v1.31、契约 0.32 / 36c 0.31、PRD 0.11；P3 3 项：用例缺口登记于 56；“从本地目录或 Git 把插件装到 Claude”的界面路径是第一次接通（HLD v1.31 表与 `122ef9f` 说明中写成“恢复”有误），列入最终 UAT（61 第 7A 节）；36c 第 10 节关于 1 版运行进度的说法不完整（运行中 `current` 会显示 Claude 目标名称，`/api/updates/progress` 同样不过滤，其 `agent` 参数未实现）。后两项文字不在发布前改动已绑定证书的文档，记入“0.11.0 之后” | 否 |
 | V17 第一次执行（2026-10-10） | 另一台电脑：只读预检、备份与 0.10.3 原生页面基准完成；第 6 步 `codex plugin marketplace add TestAny-io/testany-agent-skills --ref …` 返回“already added from a different source”，按说明停下，未改动任何东西（未刷新、未更新、未迁移）。说明 60 已修订：不再运行 `marketplace add`，经同意直接给现有 marketplace 加一行 `ref`，刷新后先核对副本的提交与版本；并提醒计划下次运行时间 | 是 |
+| 最终 UAT 第一部分（2026-10-10） | 另一台电脑（Claude 桌面应用 2.1.293）完成 [61](61-final-uat-claude-desktop.md) 第 3～6 节：桌面应用里输入 `/plugin marketplace add …` 会打开设置的 Plugins 页而不执行；用户在该页 **+ Add** 中从 Git 仓库添加 `TestAny-io/testany-agent-skills#feature/skilldock-0.11-cross-agent`，同名 marketplace 就地改为该分支，没有卸载任何插件；Discover 中 SkillDock 显示为“Skilldock”，点 **Add** 直接装成用户范围，版本为提交摘要，无需重载；从 Claude 启动沿用 Codex 侧同一实例；TeamDesk 注明仅支持 Codex。带出的问题：Codex 原生入口每次显示“已跳过无效的项目目录 …/compat/legacy-project”（违反 36b 6.3“不另弹提示”，已修复）；沿用实例时 stderr 的“最终扫描目录”与实际不符（已补一行说明）；UI-17～UI-19；Claude 一侧为“只读”符合 HLD 3.6（默认值在 Agent 第一次出现时确定），61 中的预期写错，已改。第 7、7A 节待做 |
 
 ## 0.11.0 之后
 
@@ -220,7 +221,8 @@
 |------|------|
 | M4（P1） | 同源跟踪与“两边都更新”（REQ-SDX-010，DEC-SDX-016）；完整兼容性推断与用户确认（REQ-SDX-011）；届时增补 36c |
 | M5（P2） | 作者侧声明键 `skilldock-agents`（REQ-SDX-014），本仓库补齐声明 |
-| 0.11.x 文档修订 | 第 26 轮复核 r2 的两处文字（[59](59-cross-agent-6d-rereview-r2.md) RR7-P3-02、P3-03）：HLD v1.31 表中“恢复”改为“第一次接通”；36c 第 10 节补全 1 版运行进度与 `/api/updates/progress` 的说法，并处理该接口文档中未实现的 `agent` 参数（实现或删去）；随下一次 HLD/契约修订一并复核 |
+| 0.11.x 文档修订 | 第 26 轮复核 r2 的两处文字（[59](59-cross-agent-6d-rereview-r2.md) RR7-P3-02、P3-03）：HLD v1.31 表中“恢复”改为“第一次接通”；36c 第 10 节补全 1 版运行进度与 `/api/updates/progress` 的说法，并处理该接口文档中未实现的 `agent` 参数（实现或删去）；随下一次 HLD/契约修订一并复核；最终 UAT（2026-10-10）带出的两处口径：HLD 3.6 与 PRD 写明默认管理状态只在 Agent 第一次出现时确定，之后在该侧安装 SkillDock 不改变已保存的状态；HLD/36c 写明 Claude 技能库只列个人与项目技能，插件自带技能只计入插件（UI-17） |
+| 0.11.x 改进候选 | Codex 插件的计划绑定按版本目录计算（0.10.x 起）：在 Codex 中直接更新插件、或重装后，计划跳过该项并提示重新选择（最终 UAT 中另一台电脑的计划因此连续“部分完成”）。评估改为与 Claude 一致，绑定插件的缓存目录而非某一版本的目录 |
 
 ## 需要 Owner 参与的节点
 

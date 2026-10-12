@@ -255,10 +255,10 @@ export async function launch(action = 'start', options = {}) {
 
   const projectInfo = await resolveLaunchProject({ projectDir: options.projectDir, env, cwd: process.cwd(), stateDir: state,
     actualProject: isCurrentRecord(initial) ? initial.actualProject : undefined, home });
-  const { explicit, ...projectContext } = projectInfo;
+  const { explicit, skipped = [], ...projectContext } = projectInfo;
   const project = projectInfo.effective;
   process.stderr.write(`SkillDock：请求项目目录 ${projectInfo.requested}（${projectInfo.source}）\nSkillDock：最终扫描目录 ${project}\n`);
-  for (const warning of projectInfo.warnings) process.stderr.write(`SkillDock：提示：${warning}\n`);
+  for (const warning of [...skipped, ...projectInfo.warnings]) process.stderr.write(`SkillDock：提示：${warning}\n`);
   if (projectInfo.source === 'saved' && await canonicalPath(process.cwd()) !== project) process.stderr.write('SkillDock：使用界面保存的项目，和本次调用目录不同；可用 --project 明确覆盖。\n');
   process.stderr.write('SkillDock：服务会在后台运行；中断本次调用不一定会停止服务。请用 status 核实，用 stop 停止已确认的实例。\n');
   await fs.mkdir(state, { recursive: true, mode: 0o700 });
@@ -324,6 +324,7 @@ export async function launch(action = 'start', options = {}) {
         if (job) await report('ready', { pid: current.pid, completedAt: new Date().toISOString() });
         else await closeLeftoverJob(current.pid, running.appPath);
         await clearMigrationFailure(state);
+        if (health.project !== project) process.stderr.write(`SkillDock：沿用运行实例的项目 ${health.project}。\n`);
         return { status: 'running', url, pid: current.pid, project: health.project, requestedProject: projectInfo.requested, projectContext: health.projectContext || projectContext, state, reused: true, cli: current.cli, backgroundService: true };
       } catch { /* A damaged generated runtime is rebuilt. */ }
     }

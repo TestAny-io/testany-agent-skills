@@ -4,6 +4,8 @@
 > 前提：已按 [60](60-v17-real-codex-update.md) 完成 V17，这台电脑上 Codex 中的 SkillDock 已是 0.11.0、数据已迁移。
 > 目的：核对 PRD 中待 Owner 的验收项——AC-017 第 1 项（添加本仓库 marketplace 后从插件浏览器安装 SkillDock）、第 3 项（不用终端也能更新）、AC-008 第 3 项（安装后没有 SkillDock 的插件错误）；并记下界面上的实际名称与路径，用于 README 定稿。
 > 代码来源：公开仓库 `TestAny-io/testany-agent-skills` 的分支 `feature/skilldock-0.11-cross-agent`，尚未发布到 `main`。
+>
+> **修订（2026-10-12）**：按第一部分（第 3～6 节）的实测结果修订，上一版 sha256 `7a489bd276dbc70f47e382fad7f7f13397f315e50badbc7deeb937f7bf8eb283`（提交 `6d9d519`）。改动：第 3、4、5 节写入桌面应用中的实际入口；第 6 节第 1 项改为桌面应用的核对方式，第 4 项改正预期，新增第 5 项（只读读回慢请求的分段计时）；第 7 节改为桌面应用的路径并分两次推送；第 8 节改为就地切换。**已做完第 3～6 节的，从第 6 节第 5 项继续。**
 
 ## 1. 这次会真实改动什么（先读给用户听）
 
@@ -31,7 +33,7 @@ echo "== Claude 插件"; "$CLAUDE" plugin list --json | node -e "$NAMES"
 echo "== Claude marketplace"; "$CLAUDE" plugin marketplace list --json | node -e "$NAMES"
 ```
 
-- 如果 marketplace 列表中**已有** `testany-agent-skills`：记下它现在的来源（`"$CLAUDE" plugin marketplace list --json` 中该项的 source 字段，只看仓库与 ref），告诉用户。它若指向 `main`，需要先移除再按第 4 节添加；移除会卸载从它安装的插件，先列出这些插件并征得同意。
+- 如果 marketplace 列表中**已有** `testany-agent-skills`：记下它现在的来源（`"$CLAUDE" plugin marketplace list --json` 中该项的 source 字段，只看仓库与 ref），告诉用户。它指向 `main` 时**不必移除**：按第 4 节再添加一次带 `#分支` 的来源，同名 marketplace 会就地改为该分支，从它安装的插件不受影响（2026-10-10 实测）。
 - 如果 Claude 中已装有 SkillDock：记下版本与来源，问用户怎么处理后再继续。
 
 ## 4. 添加本仓库 marketplace（改动 Claude，先征得同意）
@@ -44,11 +46,17 @@ echo "== Claude marketplace"; "$CLAUDE" plugin marketplace list --json | node -e
 
 记录：这条斜杠命令在桌面应用里是否可用、显示了什么。若桌面应用里有界面上的“添加 marketplace”入口，也请用户试一次并记下菜单名称。都不行时，记下原因，再用 `"$CLAUDE" plugin marketplace add TestAny-io/testany-agent-skills#feature/skilldock-0.11-cross-agent` 完成（汇报中注明用了终端）。
 
+> 实测（2026-10-10，桌面应用 2.1.293）：这条斜杠命令不执行添加，而是打开设置中的 **Plugins** 页（左侧栏 Customize → Plugins，标签 **Yours** / **Discover**）。添加入口在该页右上的 **+ Add ▾** 中：选从 Git 仓库添加的那一项，输入 `TestAny-io/testany-agent-skills#feature/skilldock-0.11-cross-agent`，点 **Sync**。**请用户把这一项菜单的原文告诉你，记进汇报**（README 要照抄）。
+
 读回：`"$CLAUDE" plugin marketplace list --json | node -e "$NAMES"`。
 
 ## 5. 从插件浏览器安装（AC-017 第 1 项）
 
-请用户点提示框旁的 **+** → **Plugins** → **Add plugin**，在插件浏览器中找到 SkillDock，选择“为你安装（用户范围）”。记录：
+请用户点提示框旁的 **+** → **Plugins** → **Add plugin**，在插件浏览器中找到 SkillDock，选择“为你安装（用户范围）”。
+
+> 实测（2026-10-10）：在 Plugins 页的 **Discover** 中按 marketplace 筛选，SkillDock 显示为 **Skilldock**，点 **Add** 直接装成用户范围，不询问范围；已装的显示 **✓ Added**。
+
+记录：
 
 - 菜单与按钮的实际名称（与上面的写法不同时照实记下）；
 - 插件浏览器里是否出现 SkillDock，以及它的说明文字；
@@ -65,7 +73,7 @@ echo "== Claude marketplace"; "$CLAUDE" plugin marketplace list --json | node -e
 
 ## 6. 没有错误、能打开、是同一个实例（AC-008 第 3 项）
 
-1. 请用户运行 `/plugin`，看 **Errors** 标签页中有没有 SkillDock 的错误；记录。
+1. 桌面应用中 `/plugin` 打开的是 Plugins 页，没有 **Errors** 标签页。请用户在 **Yours** 标签页看 Skilldock 一行有没有错误或警告标记，点开它看详情中有没有错误；再读回 `"$CLAUDE" plugin list --json` 中 skilldock 一项有没有错误字段。记录。
 2. 新开一个会话（或 `/reload-plugins`），输入 `/skilldock:skill-manager`。SkillDock 应在内置浏览器面板中打开；记录。
 3. 核对与 Codex 中的是同一个实例：
 
@@ -74,14 +82,24 @@ echo "== Claude marketplace"; "$CLAUDE" plugin marketplace list --json | node -e
    curl -s "$URL/api/health" | node -e 'let s="";process.stdin.on("data",d=>s+=d).on("end",()=>{const h=JSON.parse(s);console.log(JSON.stringify({appVersion:h.appVersion,dataGeneration:h.dataGeneration,instanceId:h.instanceId}))})'
    ```
 
-4. 在 SkillDock 的“Agent 环境”页记录：Codex 与 Claude 两张卡片各自显示的 SkillDock 版本、管理状态（Claude 应为“已启用管理”）、命令行路径。
+4. 在 SkillDock 的“Agent 环境”页记录：Codex 与 Claude 两张卡片各自显示的 SkillDock 版本、管理状态、命令行路径。Claude 若在装 SkillDock 之前就已被发现（例如 V17 迁移时），会保持“只读”，这符合设计（HLD 3.6：默认值只在 Agent 第一次出现时确定）；请用户点“启用管理”，再记录。
+5. 只读读回第一次打开的慢请求（第一部分中首次读取清单用了约 32 秒）。只取计时行，不打印整个日志：
+
+   ```bash
+   grep '读取清单用时' "$HOME/.local/share/skilldock/server.log" | tail -5
+   ```
+
+   把输出原样记进汇报（每行列出 `codex-list`、`scan`、`agents`、`claude-list` 各段的毫秒数）。没有输出时也照实记下。
 
 ## 7. 不用终端更新（AC-017 第 3 项）
 
-1. 告诉用户：请通知开发者“已装好，可以推一个新提交”。开发者会往分支推一个小提交（Claude 以 marketplace 的提交摘要作为 SkillDock 的版本，新提交即新版本）。
-2. 开发者确认推送后，请用户运行 `/plugin`，在 **Marketplaces** 中选中 `testany-agent-skills`，选 **Update marketplace**。记录：菜单名称、显示的结果。
-3. 读回版本是否变化：`"$CLAUDE" plugin list --json | node -e "$NAMES"`；再运行 `/reload-plugins`，打开 SkillDock 确认正常。
-4. 可选：如果开发者再推一个提交，请用户改用 SkillDock 自己的“更新”页：找到 Claude 中的 SkillDock，点“检查”，有更新时按提示应用；记录结果。
+开发者分两次往分支推送（Claude 以 marketplace 的提交摘要作为 SkillDock 的版本，新提交即新版本）：第一次用于 Claude 界面中的更新，第二次用于 SkillDock 自己的更新页。
+
+1. 告诉用户：请通知开发者“已装好，可以推第一个提交”。开发者确认推送后再继续。
+2. 先只读确认 Claude 还没有自动拿到新版本：`"$CLAUDE" plugin list --json | node -e "$NAMES"`（应仍为 `e7bf95a311b9`）。
+3. 请用户在 Plugins 页找到刷新 marketplace 的入口（可能在 **+ Add ▾**、筛选菜单，或 **Yours** 中 marketplace 分组的菜单里；找不到时可以在 Discover 中对 `testany-agent-skills` 再执行一次第 4 节的添加并点 **Sync**），刷新后若 Skilldock 显示有更新，按界面提示更新。记录：入口与按钮的原文、显示的结果；整个过程没有用终端。
+4. 读回版本是否变化：`"$CLAUDE" plugin list --json | node -e "$NAMES"`（应变为新提交的摘要）。在当前会话中再调用一次 `skilldock:skill-manager`，确认正常、仍沿用同一实例（第 6 节第 3 项的读回）。
+5. 告诉用户：请通知开发者“可以推第二个提交”。开发者确认后，请用户在 SkillDock 的“更新”页找到 Claude 中的 skilldock，点 **检查更新**，有更新时按提示应用。记录：检查结果、应用结果、读回的版本；界面上的提示原文。
 
 ## 7A. 新接通的界面路径：从本地目录把插件装到 Claude（可选，建议做）
 
@@ -103,11 +121,12 @@ echo "== Claude marketplace"; "$CLAUDE" plugin marketplace list --json | node -e
 
 ## 8. 0.11.0 发布之后
 
-开发者合并到 `main` 并通知后，把 marketplace 改回跟随 `main`。先查 `/plugin` 的 Marketplaces 页有没有修改来源的入口；没有时，经用户同意：
+开发者合并到 `main` 并通知后，把 marketplace 改回跟随 `main`（经用户同意）：
 
-1. 在 Marketplaces 中移除 `testany-agent-skills`（会卸载从它安装的 SkillDock，确认框会列出）；
-2. 重新添加：`/plugin marketplace add TestAny-io/testany-agent-skills`；
-3. 从插件浏览器重新安装 SkillDock（用户范围）。数据目录不受影响，计划与记录都在。
+1. 在 Plugins 页 **+ Add ▾** 中按第 4 节的方式再添加一次 `TestAny-io/testany-agent-skills`（不带 `#分支`），点 **Sync**；
+2. 读回：`"$CLAUDE" plugin marketplace list --json` 中该项的 source 不再带 ref；`"$CLAUDE" plugin list --json | node -e "$NAMES"` 中 SkillDock 与 testany-eng 都还在；
+3. 若没有就地切换（来源仍带 ref），再经用户同意移除该 marketplace（会卸载从它安装的插件，确认框会列出）、重新添加并从插件浏览器重新安装。数据目录不受影响，计划与记录都在。
+4. 提醒用户：Codex 一侧的自动更新计划里，SkillDock 这一项因 V17 期间安装目录变化而每次跳过（“旧计划不接管新对象，请重新选择”），在按 [60](60-v17-real-codex-update.md) 第 8 节改回 `main` 之后，到 SkillDock 的“更新”页重新选择它。
 
 确认正常后，经用户同意把 `~/skilldock-uat-final` 移到废纸篓。
 
@@ -118,11 +137,12 @@ echo "== Claude marketplace"; "$CLAUDE" plugin marketplace list --json | node -e
 | 添加 marketplace：斜杠命令在桌面应用中是否可用；有无界面入口；是否用了终端 | |
 | 插件浏览器：是否出现 SkillDock；菜单与按钮的实际名称 | |
 | 安装后：只多出 SkillDock、已启用；是否需要重载 | |
-| `/plugin` Errors 中有无 SkillDock 的错误 | |
+| Plugins 页 Yours 中 Skilldock 有无错误标记；`plugin list` 有无错误字段 | |
 | `/skilldock:skill-manager` 是否在内置浏览器中打开；与 Codex 是否同一实例 | |
-| “Agent 环境”页：两侧版本、Claude 管理状态 | |
-| Update marketplace：菜单名称、结果、版本是否变化 | |
-| （可选）SkillDock 更新页更新 Claude 中的 SkillDock | |
+| “Agent 环境”页：两侧版本、Claude 管理状态（启用前后） | |
+| `server.log` 中“读取清单用时”的计时行（原样） | |
+| Claude 界面中刷新 marketplace 并更新：入口原文、结果、版本是否变化 | |
+| SkillDock 更新页更新 Claude 中的 SkillDock：检查与应用结果、读回版本 | |
 | （7A）从本地目录装插件到 Claude：是否出现 Agent 选择、安装位置、卸载后是否清干净 | |
 | TeamDesk 是否注明“仅支持 Codex” | |
 | 其他异常或与 README 写法不同的地方 | |

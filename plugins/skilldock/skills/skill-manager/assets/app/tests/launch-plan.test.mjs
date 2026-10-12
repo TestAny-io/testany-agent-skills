@@ -54,7 +54,8 @@ test('project fallback: never the working directory, explicit levels flagged, sk
   // The fixed legacy directory is not a project; the environment value is explicit.
   info = await resolveLaunchProject({ ...base, projectDir: legacy, env: { SKILLDOCK_PROJECT_DIR: other } });
   assert.deepEqual([info.effective, info.source, info.explicit], [other, 'environment', true]);
-  assert.match(info.warnings[0], /--project/);
+  // Skipped values are for stderr only, never an interface notice (36b §6.3).
+  assert.match(info.skipped[0], /--project/); assert.deepEqual(info.warnings, []);
   // project.json comes before the record's actual project.
   await fs.writeFile(path.join(w.state, 'project.json'), JSON.stringify({ path: w.project }));
   info = await resolveLaunchProject({ ...base, env: { SKILLDOCK_HANDOVER: '1' }, actualProject: other });
