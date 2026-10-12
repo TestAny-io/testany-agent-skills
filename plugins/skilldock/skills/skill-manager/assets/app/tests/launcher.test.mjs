@@ -392,18 +392,26 @@ test('the saved-project note is written only for a caller directory, never in a 
   const { projectDir, ...implicit } = options;
   const elsewhere = path.join(f.root, 'elsewhere'); await fs.mkdir(elsewhere);
   const cwd = process.cwd();
-  let handover; let caller;
+  let handover; let caller; let switched;
+  const other = path.join(f.root, 'other-project'); await fs.mkdir(other);
   try {
     // 36b 6.2: a 0.10.3 handover runs in the data directory and takes the saved project.
     process.chdir(first.state);
     handover = await stderrOf(() => launch('start', { ...implicit, env: { ...options.env, SKILLDOCK_HANDOVER: '1' } }));
     process.chdir(elsewhere);
     caller = await stderrOf(() => launch('start', implicit));
+    // The instance switched to another project: an implicit run keeps it and says nothing of the saved one.
+    await launch('start', { ...options, projectDir: other });
+    switched = await stderrOf(() => launch('start', implicit));
   } finally { process.chdir(cwd); await launch('stop', options); }
   const saved = await fs.realpath(f.projectDir);
   assert.deepEqual([handover.result.project, caller.result.project, caller.result.reused], [saved, saved, true]);
   assert.ok(!handover.stderr.includes('使用界面保存的项目'), handover.stderr);
   assert.ok(caller.stderr.includes('使用界面保存的项目'), caller.stderr);
+  const kept = await fs.realpath(other);
+  assert.deepEqual([switched.result.reused, switched.result.project], [true, kept]);
+  assert.ok(switched.stderr.includes(`最终扫描目录 ${kept}（沿用运行实例的项目）`), switched.stderr);
+  assert.ok(!switched.stderr.includes('使用界面保存的项目'), switched.stderr);
 });
 
 test('dependency and build output goes to build.log, which starts over past 1 MiB (36b 6.3)', async t => {

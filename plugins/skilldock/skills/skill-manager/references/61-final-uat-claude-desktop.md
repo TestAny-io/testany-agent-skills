@@ -9,12 +9,13 @@
 >
 > **修订 r3（2026-10-12）**：按评审 [62](62-cross-agent-uat-fix-review.md) 修订，上一版 sha256 `22f3a345631de2185365146c21abb65209b23c2b5f30a2b62a17dc86258e8b92`（提交 `73c438a`）。改动：续做起点改到第 6 节第 4 项的“启用管理”；第 6 节第 1 项、第 8 节第 2 项的读回改为只打印所需字段；第 7 节新增第 5 项（核对页面顶部的旧提示，并说明修复前启动的实例会继续带着它），原第 5 项顺延为第 6 项；第 9 节加一行。
 >
->
 > **修订 r4（2026-10-12）**：按第二部分的实测修订第 7 节，上一版 sha256 `eefc21001b131a78b5ae366b591c63e1a3423b301189800e98a42981c498a63a`（提交 `141d917`）。桌面应用没有刷新 marketplace 的入口，对同一来源再添加会失败，且只按声明的版本号识别插件更新；SkillDock 在 Claude 侧不声明版本（以提交摘要为版本），桌面应用的 Update 不可用。Owner 2026-10-12 决定 0.11.0 保持现状、在条目中声明版本放入 0.11.1。第 7 节因此改为在 SkillDock 的“更新”页检查并应用。同时按复核 [62 r2](62-cross-agent-uat-fix-review-r2.md)：第 7 节第 5 项把核对安装目录与停止实例拆成两步，并改正旧提示何时消失的说法；第 8 节第 2 项与第 3 节改为从 `known_marketplaces.json` 按键只读该项的来源（命令行输出中读不到 ref）。补记 r3：第 9 节汇报表另加了“旧提示核对”一行。
 >
 > **修订 r5（2026-10-12）**：按第二部分的更正修订，上一版 sha256 `caffbe9a2685e7b083ece26ab58d62f027b851e0d09f50c9b7840cefe3642f22`（提交 `b1903be`）。桌面应用**有**刷新 marketplace 的入口：Plugins 页 **+ Add ▾** → **Manage marketplaces** → 该 marketplace 行的 **⋮** → **Check for updates**（同一菜单另有 **Remove**，没有修改来源的入口）。r4 中“没有刷新入口”的说法作废；第 4 节写入菜单原文；第 7 节改为先用该入口刷新、核对 Update 仍不可用，再在 SkillDock 的“更新”页应用。
 >
-> **已做完第 3～6 节的，从第 6 节第 4 项的“启用管理”继续（Claude 已是“已启用管理”的跳过这一步），再做第 5 项。第 7 节第 6 项与第 7A 节都要求 Claude 已启用管理。**
+> **修订 r6（2026-10-12）**：按复核 [62 r3](62-cross-agent-uat-fix-review-r3.md) 修订，上一版 sha256 `107ae4d6af16e65767ff39dfb1891865077c13ccc439405a5f2412921825507f`（提交 `e1516d0`）。改动：第 7 节开头写明两次推送都要改动 `plugins/skilldock/` 下的文件、不要用“Agent 环境”页的一键更新；第 7 节第 4 项与第 5 项第 3 小项改为在新开或已重载的会话中调用；第 8 节第 2 项的对照读数改为切换前必做，读取失败只报“读取失败”，git 形态的来源打印去掉凭证的主机与路径；续做起点改为写明两部分已做到哪里。更正前几版说明：r4、r5 也改了第 9 节汇报表（r4 改写一行、加两行，r5 改写一行），r4 说明中的“补记 r3”应为“r3 还改写了第一条修订说明（补上第 9 节汇报表的增删）并把续做起点移出该说明”；“`plugin marketplace list --json` 的输出不含 ref”应为“从该输出中读不到 ref”。
+>
+> **进度**：第一部分（2026-10-10）做完第 3～6 节；第二部分（2026-10-12）做完第 6 节第 4、5 项，第 7 节第 2～6 项与第 7A 节。剩下第 7 节第 6 项第 1 小项（桌面应用 **Check for updates** 补测，用开发者推送的下一个提交）与第 8 节（发布后）。第 7 节第 3、6 项与第 7A 节都要求 Claude 已启用管理。
 
 ## 1. 这次会真实改动什么（先读给用户听）
 
@@ -110,10 +111,12 @@ echo "== Claude marketplace"; "$CLAUDE" plugin marketplace list --json | node -e
 
 开发者分两次往分支推送（Claude 以 marketplace 的提交摘要作为 SkillDock 的版本，新提交即新版本）。桌面应用可以刷新 marketplace（**+ Add ▾** → **Manage marketplaces** → **⋮** → **Check for updates**），但只按声明的版本号识别插件更新，SkillDock 的 Update 不可用（2026-10-12 实测），所以更新在 SkillDock 的“更新”页应用：检查时 SkillDock 也会自己刷新 marketplace，应用时经 Claude 命令行更新，用户全程不用终端。
 
+注意：“新提交即新版本”只指 Claude 侧的版本号；SkillDock 按内容判断有没有更新，开发者的两次推送都要改动 `plugins/skilldock/` 下的文件，否则检查会显示“已安装内容与来源一致”。两侧的应用版本都是 0.11.0，不要用“Agent 环境”页的一键更新（它按应用版本比较，会说没有更新的 SkillDock）。
+
 1. 告诉用户：请通知开发者“已装好，可以推第一个提交”。开发者确认推送后再继续。
 2. 先只读确认 Claude 还没有自动拿到新版本：`"$CLAUDE" plugin list --json | node -e "$NAMES"`（应仍为 `e7bf95a311b9`）。
 3. 请用户在 SkillDock 的“更新”页找到 Claude 中的 skilldock（经 Claude 命令行更新），点 **检查更新**；显示有更新时按提示应用。记录：检查与应用的结果、界面提示原文。桌面应用 Plugins 页中 Skilldock 的 Update 是否可用，照实记下。
-4. 读回版本是否变化：`"$CLAUDE" plugin list --json | node -e "$NAMES"`（应变为第一个提交的摘要）。在当前会话中再调用一次 `skilldock:skill-manager`，确认正常、仍沿用同一实例（第 6 节第 3 项的读回）。
+4. 读回版本是否变化：`"$CLAUDE" plugin list --json | node -e "$NAMES"`（应变为第一个提交的摘要）。新开一个会话（或在当前会话运行 `/reload-plugins`），再调用一次 `skilldock:skill-manager`，确认正常、仍沿用同一实例（第 6 节第 3 项的读回）。
 5. 核对页面顶部的旧提示“已跳过无效的项目目录 …/compat/legacy-project（--project）”（第一部分发现，已在 `73c438a` 修复）。先告诉用户：正在运行的实例是用修复前的代码启动的，这条提示会跟着这个实例，复用或隐式重启都不会消失；Codex 一侧在按 [60](60-v17-real-codex-update.md) 第 8 节改回 `main` 之前仍是修复前的启动器。核对方法（停止实例前征得用户同意；之后由 Claude 这份全新启动，首次需要构建运行目录，可能要一两分钟并需要联网）：
    1. 只读取出 Claude 中 skilldock 的安装目录并核对：
 
@@ -124,7 +127,7 @@ echo "== Claude marketplace"; "$CLAUDE" plugin marketplace list --json | node -e
 
       `D` 为空，或目录名不是刚更新到的版本摘要时，停下来告诉用户，不要停止实例；
    2. 核对无误、用户同意后，再单独停止实例：`sh "$D/skills/skill-manager/scripts/launch.sh" stop`；
-   3. 在当前会话中调用 `skilldock:skill-manager`（由 Claude 这份修复后的启动器全新启动），打开页面，确认顶部没有这条提示；
+   3. 在新开或已重载插件的会话中调用 `skilldock:skill-manager`（由 Claude 这份修复后的启动器全新启动；若提示“此数据目录属于另一个安装来源”，说明会话仍在用旧版本目录，先停下确认是否已重载，不要按提示改用独立数据目录），打开页面，确认顶部没有这条提示；
    4. 再打开 Codex 中的 SkillDock 原生页面（沿用同一实例），确认同样没有；
    5. 之后实例若停止、再由 Codex 原生入口全新启动，提示会重新出现，并跟着那个实例。这属预期：改回 `main` 后，实例下一次由新的启动器全新启动，或在界面中切换项目时消失。
 6. 告诉用户：请通知开发者“可以推第二个提交”。开发者确认后：
@@ -160,14 +163,15 @@ echo "== Claude marketplace"; "$CLAUDE" plugin marketplace list --json | node -e
 
 开发者合并到 `main` 并通知后，把 marketplace 改回跟随 `main`（经用户同意）：
 
-1. 在 Plugins 页 **+ Add ▾** → **Add marketplace** 中添加 `TestAny-io/testany-agent-skills`（不带 `#分支`，与现有来源不同），点 **Sync**；
-2. 读回（`plugin marketplace list --json` 的输出不含 ref，改为从 Claude 的 marketplace 记录中按键只读这一项的来源，不打印文件其余内容）：
+1. 先只读记下现在的来源，作为对照（从 `plugin marketplace list --json` 中读不到 ref，改为从 Claude 的 marketplace 记录中按键只读这一项的来源，不打印文件其余内容）：
 
    ```bash
-   node -e 'const m=JSON.parse(require("fs").readFileSync(process.argv[1],"utf8"))["testany-agent-skills"];console.log(m?JSON.stringify({source:m.source?.source,repo:m.source?.repo,hasRef:"ref" in (m.source??{}),ref:m.source?.ref??null}):"未找到")' "${CLAUDE_CONFIG_DIR:-$HOME/.claude}/plugins/known_marketplaces.json"
+   SRC='try{const m=JSON.parse(require("fs").readFileSync(process.argv[1],"utf8"))["testany-agent-skills"];if(!m)return console.log("未找到");const s=m.source??{};let host;try{const u=new URL(s.url);host=u.host+u.pathname}catch{}console.log(JSON.stringify({source:s.source,repo:s.repo,host,hasRef:"ref" in s,ref:s.ref??null}))}catch{console.log("读取失败")}'
+   node -e "(()=>{$SRC})()" "${CLAUDE_CONFIG_DIR:-$HOME/.claude}/plugins/known_marketplaces.json"
    ```
 
-   应为 `source` 为 `github`、`repo` 为 `TestAny-io/testany-agent-skills`、`hasRef` 为 `false`（切回前应能读到 `ref` 为开发分支，可先读一次作对照）；`"$CLAUDE" plugin list --json | node -e "$NAMES"` 中 SkillDock 与 testany-eng 都还在；
+   应读到 `hasRef` 为 `true`、`ref` 为 `feature/skilldock-0.11-cross-agent`。读不到时说明 ref 不记在这里，停下来问用户，后面不能用 `hasRef` 判断是否切换成功。
+2. 在 Plugins 页 **+ Add ▾** → **Add marketplace** 中添加 `TestAny-io/testany-agent-skills`（不带 `#分支`，与现有来源不同），点 **Sync**；再运行同一条命令读回，应为 `source` 为 `github`、`repo` 为 `TestAny-io/testany-agent-skills`、`hasRef` 为 `false`；`"$CLAUDE" plugin list --json | node -e "$NAMES"` 中 SkillDock 与 testany-eng 都还在；
 3. 若没有就地切换（来源仍带 ref），再经用户同意在 **Manage marketplaces** → **⋮** → **Remove** 中移除该 marketplace（会卸载从它安装的插件，确认框会列出）、重新添加并从插件浏览器重新安装。数据目录不受影响，计划与记录都在。
 4. 提醒用户：Codex 一侧的自动更新计划里，SkillDock 这一项因 V17 期间安装目录变化而每次跳过（“旧计划不接管新对象，请重新选择”），在按 [60](60-v17-real-codex-update.md) 第 8 节改回 `main` 之后，到 SkillDock 的“更新”页重新选择它。
 
