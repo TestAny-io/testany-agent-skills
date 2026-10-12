@@ -51,6 +51,18 @@ test('version precedence accepts duplicate declarations, preserves both inputs, 
   }
 });
 
+test('an entry mirroring a Codex manifest version is not a duplicate declaration; a different value still warns', async t => {
+  const root = await temporary(t);
+  await writeJson(path.join(root, '.codex-plugin/plugin.json'), { name: 'compat-plugin', version: '2.0.0' });
+  await configure(root, { version: '2.0.0' });
+  let catalog = await readMarketplace(root);
+  assert.equal(catalog.plugins[0].version, '2.0.0'); assert.deepEqual(catalog.warnings, []); assert.deepEqual(catalog.plugins[0].warnings, []);
+  await configure(root, { version: '2.0.1' });
+  catalog = await readMarketplace(root);
+  assert.equal(catalog.plugins[0].version, '2.0.0', 'Codex 仍以自己的 manifest 为准');
+  assert.equal(catalog.warnings.length, 1); assert.ok(catalog.warnings[0].includes('2.0.1')); assert.ok(catalog.warnings[0].includes('2.0.0'));
+});
+
 test('strict matrix uses manifest existence and the six entry component fields, including empty declarations', async t => {
   const root = await temporary(t); await skill(root, 'skills/default-skill'); await skill(root, 'custom/manifest-skill'); await skill(root, 'extra/entry-skill');
   for (const strict of [undefined, true, false]) for (const hasManifest of [false, true]) {

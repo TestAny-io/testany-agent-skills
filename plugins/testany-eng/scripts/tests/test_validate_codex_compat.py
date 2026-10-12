@@ -69,8 +69,13 @@ class ValidateCodexCompatTests(unittest.TestCase):
             result = VALIDATOR.discover_active_skills(root)
             self.assertEqual(result.errors, ())
             self.assertEqual(result.active, (skill,))
+            # The entry may mirror the Codex manifest version for Claude, but only the same value.
             self.write_json(root, ".claude-plugin/marketplace.json", {"plugins": [{"name": "skilldock", "version": "0.2.0", "source": {"source": "local", "path": "./plugins/skilldock"}}]})
-            self.assertTrue(any("one authority" in error for error in VALIDATOR.discover_active_skills(root).errors))
+            mirrored = VALIDATOR.discover_active_skills(root)
+            self.assertEqual(mirrored.errors, ())
+            self.assertEqual(mirrored.active, (skill,))
+            self.write_json(root, ".claude-plugin/marketplace.json", {"plugins": [{"name": "skilldock", "version": "0.2.1", "source": {"source": "local", "path": "./plugins/skilldock"}}]})
+            self.assertTrue(any("must equal the Codex manifest version" in error for error in VALIDATOR.discover_active_skills(root).errors))
 
     def test_codex_source_descriptor_rejects_remote_and_escaped_paths(self) -> None:
         with tempfile.TemporaryDirectory() as tmpdir:

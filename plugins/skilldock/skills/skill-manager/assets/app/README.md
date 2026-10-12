@@ -2,7 +2,7 @@
 
 一个在 Codex 原生主内容区、Codex 或 Claude 的浏览器面板、或普通浏览器中运行的本地技能管理器，同时管理本机 Codex 与 Claude 的技能、插件和 marketplace。支持中文、英文、日文，以及浅色、深色和跟随系统外观；包含技能库、插件、市场来源、更新、操作记录与 Agent 环境。打开即加载本机技能库，直接查看与管理自己的安装。
 
-此目录是可复现的 app 源码，随独立 `skilldock` 插件分发，包含 `skill-manager` skill 与 Codex 原生 MCP 应用入口。当前版本为 0.11.0（跨 Agent 版本）：同一个本地实例同时管理 Codex 与 Claude，在两边都能打开；Claude 一侧的技能、插件与 marketplace 支持安装、启停、移除恢复、更新和后台计划，改动经 Claude 命令行执行并读回；“Agent 环境”页显示两侧状态，并决定 SkillDock 是否修改某一侧；SkillDock 自身可一键更新较旧的一侧。要点见下文[跨 Agent（0.11.0）](#跨-agent0110)。此前版本的能力继续保留：第三方 marketplace 的重复版本兼容与 strict 校验、Miro 等官方应用插件的真实名称搜索与安装预览、完整主页面与按需启动、重复技能筛选、安装前的技能清单与逐项启用、从本地目录或 Git 链接安装单个插件、项目选择、macOS 独立后台定时更新、逐行 diff、私仓认证、CLI 回退、自定义目录兼容性与同名技能按路径移除。
+此目录是可复现的 app 源码，随独立 `skilldock` 插件分发，包含 `skill-manager` skill 与 Codex 原生 MCP 应用入口。当前版本为 0.11.1（跨 Agent 版本）：同一个本地实例同时管理 Codex 与 Claude，在两边都能打开；Claude 一侧的技能、插件与 marketplace 支持安装、启停、移除恢复、更新和后台计划，改动经 Claude 命令行执行并读回；“Agent 环境”页显示两侧状态，并决定 SkillDock 是否修改某一侧；SkillDock 自身可一键更新较旧的一侧。要点见下文[跨 Agent（0.11.0）](#跨-agent0110)。此前版本的能力继续保留：第三方 marketplace 的重复版本兼容与 strict 校验、Miro 等官方应用插件的真实名称搜索与安装预览、完整主页面与按需启动、重复技能筛选、安装前的技能清单与逐项启用、从本地目录或 Git 链接安装单个插件、项目选择、macOS 独立后台定时更新、逐行 diff、私仓认证、CLI 回退、自定义目录兼容性与同名技能按路径移除。
 
 ## 安装技能与插件
 

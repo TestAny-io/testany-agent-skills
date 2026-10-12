@@ -444,10 +444,18 @@ def discover_active_skills(repo_root: Path) -> SkillDiscovery:
             manifest = {}
 
         if "version" in plugin and "version" in manifest:
-            errors.append(
-                f"{plugin_name}: version must have one authority; remove it from "
-                "either the marketplace entry or plugin manifest"
-            )
+            # Claude never reads a Codex manifest, so the entry may mirror its version
+            # for Claude; the Codex manifest stays the authority and the two must agree.
+            if manifest_path.parent.name != ".codex-plugin":
+                errors.append(
+                    f"{plugin_name}: version must have one authority; remove it from "
+                    "either the marketplace entry or plugin manifest"
+                )
+            elif plugin["version"] != manifest["version"]:
+                errors.append(
+                    f"{plugin_name}: marketplace version must equal the Codex manifest "
+                    "version it mirrors"
+                )
 
         strict = plugin.get("strict", True)
         if not isinstance(strict, bool):
