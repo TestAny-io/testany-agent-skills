@@ -49,14 +49,16 @@ Or open the browser panel from a new Codex task:
 $skill-manager Open the skill management panel
 ```
 
-**In Claude (Claude Code or the Claude desktop app):**
+**In Claude (the Claude desktop app or Claude Code):**
+
+On the desktop app's plugins page (**Customize** → **Plugins** in the sidebar, or type `/plugin`), click **+ Add ▾** → **Add marketplace**, enter `TestAny-io/testany-agent-skills`, and click **Sync**; then find **Skilldock** on **Discover** and click **Add**. In Claude Code you can also run:
 
 ```text
 /plugin marketplace add TestAny-io/testany-agent-skills
 /plugin install skilldock@testany-agent-skills
 ```
 
-Once this marketplace is added, the desktop app can also install it from **+** next to the prompt box → **Plugins** → **Add plugin**. Start a new session (or run `/reload-plugins`), then open it with `/skilldock:skill-manager` or ask Claude to open SkillDock; it opens in Claude's built-in browser panel. To update later: `/plugin` → **Marketplaces** → `testany-agent-skills` → **Update marketplace** (it refreshes the catalog, then updates the plugins), or SkillDock's **Updates** page. Both sides open the same instance with the same data, and installing on one side is enough to manage the other.
+Then open it with `/skilldock:skill-manager` or ask Claude to open SkillDock; it opens in Claude's built-in browser panel. To update later, click **Check for updates** for Claude's skilldock on SkillDock's **Updates** page: it refreshes the marketplace and updates through Claude's command line, with no terminal (in 0.11.0 the desktop app's **Update** button does not detect new SkillDock versions). Both sides open the same instance with the same data, and installing on one side is enough to manage the other.
 
 <details>
 <summary><strong>Requirements, a missing entry, or a broken command?</strong></summary>

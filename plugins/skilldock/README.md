@@ -49,14 +49,16 @@
 $skill-manager 打开技能管理面板
 ```
 
-**在 Claude 中（Claude Code 或 Claude 桌面应用）：**
+**在 Claude 中（Claude 桌面应用或 Claude Code）：**
+
+在桌面应用的插件页（左侧栏 **Customize** → **Plugins**，或输入 `/plugin`）点 **+ Add ▾** → **Add marketplace**，填 `TestAny-io/testany-agent-skills` 后点 **Sync**；再在 **Discover** 中找到 **Skilldock**，点 **Add**。Claude Code 中也可以运行：
 
 ```text
 /plugin marketplace add TestAny-io/testany-agent-skills
 /plugin install skilldock@testany-agent-skills
 ```
 
-添加本仓库 marketplace 之后，桌面应用中也可以点提示框旁的 **+** → **Plugins** → **Add plugin** 安装。新开会话（或运行 `/reload-plugins`）后，用 `/skilldock:skill-manager` 打开，或直接说“打开 SkillDock”；界面打开在 Claude 的内置浏览器面板中。以后更新：`/plugin` → **Marketplaces** → `testany-agent-skills` → **Update marketplace**（先刷新目录再更新插件），或在 SkillDock 的“更新”页更新。两边打开的是同一个实例、同一份数据，只装在一边也能管理另一边。
+装好后用 `/skilldock:skill-manager` 打开，或直接说“打开 SkillDock”；界面打开在 Claude 的内置浏览器面板中。以后更新：在 SkillDock 的“更新”页对 Claude 中的 skilldock 点 **检查更新**，它会先刷新 marketplace 再经 Claude 命令行更新，不用终端（0.11.0 中桌面应用插件页的 **Update** 不识别 SkillDock 的新版本）。两边打开的是同一个实例、同一份数据，只装在一边也能管理另一边。
 
 <details>
 <summary><strong>安装要求、入口不见了，或命令报错？</strong></summary>

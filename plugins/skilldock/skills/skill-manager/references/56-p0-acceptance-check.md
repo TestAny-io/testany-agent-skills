@@ -5,6 +5,8 @@
 > 范围：PRD-SKILLDOCK-002 第 11 节中 P0 需求的验收标准与回归保护。AC-010（同源跟踪）、AC-011（完整兼容性推断）属 0.11.0 之后的 M4（P1），AC-014 属 M5（P2），不在本表。
 > 证据类型：**自动** = 本仓库测试（文件名省略 `.test.mjs`，`spec` 为浏览器端到端）；**实测** = 有记录的真实宿主实测（HLD 9.3）；**UAT** = 2026-10-10 另一台电脑试用（[53](53-uat-other-computer-codex.md)、[54](54-uat-other-computer-claude.md)）。
 > 结论：**满足** / **部分**（附原因与去处）/ **待 Owner**（阶段 6e 的 V17 或最终 UAT）。本表由作者整理，阶段 6d 的独立评审逐条核对。
+>
+> **更新（2026-10-12）**：按最终 UAT（[61](61-final-uat-claude-desktop.md)，另一台电脑，Claude 桌面应用 2.1.293/2.1.295）的结果更新 AC-008 第 3 项、AC-017 第 1、3 项与汇总，上一版 sha256 `0a2b92854c8b0d272dbd74d3f1d30938744b915c7195324e410bd9778b09830e`（提交 `b1903be`）。其余各行未改。
 
 ## AC-001 环境发现
 
@@ -78,7 +80,7 @@
 |------|------|------|
 | Code 标签页请求打开后，界面在内置浏览器面板显示；不可用时给出链接 | UAT：CC-02 | 满足 |
 | 可查看状态与停止服务；停止不关闭后台计划 | 自动：`launcher`；`SKILL.md` 说明；UAT：CC-01、CC-05 | 满足 |
-| 从 Claude 安装 SkillDock 后，插件错误列表与 `claude plugin list` 中没有 SkillDock 的错误 | 实测：`claude-distribution-smoke`（真实 Claude，临时目录，2026-10-08） | 待 Owner（最终 UAT 中从真实 Claude 安装 0.11.0 后核对） |
+| 从 Claude 安装 SkillDock 后，插件错误列表与 `claude plugin list` 中没有 SkillDock 的错误 | 实测：`claude-distribution-smoke`（真实 Claude，临时目录，2026-10-08）；最终 UAT：桌面应用插件页中 Skilldock 详情无错误或警告标记，`plugin list` 无错误字段，`plugin validate` 通过（只有未写 version、author 两条警告） | 满足（桌面应用日志另有一条界面不显示的警告：`commands/skill-manager.md` 与同名技能冲突、命令被跳过，0.11.1 删除该命令文件） |
 
 ## AC-009 运行环境
 
@@ -128,9 +130,9 @@
 
 | 验收项 | 证据 | 结论 |
 |------|------|------|
-| 在 Claude 桌面应用中添加本仓库 marketplace 后，可从插件浏览器安装 SkillDock，其技能出现在 Claude 中 | 实测：`claude-distribution-smoke`（命令行、临时目录）；桌面应用的插件浏览器未实测 | 待 Owner（最终 UAT） |
+| 在 Claude 桌面应用中添加本仓库 marketplace 后，可从插件浏览器安装 SkillDock，其技能出现在 Claude 中 | 实测：`claude-distribution-smoke`（命令行、临时目录）；最终 UAT：插件页 **+ Add ▾** → **Add marketplace** 添加（同名 marketplace 就地改为所填来源，不卸载插件），**Discover** 中对 **Skilldock** 点 **Add**，装成用户范围，当前会话无需重载即可调用 `skilldock:skill-manager`，与 Codex 侧为同一实例 | 满足 |
 | 安装 SkillDock 不会安装或启用仓库中的其他插件 | 实测：`claude-distribution-smoke` “只装上 SkillDock” | 满足 |
-| 中英文 README 有 Claude 的安装、打开与更新说明，全程不要求终端 | 文档：`/plugin marketplace add` 与 `/plugin install` 在对话中输入；更新用 `/plugin` → Marketplaces → Update marketplace（先刷新目录）或 SkillDock 的更新页；终端命令列为可选 | 待 Owner：随第 1 项在最终 UAT 中实测桌面应用里的添加 marketplace、插件浏览器安装、刷新后更新，按实际界面路径修订 README（阶段 6 评审 PH6-P2-01） |
+| 中英文 README 有 Claude 的安装、打开与更新说明，全程不要求终端 | 文档：README 按最终 UAT 的界面原文修订——安装走插件页 **+ Add ▾** → **Add marketplace** 与 **Discover** → **Add**；更新走 SkillDock“更新”页的 **检查更新**。最终 UAT：第二个提交由 SkillDock 自己刷新 marketplace 并经 Claude 命令行更新，读回新版本，没有用终端。桌面应用插件页的 **Update** 不识别 SkillDock 的新版本（Claude 侧以提交摘要为版本），README 已说明，0.11.1 在 marketplace 条目中声明版本号 | 满足（README 中 Claude Code 的命令与终端命令列为可选） |
 | 仅支持 Codex 的插件在 Claude 中有明确标注 | 仓库 Claude marketplace 中 TeamDesk 注明“仅支持 Codex”；实测：`claude-distribution-smoke` | 满足 |
 
 ## 回归保护
@@ -149,7 +151,7 @@
 
 ## 汇总
 
-- **待 Owner**（阶段 6e）：AC-007 第 4 项（V17，按 [60](60-v17-real-codex-update.md)）、AC-008 第 3 项与 AC-017 第 1、3 项（从真实 Claude 桌面应用添加 marketplace、安装与更新 0.11.0，按 [61](61-final-uat-claude-desktop.md)）、AC-013 第 1 项的复核。
+- **待 Owner**（阶段 6e）：AC-007 第 4 项（V17，按 [60](60-v17-real-codex-update.md)；待重做报告）。AC-008 第 3 项与 AC-017 第 1、3 项已在最终 UAT 中满足（2026-10-12）。AC-013 第 1 项的“只装 Claude”真机复核没有做（UAT 电脑两侧都装有），以自动测试为准。
 - **Owner 认可的例外与残余**：AC-001 第 3 项（只读一侧的 SkillDock 一键更新，DG-R24-1）、MR-SDX-003（首次检查前的本地修改，DG-R24-2）。
 - **部分**（Owner 2026-10-10 同意随 0.11.0 发布，记入 [41](41-ui-redesign-backlog.md)）：AC-003 第 1 项（UI-05、UI-02）、AC-016 第 2 项（UI-11）、AC-009 第 6 项（UI-15）。AC-016 第 3 项（UI-14）已在发布前修复。
 
