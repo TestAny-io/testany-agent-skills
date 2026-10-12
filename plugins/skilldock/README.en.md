@@ -58,7 +58,7 @@ On the desktop app's plugins page (**Customize** → **Plugins** in the sidebar,
 /plugin install skilldock@testany-agent-skills
 ```
 
-Then open it with `/skilldock:skill-manager` or ask Claude to open SkillDock; it opens in Claude's built-in browser panel. To update later, click **Check for updates** for Claude's skilldock on SkillDock's **Updates** page: it refreshes the marketplace and updates through Claude's command line, with no terminal (from 0.11.1 SkillDock states its version on the Claude side too; 0.11.0 is versioned by commit there, and the desktop app's **Update** button does not detect its new versions). Both sides open the same instance with the same data, and installing on one side is enough to manage the other.
+Then open it with `/skilldock:skill-manager` or ask Claude to open SkillDock; it opens in Claude's built-in browser panel. To update later, click **Check for updates** for Claude's skilldock on SkillDock's **Updates** page: it refreshes the marketplace and updates through Claude's command line, with no terminal (from 0.11.1 SkillDock states its version on the Claude side too; in testing the desktop app's **Update** button did not detect commits after 0.11.0, and whether it works once the version is stated is not yet confirmed). Both sides open the same instance with the same data, and installing on one side is enough to manage the other.
 
 <details>
 <summary><strong>Requirements, a missing entry, or a broken command?</strong></summary>

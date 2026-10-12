@@ -69,12 +69,46 @@ test('plugins: enablement source, overrides, managed and synced protection, mani
   assert.match(byName('b').id, /^claude:plugin:b@m:project:[a-f0-9]{12}$/);
   // A skills-directory plugin (name@skills-dir) is a plugin, never a standalone skill.
   assert.deepEqual([byName('sd').marketplace, byName('sd').installation.scope, byName('sd').skillCount], ['skills-dir', 'user', 1]);
-  assert.equal(catalog.skills.some(item => ['sd', 'inner'].includes(item.name)), false);
+  assert.equal(catalog.skills.some(item => item.name === 'sd'), false);
+  assert.deepEqual(catalog.skills.filter(item => item.name === 'inner').map(item => [item.scope, item.pluginId]), [['plugin', byName('sd').id]], '它带的技能列在它名下');
+});
+
+test('the skills an installed plugin ships are listed read-only under it; commands and uninstalled plugins are not (REQ-SDX-002; Owner 2026-10-12)', async t => {
+  const w = await world(t);
+  // A second skill, a legacy command of the same name, a folder without SKILL.md, a hidden folder and an unreadable skill.
+  await skill(path.join(w.installA, 'skills'), 'b-skill');
+  await write(path.join(w.installA, 'commands/a-skill.md'), '---\ndescription: legacy\n---\nrun');
+  await fs.mkdir(path.join(w.installA, 'skills/notes'), { recursive: true }); await skill(path.join(w.installA, 'skills'), '.hidden');
+  await write(path.join(w.installA, 'skills/broken/SKILL.md'), 'no frontmatter');
+  // The same cache directory serves a second installation of the plugin, which is disabled.
+  const plugins = [...await w.base.listPlugins(), { id: 'a@m', scope: 'project', projectPath: w.project, enabled: false, version: 'abc', installPath: w.installA }];
+  const catalog = await claudeCatalog({ ...w.base, listPlugins: async () => plugins });
+  const [user, project] = catalog.plugins.filter(item => item.name === 'a');
+  assert.deepEqual([user.installation.scope, user.skillCount, project.installation.scope, project.skillCount], ['user', 2, 'project', 2], '命令文件不计入');
+  const shipped = catalog.skills.filter(item => item.pluginId === user.id);
+  assert.deepEqual(shipped.map(item => [item.name, item.scope, item.enabled, item.version, item.sourceLabel]), [['a-skill', 'plugin', true, 'abc', 'Claude 插件技能'], ['b-skill', 'plugin', true, 'abc', 'Claude 插件技能']]);
+  assert.ok(shipped.every(item => item.agents.join() === 'claude' && item.managed && !item.canToggle && !item.canRemove && !item.canUpdate && /随所属插件一起启用或停用/.test(item.reason) && item.revision
+    && item.path === path.join(w.installA, 'skills', item.name, 'SKILL.md') && /^claude:skill:plugin:[a-f0-9]{12}$/.test(item.id) && item.visibility === undefined && item.enablement === undefined));
+  // Each installation lists its own copy, with its own identity and the state of its plugin.
+  const other = catalog.skills.filter(item => item.pluginId === project.id);
+  assert.deepEqual(other.map(item => [item.name, item.enabled]), [['a-skill', false], ['b-skill', false]]);
+  assert.ok(other.every(item => /所属插件已停用/.test(item.reason)));
+  assert.equal(new Set(catalog.skills.map(item => item.id)).size, catalog.skills.length, 'ID 不重复');
+  assert.ok(catalog.diagnostics.some(line => line.includes(path.join(w.installA, 'skills/broken'))), '读不了的技能记入诊断，不列出');
+  // Nothing for a plugin without an installation directory, or one that is only available.
+  const b = catalog.plugins.find(item => item.name === 'b' && item.installed);
+  assert.deepEqual([b.skillCount, catalog.skills.filter(item => item.pluginId === b.id).length], [0, 0]);
+  assert.ok(catalog.plugins.filter(item => !item.installed).every(item => item.skillCount === 0));
+  // The revision follows the plugin's state: a write carrying an old one is refused like any other.
+  plugins[0] = { ...plugins[0], enabled: false };
+  const again = (await claudeCatalog({ ...w.base, listPlugins: async () => plugins })).skills.find(item => item.id === shipped[0].id);
+  assert.deepEqual([again.enabled, again.revision === shipped[0].revision], [false, false]);
 });
 
 test('skills: visibility from the deciding layer by name, user and project roots up to the repository root', async t => {
   const w = await world(t);
-  const { skills } = await claudeCatalog(w.base);
+  // Claude's own skills; those a plugin ships have their own case above.
+  const skills = (await claudeCatalog(w.base)).skills.filter(item => !item.pluginId);
   const byName = name => skills.find(item => item.name === name);
   assert.deepEqual(skills.map(item => [item.name, item.scope]).sort(), [['p1', 'project'], ['p2', 'project'], ['u1', 'user'], ['u2', 'user'], ['u3', 'user']]);
   assert.deepEqual([byName('u1').visibility, byName('u1').enabled, byName('u1').enablement], ['disabled', false, { decidedBy: 'user' }]);
@@ -99,6 +133,11 @@ test('marketplaces: auto-update from settings, Claude\'s record or the default; 
   assert.equal('ref' in m, false);
   await write(path.join(w.configDir, 'plugins/known_marketplaces.json'), { m: { source: { source: 'github', repo: 'o/m', ref: 'feature/x\u0007' }, installLocation: path.join(w.configDir, 'plugins/marketplaces/m') } });
   assert.equal((await claudeCatalog(w.base)).marketplaces.find(item => item.name === 'm').ref, 'feature/x', '去掉控制字符');
+  // Claude's list names the ref before its record does; it is bounded, and the revision does not follow it (36c: display only).
+  const withRef = ref => claudeCatalog({ ...w.base, listMarketplaces: async () => [{ name: 'm', source: 'github', repo: 'o/m', ...(ref === undefined ? {} : { ref }) }] }).then(catalog => catalog.marketplaces.find(item => item.name === 'm'));
+  const [fromRecord, fromList, long] = [await withRef(undefined), await withRef('release/1.x'), await withRef('r'.repeat(300))];
+  assert.deepEqual([fromRecord.ref, fromList.ref, long.ref.length], ['feature/x', 'release/1.x', 200]);
+  assert.deepEqual([fromList.revision, long.revision], [fromRecord.revision, fromRecord.revision]);
 });
 
 test('a failing list or an unknown settings format leaves Claude unconfirmed; its install record is shown meanwhile', async t => {
@@ -152,7 +191,7 @@ test('settings: only the three relevant keys are read; a home-directory project 
   assert.deepEqual(Object.keys(settings.layers.user).sort(), ['enabledPlugins', 'skillOverrides']);
   assert.equal(JSON.stringify(settings).includes('never read'), false);
   const atHome = await claudeCatalog({ ...w.base, project: w.home });
-  assert.deepEqual(atHome.skills.map(item => [item.name, item.scope]).sort(), [['u1', 'user'], ['u2', 'user'], ['u3', 'user']]);
+  assert.deepEqual(atHome.skills.filter(item => !item.pluginId).map(item => [item.name, item.scope]).sort(), [['u1', 'user'], ['u2', 'user'], ['u3', 'user']]);
   assert.deepEqual(atHome.plugins.find(item => item.name === 'b').enablement, { decidedBy: 'user' }, '主目录项目不把用户设置算作项目设置');
 });
 

@@ -34,6 +34,8 @@ const plainName = value => typeof value === 'string' && /^[A-Za-z0-9][A-Za-z0-9.
 export const claudeIds = {
   plugin: (id, scope, projectPath) => `claude:plugin:${id}:${scope}${projectPath ? `:${digest(projectPath)}` : ''}`,
   skill: (scope, directory) => `claude:skill:${scope}:${digest(directory)}`,
+  /** One installation's copy: two scopes of a plugin share a cache directory. */
+  pluginSkill: (pluginId, directory) => `claude:skill:plugin:${digest(`${pluginId}\n${directory}`)}`,
   marketplace: name => `claude:marketplace:${name}`,
   /** A plugin not installed in any scope has no installation identity yet. */
   available: id => `claude:plugin:${id}`,
@@ -131,15 +133,33 @@ async function readManifest(directory) {
   return null;
 }
 
-async function countSkills(directory) {
-  let count = 0;
-  for (const folder of ['skills', 'commands']) {
-    for (const entry of await fs.readdir(path.join(directory, folder), { withFileTypes: true }).catch(() => [])) {
-      if (folder === 'skills' && (entry.isDirectory() || entry.isSymbolicLink()) && await exists(path.join(directory, folder, entry.name, 'SKILL.md'))) count++;
-      if (folder === 'commands' && entry.isFile() && entry.name.endsWith('.md')) count++;
-    }
+const PLUGIN_SKILL = 'Claude 插件自带的技能随所属插件一起启用或停用，不能单独开关；更新和卸载按所属插件进行。';
+const PLUGIN_OFF = '所属插件已停用；启用插件后其中的技能才可用。';
+
+/**
+ * The skills an installed plugin ships, as read-only entries of the skill library (REQ-SDX-002;
+ * Owner 2026-10-12): Claude turns a plugin's skills on and off with the plugin, never one by one.
+ * From the default `skills/` directory; legacy `commands/` files are not skills and are not listed.
+ */
+async function pluginSkills(plugin, directory, diagnostics) {
+  const skills = [];
+  for (const entry of (await fs.readdir(path.join(directory, 'skills'), { withFileTypes: true }).catch(() => [])).sort((a, b) => a.name.localeCompare(b.name))) {
+    if (entry.name.startsWith('.') || !(entry.isDirectory() || entry.isSymbolicLink())) continue;
+    const folder = path.join(directory, 'skills', entry.name);
+    if (!await exists(path.join(folder, 'SKILL.md'))) continue;
+    let detail; let real; let isLink = false;
+    try { isLink = (await fs.lstat(folder)).isSymbolicLink(); real = await fs.realpath(path.join(folder, 'SKILL.md')); detail = await metadata(folder); }
+    catch (error) { diagnostics.push(`${folder}：${redact(error.message)}`); continue; }
+    const reason = plugin.enabled === false ? PLUGIN_OFF : PLUGIN_SKILL;
+    skills.push({
+      agents: ['claude'], id: claudeIds.pluginSkill(plugin.id, folder), name: detail.name, description: detail.description, path: path.join(folder, 'SKILL.md'), realPath: real,
+      scope: 'plugin', sourceLabel: 'Claude 插件技能', pluginId: plugin.id, ...(plugin.version ? { version: plugin.version } : {}), enabled: plugin.enabled, managed: true, isLink,
+      canToggle: false, canRemove: false, canUpdate: false, reason, statusEvidence: 'Claude 插件的启用状态', updatedAt: detail.updatedAt,
+      revision: revision({ real, plugin: plugin.id, enabled: plugin.enabled }),
+    });
   }
-  return count;
+  plugin.skillCount = skills.length;
+  return skills;
 }
 
 /**
@@ -268,7 +288,7 @@ export async function claudeCatalog({ claudeRoot, project, cli, env = process.en
     plugins.push({
       agents: ['claude'], id: claudeIds.plugin(item.id, item.scope, projectPath), name, displayName: manifest?.name !== name ? manifest?.name : undefined,
       description: typeof manifest?.description === 'string' ? manifest.description : '', marketplace, version: typeof item.version === 'string' ? item.version : undefined,
-      installed: true, enabled, skillCount: installPath ? await countSkills(installPath) : 0, ...(installPath ? { installedPath: installPath, realPath: await fs.realpath(installPath).catch(() => installPath) } : {}),
+      installed: true, enabled, skillCount: 0, ...(installPath ? { installedPath: installPath, realPath: await fs.realpath(installPath).catch(() => installPath) } : {}),
       installation, enablement: source, manifests, ...(synced ? { protection: 'synced' } : source.locked || item.scope === 'managed' ? { protection: 'managed' } : {}),
       canInstall: false, canRemove: !blocked, canToggle: !toggleReason,
       ...(blocked ?? toggleReason ? { reason: blocked ?? toggleReason } : {}),
@@ -291,12 +311,13 @@ export async function claudeCatalog({ claudeRoot, project, cli, env = process.en
     // directory or the current project's .claude/skills.
     const removable = [path.join(configDir, 'skills'), path.join(project, '.claude/skills')].includes(path.dirname(directory));
     plugins.push({ agents: ['claude'], id: claudeIds.plugin(id, scope, directory), name, description: typeof manifest.description === 'string' ? manifest.description : '', marketplace: 'skills-dir',
-      version: typeof manifest.version === 'string' ? manifest.version : undefined, installed: true, enabled: listed ? listed.enabled : null, skillCount: await countSkills(directory),
+      version: typeof manifest.version === 'string' ? manifest.version : undefined, installed: true, enabled: listed ? listed.enabled : null, skillCount: 0,
       installedPath: directory, realPath: await fs.realpath(directory).catch(() => directory), installation: { scope, skillsDir: path.dirname(directory) }, enablement: source,
       manifests: ['claude', ...(await exists(path.join(directory, '.codex-plugin/plugin.json')) ? ['codex'] : [])].sort(),
       canInstall: false, canRemove: removable, canToggle: !toggleReason, ...(toggleReason ?? (removable ? undefined : SKILLS_DIR_REMOVAL) ? { reason: toggleReason ?? SKILLS_DIR_REMOVAL } : {}), revision: revision({ id, directory, enabled: listed?.enabled, source }) });
   }
-  const marketplaces = []; const available = [];
+  for (const plugin of plugins) if (plugin.installedPath) skills.push(...await pluginSkills(plugin, plugin.installedPath, diagnostics));
+  const marketplaces = []; const available = []; const copies = {};
   // Installed in any scope, by the command line or Claude's own record (which also lists
   // installs in other projects), is not "not installed".
   const records = installed ? await installRecord(configDir) ?? [] : record ?? [];
@@ -310,6 +331,7 @@ export async function claudeCatalog({ claudeRoot, project, cli, env = process.en
     let pluginCount = 0;
     const location = typeof item.installLocation === 'string' ? item.installLocation : entry.installLocation;
     if (typeof location === 'string') {
+      copies[item.name] = location;
       try {
         const catalog = JSON.parse(await fs.readFile(path.join(location, '.claude-plugin/marketplace.json'), 'utf8'));
         if (!Array.isArray(catalog?.plugins)) throw new Error('unknown shape');
@@ -350,5 +372,6 @@ export async function claudeCatalog({ claudeRoot, project, cli, env = process.en
   for (const key of Object.keys(layers.project.enabledPlugins || {})) { const market = key.split('@')[1]; if (market) projectEntries[market] = true; }
   // Claude's own install record, in every project: whether a marketplace is still in use (4d review P2-04).
   const recordedInstalls = records.map(({ id, scope, projectPath }) => ({ id, scope, ...(projectPath ? { projectPath } : {}) }));
-  return { skills, plugins, marketplaces, diagnostics, unconfirmed, evidence: installed ? 'cli' : record ? 'record' : 'none', listed: !!(cli?.available && rooted), declarations, projectEntries, recordedInstalls };
+  // `copies`: where each marketplace's copy lies, as the listing above read it; not part of any snapshot.
+  return { skills, plugins, marketplaces, diagnostics, unconfirmed, evidence: installed ? 'cli' : record ? 'record' : 'none', listed: !!(cli?.available && rooted), declarations, projectEntries, recordedInstalls, copies };
 }

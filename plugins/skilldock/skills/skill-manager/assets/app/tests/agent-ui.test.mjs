@@ -314,6 +314,8 @@ test('a skill waiting for confirmation is listed with the other side\'s plugins 
   assert.deepEqual([...holdingPlugins(data, inner)], ['Kit', 'outer']);
   assert.deepEqual([...holdingPlugins(data, claudeOwn)], ['tools'], 'Claude 的技能看 Codex 的插件；未写 agents 的插件属于 Codex');
   assert.deepEqual([...holdingPlugins(data, plain)], []);
+  // A skill directory that is the plugin's own root is held by it too.
+  assert.deepEqual([...holdingPlugins({ ...data, plugins: [plugin('root', ['claude'], '/claude/cache/kit/1.0.0/skills/inner')] }, inner)], ['root']);
   assert.deepEqual([...holdingPlugins(data, { kind: 'plugin', id: 'kit@m' })], []);
   assert.deepEqual([...pendingConfirmation(data, 'zh').affected], ['inner (Kit, outer)', 'own (tools)']);
   const props = { data, runPending: false, onClearFocus() {}, busy: false, language: 'zh', execute: async () => undefined, onDetails() {}, onRefresh() {}, onConfirm() {} };

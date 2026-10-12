@@ -262,12 +262,12 @@ export async function launch(action = 'start', options = {}) {
   for (const warning of skipped) process.stderr.write(`SkillDock：提示：${warning}\n`);
   // What is only true of the requested project waits for the final directory (r2 UF2-P3-01, r3 UF3-P3-02).
   // The saved-project note needs a caller directory: a 0.10.3 handover and the 0.10.2 native entry run
-  // inside the data directory (36b 6.2), which is none.
+  // inside the data directory (36b 6.2), which is none. A handover is never a caller, wherever it runs.
   const finalProject = async final => {
     process.stderr.write(`SkillDock：最终扫描目录 ${final}${final !== project ? '（沿用运行实例的项目）' : ''}\n`);
     if (final !== project) return;
     for (const warning of projectInfo.warnings) process.stderr.write(`SkillDock：提示：${warning}\n`);
-    const caller = projectInfo.source === 'saved' && await validProject(process.cwd(), state);
+    const caller = projectInfo.source === 'saved' && env.SKILLDOCK_HANDOVER !== '1' && await validProject(process.cwd(), state);
     if (caller && caller !== project) process.stderr.write('SkillDock：使用界面保存的项目，和本次调用目录不同；可用 --project 明确覆盖。\n');
   };
   process.stderr.write('SkillDock：服务会在后台运行；中断本次调用不一定会停止服务。请用 status 核实，用 stop 停止已确认的实例。\n');

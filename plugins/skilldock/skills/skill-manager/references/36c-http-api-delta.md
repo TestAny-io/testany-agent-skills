@@ -8,8 +8,8 @@
 | 项目 | 内容 |
 |------|------|
 | 契约 | API-SDX-001-C HTTP 接口增量 |
-| 版本 | 0.32 |
-| 状态 | 第 12 轮契约复核 APPROVED（v0.12），第 14 轮绑定 0.13，第 15 轮（与 HLD 第 25 轮合并）核对 0.14～0.29 后重新绑定到 0.29。v0.13 处理第 12 轮的 P2；v0.14 为阶段 3 试用与阶段 4a、4b 实现中的澄清（索引 0.15），v0.15 为阶段 4d 实现中的澄清（索引 0.16），v0.16 处理阶段 4d 代码评审（索引 0.17），v0.17 处理阶段 4c 代码评审（索引 0.18），v0.18 处理 4c、4d 合并复审（索引 0.19），v0.19 为阶段 5a 实现（索引 0.20），v0.20 为阶段 5b 实现（索引 0.21），v0.21 为阶段 5c1 实现（索引 0.22），v0.22 为阶段 5c2 实现（索引 0.23），v0.23 为阶段 5d2a 实现（索引 0.24），v0.24 为阶段 5d2b 实现（索引 0.25），v0.25 处理阶段 5c 代码评审（索引 0.26），v0.26 处理阶段 5a、5b 代码评审（索引 0.27），v0.27 处理阶段 5d 代码评审（索引 0.28），v0.28 处理阶段 5 合并复审（索引 0.29），v0.29 处理另一台电脑试用的观察（索引 0.30），v0.30 处理第 15 轮与阶段 6 代码评审的意见（索引 0.31），经第 16 轮核对；v0.31 处理第 16 轮的文字意见（索引 0.32）；v0.32 为最终 UAT 与 0.11.1 的修订（索引 0.33；HLD v1.32），待增量复核。第 4、5 节随 0.10.3 冻结（HLD 11A 条件 1a，0.10.3 已发布）；其余各节属条件 1b |
+| 版本 | 0.33 |
+| 状态 | 第 12 轮契约复核 APPROVED（v0.12），第 14 轮绑定 0.13，第 15 轮（与 HLD 第 25 轮合并）核对 0.14～0.29 后重新绑定到 0.29。v0.13 处理第 12 轮的 P2；v0.14 为阶段 3 试用与阶段 4a、4b 实现中的澄清（索引 0.15），v0.15 为阶段 4d 实现中的澄清（索引 0.16），v0.16 处理阶段 4d 代码评审（索引 0.17），v0.17 处理阶段 4c 代码评审（索引 0.18），v0.18 处理 4c、4d 合并复审（索引 0.19），v0.19 为阶段 5a 实现（索引 0.20），v0.20 为阶段 5b 实现（索引 0.21），v0.21 为阶段 5c1 实现（索引 0.22），v0.22 为阶段 5c2 实现（索引 0.23），v0.23 为阶段 5d2a 实现（索引 0.24），v0.24 为阶段 5d2b 实现（索引 0.25），v0.25 处理阶段 5c 代码评审（索引 0.26），v0.26 处理阶段 5a、5b 代码评审（索引 0.27），v0.27 处理阶段 5d 代码评审（索引 0.28），v0.28 处理阶段 5 合并复审（索引 0.29），v0.29 处理另一台电脑试用的观察（索引 0.30），v0.30 处理第 15 轮与阶段 6 代码评审的意见（索引 0.31），经第 16 轮核对；v0.31 处理第 16 轮的文字意见（索引 0.32）；v0.31 经第 26 轮复核 r2（[59](59-cross-agent-6d-rereview-r2.md)）核对；v0.32 为最终 UAT 与 0.11.1 的修订（索引 0.33；HLD v1.32），经 [68](68-0111-hld-contract-delta-review.md) 核对后重新绑定；v0.33 处理 68 的意见（索引 0.34；HLD v1.33），待增量复核。第 4、5 节随 0.10.3 冻结（HLD 11A 条件 1a，0.10.3 已发布）；其余各节属条件 1b |
 | Owner | SkillDock 维护者（产品 Owner：用户） |
 | 服务方 | SkillDock 0.11.x 本机服务（仅监听 `127.0.0.1`） |
 | 消费方 | 0.11.x 浏览器界面与原生界面；0.10.2、0.10.3 的原生界面（经各自原生入口代理）；0.10.2 启动器与原生入口、0.10.3 转交链（只读健康检查） |
@@ -29,12 +29,12 @@
 |------|------|------|------|----------|
 | 健康检查 | GET | `/api/health` | 增加字段（第 4 节） | REQ-SDX-007 |
 | 快照 | GET | `/api/state` | 新增 `multiAgent=1` 参数；声明后返回 Agent 环境与各对象的 Agent 字段 | REQ-SDX-001、002、003 |
-| 技能详情 | GET | `/api/skill` | 新增可选 `agent` 参数 | REQ-SDX-003、005 |
+| 技能详情 | GET | `/api/skill` | 接受可选的 `agent` 参数但不读它：按对象 ID 判断所属 Agent，Claude 对象的 ID 自带前缀（v0.33 更正） | REQ-SDX-003、005 |
 | 更新进度 | GET | `/api/updates/progress` | 接受可选的 `agent` 参数（原生入口白名单放行），但它不改变结果：运行级进度不按 Agent 过滤（第 10 节；v0.32） | REQ-SDX-006 |
-| 插件图标 | GET | `/api/plugin-icon` | 新增可选 `agent` 参数 | REQ-SDX-003 |
+| 插件图标 | GET | `/api/plugin-icon` | 接受可选的 `agent` 参数但不读它：只用于 Codex 的目录插件（v0.33 更正） | REQ-SDX-003 |
 | 操作 | POST | `/api/actions` | 请求可带 `agent` 等字段；新增操作（第 7 节） | REQ-SDX-001、004、005、006、009、012、015、016、017 |
 
-`agent` 参数取值 `codex` 或 `claude`，缺省为 `codex`。
+`agent` 取值 `codex` 或 `claude`。操作请求中缺省为 `codex`；上表三个 GET 接口接受它（原生入口白名单放行）但不读它，见各行（v0.33）。
 
 ## 4. 健康检查（部分字段冻结）
 
@@ -180,11 +180,11 @@ export interface NativeRule {
 | `Skill` | `visibility?: SkillVisibility`；`enablement?: EnablementSource`；`perAgent?: Partial<Record<Agent, SkillSide>>` | 前两者仅用于只属于 Claude 的技能，此时 `enabled` 与 `visibility` 对应（后两档为 `null`）。`perAgent` 只用于两侧共用的技能，见下文“共用对象” |
 | `Skill`、`Plugin`、`Marketplace` | `revision?: string` | Claude 对象与共用对象的状态摘要，写请求须带回（7.1）。共用技能的顶层 `revision` 覆盖两侧状态；Claude marketplace 的 `revision` 覆盖其自动更新设置与从它安装的插件集合 |
 | `Skill`、`Plugin` | `protection?: Protection` | 与现有 `managed`、`reason` 一起显示保护状态与原因 |
-| `Snapshot.skills`（Claude 一侧） | 不新增字段 | 只含 Claude 的个人技能与项目技能；marketplace 插件自带的技能不作为 `Skill` 列出，只计入所属 `Plugin.skillCount`（Claude 不能单独开关插件中的技能；HLD 3.2，v0.32） |
+| `Snapshot.skills`（Claude 一侧） | 不新增字段 | 含 Claude 的个人技能、项目技能与已安装插件自带的技能（HLD 3.2）。插件自带的技能是只读条目：`scope` 为 `plugin`，`pluginId` 为所属插件的 ID，`enabled` 跟随插件，`canToggle`、`canRemove`、`canUpdate` 恒为 `false` 并带 `reason`，不带 `visibility` 与 `enablement`；ID 形如 `claude:skill:plugin:<12 位十六进制>`，同一插件的每处安装各有一份。对它的写操作返回 `PROTECTED_SKILL`，批量移除的选择不接受它的 ID（`INVALID_SELECTION`）；它没有自己的更新项，所属插件的更新项在 `affectedSkillIds` 中列出它。`Plugin.skillCount` 是列出的技能数，不含 `commands/` 文件。1 版快照不含 Claude 对象，不受影响（v0.33；Owner 2026-10-12 改定，取代 v0.32“不作为 `Skill` 列出”的写法） |
 | `Plugin` | `installation?: ClaudeInstallation`；`enablement?: EnablementSource`；`manifests?: Agent[]` | 前两者仅 Claude 插件；`manifests` 为该插件带有专用 manifest 的 Agent（兼容性证据，0.11.0 只展示） |
 | `Marketplace` | `autoUpdate?: { enabled: boolean; isDefault: boolean; note?: string }` | 仅 Claude marketplace：自动更新实际值、是否为默认值；桌面应用会话整体禁用自动更新时，`note` 给出说明（AC-002）。`refreshedAt` 沿用现有字段 |
-| `Marketplace` | `ref?: string` | Git marketplace 固定在的分支、标签或提交，两侧都可能给出（Claude 取自它的 marketplace 记录，Codex 取自命令行列表）；没有固定时省略。只供显示，不进入修订号与计划绑定（v0.32） |
-| `PluginInstallPreview` | `agent?: Agent`；`scopes?: ClaudePluginScope[]`；`defaultScope?: ClaudePluginScope`；`dependencies?: { id: string; name: string; installed: boolean }[]`；`manifests?: Agent[]`；`nativeRules?: NativeRule[]` | Claude 安装预览：可选作用域、会一并安装的依赖插件、manifest 归属与原生规则说明（PRD 5.6）。`manifests`：从本地目录或 Git 安装的预览总是给出；从 Claude marketplace 安装的预览，在条目指向 marketplace 本机副本内的目录时给出该目录中的专用 manifest（可为空数组），条目指向别处的来源时省略，安装前不读取（v0.32） |
+| `Marketplace` | `ref?: string` | Git marketplace 固定在的分支、标签或提交，两侧都可能给出：Claude 先取命令行 marketplace 列表中的 `ref`，没有时取 marketplace 记录（`known_marketplaces.json`）来源中的 `ref`；Codex 取自命令行列表的来源信息（`marketplaceSource.ref`；这个字段尚未对照真实的 Codex 命令行输出核实，没有它时省略）。只读名为 `ref` 的字段，去掉控制字符并限长 200；没有固定时省略。只供显示，不进入修订号与计划绑定。Codex marketplace 的 `ref` 也出现在 1 版快照中（Codex 对象不按版本裁剪，属第 5 节的“只增不破”）（v0.32；v0.33 写准出处） |
+| `PluginInstallPreview` | `agent?: Agent`；`scopes?: ClaudePluginScope[]`；`defaultScope?: ClaudePluginScope`；`dependencies?: { id: string; name: string; installed: boolean }[]`；`manifests?: Agent[]`；`nativeRules?: NativeRule[]` | Claude 安装预览：可选作用域、会一并安装的依赖插件、manifest 归属与原生规则说明（PRD 5.6）。`manifests`：从本地目录或 Git 安装的预览总是给出；从 Claude marketplace 安装的预览，在条目指向 marketplace 本机副本内的目录时给出该目录中的专用 manifest（可为空数组），条目指向别处的来源时省略，安装前不读取（v0.32）。只认副本内的文件（按真实路径；指向副本外的链接或同名目录不算），插件目录不存在或条目的来源为空时省略；副本位置取清单读到的那一个（v0.33） |
 | `ActionResult` | `nativeRules?: NativeRule[]` | 确认类结果（卸载、移除 marketplace、改可见性等）携带的原生规则说明 |
 
 共用对象与去重（PRD 5.2.2、AC-003、AC-005）：

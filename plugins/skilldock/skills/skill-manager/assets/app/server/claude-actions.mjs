@@ -125,7 +125,8 @@ export function createClaudeActions({ root, read, writer, journal, git, removeSk
       // other skills with the same name, which share the entry (P3-03), the shared project
       // settings, and a new local settings file Git does not ignore.
       const entry = await readEntry(file, 'skillOverrides', skill.name);
-      const sameName = state.claude.skills.filter(item => item.name === skill.name && item.id !== skill.id);
+      // A plugin's skill is named after its plugin in Claude and does not share the entry.
+      const sameName = state.claude.skills.filter(item => item.name === skill.name && item.id !== skill.id && !item.pluginId);
       const middles = [...new Set([skill.visibility, entry].filter(tier => MIDDLE[tier]))];
       const exposure = layer === 'local' ? await localSettingsExposure(project, gitOptions) : null;
       const rules = [
@@ -179,7 +180,8 @@ export function createClaudeActions({ root, read, writer, journal, git, removeSk
       const plugin = find(state.claude.plugins, request.id, 'plugin');
       if (plugin.installed || !plugin.canInstall) fail(403, 'PROTECTED_PLUGIN', plugin.reason || '这个插件不能在这里安装。');
       const market = state.claude.marketplaces.find(item => item.name === plugin.marketplace);
-      const location = await readEntry(path.join(state.claudeRoot.configDir, 'plugins/known_marketplaces.json'), plugin.marketplace, 'installLocation');
+      // From the copy the listing read the entry from (67 IF-P3-04).
+      const location = state.claude.copies?.[plugin.marketplace];
       const manifests = typeof location === 'string' ? await copyManifests(location, plugin.name) : null;
       return { message: '插件安装预览已就绪。', agent: 'claude', pluginPreview: {
         agent: 'claude', id: `claude-preview:${plugin.id}`, name: plugin.name, version: plugin.version || '', description: plugin.description || '', source: plugin.marketplace,

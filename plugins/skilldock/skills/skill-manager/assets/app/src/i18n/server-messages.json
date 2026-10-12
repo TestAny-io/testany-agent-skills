@@ -1127,6 +1127,14 @@
     "en": "Disabled Claude plugin {v0} in the project's local settings. New sessions use it; reload plugins in sessions that are already open.",
     "ja": "プロジェクトのローカル設定で Claude プラグイン {v0} を無効にしました。新しいセッションで有効になります。開いているセッションではプラグインを再読み込みしてください。"
   },
+  "Claude 插件自带的技能随所属插件一起启用或停用，不能单独开关；更新和卸载按所属插件进行。": {
+    "en": "Skills bundled with a Claude plugin are enabled or disabled with their plugin and cannot be switched one by one; update and uninstall them with the plugin.",
+    "ja": "Claude プラグインに付属するスキルはプラグインと一緒に有効・無効になり、個別には切り替えられません。更新とアンインストールはプラグイン単位で行います。"
+  },
+  "所属插件已停用；启用插件后其中的技能才可用。": {
+    "en": "The parent plugin is disabled; its skills are available once the plugin is enabled.",
+    "ja": "親プラグインが無効です。プラグインを有効にすると、そのスキルが使えるようになります。"
+  },
   "可见性由组织托管设置决定，不能在这里修改。": {
     "en": "Organization-managed settings decide its visibility; it cannot be changed here.",
     "ja": "表示状態は組織の管理設定で決まるため、ここでは変更できません。"

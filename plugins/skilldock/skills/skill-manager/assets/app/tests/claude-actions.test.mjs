@@ -218,17 +218,28 @@ test('a marketplace install preview names the manifests the plugin\'s directory 
   const w = await world(t); const marketDir = path.join(w.configDir, 'plugins/marketplaces/m');
   await write(path.join(marketDir, '.claude-plugin/marketplace.json'), { name: 'm', metadata: { pluginRoot: './plugins' }, plugins: [{ name: 'demo' },
     { name: 'both', source: './plugins/both' }, { name: 'codex-only', source: 'codex-only' }, { name: 'bare', source: './plugins/bare' },
-    { name: 'elsewhere', source: { source: 'github', repo: 'o/elsewhere' } }, { name: 'outside', source: '../../outside' }, { name: 'unnamed' }] });
+    { name: 'elsewhere', source: { source: 'github', repo: 'o/elsewhere' } }, { name: 'outside', source: '../../outside' }, { name: 'unnamed' },
+    { name: 'absent', source: './plugins/absent' }, { name: 'empty', source: '' }, { name: 'linked-out', source: './plugins/linked-out' }, { name: 'folder', source: './plugins/folder' }] });
   await write(path.join(marketDir, 'plugins/both/.claude-plugin/plugin.json'), { name: 'both' }); await write(path.join(marketDir, 'plugins/both/.codex-plugin/plugin.json'), { name: 'both' });
   await write(path.join(marketDir, 'plugins/codex-only/.codex-plugin/plugin.json'), { name: 'codex-only' });
   await fs.mkdir(path.join(marketDir, 'plugins/bare'), { recursive: true });
   await write(path.join(w.configDir, 'plugins/outside/.claude-plugin/plugin.json'), { name: 'outside' });
+  // Inside the copy, but its Claude manifest is a link to a file outside it; and a manifest that is a directory.
+  await write(path.join(marketDir, 'plugins/linked-out/.codex-plugin/plugin.json'), { name: 'linked-out' }); await fs.mkdir(path.join(marketDir, 'plugins/linked-out/.claude-plugin'));
+  await fs.symlink(path.join(w.configDir, 'plugins/outside/.claude-plugin/plugin.json'), path.join(marketDir, 'plugins/linked-out/.claude-plugin/plugin.json'));
+  await fs.mkdir(path.join(marketDir, 'plugins/folder/.claude-plugin/plugin.json'), { recursive: true });
   const manifests = async name => (await w.act({ action: 'plugin.previewMarketplace', id: `claude:plugin:${name}@m` })).pluginPreview.manifests;
   assert.deepEqual(await manifests('both'), ['claude', 'codex']);
   assert.deepEqual(await manifests('codex-only'), ['codex'], '裸名称在 metadata.pluginRoot 之下');
   assert.deepEqual(await manifests('bare'), [], '目录在副本中，没有专用 manifest');
-  // Not read: fetched from elsewhere, outside the copy, or without a source.
-  for (const name of ['elsewhere', 'outside', 'unnamed']) assert.equal(await manifests(name), undefined, name);
+  assert.deepEqual(await manifests('linked-out'), ['codex'], '指向副本外的 manifest 不算');
+  assert.deepEqual(await manifests('folder'), [], 'manifest 必须是文件');
+  // Not read: fetched from elsewhere, outside the copy, without a source or with an empty one, or a directory that is not there.
+  for (const name of ['elsewhere', 'outside', 'unnamed', 'absent', 'empty']) assert.equal(await manifests(name), undefined, name);
+  // The copy is the one the listing read: Claude's list names it, whatever its own record says.
+  w.claude.marketplaces[0].installLocation = path.join(w.root, 'moved');
+  await fs.cp(marketDir, path.join(w.root, 'moved'), { recursive: true, verbatimSymlinks: true }); await fs.rm(path.join(w.root, 'moved/plugins/both/.codex-plugin'), { recursive: true });
+  assert.deepEqual(await manifests('both'), ['claude']);
 });
 
 test('installing from a marketplace: preview, scope, revision and readback; skills cannot be picked for Claude', async t => {

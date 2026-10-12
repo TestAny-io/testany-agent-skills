@@ -1,5 +1,5 @@
 import { test, expect, type Page } from '@playwright/test';
-import type { Snapshot } from '../shared/contracts';
+import type { Plugin, Skill, Snapshot } from '../shared/contracts';
 
 async function state(page: Page): Promise<Snapshot> {
   const response = await page.request.get('/api/state?mode=sandbox');
@@ -187,21 +187,88 @@ test('the bulk removal preview names what the removal touches on the other side 
   await expect(dialog.locator('.native-rules')).toHaveText('这个技能目录由 Codex 与 Claude 共用，两侧看到的内容都会改变。');
 });
 
-test('a plan target waiting for confirmation is marked in the plan settings (41 UI-12)', async ({ page }) => {
+test('a plan target waiting for confirmation is marked in the plan settings, while the plan applies (41 UI-12; 67 IF-P3-05)', async ({ page }) => {
+  let autoApply = true;
   await page.route('**/api/state?mode=sandbox*', async route => {
     const response = await route.fetch(); const snapshot: Snapshot = await response.json();
-    const target = snapshot.updates!.find(item => item.name === 'writing-assistant')!.target;
-    snapshot.schedule = { ...snapshot.schedule!, enabled: true, autoApply: true, targets: [{ ...target, confirmation: 'pending' }] };
+    // Two targets in the plan: one waits for confirmation, the other does not.
+    const [waiting, plain] = ['writing-assistant', 'design-review'].map(name => snapshot.updates!.find(item => item.name === name)!.target);
+    snapshot.schedule = { ...snapshot.schedule!, enabled: true, autoApply, targets: [{ ...waiting, confirmation: 'pending' }, plain] };
     await route.fulfill({ response, json: snapshot });
   });
   await page.goto('/');
   await nav(page, '更新').click();
   await expect(page.locator('.uw-pending-confirmation li')).toHaveText(['writing-assistant']);
   await page.getByRole('button', { name: '设置计划', exact: true }).click();
-  const marked = page.getByRole('dialog').locator('.uw-check').filter({ has: page.locator('.uw-pending-tag') });
+  // The plan's targets: the rows that name an installation path.
+  const rows = page.getByRole('dialog').locator('.uw-check:has(code)'); const marked = rows.filter({ has: page.locator('.uw-pending-tag') });
+  await expect(rows.filter({ has: page.getByRole('checkbox', { checked: true }) })).toHaveCount(2);
   await expect(marked).toHaveCount(1);
   await expect(marked).toContainText('writing-assistant');
   await expect(marked.locator('.uw-pending-tag')).toHaveText('待确认');
+  // A plan that only checks applies nothing: no notice, and no mark.
+  autoApply = false;
+  await page.keyboard.press('Escape'); await page.reload();
+  await nav(page, '更新').click();
+  await expect(page.locator('.uw-pending-confirmation')).toHaveCount(0);
+  await page.getByRole('button', { name: '设置计划', exact: true }).click();
+  await expect(page.getByRole('dialog').locator('.uw-check:has(code)').filter({ has: page.getByRole('checkbox', { checked: true }) })).toHaveCount(2);
+  await expect(page.getByRole('dialog').locator('.uw-pending-tag')).toHaveCount(0);
+});
+
+test('with two Agents, every page counts what the filter shows, and a side that is read-only says so once (41 UI-02, UI-03, UI-07, UI-18; 67 IF-P2-01, IF-P2-02)', async ({ page }) => {
+  const sideReason = 'Claude 环境当前为只读；在 SkillDock 的“Agent 环境”页启用 Claude 管理后才能修改。';
+  const ownReason = '当前账号或工作区不允许安装此插件，请在 Codex 官方目录查看原因。';
+  const shippedReason = 'Claude 插件自带的技能随所属插件一起启用或停用，不能单独开关；更新和卸载按所属插件进行。';
+  const real = await state(page);
+  // The sandbox knows Codex only: Claude's side is added to its snapshot, read-only, with one plugin and the skill it ships.
+  await page.route('**/api/state?mode=sandbox*', async route => {
+    const response = await route.fetch(); const snapshot: Snapshot = await response.json();
+    const roots = { config: '/claude', pluginCache: '/claude/plugins/cache', skills: '/claude/skills' }; const cli = { available: true };
+    snapshot.agents = [{ agent: 'codex', installed: true, management: 'enabled', roots, cli }, { agent: 'claude', installed: true, management: 'read-only', roots, cli }];
+    const kit = { agents: ['claude'], id: 'claude:plugin:kit@m:user', name: 'kit', description: 'Claude kit.', marketplace: 'm', version: '1.0.0', installed: true, enabled: true, skillCount: 1,
+      canInstall: false, canRemove: false, canToggle: false, reason: sideReason, installation: { scope: 'user' } } as Plugin;
+    snapshot.plugins.push(kit, { ...kit, id: 'claude:plugin:more@m', name: 'more', installed: false, enabled: null, skillCount: 0, installation: undefined },
+      { id: 'limited@catalog', name: 'limited', description: '', marketplace: 'catalog', installed: false, enabled: false, skillCount: 0, canInstall: false, canRemove: false, canToggle: false, reason: ownReason } as Plugin);
+    snapshot.skills.push({ ...snapshot.skills[0], agents: ['claude'], id: 'claude:skill:plugin:0123456789ab', name: 'kit-skill', description: 'Shipped by kit.', path: '/claude/plugins/cache/m/kit/1.0.0/skills/kit-skill/SKILL.md',
+      scope: 'plugin', sourceLabel: 'Claude 插件技能', pluginId: kit.id, enabled: true, managed: true, canToggle: false, canRemove: false, canUpdate: false, reason: shippedReason, duplicateNames: undefined } as Skill);
+    snapshot.marketplaces = snapshot.marketplaces.map((market, index) => index ? market : { ...market, ref: 'release/1.x' });
+    snapshot.activity = [{ id: 'codex-activity', action: 'skill.toggle', target: 'design-review', createdAt: '2026-10-12T00:00:00.000Z', status: 'success', message: '已启用 design-review。', canRestore: false }, ...snapshot.activity];
+    await route.fulfill({ response, json: snapshot });
+  });
+  await page.goto('/');
+  // The number beside the heading says what it counts, to a pointer and to a screen reader.
+  const counts = (what: string, value: number) => expect(page.locator('.workspace-heading .title-count')).toHaveAttribute('title', `${what} ${value}`);
+  const filter = (name: string) => page.getByRole('group', { name: '按 Agent 筛选' }).getByRole('button', { name: new RegExp(`^${name}`) });
+  const section = page.locator('.collection-heading h2 span');
+  // Skills: the title and the categories count the same objects; Claude's one skill is the plugin's, read-only.
+  await expect(page.getByRole('heading', { level: 1 })).toHaveText('技能库');
+  await counts('技能', real.skills.length + 1); await expect(page.locator('.workspace-heading .title-count')).toHaveText(`技能${real.skills.length + 1}`);
+  await filter('Claude').click();
+  await counts('技能', 1); await expect(page.getByRole('button', { name: /^全部技能/ })).toContainText('1');
+  await expect(page.locator('.skill-card')).toHaveCount(1);
+  await expect(page.getByRole('switch', { name: '禁用 kit-skill', exact: true })).toBeDisabled();
+  // Marketplaces and activity: nothing on Claude's side, said as such rather than as a first run.
+  await nav(page, '市场来源').click();
+  await counts('市场来源', 0); await expect(section).toHaveText('0'); await expect(page.getByText('Claude 一侧还没有市场来源')).toBeVisible();
+  await nav(page, '操作记录').click();
+  await counts('操作记录', 0); await expect(page.getByText('Claude 一侧还没有操作记录')).toBeVisible();
+  await filter('全部').click();
+  await nav(page, '市场来源').click();
+  await counts('市场来源', real.marketplaces.length); await expect(section).toHaveText(String(real.marketplaces.length));
+  await expect(page.locator('.market-ref')).toHaveText('固定在 release/1.x');
+  // Plugins: the side's reason once above the list; a card says only why that one plugin cannot be installed.
+  await nav(page, '插件').click();
+  await page.getByRole('button', { name: /^未安装/ }).click();
+  await expect(page.locator('.side-note')).toHaveText(sideReason);
+  const card = (name: string) => page.locator('.skill-card').filter({ has: page.getByRole('heading', { name, exact: true }) });
+  await expect(card('more').locator('.skill-reason')).toHaveCount(0);
+  await expect(card('limited').locator('.skill-reason')).toHaveText(ownReason);
+  await page.getByRole('button', { name: /^已安装/ }).click();
+  await expect(card('kit')).toHaveCount(1); await expect(card('kit').locator('.skill-reason')).toHaveCount(0);
+  // The plugin's details list the skill it ships, as the library does.
+  await page.getByRole('button', { name: '查看 kit 详情', exact: true }).click();
+  await expect(page.locator('.install-components')).toContainText('附带技能（1）'); await expect(page.locator('.plugin-skill-list')).toContainText('kit-skill');
 });
 
 test('large plugin catalogs render in batches while search covers all results', async ({ page }) => {
@@ -242,7 +309,8 @@ for (const width of [1440, 720, 390]) {
     await expect(page.getByRole('button', { name: '查看 design-review 详情' })).toBeVisible();
     for (const name of ['技能库', '插件', '市场来源', '更新', '操作记录']) {
       await nav(page, name).click();
-      await expect(page.getByRole('heading', { level: 1 })).toContainText(name);
+      // The heading is the page's name alone; the counts sit beside it (41 UI-03).
+      await expect(page.getByRole('heading', { level: 1 })).toHaveText(name);
       expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth + 1)).toBe(true);
     }
     await nav(page, '技能库').click();

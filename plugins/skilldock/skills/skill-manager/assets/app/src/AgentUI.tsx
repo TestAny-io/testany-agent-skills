@@ -8,15 +8,17 @@ export type AgentFilterValue = "all" | Agent;
 export const AGENT_LABEL: Record<Agent, string> = { codex: "Codex", claude: "Claude" };
 export const objectAgents = (item: { agents?: Agent[] }): Agent[] => item.agents ?? ["codex"];
 export const matchesAgent = (item: { agents?: Agent[] }, filter: AgentFilterValue) => filter === "all" || objectAgents(item).includes(filter);
+/** What each category of the skill page holds; its count and its list use the same rule (67 IF-P3-06). */
+export const SKILL_CATEGORY = {
+  all: () => true,
+  enabled: (item: Skill) => item.enabled === true,
+  standalone: (item: Skill) => item.scope === "user" || item.scope === "project",
+  attention: (item: Skill) => item.enabled === null || (item.duplicateNames?.length || 0) > 0,
+} satisfies Record<string, (item: Skill) => boolean>;
 /** The skill page's category counts under the Agent filter in effect, so that one screen shows one total (backlog UI-02). */
 export function skillCategoryCounts(skills: Skill[], filter: AgentFilterValue) {
   const shown = skills.filter(item => matchesAgent(item, filter));
-  return {
-    all: shown.length,
-    enabled: shown.filter(item => item.enabled === true).length,
-    standalone: shown.filter(item => item.scope === "user" || item.scope === "project").length,
-    attention: shown.filter(item => item.enabled === null || (item.duplicateNames?.length || 0) > 0).length,
-  };
+  return { all: shown.length, enabled: shown.filter(SKILL_CATEGORY.enabled).length, standalone: shown.filter(SKILL_CATEGORY.standalone).length, attention: shown.filter(SKILL_CATEGORY.attention).length };
 }
 /** The Agent filter and badges appear only when more than one environment is present (HLD 4.1). */
 export const showsAgents = (agents?: AgentEnvironment[]) => (agents?.filter(item => item.installed).length ?? 0) > 1;

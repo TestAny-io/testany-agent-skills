@@ -1,6 +1,6 @@
 // Version-2 requests (API-SDX-001 36c §5–6): which side a write belongs to, and when the
 // multi-agent snapshot may be asked for.
-import type { ActionRequest, Agent, Snapshot } from "../shared/contracts";
+import type { ActionRequest, Agent, Plugin, Snapshot } from "../shared/contracts";
 
 /** The multi-agent snapshot only from a service with API version 2 or later. */
 export function stateUrl(mode: string, apiVersion: number | undefined) {
@@ -45,6 +45,17 @@ export function creationAgent(managed: Agent[], chosen: Agent): Agent | undefine
 export function defaultCreationAgent(managed: Agent[], filter?: Agent | "all"): Agent {
   if (filter && filter !== "all" && managed.includes(filter)) return filter;
   return managed.includes("codex") || !managed.length ? "codex" : managed[0];
+}
+
+/**
+ * A side SkillDock does not manage gives every plugin the same reason. Shown once above the list,
+ * not on each card: a card says only why this one plugin cannot be installed (67 IF-P2-01).
+ */
+export function sideNotes(plugins: Pick<Plugin, "agents" | "reason">[], environments: { agent: Agent; installed?: boolean; management?: string }[]): { agent: Agent; reason: string }[] {
+  return environments.filter(item => item.installed && item.management !== "enabled").flatMap(({ agent }) => {
+    const reason = plugins.find(plugin => (plugin.agents ?? ["codex"]).includes(agent) && plugin.reason)?.reason;
+    return reason ? [{ agent, reason }] : [];
+  });
 }
 
 const AVAILABLE_NOTE: Record<Agent, string> = {

@@ -1225,7 +1225,8 @@ export function UpdatesWorkspace({
                       />
                       <span>
                         {item.name}
-                        {data.schedule?.targets.some((target) => target.confirmation === "pending" && targetKey(target) === targetKey(item.target)) && <em className="uw-pending-tag">{t("pendingTag")}</em>}
+                        {/* Confirmation matters only to a plan that applies, as the notice above the plan says (67 IF-P3-05). */}
+                        {form.autoApply && data.schedule?.targets.some((target) => target.confirmation === "pending" && targetKey(target) === targetKey(item.target)) && <em className="uw-pending-tag">{t("pendingTag")}</em>}
                         <small>{t(item.route)}</small>
                         <code>{item.installedPath || t("unknown")}</code>
                       </span>

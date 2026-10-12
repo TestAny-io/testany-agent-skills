@@ -159,6 +159,19 @@ test('upstream metadata works through add, preview, install, rediscovery and upd
   assert.equal((await readJson(path.join(market, '.claude-plugin/marketplace.json'))).plugins[0].version, '2.13.0');
 });
 
+test('a Codex marketplace pinned to a ref says so, cleaned and bounded; one that is not omits it (41 UI-18; 36c)', async t => {
+  const root = await temporary(t); await realMetadataFixture(root);
+  const adapter = new CodexAdapter({ codexHome: path.join(root, '.codex') });
+  adapter.probe = async () => (adapter.info = { available: true });
+  const source = { sourceType: 'git', source: 'https://example.invalid/o/r.git' };
+  let listed;
+  adapter.command = async args => args[1] === 'marketplace' ? { marketplaces: listed.map((marketplaceSource, index) => ({ name: `m${index}`, root, marketplaceSource })) } : { installed: [], available: [] };
+  listed = [{ ...source, ref: 'feature/x' }, source, { ...source, ref: '' }, { ...source, ref: 7 }, { ...source, ref: `a\u0000b\u202e${'c'.repeat(300)}` }];
+  const refs = (await adapter.list()).marketplaces.map(market => [Object.hasOwn(market, 'ref'), market.ref]);
+  assert.deepEqual(refs.slice(0, 4), [[true, 'feature/x'], [false, undefined], [false, undefined], [false, undefined]]);
+  assert.deepEqual([refs[4][1].length, refs[4][1].startsWith('abccc')], [200, true], '去掉控制字符并限长');
+});
+
 test('CLI catalog rediscovery retains nonfatal warnings for both available and installed plugins', async t => {
   const root = await temporary(t); await realMetadataFixture(root);
   const adapter = new CodexAdapter({ codexHome: path.join(root, '.codex') }); let installed = false;

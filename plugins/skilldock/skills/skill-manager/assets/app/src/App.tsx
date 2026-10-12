@@ -93,9 +93,9 @@ import { ProjectPicker, ProjectDialog } from "./ProjectControls";
 import { InstallDialog } from "./InstallDialog";
 import { LibraryFilters, ViewSwitch, CollectionFooter } from "./LibraryUI";
 import { NativeConfirmDialog, NativeRuleList, type NativeConfirmation } from "./NativeConfirm";
-import { AGENT_LABEL, AgentFilter, AgentBadges, AgentSplit, ClaudePluginFacts, ClaudeSkillFacts, MarketAutoUpdate, matchesAgent, showsAgents, objectAgents, skillCategoryCounts, type AgentFilterValue } from "./AgentUI";
+import { AGENT_LABEL, AgentFilter, AgentBadges, AgentSplit, ClaudePluginFacts, ClaudeSkillFacts, MarketAutoUpdate, matchesAgent, showsAgents, objectAgents, skillCategoryCounts, SKILL_CATEGORY, type AgentFilterValue } from "./AgentUI";
 import { AgentEnvironments } from "./AgentEnvironments";
-import { availableNotes, creationAgent, defaultCreationAgent, requestAgent, requestRevision, showsCodexCliNotice, stateUrl } from "./agent-requests";
+import { availableNotes, creationAgent, defaultCreationAgent, requestAgent, requestRevision, showsCodexCliNotice, sideNotes, stateUrl } from "./agent-requests";
 
 type Page = "skills" | "plugins" | "markets" | "updates" | "activity" | "agents";
 type Metric = "all" | "enabled" | "standalone" | "attention";
@@ -667,13 +667,7 @@ export default function App() {
           matchesTags(skill.tags, skillTags) &&
           (scope === "all" || skill.scope === scope) &&
           (!duplicatesOnly || !!skill.duplicateNames?.length) &&
-          (metric !== "enabled" || skill.enabled === true) &&
-          (metric !== "standalone" ||
-            skill.scope === "user" ||
-            skill.scope === "project") &&
-          (metric !== "attention" ||
-            skill.enabled === null ||
-            (skill.duplicateNames?.length || 0) > 0)
+          SKILL_CATEGORY[metric](skill)
         );
       }),
     [skills, query, scope, metric, skillTags, duplicatesOnly, language, effectiveAgent],
@@ -698,6 +692,7 @@ export default function App() {
     ({ all: list.length, codex: list.filter(item => objectAgents(item).includes("codex")).length, claude: list.filter(item => objectAgents(item).includes("claude")).length });
   const pageAgentCounts = page === "skills" ? agentCounts(skills) : page === "plugins" ? agentCounts((data?.plugins || []).filter(inPluginCategory))
     : page === "markets" ? agentCounts(data?.marketplaces || []) : agentCounts((data?.activity || []).map(item => ({ agents: [item.agent ?? "codex"] })));
+  const unmanagedSides = sideNotes(data?.plugins || [], data?.agents ?? []);
   const pluginMatchesOutsideFilter = query.trim() && !filteredPlugins.length ? (data?.plugins || []).filter(plugin => matchesPlugin(plugin, query)).length : 0;
   const availableUpdates = data?.updates
     ? data.updates.filter((item) => item.status === "available").length
@@ -1086,9 +1081,7 @@ export default function App() {
                         skills.length
                           ? duplicatesOnly
                             ? t("当前筛选下没有重复技能。可关闭“仅显示重复”，或调整其他筛选条件。")
-                            : effectiveAgent === "claude"
-                              ? t("这里只列出 Claude 的个人与项目技能；Claude 插件自带的技能随插件管理，请到“插件”页查看。")
-                              : t("试试其他关键词，或调整来源与状态筛选。")
+                            : t("试试其他关键词，或调整来源与状态筛选。")
                           : t("从本地文件夹或 Git 仓库安装第一个技能。")
                       }
                     >
@@ -1134,6 +1127,7 @@ export default function App() {
                   ]} />
                   {pluginFilter === "available" && availableNotes(agentPlugins, effectiveAgent === "all" ? (data.agents ?? []).filter(item => item.installed).map(item => item.agent) : [effectiveAgent])
                     .map(note => <p key={note} className="category-explanation">{t(note)}</p>)}
+                  {unmanagedSides.filter(note => filteredPlugins.some(plugin => objectAgents(plugin).includes(note.agent))).map(note => <div key={note.agent} className="category-explanation side-note"><ServiceMessage value={note.reason} /></div>)}
                   <div className="toolbar">
                     <SearchField
                       query={query}
@@ -1180,6 +1174,7 @@ export default function App() {
                             key={plugin.id}
                             plugin={plugin}
                             showAgents={showAgentDimension}
+                            sideManaged={!objectAgents(plugin).some(agent => unmanagedSides.some(note => note.agent === agent))}
                             onEditTags={() => editTags("plugin", plugin)}
                             busy={busy}
                             onToggle={() =>
@@ -1560,8 +1555,8 @@ function SearchField({
     </label>
   );
 }
-function PluginCard({ plugin, busy, onToggle, onInstall, onDetails, onEditTags, selected, onMenu, showAgents }: {
-  selected: boolean; onMenu: (event: React.MouseEvent) => void; showAgents: boolean;
+function PluginCard({ plugin, busy, onToggle, onInstall, onDetails, onEditTags, selected, onMenu, showAgents, sideManaged }: {
+  selected: boolean; onMenu: (event: React.MouseEvent) => void; showAgents: boolean; sideManaged: boolean;
   plugin: Plugin; busy: string | null; onToggle: () => void; onInstall: () => void; onDetails: () => void; onEditTags: () => void;
 }) {
   return <article onContextMenu={onMenu} className={classNames("skill-card", selected && "is-selected", plugin.installed && plugin.enabled === false && "skill-disabled")}>
@@ -1572,7 +1567,7 @@ function PluginCard({ plugin, busy, onToggle, onInstall, onDetails, onEditTags, 
     <TagStrip subject={{ ...plugin, name: pluginTitle(plugin), kind: "plugin" }} disabled={!!busy || !objectAgents(plugin).includes("codex")} onEdit={onEditTags} />
     {(showAgents || plugin.installation) && <div className="agent-line">{showAgents && <AgentBadges agents={plugin.agents} />}<ClaudePluginFacts plugin={plugin} /></div>}
     {plugin.enabled === null && plugin.installed && <div className="skill-reason skill-reason-attention"><CircleAlert size={13} /><span>{t("安装或启用状态尚未核实。")}</span></div>}
-    {!plugin.installed && !plugin.canInstall && plugin.reason && <div className="skill-reason"><LockKeyhole size={13} /><span><ServiceMessage value={plugin.reason} /></span></div>}
+    {!plugin.installed && !plugin.canInstall && plugin.reason && sideManaged && <div className="skill-reason"><LockKeyhole size={13} /><span><ServiceMessage value={plugin.reason} /></span></div>}
     <div className="skill-card-footer"><span className="source-tag" title={plugin.marketplace}><Globe2 size={12} />{plugin.directSource ? t("单插件来源") : plugin.marketplace}</span><div className="card-status">
       {plugin.installed ? <Toggle checked={plugin.enabled} disabled={!plugin.canToggle || !!busy} busy={busy === `plugin.toggle:${plugin.id}`} label={`${plugin.enabled ? t("禁用") : t("启用")} ${pluginTitle(plugin)}`} reason={plugin.reason ? t(plugin.reason) : undefined} onChange={onToggle} /> : <Button variant="ghost" disabled={!plugin.canInstall || !!busy} onClick={onInstall}><Plus size={14} />{t("安装插件")}</Button>}
       <button className="icon-button row-more" aria-label={t("{v0} 的更多操作", { v0: pluginTitle(plugin) })} aria-haspopup="menu" onClick={onMenu}><MoreHorizontal size={17} /></button>
@@ -1587,8 +1582,7 @@ function PluginDetail({ plugin, skills, busy, onClose, onToggle, onRemove, onIns
       {plugin.installed && <div className="inline-toggle"><Toggle checked={plugin.enabled} disabled={!plugin.canToggle || !!busy} label={`${plugin.enabled ? t("禁用") : t("启用")} ${pluginTitle(plugin)}`} onChange={onToggle} /><span>{t(plugin.enabled === null ? "状态待确认" : plugin.enabled ? "已启用" : "已禁用")}</span></div>}
       {plugin.reason && <div className="dialog-note"><ServiceMessage value={plugin.reason} /></div>}
       {plugin.directory?.installUrl && plugin.installed && <div className="dialog-note"><ExternalLink href={plugin.directory.installUrl} target="_blank" rel="noopener noreferrer">{t('查看官方详情与授权')}</ExternalLink><span>{t(plugin.directory.connected ? '应用连接可用' : '请完成或核实账号授权')}</span></div>}
-      {plugin.installed && plugin.installation && <div className="install-components"><strong>{t("附带技能（{v0}）", { v0: plugin.skillCount })}</strong><p className="field-hint">{t("Claude 插件自带的技能随插件一起启用或停用，不在技能库中单独列出。")}</p></div>}
-      {plugin.installed && !plugin.installation && <div className="install-components"><strong>{t("附带技能（{v0}）", { v0: skills.length })}</strong><div className="plugin-skill-list">{skills.map(skill => <button className="text-button" key={skill.id} onClick={() => onSkill(skill)}><ProviderIcon icon={skill.icon}><Sparkles size={15} /></ProviderIcon>{skill.name}<ChevronRight size={14} /></button>)}</div></div>}
+      {plugin.installed && <div className="install-components"><strong>{t("附带技能（{v0}）", { v0: skills.length })}</strong><div className="plugin-skill-list">{skills.map(skill => <button className="text-button" key={skill.id} onClick={() => onSkill(skill)}><ProviderIcon icon={skill.icon}><Sparkles size={15} /></ProviderIcon>{skill.name}<ChevronRight size={14} /></button>)}</div></div>}
       <p className="field-hint">{t("插件附带的技能与组件一起安装、更新和卸载。")}</p>
     </div><div className="modal-footer">{plugin.installed ? <><Button variant="danger" disabled={!plugin.canRemove || !!busy} onClick={onRemove}><Trash2 size={15} />{t("卸载")}</Button><Button disabled={!!busy} onClick={onUpdates}><RefreshCw size={15} />{t("管理更新")}</Button></> : <><Button onClick={onClose}>{t("关闭")}</Button><Button variant="primary" disabled={!plugin.canInstall || !!busy} onClick={onInstall}>{t("安装插件")}</Button></>}</div>
   </Inspector>;

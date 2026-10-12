@@ -135,6 +135,8 @@ html[lang] .app-shell .sidebar .nav-item { flex-direction: row; font-size: 13px 
 .skill-card .tag-strip .tag-chip { font-size: 10px; padding: 1px 5px; }
 .skill-card .tag-edit-caption { display: none; }
 .skill-list .skill-card .skill-reason { grid-column: 1 / -1; width: auto; margin: 10px 0 0 47px; padding: 6px 10px; border: 0; border-radius: 6px; display: flex; flex-direction: row; flex-wrap: wrap; align-items: center; gap: 4px 10px; color: var(--warning); background: var(--warning-soft); font-size: 11px; }
+/* Only what needs attention is a warning; why a plugin cannot be installed is an explanation (67 IF-P3-08). */
+.skill-list .skill-card .skill-reason:not(.skill-reason-attention) { color: var(--muted); background: light-dark(#fafbf8, #1b221c); }
 .skill-reason-attention .text-button { margin-top: 0; color: var(--warning); font-size: 11px; }
 .skill-reason-attention details { flex-basis: 100%; }
 .skill-list .skill-instance-path { grid-column: 1 / -1; grid-row: 3; margin: 5px 0 0 47px; font-size: 10px; color: var(--muted); overflow-wrap: anywhere; }

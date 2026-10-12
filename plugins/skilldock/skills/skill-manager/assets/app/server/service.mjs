@@ -437,7 +437,7 @@ export async function createService(options = {}) {
   async function claudeUpdateMaps(result, registry, roots) {
     const sources = new Map(); const skillsDir = new Map();
     for (const skill of result.skills) {
-      const view = skill.agents?.length === 2 ? skill.perAgent?.claude?.canUpdate && skill.perAgent.claude : skill.agents?.join() === 'claude' && skill;
+      const view = skill.agents?.length === 2 ? skill.perAgent?.claude?.canUpdate && skill.perAgent.claude : skill.agents?.join() === 'claude' && !skill.pluginId && skill;
       const source = view && registry.claudeSources?.[await realDirectory(path.dirname(view.path))];
       if (source) sources.set(skill.id, trackedInfo(source));
     }
@@ -1217,7 +1217,10 @@ export async function createService(options = {}) {
     return writable;
   }
   async function assertRemovalIsolation(selected, current) {
-    const locations = await Promise.all(current.skills.map(async record => ({ id: record.id, real: await fs.realpath(path.dirname(record.path)) })));
+    // A Claude plugin's own skills are listed read-only; content inside the other side's plugin is confirmed
+    // by its own rule (`affected-plugins`), not refused here.
+    const claudePluginSkill = record => !!record.pluginId && record.agents?.join() === 'claude';
+    const locations = await Promise.all(current.skills.filter(record => !claudePluginSkill(record)).map(async record => ({ id: record.id, real: await fs.realpath(path.dirname(record.path)) })));
     for (const item of selected) if (!item.identity.fingerprint.startsWith('link:') && locations.some(other => other.id !== item.id && inside(item.identity.real, other.real))) fail(409, 'REMOVAL_OVERLAP', '所选目录还包含其他已发现技能，不能作为单份技能移除。请分别管理这些位置。');
   }
   async function assertTargetRoot(env) {
@@ -1896,7 +1899,9 @@ export async function createService(options = {}) {
     for (const skill of current.skills) {
       // A shared skill whose Codex side went away continues as Claude's own (5a/5b review P3-03).
       if (skill.agents?.length === 1 && skill.agents[0] === 'claude' && skill.id !== target.id) {
-        if (await realDirectory(path.dirname(skill.path)).catch(() => null) === binding.real) return { kind: 'skill', id: skill.id, agent: 'claude' };
+        // Only Claude's own skill: one a plugin ships is never a plan target (it is listed after Claude's own, so
+        // this holds by order today; the condition keeps it true if the order changes).
+        if (!skill.pluginId && await realDirectory(path.dirname(skill.path)).catch(() => null) === binding.real) return { kind: 'skill', id: skill.id, agent: 'claude' };
         continue;
       }
       if (skill.agents?.length !== 2 || !skill.perAgent?.claude) continue;

@@ -133,9 +133,12 @@ export function localDirectory(source, installLocation, pluginRoot) {
 export async function copyManifests(installLocation, name) {
   try {
     const { entry, pluginRoot } = await marketplaceEntry(installLocation, name);
-    if (typeof entry.source !== 'string') return null;
+    if (typeof entry.source !== 'string' || !entry.source) return null;
     const directory = relativeDirectory(installLocation, entry.source, pluginRoot);
-    const holds = file => fs.access(path.join(directory, file)).then(() => true, () => false);
+    if (!(await fs.stat(directory)).isDirectory()) return null;
+    // A manifest is a file inside the copy, also by its real path: nothing outside it is evidence.
+    const root = await fs.realpath(installLocation);
+    const holds = async file => { try { const real = await fs.realpath(path.join(directory, file)); return inside(root, real) && (await fs.stat(real)).isFile(); } catch { return false; } };
     return [...await holds('.claude-plugin/plugin.json') ? ['claude'] : [], ...await holds('.codex-plugin/plugin.json') ? ['codex'] : []];
   } catch { return null; }
 }

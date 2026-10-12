@@ -2375,6 +2375,14 @@
     "en": "Claude project skills",
     "ja": "Claude のプロジェクトスキル"
   },
+  "Claude 插件技能": {
+    "en": "Claude plugin skills",
+    "ja": "Claude のプラグインスキル"
+  },
+  "Claude 插件的启用状态": {
+    "en": "The Claude plugin's enabled state",
+    "ja": "Claude プラグインの有効状態"
+  },
   "Claude 技能目录 + 设置中的技能可见性": {
     "en": "Claude skills directory + skill visibility in settings",
     "ja": "Claude のスキルディレクトリ + 設定のスキル表示"
@@ -2398,10 +2406,6 @@
   "这一版 SkillDock 只读取 Claude 中的对象；启用后，后续版本才能按你的操作修改 Claude 中的技能、插件和 marketplace，并把它们加入后台更新计划。这不会改动 Claude 自身的设置。": {
     "en": "This version of SkillDock only reads items in Claude. Once on, later versions can change skills, plugins and marketplaces in Claude when you ask them to, and add them to background update plans. This does not change Claude's own settings.",
     "ja": "このバージョンの SkillDock は Claude の項目を読み取るだけです。有効にすると、以降のバージョンで、操作に応じて Claude のスキル・プラグイン・マーケットプレイスを変更し、バックグラウンド更新プランに追加できるようになります。Claude 自体の設定は変更しません。"
-  },
-  "Claude 插件自带的技能随插件一起启用或停用，不在技能库中单独列出。": {
-    "en": "Skills bundled with a Claude plugin are enabled or disabled with the plugin and are not listed one by one in the skill library.",
-    "ja": "Claude プラグインに付属するスキルはプラグインと一緒に有効・無効になり、スキルライブラリには個別に表示されません。"
   },
   "启用后 SkillDock 可能写入的位置": {
     "en": "Where SkillDock may write once management is on",
@@ -2531,10 +2535,6 @@
     "en": "Choose a plugin from a connected marketplace.",
     "ja": "接続済みのマーケットプレイスからプラグインを選択します。"
   },
-  "这里只列出 Claude 的个人与项目技能；Claude 插件自带的技能随插件管理，请到“插件”页查看。": {
-    "en": "Only Claude's personal and project skills are listed here. Skills bundled with Claude plugins are managed with the plugin; see the Plugins page.",
-    "ja": "ここには Claude の個人スキルとプロジェクトスキルだけが表示されます。Claude プラグインに付属するスキルはプラグインごとに管理されるため、「プラグイン」ページで確認してください。"
-  },
   "正在读取本机的技能与插件清单，有时需要半分钟（例如 Codex 正在刷新它的插件目录），请稍候。": {
     "en": "Reading the skills and plugins on this Mac. This can take half a minute, for example while Codex refreshes its plugin directory. Please wait.",
     "ja": "この Mac のスキルとプラグインを読み込んでいます。Codex がプラグイン一覧を更新している場合などは 30 秒ほどかかることがあります。しばらくお待ちください。"
@@ -2544,12 +2544,12 @@
     "ja": "{v0} に固定"
   },
   "{v0} 一侧还没有市场来源": {
-    "en": "No marketplaces on the {v0} side yet",
-    "ja": "{v0} 側にはまだマーケットプレイスがありません"
+    "en": "No sources on the {v0} side yet",
+    "ja": "{v0} 側にはまだ配布元がありません"
   },
   "另一侧的来源可以用上方的 Agent 筛选查看。": {
-    "en": "Use the Agent filter above to see the other side's marketplaces.",
-    "ja": "もう一方のマーケットプレイスは、上の Agent フィルターで確認できます。"
+    "en": "Use the Agent filter above to see the other side's sources.",
+    "ja": "もう一方の配布元は、上の Agent フィルターで確認できます。"
   },
   "{v0} 一侧还没有操作记录": {
     "en": "No activity on the {v0} side yet",

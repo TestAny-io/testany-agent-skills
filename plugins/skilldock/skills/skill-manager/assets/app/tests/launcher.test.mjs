@@ -393,7 +393,7 @@ test('the saved-project note is written only for a caller directory: not in a 0.
   const { projectDir, ...implicit } = options;
   const elsewhere = path.join(f.root, 'elsewhere'); await fs.mkdir(elsewhere);
   const cwd = process.cwd();
-  let handover; let native; let caller; let switched;
+  let handover; let native; let caller; let switched; let strayHandover; let atProject; let explicit;
   const legacy = path.join(first.state, 'compat/legacy-project'); await fs.mkdir(legacy, { recursive: true });
   const other = path.join(f.root, 'other-project'); await fs.mkdir(other);
   try {
@@ -405,6 +405,13 @@ test('the saved-project note is written only for a caller directory: not in a 0.
     native = await stderrOf(() => launch('start', { ...options, projectDir: legacy }));
     process.chdir(elsewhere);
     caller = await stderrOf(() => launch('start', implicit));
+    // A handover that does not run in the data directory is still not a caller (67 IF-P3-01).
+    strayHandover = await stderrOf(() => launch('start', { ...implicit, env: { ...options.env, SKILLDOCK_HANDOVER: '1' } }));
+    // Nor is the note written from the saved project itself, or for a project given explicitly (67 IF-P3-02).
+    process.chdir(f.projectDir);
+    atProject = await stderrOf(() => launch('start', implicit));
+    process.chdir(elsewhere);
+    explicit = await stderrOf(() => launch('start', { ...options, projectDir: f.projectDir }));
     // The instance switched to another project: an implicit run keeps it and says nothing of the saved one.
     await launch('start', { ...options, projectDir: other });
     switched = await stderrOf(() => launch('start', implicit));
@@ -416,6 +423,10 @@ test('the saved-project note is written only for a caller directory: not in a 0.
   assert.match(native.stderr, /已跳过无效的项目目录 .*legacy-project（--project）/);
   assert.ok(!native.stderr.includes('使用界面保存的项目'), native.stderr);
   assert.ok(caller.stderr.includes('使用界面保存的项目'), caller.stderr);
+  for (const [name, run] of Object.entries({ strayHandover, atProject, explicit })) {
+    assert.deepEqual([run.result.project, run.result.reused], [saved, true], name);
+    assert.ok(!run.stderr.includes('使用界面保存的项目'), `${name}: ${run.stderr}`);
+  }
   const kept = await fs.realpath(other);
   assert.deepEqual([switched.result.reused, switched.result.project], [true, kept]);
   assert.ok(switched.stderr.includes(`最终扫描目录 ${kept}（沿用运行实例的项目）`), switched.stderr);
@@ -464,7 +475,8 @@ test('the launch says dependencies need the network, before preparing and when t
   let failure;
   const { stderr } = await stderrOf(() => launch('start', options).catch(error => { failure = error; }));
   assert.match(stderr, /准备隔离运行目录与锁定的依赖（[^）]*需要联网）/);
-  assert.match(failure?.message ?? '', /失败（\d+）；安装依赖需要联网，请确认网络可用后重试，详见 .*build\.log$/);
+  // It names the step and does not claim the cause: this very failure has nothing to do with the network (67 IF-P3-07).
+  assert.match(failure?.message ?? '', /失败（\d+）；这一步是安装依赖，需要联网：若本机离线，请联网后重试，详见 .*build\.log$/);
   assert.equal((await launch('status', options)).status, 'stopped');
 });
 

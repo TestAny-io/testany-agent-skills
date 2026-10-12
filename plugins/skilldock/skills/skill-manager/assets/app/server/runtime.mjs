@@ -47,7 +47,7 @@ export async function prepareRuntime(stateDir, snapshot, { environment = process
     try {
       if (log) process.stderr.write(`SkillDock：依赖安装与构建的输出写入 ${log}\n`);
       await run(process.execPath, [npm.npmCli, 'ci', '--ignore-scripts', '--no-audit', '--no-fund'], runtime, env, handle?.fd)
-        .catch(error => { throw new Error(`${error.message}；安装依赖需要联网，请确认网络可用后重试`, { cause: error }); });
+        .catch(error => { throw new Error(`${error.message}；这一步是安装依赖，需要联网：若本机离线，请联网后重试`, { cause: error }); });
       await run(process.execPath, [npm.npmCli, 'run', 'build'], runtime, env, handle?.fd);
     } catch (error) {
       throw log ? Object.assign(new Error(`${error.message}，详见 ${log}`), { cause: error }) : error;

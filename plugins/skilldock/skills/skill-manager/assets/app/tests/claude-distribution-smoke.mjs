@@ -39,7 +39,7 @@ try {
   const declared = JSON.parse(await fs.readFile(path.join(market, '.claude-plugin/marketplace.json'), 'utf8')).plugins.find(item => item.name === 'skilldock').version;
   assert.equal(installed.version, declared, 'Claude 采用条目声明的版本');
   // DEC-SDX-013: no Claude manifest, and the Codex MCP configuration is not loaded.
-  // One skill only: the legacy commands/skill-manager.md was removed in 0.11.1 (Claude skipped it for colliding with the skill).
+  // One skill only: 0.11.0 also carried commands/skill-manager.md, listed here as a second skill-manager.
   const details = await claude(['plugin', 'details', 'skilldock@testany-agent-skills']);
   assert.match(details, /MCP servers \(0\)/); assert.match(details, /Skills \(1\)\s+skill-manager\b(?!,)/);
   const root = await fs.readdir(installed.installPath);

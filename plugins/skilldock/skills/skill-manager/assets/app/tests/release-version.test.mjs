@@ -29,7 +29,7 @@ test('the application package, its lockfile and README state one version, the Co
 
 test('the marketplace entry Claude reads and the READMEs repeat the manifest version', { skip: !entry && '不在仓库中' }, async () => {
   const { version } = manifest;
-  // Claude never reads the Codex manifest: without this the desktop app cannot see an update (0.11.1).
+  // Claude never reads the Codex manifest: this is the version it shows and updates by (0.11.1).
   assert.equal(entry.version, version, 'marketplace 条目');
   for (const [file, pattern] of [
     [path.join(repository, 'README.md'), /当前版本为 SkillDock \*\*(\d+\.\d+\.\d+)\*\*/],
