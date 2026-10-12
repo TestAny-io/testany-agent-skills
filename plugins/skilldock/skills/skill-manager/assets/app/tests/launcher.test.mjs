@@ -357,7 +357,7 @@ async function stderrOf(run) {
   try { return { result: await run(), stderr: text }; } finally { process.stderr.write = write; }
 }
 
-test('a skipped --project is noted on stderr only, and reuse names the kept project (36b 6.3; UAT 2026-10-10)', async t => {
+test('a skipped --project is noted on stderr only, and the final directory is the one scanned (36b 6.3; UAT 2026-10-10)', async t => {
   const f = await fixture(t); const options = { ...f, port: await freePort() };
   const first = await launch('start', options);
   const legacy = path.join(first.state, 'compat/legacy-project');
@@ -367,7 +367,9 @@ test('a skipped --project is noted on stderr only, and reuse names the kept proj
   try {
     assert.equal(next.reused, false);
     assert.deepEqual(next.projectContext.warnings, [], '不另弹提示');
+    assert.deepEqual(Object.keys(next.projectContext).sort(), ['effective', 'requested', 'source', 'warnings', 'workingDirectory'], 'skipped 不进入服务');
     assert.match(stderr, /已跳过无效的项目目录 .*legacy-project（--project）/);
+    assert.equal(stderr.match(/最终扫描目录 /g)?.length, 1, stderr);
     // Without an explicit project the running instance keeps its own; stderr says which.
     const { projectDir, ...implicit } = options;
     const elsewhere = path.join(f.root, 'elsewhere'); await fs.mkdir(elsewhere);
@@ -375,7 +377,8 @@ test('a skipped --project is noted on stderr only, and reuse names the kept proj
     let reused;
     try { reused = await stderrOf(() => launch('start', implicit)); } finally { process.chdir(cwd); }
     assert.deepEqual([reused.result.reused, reused.result.project], [true, next.project]);
-    assert.ok(reused.stderr.includes(`沿用运行实例的项目 ${next.project}`), reused.stderr);
+    assert.ok(reused.stderr.includes(`最终扫描目录 ${next.project}（沿用运行实例的项目）`), reused.stderr);
+    assert.equal(reused.stderr.match(/最终扫描目录 /g)?.length, 1, reused.stderr);
   } finally { await launch('stop', options); }
 });
 

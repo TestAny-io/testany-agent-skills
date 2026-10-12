@@ -5,7 +5,11 @@
 > 目的：核对 PRD 中待 Owner 的验收项——AC-017 第 1 项（添加本仓库 marketplace 后从插件浏览器安装 SkillDock）、第 3 项（不用终端也能更新）、AC-008 第 3 项（安装后没有 SkillDock 的插件错误）；并记下界面上的实际名称与路径，用于 README 定稿。
 > 代码来源：公开仓库 `TestAny-io/testany-agent-skills` 的分支 `feature/skilldock-0.11-cross-agent`，尚未发布到 `main`。
 >
-> **修订（2026-10-12）**：按第一部分（第 3～6 节）的实测结果修订，上一版 sha256 `7a489bd276dbc70f47e382fad7f7f13397f315e50badbc7deeb937f7bf8eb283`（提交 `6d9d519`）。改动：第 3、4、5 节写入桌面应用中的实际入口；第 6 节第 1 项改为桌面应用的核对方式，第 4 项改正预期，新增第 5 项（只读读回慢请求的分段计时）；第 7 节改为桌面应用的路径并分两次推送；第 8 节改为就地切换。**已做完第 3～6 节的，从第 6 节第 5 项继续。**
+> **修订（2026-10-12）**：按第一部分（第 3～6 节）的实测结果修订，上一版 sha256 `7a489bd276dbc70f47e382fad7f7f13397f315e50badbc7deeb937f7bf8eb283`（提交 `6d9d519`）。改动：第 3、4、5 节写入桌面应用中的实际入口；第 6 节第 1 项改为桌面应用的核对方式，第 4 项改正预期，新增第 5 项（只读读回慢请求的分段计时）；第 7 节改为桌面应用的路径并分两次推送；第 8 节改为就地切换；第 9 节汇报表相应增删（去掉 Errors 一行，增加计时与两次更新的行）。
+>
+> **修订 r3（2026-10-12）**：按评审 [62](62-cross-agent-uat-fix-review.md) 修订，上一版 sha256 `22f3a345631de2185365146c21abb65209b23c2b5f30a2b62a17dc86258e8b92`（提交 `73c438a`）。改动：续做起点改到第 6 节第 4 项的“启用管理”；第 6 节第 1 项、第 8 节第 2 项的读回改为只打印所需字段；第 7 节新增第 5 项（核对页面顶部的旧提示，并说明修复前启动的实例会继续带着它），原第 5 项顺延为第 6 项；第 9 节加一行。
+>
+> **已做完第 3～6 节的，从第 6 节第 4 项的“启用管理”继续（Claude 已是“已启用管理”的跳过这一步），再做第 5 项。第 7 节第 6 项与第 7A 节都要求 Claude 已启用管理。**
 
 ## 1. 这次会真实改动什么（先读给用户听）
 
@@ -73,7 +77,13 @@ echo "== Claude marketplace"; "$CLAUDE" plugin marketplace list --json | node -e
 
 ## 6. 没有错误、能打开、是同一个实例（AC-008 第 3 项）
 
-1. 桌面应用中 `/plugin` 打开的是 Plugins 页，没有 **Errors** 标签页。请用户在 **Yours** 标签页看 Skilldock 一行有没有错误或警告标记，点开它看详情中有没有错误；再读回 `"$CLAUDE" plugin list --json` 中 skilldock 一项有没有错误字段。记录。
+1. 桌面应用中 `/plugin` 打开的是 Plugins 页，没有 **Errors** 标签页。请用户在 **Yours** 标签页看 Skilldock 一行有没有错误或警告标记，点开它看详情中有没有错误；再只读回 skilldock 一项（只打印版本、启用状态，以及错误或警告类字段的名称与条数）：
+
+   ```bash
+   "$CLAUDE" plugin list --json | node -e 'let s="";process.stdin.on("data",d=>s+=d).on("end",()=>{const v=JSON.parse(s);const a=Array.isArray(v)?v:(v.installed??v.plugins??[]);const x=a.find(i=>(i.id??i.name)==="skilldock@testany-agent-skills");if(!x)return console.log("未找到 skilldock");const f=Object.keys(x).filter(k=>/error|warn/i.test(k)).map(k=>[k,Array.isArray(x[k])?x[k].length:typeof x[k]]);console.log(JSON.stringify({id:x.id??x.name,version:x.version,enabled:x.enabled,errorFields:f}))})'
+   ```
+
+   记录。
 2. 新开一个会话（或 `/reload-plugins`），输入 `/skilldock:skill-manager`。SkillDock 应在内置浏览器面板中打开；记录。
 3. 核对与 Codex 中的是同一个实例：
 
@@ -99,7 +109,19 @@ echo "== Claude marketplace"; "$CLAUDE" plugin marketplace list --json | node -e
 2. 先只读确认 Claude 还没有自动拿到新版本：`"$CLAUDE" plugin list --json | node -e "$NAMES"`（应仍为 `e7bf95a311b9`）。
 3. 请用户在 Plugins 页找到刷新 marketplace 的入口（可能在 **+ Add ▾**、筛选菜单，或 **Yours** 中 marketplace 分组的菜单里；找不到时可以在 Discover 中对 `testany-agent-skills` 再执行一次第 4 节的添加并点 **Sync**），刷新后若 Skilldock 显示有更新，按界面提示更新。记录：入口与按钮的原文、显示的结果；整个过程没有用终端。
 4. 读回版本是否变化：`"$CLAUDE" plugin list --json | node -e "$NAMES"`（应变为新提交的摘要）。在当前会话中再调用一次 `skilldock:skill-manager`，确认正常、仍沿用同一实例（第 6 节第 3 项的读回）。
-5. 告诉用户：请通知开发者“可以推第二个提交”。开发者确认后，请用户在 SkillDock 的“更新”页找到 Claude 中的 skilldock，点 **检查更新**，有更新时按提示应用。记录：检查结果、应用结果、读回的版本；界面上的提示原文。
+5. 核对页面顶部的旧提示“已跳过无效的项目目录 …/compat/legacy-project（--project）”（第一部分发现，已在 `73c438a` 修复）。先告诉用户：正在运行的实例是用修复前的代码启动的，这条提示会跟着这个实例，复用或隐式重启都不会消失；Codex 一侧在按 [60](60-v17-real-codex-update.md) 第 8 节改回 `main` 之前仍是修复前的启动器。核对方法（停止实例前征得用户同意；之后由 Claude 这份全新启动，首次需要构建运行目录，可能要一两分钟并需要联网）：
+   1. 取 Claude 中 skilldock 的安装目录并停止实例：
+
+      ```bash
+      D=$("$CLAUDE" plugin list --json | node -e 'let s="";process.stdin.on("data",d=>s+=d).on("end",()=>{const v=JSON.parse(s);const a=Array.isArray(v)?v:(v.installed??v.plugins??[]);const x=a.find(i=>(i.id??i.name)==="skilldock@testany-agent-skills");console.log(x?.installPath??"")})')
+      echo "$D"; sh "$D/skills/skill-manager/scripts/launch.sh" stop
+      ```
+
+      `D` 为空或目录名不是新版本的摘要时停下，告诉用户；
+   2. 在当前会话中调用 `skilldock:skill-manager`（由 Claude 这份修复后的启动器全新启动），打开页面，确认顶部没有这条提示；
+   3. 再打开 Codex 中的 SkillDock 原生页面（沿用同一实例），确认同样没有；
+   4. 之后实例若停止、再由 Codex 原生入口全新启动，提示会重新出现，这属预期，改回 `main` 后消失。
+6. 告诉用户：请通知开发者“可以推第二个提交”。开发者确认后，请用户在 SkillDock 的“更新”页找到 Claude 中的 skilldock，点 **检查更新**，有更新时按提示应用。记录：检查结果、应用结果、读回的版本；界面上的提示原文。
 
 ## 7A. 新接通的界面路径：从本地目录把插件装到 Claude（可选，建议做）
 
@@ -124,7 +146,13 @@ echo "== Claude marketplace"; "$CLAUDE" plugin marketplace list --json | node -e
 开发者合并到 `main` 并通知后，把 marketplace 改回跟随 `main`（经用户同意）：
 
 1. 在 Plugins 页 **+ Add ▾** 中按第 4 节的方式再添加一次 `TestAny-io/testany-agent-skills`（不带 `#分支`），点 **Sync**；
-2. 读回：`"$CLAUDE" plugin marketplace list --json` 中该项的 source 不再带 ref；`"$CLAUDE" plugin list --json | node -e "$NAMES"` 中 SkillDock 与 testany-eng 都还在；
+2. 读回（只打印该项的来源字段）：
+
+   ```bash
+   "$CLAUDE" plugin marketplace list --json | node -e 'let s="";process.stdin.on("data",d=>s+=d).on("end",()=>{const v=JSON.parse(s);const a=Array.isArray(v)?v:(v.marketplaces??[]);const m=a.find(i=>i.name==="testany-agent-skills");console.log(m?JSON.stringify({name:m.name,source:m.source?.source,repo:m.source?.repo,ref:m.source?.ref??null}):"未找到")})'
+   ```
+
+   `ref` 应为 `null`；`"$CLAUDE" plugin list --json | node -e "$NAMES"` 中 SkillDock 与 testany-eng 都还在；
 3. 若没有就地切换（来源仍带 ref），再经用户同意移除该 marketplace（会卸载从它安装的插件，确认框会列出）、重新添加并从插件浏览器重新安装。数据目录不受影响，计划与记录都在。
 4. 提醒用户：Codex 一侧的自动更新计划里，SkillDock 这一项因 V17 期间安装目录变化而每次跳过（“旧计划不接管新对象，请重新选择”），在按 [60](60-v17-real-codex-update.md) 第 8 节改回 `main` 之后，到 SkillDock 的“更新”页重新选择它。
 
@@ -142,6 +170,7 @@ echo "== Claude marketplace"; "$CLAUDE" plugin marketplace list --json | node -e
 | “Agent 环境”页：两侧版本、Claude 管理状态（启用前后） | |
 | `server.log` 中“读取清单用时”的计时行（原样） | |
 | Claude 界面中刷新 marketplace 并更新：入口原文、结果、版本是否变化 | |
+| 旧提示核对：从 Claude 全新启动后、再打开 Codex 原生页面，顶部是否都没有“已跳过无效的项目目录” | |
 | SkillDock 更新页更新 Claude 中的 SkillDock：检查与应用结果、读回版本 | |
 | （7A）从本地目录装插件到 Claude：是否出现 Agent 选择、安装位置、卸载后是否清干净 | |
 | TeamDesk 是否注明“仅支持 Codex” | |
