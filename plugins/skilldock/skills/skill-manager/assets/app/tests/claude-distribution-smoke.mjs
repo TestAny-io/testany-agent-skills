@@ -37,8 +37,9 @@ try {
   const installed = listed[0];
   assert.ok(commit.startsWith(installed.version), 'Claude 以提交摘要作版本');
   // DEC-SDX-013: no Claude manifest, and the Codex MCP configuration is not loaded.
+  // One skill only: the legacy commands/skill-manager.md was removed in 0.11.1 (Claude skipped it for colliding with the skill).
   const details = await claude(['plugin', 'details', 'skilldock@testany-agent-skills']);
-  assert.match(details, /MCP servers \(0\)/); assert.match(details, /Skills \(2\)\s+skill-manager, skill-manager/);
+  assert.match(details, /MCP servers \(0\)/); assert.match(details, /Skills \(1\)\s+skill-manager\b(?!,)/);
   const root = await fs.readdir(installed.installPath);
   assert.deepEqual(['.mcp.json', '.claude-plugin', 'codex.mcp.json'].filter(name => root.includes(name)), ['codex.mcp.json']);
   // DEC-SDX-014: the plugin browser shows which Agents each entry supports.
