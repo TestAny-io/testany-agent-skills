@@ -95,6 +95,10 @@ test('marketplaces: auto-update from settings, Claude\'s record or the default; 
   await write(path.join(w.configDir, 'settings.json'), { extraKnownMarketplaces: { m: { source: { source: 'github', repo: 'o/m' }, autoUpdate: false } } });
   const declared = (await claudeCatalog(w.base)).marketplaces.find(item => item.name === 'm');
   assert.deepEqual([declared.autoUpdate.enabled, declared.autoUpdate.isDefault, declared.autoUpdate.note], [false, false, undefined], '设置中的声明优先于 Claude 的记录');
+  // Backlog UI-18: the branch a marketplace is pinned to comes from Claude's own record; none when it follows the default.
+  assert.equal('ref' in m, false);
+  await write(path.join(w.configDir, 'plugins/known_marketplaces.json'), { m: { source: { source: 'github', repo: 'o/m', ref: 'feature/x\u0007' }, installLocation: path.join(w.configDir, 'plugins/marketplaces/m') } });
+  assert.equal((await claudeCatalog(w.base)).marketplaces.find(item => item.name === 'm').ref, 'feature/x', '去掉控制字符');
 });
 
 test('a failing list or an unknown settings format leaves Claude unconfirmed; its install record is shown meanwhile', async t => {

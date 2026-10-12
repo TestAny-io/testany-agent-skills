@@ -57,6 +57,7 @@ import {
   X,
 } from "lucide-react";
 import type {
+  Agent,
   ActionRequest,
   ActionResult,
   Marketplace,
@@ -92,7 +93,7 @@ import { ProjectPicker, ProjectDialog } from "./ProjectControls";
 import { InstallDialog } from "./InstallDialog";
 import { LibraryFilters, ViewSwitch, CollectionFooter } from "./LibraryUI";
 import { NativeConfirmDialog, NativeRuleList, type NativeConfirmation } from "./NativeConfirm";
-import { AgentFilter, AgentBadges, AgentSplit, ClaudePluginFacts, ClaudeSkillFacts, MarketAutoUpdate, matchesAgent, showsAgents, objectAgents, type AgentFilterValue } from "./AgentUI";
+import { AGENT_LABEL, AgentFilter, AgentBadges, AgentSplit, ClaudePluginFacts, ClaudeSkillFacts, MarketAutoUpdate, matchesAgent, showsAgents, objectAgents, skillCategoryCounts, type AgentFilterValue } from "./AgentUI";
 import { AgentEnvironments } from "./AgentEnvironments";
 import { availableNotes, creationAgent, defaultCreationAgent, requestAgent, requestRevision, showsCodexCliNotice, stateUrl } from "./agent-requests";
 
@@ -654,16 +655,7 @@ export default function App() {
   const showAgentDimension = showsAgents(data?.agents);
   const effectiveAgent: AgentFilterValue = showAgentDimension ? agentFilter : "all";
   const skills = data?.skills || [];
-  const counts = {
-    all: skills.length,
-    enabled: skills.filter((s) => s.enabled === true).length,
-    standalone: skills.filter(
-      (s) => s.scope === "user" || s.scope === "project",
-    ).length,
-    attention: skills.filter(
-      (s) => s.enabled === null || (s.duplicateNames?.length || 0) > 0,
-    ).length,
-  };
+  const counts = skillCategoryCounts(skills, effectiveAgent);
   const filteredSkills = useMemo(
     () =>
       skills.filter((skill) => {
@@ -1230,11 +1222,11 @@ export default function App() {
                   <div className="collection-heading">
                     <h2>
                       {t("已连接来源")}
-                      <span>{data.marketplaces.length}</span>
+                      <span>{visibleMarkets.length}</span>
                     </h2>
                     <span>{t("本地目录与 Git 仓库")}</span>
                   </div>
-                  {data.marketplaces.length ? (
+                  {visibleMarkets.length ? (
                     <div className="market-list">
                       {visibleMarkets.map((market) => (
                         <MarketCard
@@ -1278,8 +1270,8 @@ export default function App() {
                   ) : (
                     <Empty
                       icon={Globe2}
-                      title={t("连接你的第一个来源")}
-                      description={t(
+                      title={data.marketplaces.length ? t("{v0} 一侧还没有市场来源", { v0: AGENT_LABEL[effectiveAgent as Agent] }) : t("连接你的第一个来源")}
+                      description={data.marketplaces.length ? t("另一侧的来源可以用上方的 Agent 筛选查看。") : t(
                         "添加本地或 Git 市场，统一浏览其中的插件。",
                       )}
                     >
@@ -1318,10 +1310,10 @@ export default function App() {
                   <div className="collection-heading">
                     <h2>
                       {t("最近的变化")}
-                      <span>{data.activity.length}</span>
+                      <span>{visibleActivity.length}</span>
                     </h2>
                   </div>
-                  {data.activity.length ? (
+                  {visibleActivity.length ? (
                     <div className="activity-list">
                       {visibleActivity.map((item) => (
                         <article className="activity-item" key={item.id}>
@@ -1392,8 +1384,8 @@ export default function App() {
                   ) : (
                     <Empty
                       icon={History}
-                      title={t("清爽的开始")}
-                      description={t(
+                      title={data.activity.length ? t("{v0} 一侧还没有操作记录", { v0: AGENT_LABEL[effectiveAgent as Agent] }) : t("清爽的开始")}
+                      description={data.activity.length ? t("另一侧的记录可以用上方的 Agent 筛选查看。") : t(
                         "安装、启禁、移除和恢复的结果都会保存在这里。先从浏览技能库开始吧。",
                       )}
                     >
@@ -1634,6 +1626,7 @@ function MarketCard({
           </Badge>
         </div>
         <code className="market-source">{market.source}</code>
+        {market.ref && <span className="market-ref"><GitBranch size={12} strokeWidth={1.8} />{t("固定在 {v0}", { v0: market.ref })}</span>}
         <div className="market-meta">
           <span>
             {market.pluginCount}

@@ -150,7 +150,8 @@ export class CodexAdapter {
         if (!safeSegment(m?.name) || typeof m.root !== 'string' || !path.isAbsolute(m.root)) { if (typeof m?.name === 'string') dropped.marketplaces.push(m.name); else dropped.unidentified.marketplaces = true; continue; }
         const type = m.marketplaceSource?.sourceType || 'managed'; const source = m.marketplaceSource?.source || m.root;
         const managed = /^(openai-bundled|openai-primary-runtime|openai-curated|openai-curated-remote)$/.test(m.name);
-        marketplaces.push({ id: m.name, name: m.name, source: publicSource(typeof source === 'string' ? source : m.root), type, pluginCount: plugins.filter(p => p.marketplace === m.name).length, canRemove: !!m.marketplaceSource && !managed, canRefresh: type === 'git' && !managed, reason: managed ? '平台维护的市场来源。' : undefined, _root: m.root });
+        const ref = typeof m.marketplaceSource?.ref === 'string' ? m.marketplaceSource.ref.replace(/\p{C}/gu, '').slice(0, 200) : '';
+        marketplaces.push({ id: m.name, name: m.name, source: publicSource(typeof source === 'string' ? source : m.root), type, ...(ref ? { ref } : {}), pluginCount: plugins.filter(p => p.marketplace === m.name).length, canRemove: !!m.marketplaceSource && !managed, canRefresh: type === 'git' && !managed, reason: managed ? '平台维护的市场来源。' : undefined, _root: m.root });
       }
     } else diagnostics.push(redact(results[1].reason.message));
     // Canonical app plugins declare plugin_<app id> as their remote source ID.

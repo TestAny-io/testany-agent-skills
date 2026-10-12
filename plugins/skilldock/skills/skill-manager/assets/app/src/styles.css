@@ -1084,6 +1084,15 @@ main {
   margin-top: 7px;
   overflow-wrap: anywhere;
 }
+.market-ref {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  margin-top: 4px;
+  font-size: 12px;
+  color: var(--muted);
+  overflow-wrap: anywhere;
+}
 .market-meta {
   display: flex;
   align-items: center;

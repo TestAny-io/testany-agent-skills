@@ -2538,5 +2538,25 @@
   "正在读取本机的技能与插件清单，有时需要半分钟（例如 Codex 正在刷新它的插件目录），请稍候。": {
     "en": "Reading the skills and plugins on this Mac. This can take half a minute, for example while Codex refreshes its plugin directory. Please wait.",
     "ja": "この Mac のスキルとプラグインを読み込んでいます。Codex がプラグイン一覧を更新している場合などは 30 秒ほどかかることがあります。しばらくお待ちください。"
+  },
+  "固定在 {v0}": {
+    "en": "Pinned to {v0}",
+    "ja": "{v0} に固定"
+  },
+  "{v0} 一侧还没有市场来源": {
+    "en": "No marketplaces on the {v0} side yet",
+    "ja": "{v0} 側にはまだマーケットプレイスがありません"
+  },
+  "另一侧的来源可以用上方的 Agent 筛选查看。": {
+    "en": "Use the Agent filter above to see the other side's marketplaces.",
+    "ja": "もう一方のマーケットプレイスは、上の Agent フィルターで確認できます。"
+  },
+  "{v0} 一侧还没有操作记录": {
+    "en": "No activity on the {v0} side yet",
+    "ja": "{v0} 側にはまだ操作履歴がありません"
+  },
+  "另一侧的记录可以用上方的 Agent 筛选查看。": {
+    "en": "Use the Agent filter above to see the other side's activity.",
+    "ja": "もう一方の履歴は、上の Agent フィルターで確認できます。"
   }
 }

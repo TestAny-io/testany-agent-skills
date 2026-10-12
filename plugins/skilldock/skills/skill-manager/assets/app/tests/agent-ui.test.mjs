@@ -128,6 +128,20 @@ test('Agents are shown by their marks, named for screen readers and tooltips; th
   assert.equal((filter.match(/<svg/g) || []).length, 2, '筛选按钮带图标');
 });
 
+test('skill category counts follow the Agent filter: all, Codex, Claude, and a version-1 snapshot without agents', () => {
+  const { skillCategoryCounts } = ui();
+  const skills = [
+    { enabled: true, scope: 'user' }, { enabled: false, scope: 'plugin', agents: ['codex'] }, { enabled: null, scope: 'project', agents: ['claude'] },
+    { enabled: true, scope: 'user', agents: ['codex', 'claude'], duplicateNames: ['x'] },
+  ];
+  for (const [filter, expected] of [
+    ['all', { all: 4, enabled: 2, standalone: 3, attention: 2 }],
+    ['codex', { all: 3, enabled: 2, standalone: 2, attention: 1 }],
+    ['claude', { all: 2, enabled: 1, standalone: 2, attention: 2 }],
+  ]) assert.deepEqual({ ...skillCategoryCounts(skills, filter) }, expected, filter);
+  assert.deepEqual({ ...skillCategoryCounts([], 'claude') }, { all: 0, enabled: 0, standalone: 0, attention: 0 });
+});
+
 test('the Agent marks are the official artwork: path data, canvas and colors as THIRD_PARTY_NOTICES.md says', async () => {
   const { AgentMark } = ui(); const sha = text => crypto.createHash('sha256').update(text).digest('hex');
   const codex = render(AgentMark, { agent: 'codex' }), claude = render(AgentMark, { agent: 'claude' });

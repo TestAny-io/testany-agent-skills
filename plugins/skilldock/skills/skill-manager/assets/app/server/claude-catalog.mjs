@@ -333,7 +333,8 @@ export async function claudeCatalog({ claudeRoot, project, cli, env = process.en
     const sourceText = item.repo || item.url || item.path || entry.source?.repo || entry.source?.url || entry.source?.path || item.source;
     // A marketplace that organisation-managed settings declare cannot be removed here.
     const managedDeclaration = decidedBy(layers, 'extraKnownMarketplaces', item.name).layer === 'managed';
-    marketplaces.push({ agents: ['claude'], id: claudeIds.marketplace(item.name), name: item.name, source: publicSource(String(sourceText)), type: item.source, pluginCount, autoUpdate,
+    const ref = [item.ref, entry.source?.ref].find(value => typeof value === 'string' && value)?.replace(/\p{C}/gu, '').slice(0, 200);
+    marketplaces.push({ agents: ['claude'], id: claudeIds.marketplace(item.name), name: item.name, source: publicSource(String(sourceText)), type: item.source, ...(ref ? { ref } : {}), pluginCount, autoUpdate,
       ...(typeof entry.lastUpdated === 'string' ? { refreshedAt: entry.lastUpdated } : {}), canRemove: !managedDeclaration, canRefresh: true,
       ...(managedDeclaration ? { protection: 'managed', reason: '由组织托管设置声明的 marketplace 不能在这里移除。' } : {}),
       revision: revision({ name: item.name, autoUpdate, plugins: plugins.filter(plugin => plugin.marketplace === item.name).map(plugin => plugin.id).sort() }) });
