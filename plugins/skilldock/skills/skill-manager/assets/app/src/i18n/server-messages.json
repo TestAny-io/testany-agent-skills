@@ -1727,6 +1727,10 @@
     "en": "The plugin changed after the preview; check again.",
     "ja": "プレビュー後にプラグインが変わりました。再確認してください。"
   },
+  "本机文件在预览后发生变化，请重新检查更新。": {
+    "en": "Local files changed after the preview; check for updates again.",
+    "ja": "プレビュー後にローカルのファイルが変わりました。更新を再確認してください。"
+  },
   "marketplace 中这个插件的条目在预览后发生变化，请重新检查。": {
     "en": "This plugin's entry in its marketplace changed after the preview; check again.",
     "ja": "プレビュー後に marketplace 内のこのプラグインのエントリーが変わりました。再確認してください。"

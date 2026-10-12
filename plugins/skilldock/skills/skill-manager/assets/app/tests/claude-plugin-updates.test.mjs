@@ -14,7 +14,8 @@ import { createService } from '../server/service.mjs';
 import { writeGeneration } from '../server/generation.mjs';
 import { claudeWriteArgs } from '../server/claude-writer.mjs';
 import { runProcess } from '../server/cli.mjs';
-import { defaultFetchers, entrySourceInfo, entryPlace, pluginSource } from '../server/claude-plugin-updates.mjs';
+import { defaultFetchers, entrySourceInfo, entryPlace, pluginSource, INSTALL_SKIP } from '../server/claude-plugin-updates.mjs';
+import { inspectTree } from '../server/files.mjs';
 import { assertTranslated } from './i18n-helper.mjs';
 
 const write = async (file, value) => { await fs.mkdir(path.dirname(file), { recursive: true }); await fs.writeFile(file, typeof value === 'string' ? value : JSON.stringify(value)); };
@@ -180,6 +181,9 @@ test('a manifest Claude synthesized into an installation is not a local change (
   const installPath = w.claude.plugins[0].installPath;
   await write(path.join(installPath, '.claude-plugin/plugin.json'), { name: 'gamma', description: 'Gamma' });
   assert.equal((await w.check('gamma')).updateItem.status, 'current', '合成的清单不算本地修改');
+  // Show in Finder leaves .DS_Store files behind.
+  await write(path.join(installPath, '.DS_Store'), 'finder'); await write(path.join(installPath, '.claude-plugin/.DS_Store'), 'finder');
+  assert.equal((await w.check('gamma')).updateItem.status, 'current', '.DS_Store 不算本地修改');
   // A new version is offered without the manifest among its changes, applied, and read back,
   // also when Claude synthesizes one into the new directory.
   await skill('v2'); w.entries[0].version = '1.1.0'; await w.writeMarket();
@@ -195,6 +199,30 @@ test('a manifest Claude synthesized into an installation is not a local change (
   // An edit of the content is still a local change.
   await fs.appendFile(path.join(w.claude.plugins[0].installPath, 'skills/s/SKILL.md'), 'my edit\n');
   assert.equal((await w.check('gamma')).code, 'LOCAL_CHANGES');
+});
+
+test('a synthesized manifest stays out of local changes when the source adds its own, and with a baseline taken before the fix (63 SM-P2-01, SM-P3-01)', async t => {
+  for (const variant of ['source adds a manifest', 'baseline taken as installed']) {
+    const w = await world(t);
+    const source = path.join(w.market, 'plugins/gamma');
+    await write(path.join(source, 'skills/s/SKILL.md'), '---\nname: s\ndescription: gamma\n---\nv1\n');
+    await w.install({ name: 'gamma', source: './plugins/gamma', description: 'Gamma', version: '1.0.0' });
+    const installPath = w.claude.plugins[0].installPath;
+    await write(path.join(installPath, '.claude-plugin/plugin.json'), { name: 'gamma', description: 'Gamma' });
+    assert.equal((await w.check('gamma')).updateItem.status, 'current', variant);
+    if (variant === 'source adds a manifest') await write(path.join(source, '.claude-plugin/plugin.json'), { name: 'gamma', version: '1.1.0' });
+    else {
+      // A build before the fix recorded the installation as it was, the synthesized manifest included.
+      const registry = await w.registry(); const [id] = Object.keys(registry.claudePluginBaselines);
+      registry.claudePluginBaselines[id].fingerprint = (await inspectTree(installPath, { skip: INSTALL_SKIP })).fingerprint;
+      await fs.writeFile(w.service.environments.local.registryFile, JSON.stringify(registry));
+      w.entries[0].version = '1.1.0'; await w.writeMarket();
+    }
+    await write(path.join(source, 'skills/s/SKILL.md'), '---\nname: s\ndescription: gamma\n---\nv2\n');
+    const checked = (await w.check('gamma')).updateItem;
+    assert.equal(checked?.status, 'available', variant);
+    assert.equal(checked.availableVersion, '1.1.0', variant);
+  }
 });
 
 test('a readback that differs from the preview is reported, and automatic applying waits for a new preview', async t => {

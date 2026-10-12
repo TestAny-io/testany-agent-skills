@@ -807,7 +807,8 @@ export async function createService(options = {}) {
       const registry = await registryFor(env); const baselines = (registry.claudePluginBaselines ??= {}); const baseline = baselines[target.id];
       // MR-SDX-003: content changed since SkillDock last saw this version is not overwritten. An `unknown`
       // version tells nothing: Claude may have overwritten it in place (5a/5b review P1-02).
-      const changedLocally = () => baseline && baseline.version === install.version && ![installed.fingerprint, rawInstalled.fingerprint].includes(baseline.fingerprint);
+      // A baseline taken as installed or without what others wrote (63 SM-P2-01: a source may add a manifest later).
+      const changedLocally = () => baseline && baseline.version === install.version && ![rawInstalled.fingerprint, asInstalled(rawInstalled, {}).fingerprint].includes(baseline.fingerprint);
       const localChanges = () => fail(409, 'LOCAL_CHANGES', install.version === 'unknown'
         ? '已安装的插件内容相对上次记录有变化，可能是 Claude 自己更新过，也可能是本地修改，不能自动覆盖；请先核对。如果没有本地修改，可在 Claude 中卸载后重新安装这个插件，再检查。'
         : '已安装的插件内容相对上次记录有本地修改，不能自动覆盖；请先核对。');

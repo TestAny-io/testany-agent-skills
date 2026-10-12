@@ -15,16 +15,19 @@ import { checkoutGit, runProcess } from './cli.mjs';
 export const INSTALL_SKIP = new Set(['node_modules', '.in_use', '.orphaned_at']);
 
 /**
- * Claude writes a manifest into an installation whose source has none, the entry standing in for it
- * (the desktop app does so when it installs or checks a marketplace for updates; final UAT 2026-10-12).
- * Like the markers above it is Claude's own write: an installation is compared with a candidate
- * without it.
+ * Files others write into an installation, compared away when the candidate has none (final UAT
+ * 2026-10-12): the manifest Claude builds from the entry when the source has none (the desktop app
+ * writes it when it installs or checks a marketplace for updates), and Finder's `.DS_Store` (the
+ * desktop app offers Show in Finder). Like the markers above they are not local changes.
  */
 export const SYNTHESIZED_MANIFEST = '.claude-plugin/plugin.json';
+const writtenByOthers = file => file === SYNTHESIZED_MANIFEST || file === '.DS_Store' || file.endsWith('/.DS_Store');
 export function asInstalled(tree, candidateEntries) {
-  if (!tree || !Object.hasOwn(tree.entries, SYNTHESIZED_MANIFEST) || Object.hasOwn(candidateEntries, SYNTHESIZED_MANIFEST)) return tree;
-  const { [SYNTHESIZED_MANIFEST]: _synthesized, ...entries } = tree.entries;
-  return { ...tree, entries, files: tree.files - 1, fingerprint: hash(JSON.stringify(entries)) };
+  if (!tree) return tree;
+  const dropped = Object.keys(tree.entries).filter(file => writtenByOthers(file) && !Object.hasOwn(candidateEntries, file));
+  if (!dropped.length) return tree;
+  const entries = Object.fromEntries(Object.entries(tree.entries).filter(([file]) => !dropped.includes(file)));
+  return { ...tree, entries, files: tree.files - dropped.length, fingerprint: hash(JSON.stringify(entries)) };
 }
 
 /** A plugin's entry in a marketplace copy, and the copy's `metadata.pluginRoot`. */
