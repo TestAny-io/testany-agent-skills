@@ -823,10 +823,6 @@
     "en": "Plugins the Claude desktop app provides with its sessions (such as the built-in browser and computer use) are not installed in the Claude configuration directory and are not listed here.",
     "ja": "Claude デスクトップアプリがセッションに付属させるプラグイン（内蔵ブラウザやコンピューター操作など）は Claude の設定ディレクトリにインストールされないため、ここには表示されません。"
   },
-  "这一版 SkillDock 只列出 Claude 中可安装的插件，暂不能在这里安装；可以在 Claude Code 中用 /plugin 安装。": {
-    "en": "This version of SkillDock only lists the plugins you can install in Claude; it cannot install them yet. Install them in Claude Code with /plugin.",
-    "ja": "このバージョンの SkillDock は Claude にインストールできるプラグインを表示するだけで、ここからはまだインストールできません。Claude Code で /plugin を使ってインストールしてください。"
-  },
   "marketplace {v0} 的本机副本无法读取，插件数与其中未安装的插件暂不显示。": {
     "en": "The local copy of marketplace {v0} cannot be read, so its plugin count and the plugins not installed from it are not shown.",
     "ja": "マーケットプレイス {v0} のローカルコピーを読み取れないため、プラグイン数と未インストールのプラグインは表示されません。"

@@ -149,8 +149,8 @@ test('the new texts are translated (en)', () => {
 test('the new notes and diagnostics are translated (en, ja)', () => {
   for (const language of ['en', 'ja']) {
     const { t } = translatorFor(language);
-    for (const text of ['Claude 桌面应用为会话自带的插件（例如内置浏览器、电脑操作）不安装在 Claude 配置目录中，这里不列出。', '这一版 SkillDock 只列出 Claude 中可安装的插件，暂不能在这里安装；可以在 Claude Code 中用 /plugin 安装。',
-      '未安装：Claude 已添加的 Marketplace 中尚未安装的插件，取自 Claude 在本机保存的副本；这一版只能查看。', 'CLI 返回了无法安全使用的插件记录 bad@elsewhere，已忽略。', 'marketplace broken 的本机副本无法读取，插件数与其中未安装的插件暂不显示。',
+    for (const text of ['Claude 桌面应用为会话自带的插件（例如内置浏览器、电脑操作）不安装在 Claude 配置目录中，这里不列出。',
+      '未安装：Claude 已添加的 Marketplace 中尚未安装的插件，取自 Claude 在本机保存的副本。', 'CLI 返回了无法安全使用的插件记录 bad@elsewhere，已忽略。', 'marketplace broken 的本机副本无法读取，插件数与其中未安装的插件暂不显示。',
       'CLI 返回了一条没有插件身份的记录，已忽略。', 'marketplace odd:name 的名称无法用作插件身份，未列出其中未安装的插件。', '无法确认 SkillDock 安装状态：Codex 返回的插件记录中有无法安全使用的项，可能正是 SkillDock；未删除后台任务。']) {
       const translated = t(text);
       assert.notEqual(translated, text, text);
@@ -200,6 +200,22 @@ test('a new marketplace or skill names the chosen side whenever an Agent is mana
   assert.equal(creationAgent(['claude'], 'codex'), 'claude');
   assert.equal(creationAgent(['codex'], 'codex'), 'codex');
   assert.equal(creationAgent([], 'codex'), undefined, '都不可管理时按 1 版处理');
+  // Backlog UI-13: a creation dialog starts on the side the page is filtered to.
+  const { defaultCreationAgent } = ui();
+  assert.equal(defaultCreationAgent(['codex', 'claude'], 'claude'), 'claude', '筛选为 Claude 时默认 Claude');
+  assert.equal(defaultCreationAgent(['codex', 'claude'], 'all'), 'codex');
+  assert.equal(defaultCreationAgent(['codex', 'claude']), 'codex');
+  assert.equal(defaultCreationAgent(['codex'], 'claude'), 'codex', '筛选的一侧不可管理时不选它');
+  assert.equal(defaultCreationAgent(['claude'], 'all'), 'claude');
+  assert.equal(defaultCreationAgent([], 'claude'), 'codex');
+  // Backlog UI-04: the note under "未安装" follows the Agents that have such plugins on the page.
+  const { availableNotes } = ui();
+  const codex = { installed: false }, claude = { installed: false, agents: ['claude'] }, installed = { installed: true, agents: ['claude'] };
+  assert.equal(availableNotes([codex], ['codex', 'claude']).length, 1); assert.match(availableNotes([codex], ['claude'])[0], /已连接 Marketplace/);
+  assert.match(availableNotes([claude, installed], ['codex'])[0], /^未安装：Claude/);
+  assert.equal(availableNotes([codex, claude], []).length, 2, '两侧都有时各说明一句');
+  assert.match(availableNotes([installed], ['claude'])[0], /^未安装：Claude/, '没有未安装项时按页面覆盖的一侧');
+  assert.match(availableNotes([], [])[0], /已连接 Marketplace/, '1 版快照按 Codex');
 });
 
 test('nested service messages translate both the outer and the inner sentence (en)', () => {

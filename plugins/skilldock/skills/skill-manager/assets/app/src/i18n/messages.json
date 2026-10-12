@@ -1731,9 +1731,9 @@
     "en": "Not installed: plugins found in connected marketplaces. You can also install a single plugin directly from Git or a local folder.",
     "ja": "未インストール：接続済み Marketplace のプラグインです。Git やローカルフォルダーから単一プラグインを直接インストールすることもできます。"
   },
-  "未安装：Claude 已添加的 Marketplace 中尚未安装的插件，取自 Claude 在本机保存的副本；这一版只能查看。": {
-    "en": "Not installed: plugins in the marketplaces added to Claude that are not installed yet, read from the copies Claude keeps on this Mac. This version can only show them.",
-    "ja": "未インストール：Claude に追加したマーケットプレイスのうち、まだインストールしていないプラグインです。Claude がこの Mac に保存しているコピーから読み取ります。このバージョンでは表示のみです。"
+  "未安装：Claude 已添加的 Marketplace 中尚未安装的插件，取自 Claude 在本机保存的副本。": {
+    "en": "Not installed: plugins in the marketplaces added to Claude that are not installed yet, read from the copies Claude keeps on this Mac.",
+    "ja": "未インストール：Claude に追加したマーケットプレイスのうち、まだインストールしていないプラグインです。Claude がこの Mac に保存しているコピーから読み取ります。"
   },
   "从本地目录、Git 仓库或 Marketplace 安装第一个插件。": {
     "en": "Install your first plugin from a local folder, Git repository, or marketplace.",
@@ -2399,9 +2399,9 @@
     "en": "This version of SkillDock only reads items in Claude. Once on, later versions can change skills, plugins and marketplaces in Claude when you ask them to, and add them to background update plans. This does not change Claude's own settings.",
     "ja": "このバージョンの SkillDock は Claude の項目を読み取るだけです。有効にすると、以降のバージョンで、操作に応じて Claude のスキル・プラグイン・マーケットプレイスを変更し、バックグラウンド更新プランに追加できるようになります。Claude 自体の設定は変更しません。"
   },
-  "这一版只读取 Claude 插件，附带技能不单独列出。": {
-    "en": "This version only reads Claude plugins; their skills are not listed one by one.",
-    "ja": "このバージョンは Claude のプラグインを読み取るだけで、付属スキルは個別に表示しません。"
+  "Claude 插件自带的技能随插件一起启用或停用，不在技能库中单独列出。": {
+    "en": "Skills bundled with a Claude plugin are enabled or disabled with the plugin and are not listed one by one in the skill library.",
+    "ja": "Claude プラグインに付属するスキルはプラグインと一緒に有効・無効になり、スキルライブラリには個別に表示されません。"
   },
   "启用后 SkillDock 可能写入的位置": {
     "en": "Where SkillDock may write once management is on",
@@ -2530,5 +2530,13 @@
   "从已连接的 Marketplace 选择插件。": {
     "en": "Choose a plugin from a connected marketplace.",
     "ja": "接続済みのマーケットプレイスからプラグインを選択します。"
+  },
+  "这里只列出 Claude 的个人与项目技能；Claude 插件自带的技能随插件管理，请到“插件”页查看。": {
+    "en": "Only Claude's personal and project skills are listed here. Skills bundled with Claude plugins are managed with the plugin; see the Plugins page.",
+    "ja": "ここには Claude の個人スキルとプロジェクトスキルだけが表示されます。Claude プラグインに付属するスキルはプラグインごとに管理されるため、「プラグイン」ページで確認してください。"
+  },
+  "正在读取本机的技能与插件清单，有时需要半分钟（例如 Codex 正在刷新它的插件目录），请稍候。": {
+    "en": "Reading the skills and plugins on this Mac. This can take half a minute, for example while Codex refreshes its plugin directory. Please wait.",
+    "ja": "この Mac のスキルとプラグインを読み込んでいます。Codex がプラグイン一覧を更新している場合などは 30 秒ほどかかることがあります。しばらくお待ちください。"
   }
 }

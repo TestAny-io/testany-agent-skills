@@ -1446,6 +1446,11 @@ main {
   margin: 25px 0;
   height: 40px;
 }
+.loading-note {
+  margin: 14px 2px 0;
+  font-size: 12px;
+  color: var(--muted);
+}
 .skeleton-grid {
   display: grid;
   grid-template-columns: repeat(3, 1fr);

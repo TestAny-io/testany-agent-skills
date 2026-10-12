@@ -10,12 +10,14 @@ import { ServiceMessage, t } from "./i18n";
 import { PluginSkillPicker } from "./PluginSkillPicker";
 import { ExternalLink } from './ExternalLink';
 import { matchesPlugin, pluginTitle } from './plugin-presentation';
-import { pluginMarketIntro } from './agent-requests';
+import { defaultCreationAgent, pluginMarketIntro } from './agent-requests';
 
-export function InstallDialog({ kind, data, initialPlugin, initialMarket = false, busy, action, onClose, onMarket, agents = [] }: {
+export function InstallDialog({ kind, data, initialPlugin, initialMarket = false, busy, action, onClose, onMarket, agents = [], filter }: {
   kind: "skill" | "plugin"; data: Snapshot; initialPlugin?: Plugin; initialMarket?: boolean; busy: string | null; action: ActionHandler; onClose: () => void; onMarket: () => void;
   /** Agents whose management is enabled; a skill install offers the choice only with more than one. */
   agents?: ("codex" | "claude")[];
+  /** The page's Agent filter: the dialog starts on that side. */
+  filter?: "all" | "codex" | "claude";
 }) {
   const plugin = kind === "plugin";
   const [sourceType, setType] = useState<"local" | "git" | "market">(initialPlugin || initialMarket || plugin ? "market" : "local");
@@ -29,7 +31,7 @@ export function InstallDialog({ kind, data, initialPlugin, initialMarket = false
   // A plugin from a local directory or Git may go to either side as well (HLD 3.3).
   const fromSource = kind === "skill" || sourceType !== "market";
   const chooseAgent = fromSource && agents.length > 1;
-  const [agent, setAgent] = useState<"codex" | "claude">(agents.includes("codex") || !agents.length ? "codex" : agents[0]);
+  const [agent, setAgent] = useState<"codex" | "claude">(defaultCreationAgent(agents, filter));
   const [skillScope, setSkillScope] = useState<"user" | "project">("user");
   const side = fromSource && agent === "claude" ? { agent: "claude" as const } : {};
   const initialized = useRef(false);
