@@ -3,6 +3,7 @@ notes:
   - "Delivery Secretary is optional ongoing coordination, not an engineering gate; route explicit durable task/progress coordination before formal artifact scanning."
   - "Guardrails is cross-cutting, not a default mainline gate."
   - "Prototype is optional and only shown when repo or user intent justifies it."
+  - "UI design (ui-designer) is optional, needs neither an approved PRD nor a frontend repository, and is shown when the user cares how the product should look or no design system exists; its design package feeds prototype-designer."
   - "Code Review is an implementation gate after an exact Candidate exists; it is parallel to test-document preparation and does not imply deployment approval."
   - "Testany automation landing is optional and only shown when user intent or an approved Test Spec handoff justifies it."
   - "Commands in the automation lane come from the sibling testany-bot plugin and are valid canonical commands for cross-plugin routing."
@@ -85,7 +86,7 @@ lanes:
   - id: main
     title: 主流程
   - id: prototype
-    title: 可选 Prototype 分支
+    title: 可选 UI 设计与 Prototype 分支
   - id: automation
     title: 可选 Testany 自动化落地分支
   - id: implementation
@@ -125,6 +126,8 @@ artifacts:
     filename_keywords: [code-review, code_review, review-request, review_request, exec-plan, exec_plan]
   - id: RUNBOOK
     filename_keywords: [runbook]
+  - id: UI_DESIGN
+    filename_keywords: [design-brief, design-language, _design, ui-design]
   - id: PROTOTYPE
     filename_keywords: [_prototype-manifest, prototype]
   - id: GUARDRAILS
@@ -177,6 +180,9 @@ artifact_routes:
   - artifact: RUNBOOK
     creation_node: runbook-writer
     creation_command: /runbook-writer
+  - artifact: UI_DESIGN
+    creation_node: ui-designer
+    creation_command: /ui-designer
   - artifact: PROTOTYPE
     creation_node: prototype-designer
     creation_command: /prototype-designer
@@ -241,6 +247,17 @@ nodes:
     approves: PRD
     next: [api-writer]
 
+  - id: ui-designer
+    lane: prototype
+    kind: writer
+    command: /ui-designer
+    requires: []
+    show_when:
+      - explicit_ui_design
+      - no_design_system
+    produces: UI_DESIGN
+    next: [prototype-designer]
+
   - id: prototype-designer
     lane: prototype
     kind: writer
@@ -248,6 +265,7 @@ nodes:
     requires:
       - PRD: approved
       - USER_JOURNEY: exists
+    optional_inputs: [UI_DESIGN]
     produces: PROTOTYPE
     show_when:
       - frontend_repo

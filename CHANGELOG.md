@@ -189,7 +189,7 @@
   - `testany-llm` 的命令列表和 plugin 描述改为仅保留 `prompt-optimizer`
   - 根 README、`AGENTS.md`、`CLAUDE.md` 不再引用已删除的 `skill-creator` 脚本与路径
 
-## [skilldock 0.11.0] - 未发布（合并 main 时填写日期）
+## [skilldock 0.11.0] - 2026-10-12
 
 跨 Agent 版本：一个本地实例同时管理 Codex 与 Claude（Claude Code 与 Claude 桌面应用）的技能、插件和 marketplace。在 Codex 或 Claude 中都能安装和打开 SkillDock，两边打开的是同一个实例、同一份数据。需求、设计与接口契约随本版发布：PRD-SKILLDOCK-002、HLD-SDX-001、API-SDX-001（`plugins/skilldock/skills/skill-manager/references/34`～`37`）。
 
@@ -229,7 +229,36 @@
 
 ### 验证
 
-- （合并前填写：单元测试、真实 0.11.0 兼容矩阵、V17、V18、浏览器端到端测试与最终 UAT 的结果。）
+- 单元测试 614 项在隔离沙箱中全部通过，其中兼容矩阵 103 项对手写样本与真实 0.11.0 各跑一遍（含 V18 门槛的环境组合与 0.10.2/0.10.3 共存用例，[55](plugins/skilldock/skills/skill-manager/references/55-compat-matrix-coverage.md)）；浏览器端到端测试 86 项通过（本机 Chrome，临时配置）。沙箱不是 CI 等价环境。
+- V17：在另一台电脑的真实 Codex 中从 0.10.3 更新到 0.11.0，安装后约 70 秒由 0.10.3 自更新协调器转交给 0.11.0 并完成迁移，计划、绑定、历史、项目与后台任务保留，开着的原生页面自动重连；“重启 Codex 后”与“`$skill-manager` 为同一实例”两项以间接证据为准（[64](plugins/skilldock/skills/skill-manager/references/64-v17-results.md)）。
+- 最终 UAT：在 Claude 桌面应用中添加本仓库 marketplace、从插件浏览器安装、与 Codex 共用同一实例、在 SkillDock 更新页不用终端更新（含桌面应用刷新 marketplace 之后），以及从本地目录把插件装到 Claude（[61](plugins/skilldock/skills/skill-manager/references/61-final-uat-claude-desktop.md)）。UAT 带出的问题已修复：Codex 原生入口每次显示“已跳过无效的项目目录”、沿用实例时 stderr 的扫描目录不准、桌面应用写入的合成清单与访达的 `.DS_Store` 被判为本地修改。
+- P0 验收逐条核对（[56](plugins/skilldock/skills/skill-manager/references/56-p0-acceptance-check.md)）：全部满足，或为 Owner 认可的例外与随版发布的界面残余（记入 [41](plugins/skilldock/skills/skill-manager/references/41-ui-redesign-backlog.md)）。
+- 独立评审：HLD v1.31、API 契约 0.32（36c 0.31）、PRD 0.11 的证书绑定见 [59](plugins/skilldock/skills/skill-manager/references/59-cross-agent-6d-rereview-r2.md)；阶段 6 与最终 UAT 修复的代码评审见 57～59、62、63 系列报告。
+
+## [testany-eng 2.8.0] - 2026-10-11
+
+### 新增
+
+- **新增 ui-designer**：新增 `ui-designer` skill 与 `/testany-eng:ui-designer` command，负责决定产品界面长什么样、用起来是什么感觉。输入可以是口述需求、PRD/Journey、截图或品牌材料；自行判读视觉性格、构图、组件和交互；方向开放时把两个方向做成同一个代表页供用户选择；产出设计包（设计说明、设计语言、token、组件规格、交互编排、高保真页面与证据）。有前端仓库时写进与 prototype-designer 共用的隔离沙箱，可直接交接；没有仓库时输出独立设计包。第一版不设独立 reviewer，使用共享质量清单自检。guide 新增对应导航与设计包识别。第一轮用子代理冷启动做了三道题的对照试跑，并按失败样本修正了示例、方向拍板、临时 token、单页产品、系统事件、观看距离字号、信息单元计数、取证环境等规则；该轮试题与当时的示例重合，示例随后全部换成冷门题材。用户盲评中基线以 2:1 胜出（排班、作品集输，值班大屏胜），随后确立“任务效率与领域惯例 > 业务目标 > 普通用户眼中的美观 > 辨识度”的优先级，新增场景操作构思、美观与质感要求和转化页的说服结构，方向对比改为只做代表页首屏，页面范围改为覆盖完整旅程。第二轮换新题试跑后盲评为 ui-designer 1 胜 2 平；据此补充流程类内容的分步引导规则，并澄清文档时间点、单页产品范围、混合方案处理、示例制度标注和测量取证口径。
+
+### 变更
+
+- **prototype-designer 设计与交互升级及拆分**：
+  - 与新增的 ui-designer 拆分职责：设计指南与质量清单移到插件共享目录 `references/design/`，仓库探查、沙箱隔离与运行检查抽成共享的 `references/frontend-sandbox.md`；prototype-designer 收窄为在沙箱中验证流程、状态和数据需求，视觉依据优先级为用户指令、设计包、仓库设计系统、最小基线；prototype-reviewer 在有设计包时检查符合度，并认可设计包中已记录的 `[DESIGN]` 组件。
+  - 新增视觉方向与构图、组件选择与组合、交互编排与动效三份指南：六种页面主轨、十种构图家族、六层视觉语言、设计签名，以及按输入方式设计的 P0 交互编排；reviewer 门二同步检查。
+  - 先定每页构图再匹配组件；主轨、构图和三个校准轴改为逐页记录，三轴按 taste-skill 原文分档并用可观察依据锚定。
+  - 生成默认样式改为事前声明：没有品牌或设计系统要求时默认不用，确需使用须在 Brief 写明任务依据；新增各轨默认骨架、反馈症状反查表和视觉手法代价表。
+  - 代表页门槛加入测量证据（区块面积占比、强调色落点、首屏信息单元数、样式种类），只用于核对 Brief，不设阈值；交付摘要与评审报告新增对应记录。
+  - 交互编排分完整和一行两档；焦点只在编排中记录，组件适用状态并入组件清单；补充 FLIP、共享滚动进度、两层弧线、速度判定等不新增依赖的实现手法；示例改为多主轨。
+  - 新增设计判读：从使用频率、设备、任务、数据形态、行业语境等需求信号推出视觉性格、构图、组件和交互，写出带依据和置信度的判读单后直接动手，不等用户指定风格。
+  - 支持独立使用：输入可以是 PRD/Journey，也可以是口述需求、截图或零散材料；缺少正式文档时整理成需求推断卡作为追溯基线，不再要求先走 uc-interviewer。prototype-reviewer 以推断卡为基线评审并核查其忠实度，不进入下游时门四记不适用。
+  - 新增设计知识来源与规则维护说明，区分标准、外部 skill 原文、短视频语料和本仓库补充；规则改动须附失败样本。未经新旧对照试跑，不代表生成效果已被验证。
+
+### 文档、分发与验证
+
+- `testany-eng` 从 2.7.1 升至 2.8.0，共 24 个研发与协作 skills；同步中英文 README、插件 README、marketplace 描述与命令清单、guide 导航和完整包资源清单（`workflow-package.json`）。版本仍仅由插件 `plugin.json` 声明，其他插件不升版。
+- 四个相关 skill 的 frontmatter 校验、仓库发现校验（38 个 active skills）、插件单元测试（242 项通过、1 项跳过）、b2/b3/b4/gpt6 测试套件、Markdown 链接与锚点、差异检查和包资源哈希检查均通过。
+- 用子代理冷启动做了两轮、每轮三题的对照试跑，并由用户盲评：第一轮（题目与当时示例重合）基线 2 : 1 胜出，修改规则后第二轮 ui-designer 1 胜 2 平；ui-designer 比基线多花约 45% 的 token。样本小，只说明方向，不代表效果已被充分验证；本轮发布不修改用户安装缓存。
 
 ## [skilldock 0.10.3] - 2026-10-08
 

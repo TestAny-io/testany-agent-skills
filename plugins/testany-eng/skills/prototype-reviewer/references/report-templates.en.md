@@ -20,10 +20,9 @@ This document defines the output format template of prototype-reviewer.
 | Project | Content |
 |------|------|
 | sandbox directory | [path] |
-| PRD source | [path] |
-| User Journey Source | [Path] |
+| Input mode and requirements baseline | [formal: PRD and Journey paths / partial or standalone: location of the inferred requirements card in the Manifest; reviewed against an inferred baseline, not a formally approved requirement] |
 | Delivery Summary | [path / missing: evidence_gap and affected conclusions; scoped review stays scoped] |
-| Visual Brief | [location, fidelity, visual authority, target viewports/themes] |
+| Visual Brief | [location, ui-designer design package (if any), fidelity, page design decisions, design signatures, template default declarations, visual authority, target viewports/themes] |
 | Change baseline | [commit range / worktree + ownership confirmation] |
 | Review time | YYYY-MM-DD |
 | Review Rounds | Round N |
@@ -33,7 +32,7 @@ This document defines the output format template of prototype-reviewer.
 
 ### Requirements coverage table
 
-| REQ-* | Requirement Description | Manifest Page | Journey Steps | Status | Description |
+| REQ-* / IR-* | Requirement Description | Manifest Page | Journey Steps / Task Steps | Status | Description |
 |-------|---------|-------------|-------------|------|------|
 | REQ-01 | [Description] | [Page Name] | [S1/S2] | ✅/⚠️/❌ | [Reason for Not Covered/Partially Covered] |
 
@@ -45,7 +44,9 @@ This document defines the output format template of prototype-reviewer.
 - P0 Journey Happy Path: [actually exercised / breakpoints / unverified with reason]
 - State matrix coverage: M covered / total T (Z%)
 - Navigation: [actually exercised / missing paths / unverified with reason]
-- Visual quality: [hierarchy, type, color, density, details, page/state consistency and adaptation against Brief]
+- Design reading: [whether key decisions trace back to requirement signals, evidence for the visual personality, assumptions marked, consistency between pages and the reading]
+- Visual direction and composition: [with a design package, conformance and reasons for deviations; per-page track/direction statement/composition, whether axes match measurement evidence (including independently re-measured items), content protagonist, six-layer language, design signatures, template default declarations, differences between adjacent pages, page/state consistency and adaptation]
+- Interaction choreography: [full choreography trigger → feedback → transition → result → recovery → focus; one-line choreography trigger → result → return; direct manipulation, applicable control states and reduced motion as exercised]
 - Usability: [actual keyboard/focus/contrast/forms/recovery results as applicable]
 - Evidence coverage: [current implementation binding; inspected screenshots and executed actions; valid reuse; unchecked scope]
 
@@ -109,15 +110,14 @@ Use only after full applicable scope has no open P0/P1, required evidence is suf
 | Project | Content |
 |------|------|
 | sandbox directory | [path] |
-| PRD source | [path] |
-| User Journey Source | [Path] |
+| Input mode and requirements baseline | [formal: PRD and Journey paths / partial or standalone: location of the inferred requirements card in the Manifest; reviewed against an inferred baseline, not a formally approved requirement] |
 | Approval date | YYYY-MM-DD |
 | Review Rounds | Round N |
 | Review Conclusion | **Passed** |
 
 ## Upstream alignment confirmation
 
-- PRD requirement coverage: [actual value and scope]
+- Requirement coverage (PRD or inferred requirements card): [actual value and scope]
 - Journey step coverage: X / Y (Z%)
 
 ## Prototype Experience and Completeness

@@ -1,0 +1,6 @@
+interface:
+  display_name: "UI Designer"
+  short_description: "Design distinctive interfaces from any brief"
+  icon_small: "./assets/testany-logo-small.png"
+  icon_large: "./assets/testany-logo.svg"
+  default_prompt: "Use $ui-designer to read the requirements (a spoken request, PRD/User Journey, screenshots or brand material), infer the visual direction, components and interactions with stated evidence, build both candidate directions when the direction is open, and deliver a design language, component specs and runnable high-fidelity screens in the repository sandbox or as a standalone package."

@@ -13,7 +13,7 @@ argument-hint: <沙箱目录路径> [PRD 路径] [User Journey 路径]
 
 ## 使用方式
 
-提供原型沙箱目录路径（建议同时提供 PRD 和 User Journey 路径）：
+提供原型沙箱目录路径（正式模式建议同时提供 PRD 和 User Journey 路径；由口述需求生成的原型以 Manifest 中的需求推断卡为基线）：
 
 $ARGUMENTS
 
