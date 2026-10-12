@@ -225,6 +225,31 @@ test('a synthesized manifest stays out of local changes when the source adds its
   }
 });
 
+test('.DS_Store: left out beside a source manifest, compared when the source tracks it (63 r2 SM2-P2-01, SM2-P3-01)', async t => {
+  // A source with its own manifest; Finder leaves .DS_Store files in the installation, before and after a check.
+  let w = await world(t);
+  await plugin(path.join(w.market, 'plugins/alpha'), 'alpha', { version: '1.0.0' });
+  await w.install({ name: 'alpha', source: './plugins/alpha' });
+  assert.equal((await w.check('alpha')).updateItem.status, 'current');
+  await write(path.join(w.claude.plugins[0].installPath, '.DS_Store'), 'finder');
+  await plugin(path.join(w.market, 'plugins/alpha'), 'alpha', { version: '1.1.0', body: 'v2' });
+  const checked = (await w.check('alpha')).updateItem;
+  assert.equal(checked?.status, 'available');
+  await write(path.join(w.claude.plugins[0].installPath, 'skills/.DS_Store'), 'finder');
+  assert.match((await w.apply('alpha', checked.previewId)).message, /已更新 Claude 插件 alpha（1\.0\.0 → 1\.1\.0）/);
+  // A .DS_Store the source tracks is content like any other file.
+  w = await world(t);
+  await plugin(path.join(w.market, 'plugins/beta'), 'beta', { version: '1.0.0' });
+  await write(path.join(w.market, 'plugins/beta/.DS_Store'), 'tracked');
+  await w.install({ name: 'beta', source: './plugins/beta' });
+  assert.equal((await w.check('beta')).updateItem.status, 'current');
+  await plugin(path.join(w.market, 'plugins/beta'), 'beta', { version: '1.1.0', body: 'v2' });
+  const offered = (await w.check('beta')).updateItem;
+  await write(path.join(w.claude.plugins[0].installPath, '.DS_Store'), 'rewritten by Finder');
+  assert.equal((await w.act({ action: 'preview.diff', previewId: offered.previewId, path: 'skills/s/SKILL.md' })).code, 'LOCAL_CHANGES');
+  assert.equal((await w.check('beta')).code, 'LOCAL_CHANGES');
+});
+
 test('a readback that differs from the preview is reported, and automatic applying waits for a new preview', async t => {
   const w = await world(t);
   await plugin(path.join(w.market, 'plugins/alpha'), 'alpha', { version: '1.0.0' });

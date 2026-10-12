@@ -800,15 +800,18 @@ export async function createService(options = {}) {
       const location = market.installLocation ?? market.path;
       const { entry, pluginRoot } = await marketplaceEntry(location, plugin.name);
       const source = direct ? { kind: 'direct' } : pluginSource(entry, market);
-      // Compared with the candidate as Claude keeps it, without a manifest Claude synthesized (final UAT
-      // 2026-10-12): before applying, against the preview's candidate; when checking, once it is staged.
+      // Compared with the candidate without what others wrote that it lacks (Claude's synthesized manifest,
+      // Finder's .DS_Store; final UAT 2026-10-12): before applying, against the preview's candidate; when
+      // checking, once it is staged.
       const rawInstalled = await inspectTree(install.installPath, { skip: INSTALL_SKIP });
       let installed = applying ? asInstalled(rawInstalled, previews.get(previewId)?.tree?.entries ?? {}) : rawInstalled;
       const registry = await registryFor(env); const baselines = (registry.claudePluginBaselines ??= {}); const baseline = baselines[target.id];
       // MR-SDX-003: content changed since SkillDock last saw this version is not overwritten. An `unknown`
       // version tells nothing: Claude may have overwritten it in place (5a/5b review P1-02).
-      // A baseline taken as installed or without what others wrote (63 SM-P2-01: a source may add a manifest later).
-      const changedLocally = () => baseline && baseline.version === install.version && ![rawInstalled.fingerprint, asInstalled(rawInstalled, {}).fingerprint].includes(baseline.fingerprint);
+      // The baseline may be the installation as it is, without what this candidate lacks, or without all that
+      // others write (a source may add a manifest later; 63 SM-P2-01, r2 SM2-P2-01).
+      const changedLocally = () => baseline && baseline.version === install.version
+        && ![rawInstalled.fingerprint, installed.fingerprint, asInstalled(rawInstalled, {}).fingerprint].includes(baseline.fingerprint);
       const localChanges = () => fail(409, 'LOCAL_CHANGES', install.version === 'unknown'
         ? '已安装的插件内容相对上次记录有变化，可能是 Claude 自己更新过，也可能是本地修改，不能自动覆盖；请先核对。如果没有本地修改，可在 Claude 中卸载后重新安装这个插件，再检查。'
         : '已安装的插件内容相对上次记录有本地修改，不能自动覆盖；请先核对。');
