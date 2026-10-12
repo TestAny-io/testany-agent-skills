@@ -230,7 +230,7 @@
 ### 验证
 
 - 单元测试 614 项在隔离沙箱中全部通过，其中兼容矩阵 103 项对手写样本与真实 0.11.0 各跑一遍（含 V18 门槛的环境组合与 0.10.2/0.10.3 共存用例，[55](plugins/skilldock/skills/skill-manager/references/55-compat-matrix-coverage.md)）；浏览器端到端测试 86 项通过（本机 Chrome，临时配置）。沙箱不是 CI 等价环境。
-- V17：在另一台电脑的真实 Codex 中从 0.10.3 更新到 0.11.0，安装后约 70 秒由 0.10.3 自更新协调器转交给 0.11.0 并完成迁移，计划、绑定、历史、项目与后台任务保留，开着的原生页面自动重连；“重启 Codex 后”与“`$skill-manager` 为同一实例”两项以间接证据为准（[64](plugins/skilldock/skills/skill-manager/references/64-v17-results.md)）。
+- V17：在另一台电脑的真实 Codex 中从 0.10.3 更新到 0.11.0，安装后约 70 秒由 0.10.3 自更新协调器转交给 0.11.0 并完成迁移，计划、绑定、历史、项目与后台任务保留（计划中 SkillDock 自身一项需重新选择），开着的原生页面自动重连；“重启 Codex 后”与“`$skill-manager` 为同一实例”两项以间接证据为准（[64](plugins/skilldock/skills/skill-manager/references/64-v17-results.md)）。
 - 最终 UAT：在 Claude 桌面应用中添加本仓库 marketplace、从插件浏览器安装、与 Codex 共用同一实例、在 SkillDock 更新页不用终端更新（含桌面应用刷新 marketplace 之后），以及从本地目录把插件装到 Claude（[61](plugins/skilldock/skills/skill-manager/references/61-final-uat-claude-desktop.md)）。UAT 带出的问题已修复：Codex 原生入口每次显示“已跳过无效的项目目录”、沿用实例时 stderr 的扫描目录不准、桌面应用写入的合成清单与访达的 `.DS_Store` 被判为本地修改。
 - P0 验收逐条核对（[56](plugins/skilldock/skills/skill-manager/references/56-p0-acceptance-check.md)）：全部满足，或为 Owner 认可的例外与随版发布的界面残余（记入 [41](plugins/skilldock/skills/skill-manager/references/41-ui-redesign-backlog.md)）。
 - 独立评审：HLD v1.31、API 契约 0.32（36c 0.31）、PRD 0.11 的证书绑定见 [59](plugins/skilldock/skills/skill-manager/references/59-cross-agent-6d-rereview-r2.md)；阶段 6 与最终 UAT 修复的代码评审见 57～59、62、63 系列报告。
