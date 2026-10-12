@@ -142,6 +142,27 @@ test('skill category counts follow the Agent filter: all, Codex, Claude, and a v
     ['claude', { all: 2, enabled: 1, standalone: 2, attention: 2 }],
   ]) assert.deepEqual({ ...skillCategoryCounts(skills, filter) }, expected, filter);
   assert.deepEqual({ ...skillCategoryCounts([], 'claude') }, { all: 0, enabled: 0, standalone: 0, attention: 0 });
+  // A skill a Claude plugin ships follows its plugin: its unknown state is the plugin's to report, not a skill needing
+  // attention; a Codex plugin's skill, whose state is its own, still is one (69 IF2-P2-01).
+  const { stateUnknown } = ui();
+  const shipped = { enabled: null, scope: 'plugin', pluginId: 'claude:plugin:kit@m:user', agents: ['claude'] };
+  const codexPlugin = { enabled: null, scope: 'plugin', pluginId: 'kit@m' };
+  assert.deepEqual([shipped, codexPlugin, { ...shipped, pluginId: undefined }, { ...shipped, enabled: true }].map(stateUnknown), [false, true, true, false]);
+  assert.deepEqual({ ...skillCategoryCounts([shipped, codexPlugin, { ...shipped, duplicateNames: ['x'] }], 'all') }, { all: 3, enabled: 0, standalone: 0, attention: 2 });
+});
+
+test('a side SkillDock does not manage gives its reason once, for the list, when its plugins carry one (67 IF-P2-01; 69 IF2-P3-05)', () => {
+  const { sideNotes } = ui();
+  const claude = { agents: ['claude'], reason: 'Claude 只读' }; const codex = { reason: 'Codex 的原因' }; const plain = { agents: ['claude'] };
+  const side = (agent, management, installed = true) => ({ agent, management, installed });
+  const notes = (plugins, environments) => sideNotes(plugins, environments).map(note => [note.agent, note.reason]);
+  assert.deepEqual(notes([claude, codex], [side('codex', 'enabled'), side('claude', 'read-only')]), [['claude', 'Claude 只读']]);
+  assert.deepEqual(notes([claude, codex], [side('codex', 'enabled'), side('claude', 'unconfirmed')]), [['claude', 'Claude 只读']], '无法确认同样是整侧的原因');
+  assert.deepEqual(notes([claude, codex], [side('codex', 'read-only'), side('claude', 'enabled')]), [['codex', 'Codex 的原因']], '没有 agents 的插件属于 Codex');
+  assert.deepEqual(notes([claude, codex], [side('codex', 'enabled'), side('claude', 'enabled')]), []);
+  assert.deepEqual(notes([claude], [side('claude', 'read-only', false)]), [], '本机没有的一侧不说明');
+  assert.deepEqual(notes([plain, codex], [side('codex', 'enabled'), side('claude', 'read-only')]), [], '该侧没有带原因的插件');
+  assert.deepEqual(notes([claude], []), [], '1 版快照没有环境');
 });
 
 test('the Agent marks are the official artwork: path data, canvas and colors as THIRD_PARTY_NOTICES.md says', async () => {

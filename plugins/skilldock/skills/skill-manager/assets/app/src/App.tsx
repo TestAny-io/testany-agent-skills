@@ -93,7 +93,7 @@ import { ProjectPicker, ProjectDialog } from "./ProjectControls";
 import { InstallDialog } from "./InstallDialog";
 import { LibraryFilters, ViewSwitch, CollectionFooter } from "./LibraryUI";
 import { NativeConfirmDialog, NativeRuleList, type NativeConfirmation } from "./NativeConfirm";
-import { AGENT_LABEL, AgentFilter, AgentBadges, AgentSplit, ClaudePluginFacts, ClaudeSkillFacts, MarketAutoUpdate, matchesAgent, showsAgents, objectAgents, skillCategoryCounts, SKILL_CATEGORY, type AgentFilterValue } from "./AgentUI";
+import { AGENT_LABEL, AgentFilter, AgentBadges, AgentSplit, ClaudePluginFacts, ClaudeSkillFacts, MarketAutoUpdate, matchesAgent, showsAgents, objectAgents, skillCategoryCounts, SKILL_CATEGORY, stateUnknown, type AgentFilterValue } from "./AgentUI";
 import { AgentEnvironments } from "./AgentEnvironments";
 import { availableNotes, creationAgent, defaultCreationAgent, requestAgent, requestRevision, showsCodexCliNotice, sideNotes, stateUrl } from "./agent-requests";
 
@@ -2247,7 +2247,7 @@ function SkillReason({
   onDuplicates: () => void;
 }) {
   const duplicate = !!skill.duplicateNames?.length;
-  const unknown = skill.enabled === null;
+  const unknown = stateUnknown(skill);
   if (!duplicate && !unknown) return null;
   return (
     <div

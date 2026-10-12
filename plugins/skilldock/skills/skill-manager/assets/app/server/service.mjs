@@ -4,7 +4,7 @@ import os from 'node:os';
 import { createIconCatalog } from './provider-icons.mjs';
 import crypto from 'node:crypto';
 import { fileURLToPath } from 'node:url';
-import { AppError, fail, exists, inside, identity, hash, now, metadata, inspectTree, copySkill, objectFingerprint, diffFiles, readJson, writeJson, safeName, safeSegment, redact, captureDirectoryRoot, verifyDirectoryRoot, verifyDescendantDirectory, publicSource } from './files.mjs';
+import { AppError, fail, exists, inside, identity, hash, now, metadata, skillText, inspectTree, withoutFinderFiles, copySkill, objectFingerprint, diffFiles, readJson, writeJson, safeName, safeSegment, redact, captureDirectoryRoot, verifyDirectoryRoot, verifyDescendantDirectory, publicSource } from './files.mjs';
 import { toggleConfig, toggleSkillConfigs, readConfig } from './config.mjs';
 import { CodexAdapter, listCovers, validateSource, validateSubpath, validateRef, checkoutGit, readMarketplace, readComponentEntry, readPluginManifest, readPluginDefinition, discoverSkillRoots } from './cli.mjs';
 import { initializeSandbox, emptyRegistry } from './fixtures.mjs';
@@ -619,11 +619,13 @@ export async function createService(options = {}) {
       }
       case 'skill.checkUpdate': {
         const { record, directory, key } = await side.record(request.id, 'canUpdate'); const source = sources[key];
-        const current = await inspectTree(directory);
+        // Compared with the record, and with the source, without Finder's files the record did not have;
+        // the preview still binds what is on disk, so the update and its restore see every file.
+        const onDisk = await inspectTree(directory); const current = withoutFinderFiles(onDisk, source.files);
         if (current.fingerprint !== source.fingerprint) fail(409, 'LOCAL_CHANGES', '已安装技能有本地修改；请先保留或整理修改，不能自动覆盖。');
         // A skills-directory plugin's source is a plugin directory, not a skill (phase 5a).
         const staged = await stageSource(env, source, record.plugin ? 'claude-plugin' : 'skill'); const changes = diffFiles(current.entries, staged.tree.entries); const id = crypto.randomUUID();
-        if (changes.length) previews.set(id, { ...staged, id, mode: env.mode, kind: 'update', ...side.tag, target: directory, skillId: record.id, baseline: current.fingerprint, sourceIdentity: JSON.stringify(source), targetBoundary: await captureDirectoryRoot(directory), created: previewNow() });
+        if (changes.length) previews.set(id, { ...staged, id, mode: env.mode, kind: 'update', ...side.tag, target: directory, skillId: record.id, baseline: onDisk.fingerprint, sourceIdentity: JSON.stringify(source), targetBoundary: await captureDirectoryRoot(directory), created: previewNow() });
         else await removeStaging(env, staged.staging);
         return { early: { message: changes.length ? '发现来源变化，请检查文件列表。' : '当前内容与来源一致。', ...side.tag, update: { id, skillId: record.id, name: record.name, available: changes.length > 0, changes, message: changes.length ? `${changes.length} 个文件有变化；更新前会保留旧版本。` : '当前内容与来源一致。' } } };
       }
@@ -1141,7 +1143,8 @@ export async function createService(options = {}) {
     if (typeof id !== 'string' || id.length > 300) fail(400, 'INVALID_ID', '需要技能 ID。');
     const record = (await snapshot(mode, false, { multiAgent: id.startsWith('claude:') })).skills.find(item => item.id === id);
     if (!record) fail(404, 'NOT_FOUND', '未找到该技能，请刷新清单。');
-    const content = (await metadata(path.dirname(record.path))).content;
+    // The text as it is: a skill a Claude plugin ships is listed whatever its frontmatter holds.
+    const content = (await skillText(path.dirname(record.path))).content;
     return { skill: record, content };
   }
   async function assertWritableSkill(env, id, capability, current) {
@@ -1899,8 +1902,8 @@ export async function createService(options = {}) {
     for (const skill of current.skills) {
       // A shared skill whose Codex side went away continues as Claude's own (5a/5b review P3-03).
       if (skill.agents?.length === 1 && skill.agents[0] === 'claude' && skill.id !== target.id) {
-        // Only Claude's own skill: one a plugin ships is never a plan target (it is listed after Claude's own, so
-        // this holds by order today; the condition keeps it true if the order changes).
+        // Only Claude's own skill: when that is gone, a skill a plugin ships at the same directory does not take
+        // over its plan target (69 IF2-P3-04).
         if (!skill.pluginId && await realDirectory(path.dirname(skill.path)).catch(() => null) === binding.real) return { kind: 'skill', id: skill.id, agent: 'claude' };
         continue;
       }

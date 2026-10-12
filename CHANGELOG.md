@@ -195,10 +195,10 @@
 
 ### 变更
 
-- **Claude 一侧声明版本**：仓库的 Claude marketplace 中，`skilldock` 条目声明版本号，与 Codex 一侧相同。Claude 中显示的版本从提交摘要变为 `0.11.1`，两侧显示同一版本，更新预览能给出目标版本；Claude 按这个版本识别新版本，也只在它变化时更新。从 0.11.0 升级的方法不变：在 SkillDock 的“更新”页检查并确认，或刷新 marketplace 后运行 `claude plugin update skilldock@testany-agent-skills`。
+- **Claude 一侧声明版本**：仓库的 Claude marketplace 中，`skilldock` 条目声明版本号，与 Codex 一侧相同。Claude 中显示的版本从提交摘要变为 `0.11.1`，两侧显示同一版本，更新预览能给出目标版本；Claude 命令行按这个版本识别新版本，也只在它变化时更新。从 0.11.0 升级的方法不变：在 SkillDock 的“更新”页检查并确认，或刷新 marketplace 后运行 `claude plugin update skilldock@testany-agent-skills`。
 - **Agent 标识换成官方标志**：Codex 用 OpenAI Blossom，Claude 用 Claude Spark，取自 OpenAI 与 Anthropic 的官方品牌资源，仍只显示图标（名称在悬停提示与读屏中）。来源与用法见 [THIRD_PARTY_NOTICES](plugins/skilldock/skills/skill-manager/THIRD_PARTY_NOTICES.md)。
-- **删除 `commands/skill-manager.md`**：它与技能同名，Codex 不引用它。删除后 Claude 会话中仍有且只有一个 `skilldock:skill-manager` 入口（隔离实验，Claude 命令行 2.1.295），它来自技能本身；Codex 的原生入口与 `$skill-manager` 不受影响。
-- **Claude 插件自带的技能进入技能库**：已安装的 Claude 插件带的技能以只读条目列出，归在所属插件名下，启用状态跟随插件；不能单独开关、移除或更新（Claude 只能整个启停插件），可以查看内容、跳到所属插件、从“管理更新”定位到插件的更新项。0.11.0 只在插件上显示技能数。插件的技能数改为列出的技能数，不再把 `commands/` 里的旧式命令文件算进去。
+- **删除 `commands/skill-manager.md`**：它与技能同名，Codex 不引用它。删除后 Claude 会话中仍有且只有一个 `skilldock:skill-manager` 入口（隔离实验，Claude 命令行 2.1.295），它来自技能本身；Codex manifest 不引用这个文件，原生入口与 `$skill-manager` 预计不受影响。
+- **Claude 插件自带的技能进入技能库**：已安装的 Claude 插件带的技能以只读条目列出，归在所属插件名下，启用状态跟随插件；不能单独开关、移除或更新（Claude 只能整个启停插件），可以查看内容、跳到所属插件、从“管理更新”定位到插件的更新项。0.11.0 只在插件上显示技能数。列出的就是 Claude 为这个插件加载的技能：默认的 `skills/`，加上插件清单或 marketplace 条目另行声明的路径；一个仓库拆成几个插件、各自声明带哪几个技能时，每个插件只列它声明的。条目以技能所在的目录名为名（Claude 以“插件名:目录名”称呼它）。插件的技能数改为列出的技能数，不再把 `commands/` 里的旧式命令文件算进去。
 - **市场来源**：Git marketplace 固定在某个分支、标签或提交时，卡片上写明。
 
 ### 修复
@@ -209,16 +209,17 @@
 - **会影响另一侧的改动**：更新页的检查结果与批量移除的预览直接列出说明，不必等到确认框；计划中待确认的技能写明所在的另一侧插件，开启自动应用的计划在设置里标出待确认的目标。
 - **加载**：第一次读取清单较慢时，4 秒后说明正在读取。
 - **启动器**：准备依赖前说明安装依赖需要联网，依赖安装失败时写明这一步需要联网、离线时请联网后重试；“请求目录包含符号链接”与“使用界面保存的项目”两条提示只在与最终扫描的目录相符时输出。
+- **访达的 `.DS_Store` 不再挡住技能更新**：两侧的独立技能与 Claude 的技能目录插件检查更新时，安装之后才出现的 `.DS_Store` 不算本地修改，也不进差异；随来源装入的那份照常比较。Codex 插件与后台计划的绑定没有变：访达写入之后计划会跳过该目标并提示重新选择。
 - **marketplace 兼容性检查**：只带 Codex manifest 的插件在条目中重复同一版本，不再提示“两处版本声明”。
 
 ### 文档、分发与验证
 
 - SkillDock 从 0.11.0 升至 0.11.1：Codex manifest、应用版本与 lockfile、marketplace 条目、中英文 README、应用 README 与 Codex 原生构建产物；新增一条把这几处绑在一起的版本一致性用例。
-- 设计与契约：HLD v1.33、API 契约 0.34（36c 0.33），写入条目声明版本、删除命令文件、他人写入安装目录的文件的比较规则等；0.11.0 发布后的收尾记录见 [65](plugins/skilldock/skills/skill-manager/references/65-post-release-wrapup.md)，实施进展见 [37](plugins/skilldock/skills/skill-manager/references/37-cross-agent-implementation-plan.md) 的“0.11.1 进展”。
-- 单元测试 626 项、浏览器端到端测试 89 项在隔离沙箱中全部通过（本机 Chrome，临时配置）。沙箱不是 CI 等价环境。
-- 真实 Claude 命令行 2.1.295，临时配置目录、禁网：分发冒烟装入版本为 `0.11.1`、1 个技能、0 个 MCP 服务；升级冒烟（`tests/claude-upgrade-smoke.mjs`）从 0.11.0（`838b6191431a`）更新到 `0.11.1`，同一版本只改内容时不更新，条目版本升高后更新；会话启动事件中 0.11.0 与 0.11.1 都只有一个 `skilldock:skill-manager` 入口（HLD 9.3 V21）。
-- 独立评审：版本声明、校验规则、删除命令文件、官方标志与收尾记录见 [66](plugins/skilldock/skills/skill-manager/references/66-0111-packaging-review.md)；界面与启动器批次见 [67](plugins/skilldock/skills/skill-manager/references/67-0111-interface-review.md)（APPROVED，P2 2、P3 8，已处理）；HLD、契约与同批文档的增量复核见 [68](plugins/skilldock/skills/skill-manager/references/68-0111-hld-contract-delta-review.md)（带条件 APPROVED，证书重新绑定到 HLD v1.32、契约 0.33；其意见已处理成 v1.33 / 0.34）。v1.33 / 0.34 与“Claude 插件自带的技能”一项尚待复核。
-- 没有验证的：Claude 桌面应用插件页的 **Update** 在声明版本后是否可用；0.11.1 装入真实的 Claude 桌面应用后，`/skilldock:skill-manager` 与“打开 SkillDock”是否照常可用（只在隔离的命令行会话中看过入口还在）。没有改的：Codex 一侧与独立技能仍把访达的 `.DS_Store` 算作本地修改（评估见 37）。
+- 需求、设计与契约：PRD 0.12（默认管理状态只在第一次发现环境时确定；登记一条已知残留）、HLD v1.34、API 契约 0.35（36c 0.34），写入条目声明版本、删除命令文件、他人写入安装目录的文件的比较规则、Claude 插件自带技能的条目等；0.11.0 发布后的收尾记录见 [65](plugins/skilldock/skills/skill-manager/references/65-post-release-wrapup.md)，实施进展见 [37](plugins/skilldock/skills/skill-manager/references/37-cross-agent-implementation-plan.md) 的“0.11.1 进展”。
+- 单元测试 630 项、浏览器端到端测试 89 项在隔离沙箱中全部通过（本机 Chrome，临时配置）。沙箱不是 CI 等价环境。
+- 真实 Claude 命令行 2.1.295，临时配置目录、禁网：分发冒烟装入版本为 `0.11.1`、1 个技能、0 个 MCP 服务；升级冒烟（`tests/claude-upgrade-smoke.mjs`）从 0.11.0（`838b6191431a`）更新到 `0.11.1`，同一版本只改内容时不更新，条目版本升高后更新；会话启动事件中 0.11.0 与 0.11.1 都只有一个 `skilldock:skill-manager` 入口（HLD 9.3 V21）；插件技能冒烟（`tests/claude-plugin-skills-smoke.mjs`）装上六种声明技能路径的插件，SkillDock 为每个插件列出的技能与 `claude plugin details` 列出的相同（不含命令文件），会话提供给模型的每一项都在其中（HLD 9.3 V23）。
+- 独立评审：版本声明、校验规则、删除命令文件、官方标志与收尾记录见 [66](plugins/skilldock/skills/skill-manager/references/66-0111-packaging-review.md)；界面与启动器批次见 [67](plugins/skilldock/skills/skill-manager/references/67-0111-interface-review.md)（APPROVED，P2 2、P3 8，已处理）及其复核 [69](plugins/skilldock/skills/skill-manager/references/69-0111-interface-review-r2.md)（APPROVED，P2 1、P3 6，已处理）；HLD、契约与同批文档的增量复核见 [68](plugins/skilldock/skills/skill-manager/references/68-0111-hld-contract-delta-review.md)（带条件 APPROVED，证书重新绑定到 HLD v1.32、契约 0.33）与 [70](plugins/skilldock/skills/skill-manager/references/70-0111-hld-contract-delta-review-r2.md)（带条件 APPROVED，重新绑定到 v1.33、契约 0.34；它指出插件技能只读默认目录会多列或漏列，已改实现并写成 v1.34 / 0.35）。这之后的修正（插件技能的取法与命名、`.DS_Store` 窄修、PRD 0.12、HLD v1.34）尚待最后一次增量复核。
+- 没有验证的：Claude 桌面应用插件页的 **Update** 在声明版本后是否可用；0.11.1 装入真实的 Claude 桌面应用后，`/skilldock:skill-manager` 与“打开 SkillDock”是否照常可用（只在隔离的命令行会话中看过入口还在）；0.11.1 装入真实的 Codex 后原生入口与 `$skill-manager` 的表现。已知限制：Codex 插件的基线与后台计划的绑定仍把访达的 `.DS_Store` 计入；桌面应用为没有 Claude manifest 的插件自动生成的清单文件被手工改动时识别不出（PRD Q14）。
 
 ## [testany-eng 2.8.1] - 2026-10-12
 

@@ -6,11 +6,11 @@
 |------|------|
 | 契约 ID | API-SDX-001 |
 | 系统 | SkillDock（`plugins/skilldock`） |
-| 版本 | 0.34 |
-| 状态 | 第 13 轮契约复核 APPROVED（[r13](36-cross-agent-api-contract-review-r13.md)），第 14 轮（[r14](36-cross-agent-api-contract-review-r14.md)）绑定 0.14，第 15 轮（与 HLD 第 25 轮合并，[报告](35-cross-agent-hld-review-r24.md)）核对 0.15～0.30 后重新绑定到 0.30。0.10.3 已于 2026-10-08 发布（PR #54）。0.14 处理第 13 轮的 P2，只涉及条件 1b；0.15～0.30 为阶段 3 试用与阶段 4、5 实现中的澄清（见第 10 节），已经第 15 轮核对；0.31 处理第 15 轮意见，经第 16 轮（[报告](58-cross-agent-6d-rereview.md)）核对后重新绑定；0.32 处理第 16 轮的文字意见，经第 26 轮复核 r2（[59](59-cross-agent-6d-rereview-r2.md)）核对；0.33 为最终 UAT 与 0.11.1 的修订，经 [68](68-0111-hld-contract-delta-review.md) 核对后重新绑定；0.34 处理 68 的意见，待增量复核。按 HLD 11A：条件 1a 覆盖随 0.10.3 冻结的条文；条件 1b 覆盖 0.11.0 HTTP 字段形态、操作与错误码、36b 6.3 与 7.4 的 0.11.x 义务，以及附录 A.5 的 0.11.0 关口用例，在实现 0.11.0 相应部分前通过评审 |
+| 版本 | 0.35 |
+| 状态 | 第 13 轮契约复核 APPROVED（[r13](36-cross-agent-api-contract-review-r13.md)），第 14 轮（[r14](36-cross-agent-api-contract-review-r14.md)）绑定 0.14，第 15 轮（与 HLD 第 25 轮合并，[报告](35-cross-agent-hld-review-r24.md)）核对 0.15～0.30 后重新绑定到 0.30。0.10.3 已于 2026-10-08 发布（PR #54）。0.14 处理第 13 轮的 P2，只涉及条件 1b；0.15～0.30 为阶段 3 试用与阶段 4、5 实现中的澄清（见第 10 节），已经第 15 轮核对；0.31 处理第 15 轮意见，经第 16 轮（[报告](58-cross-agent-6d-rereview.md)）核对后重新绑定；0.32 处理第 16 轮的文字意见，经第 26 轮复核 r2（[59](59-cross-agent-6d-rereview-r2.md)）核对；0.33 为最终 UAT 与 0.11.1 的修订，经 [68](68-0111-hld-contract-delta-review.md) 核对后重新绑定；0.34 处理 68 的意见，经 [70](70-0111-hld-contract-delta-review-r2.md) 核对后重新绑定；0.35 处理 70 的意见，待增量复核。按 HLD 11A：条件 1a 覆盖随 0.10.3 冻结的条文；条件 1b 覆盖 0.11.0 HTTP 字段形态、操作与错误码、36b 6.3 与 7.4 的 0.11.x 义务，以及附录 A.5 的 0.11.0 关口用例，在实现 0.11.0 相应部分前通过评审 |
 | Owner | SkillDock 维护者；产品 Owner：用户 |
 | 消费方 | 0.10.2 冻结代码（启动器、原生入口、自更新、后台）；0.10.3（过渡版）；0.11.x 的启动器、服务、后台任务、浏览器界面与原生界面 |
-| PRD 引用 | [PRD-SKILLDOCK-002 v0.11](34-cross-agent-prd.md)（已批准；0.3～0.11 为 Owner 批准的有限修订） |
+| PRD 引用 | [PRD-SKILLDOCK-002 v0.12](34-cross-agent-prd.md)（已批准；0.3～0.12 为 Owner 批准的有限修订） |
 | HLD 引用 | [HLD-SDX-001 v1.14](35-cross-agent-hld.md)（已批准）；本契约承接 HLD 5.4 的全部冻结面与 3.13A 的期望结果表 |
 | 编写依据 | Owner 决定不写 LLD（HLD 第 10 节 DG-NO-LLD）：跨版本冻结面在本契约中定稿 |
 | 日期 | 2026-10-08 |
@@ -47,7 +47,7 @@
 |------|------|------|--------|----------|
 | 文件格式 | [36a 跨版本文件格式](36a-cross-version-file-formats.md) | 0.2 | 0.10.2、0.10.3、0.11.x | REQ-SDX-007、MR-SDX-002 |
 | 进程间 / 命令行 | [36b 启动脚本与转交协议](36b-launcher-handover-protocol.md)（含附录 A 期望结果表） | 0.14 | 0.10.2 原生入口、技能入口、0.10.3、0.11.x | REQ-SDX-007、008、009 |
-| HTTP | [36c HTTP 接口增量](36c-http-api-delta.md) | 0.33 | 0.11.x 界面；0.10.x 原生界面；0.10.2 启动器、0.10.3 转交链（健康检查） | REQ-SDX-001～006、009、012、015～017 |
+| HTTP | [36c HTTP 接口增量](36c-http-api-delta.md) | 0.34 | 0.11.x 界面；0.10.x 原生界面；0.10.2 启动器、0.10.3 转交链（健康检查） | REQ-SDX-001～006、009、012、015～017 |
 
 ## 5. 共享数据模型
 
@@ -160,6 +160,7 @@
 | 0.32 | 2026-10-10 | 处理第 16 轮复核（[58](58-cross-agent-6d-rereview.md)）的文字意见（36c 升为 0.31，待增量复核）：PRD 引用改为 0.11；36c 第 10 节写明 1 版快照中运行级的 `total`、`status` 与 `updateProgress` 不按 Agent 过滤（RR6-P3-03） |
 | 0.33 | 2026-10-12 | 最终 UAT 与 0.11.1 的修订（36c 升为 0.32，待增量复核；HLD v1.32）：`Marketplace.ref`（Git marketplace 固定的分支、标签或提交，只供显示）；从 Claude marketplace 安装的预览在条目指向副本内目录时带 `manifests`；写明 Claude 一侧的 `skills` 只含个人与项目技能；`/api/updates/progress` 的 `agent` 参数注明为“接受但不改变结果”，第 10 节补全运行级进度不过滤的范围（[59](59-cross-agent-6d-rereview-r2.md) RR7-P3-03）。上一版（提交 `122ef9f` 起未改）：索引 0.32 `239bec8ea5b942718b24e5917b9e98128a72ed656edef7e31c887e398691ef60`，36c 0.31 `b8a424f366968c83baac528c24604dbd08506ca36d784238103e1b9d61810600`。36a、36b 未改 |
 | 0.34 | 2026-10-12 | 处理 0.11.1 的增量复核（[68](68-0111-hld-contract-delta-review.md)：带条件 APPROVED，证书重新绑定到索引 0.33 / 36c 0.32）的意见（36c 升为 0.33，待增量复核；HLD v1.33）：`/api/skill`、`/api/plugin-icon` 的 `agent` 参数与进度接口一样“接受但不读”，第 3 节末尾的缺省值限定为操作请求（D27-P3-03）；`Marketplace.ref` 写准 Claude 一侧的取值顺序、清洗与限长，并写明 Codex marketplace 的 `ref` 也出现在 1 版快照中（D27-P3-08）。Owner 2026-10-12 决定 Claude 插件自带的技能以只读条目列出：第 6 节重写 Claude 一侧 `skills` 的范围、这类条目的字段与写操作的结果，`Plugin.skillCount` 改为列出的技能数。代码评审 [67](67-0111-interface-review.md)：marketplace 安装预览的 `manifests` 只认副本内的文件；注明 Codex 一侧 `ref` 的字段未经真实输出核实。上一版（提交 `958988c`）：索引 0.33 `8e3c8f96fec6a7990ae2ce9155d0fc2de17905c12b2331f6c35ada9f72e25b90`，36c 0.32 `42b864612cd6aad3d3592b0386bddca1ca93bd3b363e30f6d560df177a242e5b`。36a、36b 未改 |
+| 0.35 | 2026-10-12 | 处理 0.11.1 增量复核 r2（[70](70-0111-hld-contract-delta-review-r2.md)：带条件 APPROVED，证书重新绑定到索引 0.34 / 36c 0.33）的意见（36c 升为 0.34，待增量复核；HLD v1.34）：Claude 插件自带技能的条目按 Claude 实际加载的集合列出——默认目录加 manifest 与条目声明的路径，来源为 marketplace 根目录并列出具体目录的条目只算所列的（D28-P2-01，实现同改）；写明 0.11.0 的 2 版界面也会看到这些条目，更新项的说法限定为个人与项目技能（D28-P3-03）；按代码复核 [69](69-0111-interface-review-r2.md) 写明这些条目的 `name`、`description` 与状态未知时的 `enabled`。PRD 引用改为 0.12。上一版（提交 `0b77954`）：索引 0.34 `68ba134d9fb885f1de8ecc6cb98116389380745a90c1e5cd80a23fcfc4bd6d57`，36c 0.33 `7c40d72898f62eabc15c64c41bf9a83ef425aed5f60d013451a58b77b6d6e219`。36a、36b 未改 |
 
 ## 11. 首轮契约评审意见处理（v0.2）
 

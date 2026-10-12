@@ -203,7 +203,7 @@ SKILLDOCK_PROJECT_DIR="/你的项目路径" npm start
 
 可选 macOS 无系统 Node/npm 演练：`node tests/runtime-smoke.mjs` 验证 Codex 环境复用、构建及重启。测试子进程 PATH 排除 Homebrew/nvm，并使用独立源码副本、数据目录与端口。
 
-可选真实 Claude 演练（都在临时 HOME 与 Claude 配置目录中进行，请在断网沙箱中运行）：`SKILLDOCK_SMOKE_CLAUDE=<claude 命令行> node tests/claude-writes-smoke.mjs` 用真实 Claude 命令行走通添加 marketplace、安装、启停、保留数据卸载、刷新与移除；`node tests/claude-distribution-smoke.mjs` 把当前提交作为本地 marketplace 安装到 Claude，确认只装上 SkillDock 且不加载 Codex 原生入口；`SKILLDOCK_SMOKE_CLAUDE=<claude 命令行> node tests/claude-upgrade-smoke.mjs` 让 Claude 命令行从 0.11.0（条目没有版本）更新到当前提交，再核对“同一版本只改内容不更新、条目版本升高才更新”与会话中的 SkillDock 入口。
+可选真实 Claude 演练（都在临时 HOME 与 Claude 配置目录中进行，请在断网沙箱中运行）：`SKILLDOCK_SMOKE_CLAUDE=<claude 命令行> node tests/claude-writes-smoke.mjs` 用真实 Claude 命令行走通添加 marketplace、安装、启停、保留数据卸载、刷新与移除；`node tests/claude-distribution-smoke.mjs` 把当前提交作为本地 marketplace 安装到 Claude，确认只装上 SkillDock 且不加载 Codex 原生入口；`SKILLDOCK_SMOKE_CLAUDE=<claude 命令行> node tests/claude-upgrade-smoke.mjs` 让 Claude 命令行从 0.11.0（条目没有版本）更新到当前提交，再核对“同一版本只改内容不更新、条目版本升高才更新”与会话中的 SkillDock 入口；同样用法的 `tests/claude-plugin-skills-smoke.mjs` 装上几种声明技能路径的插件，核对 SkillDock 为每个 Claude 插件列出的技能与 Claude 自己列出的相同、会话提供的都在其中。
 
 可选真实 GitHub 地址演练：`node tests/github-source-smoke.mjs` 在全新临时配置中访问上面的公开目录链接，验证规范来源、实际 commit、diff、关联不覆盖文件，以及后续检查更新；不会使用或修改用户技能目录。浏览器测试中的同一 GitHub 传输由本机 Git 夹具替代，解析、clone、关联与更新仍走真实服务逻辑。
 

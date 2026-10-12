@@ -58,18 +58,18 @@ try {
   await claude('plugin', 'install', ID);
   const before = await installed();
   assert.equal(before.version, from.slice(0, 12), '没有声明版本时以提交摘要作版本');
-  const offeredBefore = await offered();
+  // One entry while the command file and the skill share a name (0.11.0).
+  assert.deepEqual(await offered(), { skills: 1, commands: 1 }, '0.11.0 的会话中有且只有一个 SkillDock 入口');
 
   // The marketplace moves on to the commit that states a version.
   await move(to);
   assert.match(await update(), new RegExp(`updated from ${before.version} to ${declared.replaceAll('.', '\\.')}`));
   const after = await installed();
   assert.deepEqual([after.version, path.basename(after.installPath)], [declared, declared], '采用条目声明的版本，缓存目录以它命名');
-  const kept = await fs.stat(before.installPath).then(() => true, () => false);
-  const orphaned = await fs.stat(path.join(before.installPath, '.orphaned_at')).then(() => true, () => false);
+  // Claude keeps the previous version's directory, marked as orphaned (HLD 3.3A).
+  assert.ok(await fs.stat(path.join(before.installPath, '.orphaned_at')).then(() => true, () => false), '旧版本目录保留并带废弃标记');
   // One entry for the model and for the user, with or without the command file 0.11.0 carried.
-  const offeredAfter = await offered();
-  assert.deepEqual(offeredAfter, { skills: 1, commands: 1 }, '会话中有且只有一个 SkillDock 入口');
+  assert.deepEqual(await offered(), { skills: 1, commands: 1 }, '会话中有且只有一个 SkillDock 入口');
 
   // Two more commits: content changed with the version kept, then the entry's version raised.
   await git('clone', '--quiet', '--branch', 'main', `file://${remote}`, work);
@@ -89,8 +89,7 @@ try {
   const last = await installed();
   assert.equal(last.version, raised);
   assert.ok((await fs.readFile(path.join(last.installPath, 'README.md'), 'utf8')).includes('upgrade-smoke'));
-  result = { passed: true, cli: (await claude('--version')).trim(), from: from.slice(0, 12), to: to.slice(0, 12), source, versions: [before.version, after.version, same.version, last.version],
-    previousDirectory: { kept, orphaned }, offered: { before: offeredBefore, after: offeredAfter } };
+  result = { passed: true, cli: (await claude('--version')).trim(), from: from.slice(0, 12), to: to.slice(0, 12), source, versions: [before.version, after.version, same.version, last.version] };
 } catch (error) { result = { passed: false, error: error.stack }; process.exitCode = 1; }
 await fs.rm(fixture, { recursive: true, force: true });
 process.stdout.write(`${JSON.stringify(result, null, 2)}\n`);

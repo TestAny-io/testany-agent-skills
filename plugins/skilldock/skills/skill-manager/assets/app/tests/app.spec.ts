@@ -230,8 +230,10 @@ test('with two Agents, every page counts what the filter shows, and a side that 
       canInstall: false, canRemove: false, canToggle: false, reason: sideReason, installation: { scope: 'user' } } as Plugin;
     snapshot.plugins.push(kit, { ...kit, id: 'claude:plugin:more@m', name: 'more', installed: false, enabled: null, skillCount: 0, installation: undefined },
       { id: 'limited@catalog', name: 'limited', description: '', marketplace: 'catalog', installed: false, enabled: false, skillCount: 0, canInstall: false, canRemove: false, canToggle: false, reason: ownReason } as Plugin);
-    snapshot.skills.push({ ...snapshot.skills[0], agents: ['claude'], id: 'claude:skill:plugin:0123456789ab', name: 'kit-skill', description: 'Shipped by kit.', path: '/claude/plugins/cache/m/kit/1.0.0/skills/kit-skill/SKILL.md',
-      scope: 'plugin', sourceLabel: 'Claude 插件技能', pluginId: kit.id, enabled: true, managed: true, canToggle: false, canRemove: false, canUpdate: false, reason: shippedReason, duplicateNames: undefined } as Skill);
+    const shipped = { ...snapshot.skills[0], agents: ['claude'], id: 'claude:skill:plugin:0123456789ab', name: 'kit-skill', description: 'Shipped by kit.', path: '/claude/plugins/cache/m/kit/1.0.0/skills/kit-skill/SKILL.md',
+      scope: 'plugin', sourceLabel: 'Claude 插件技能', pluginId: kit.id, enabled: true, managed: true, canToggle: false, canRemove: false, canUpdate: false, reason: shippedReason, duplicateNames: undefined } as Skill;
+    // A second one whose plugin's state is not known: that is the plugin's to report, not this skill's (69 IF2-P2-01).
+    snapshot.skills.push(shipped, { ...shipped, id: 'claude:skill:plugin:ba9876543210', name: 'kit-pending', enabled: null });
     snapshot.marketplaces = snapshot.marketplaces.map((market, index) => index ? market : { ...market, ref: 'release/1.x' });
     snapshot.activity = [{ id: 'codex-activity', action: 'skill.toggle', target: 'design-review', createdAt: '2026-10-12T00:00:00.000Z', status: 'success', message: '已启用 design-review。', canRestore: false }, ...snapshot.activity];
     await route.fulfill({ response, json: snapshot });
@@ -242,17 +244,24 @@ test('with two Agents, every page counts what the filter shows, and a side that 
   const filter = (name: string) => page.getByRole('group', { name: '按 Agent 筛选' }).getByRole('button', { name: new RegExp(`^${name}`) });
   const section = page.locator('.collection-heading h2 span');
   // Skills: the title and the categories count the same objects; Claude's one skill is the plugin's, read-only.
+  await counts('技能', real.skills.length + 2); await expect(page.locator('.workspace-heading .title-count')).toHaveText(`技能${real.skills.length + 2}`);
+  // Asserted once the counts are there: they sit beside the heading, not in it.
   await expect(page.getByRole('heading', { level: 1 })).toHaveText('技能库');
-  await counts('技能', real.skills.length + 1); await expect(page.locator('.workspace-heading .title-count')).toHaveText(`技能${real.skills.length + 1}`);
   await filter('Claude').click();
-  await counts('技能', 1); await expect(page.getByRole('button', { name: /^全部技能/ })).toContainText('1');
-  await expect(page.locator('.skill-card')).toHaveCount(1);
+  const category = (name: string) => page.getByRole('button', { name: new RegExp(`^${name}`) });
+  await counts('技能', 2); await expect(category('全部技能')).toHaveText(/全部技能\s*2$/);
+  await expect(page.locator('.skill-card')).toHaveCount(2);
   await expect(page.getByRole('switch', { name: '禁用 kit-skill', exact: true })).toBeDisabled();
+  // Neither is a standalone skill, and neither needs attention of its own.
+  await expect(category('状态待确认')).toHaveText(/状态待确认\s*0$/); await expect(page.locator('.skill-reason-attention')).toHaveCount(0);
+  await category('个人与项目').click();
+  await expect(page.locator('.skill-card')).toHaveCount(0);
+  await category('全部技能').click();
   // Marketplaces and activity: nothing on Claude's side, said as such rather than as a first run.
   await nav(page, '市场来源').click();
   await counts('市场来源', 0); await expect(section).toHaveText('0'); await expect(page.getByText('Claude 一侧还没有市场来源')).toBeVisible();
   await nav(page, '操作记录').click();
-  await counts('操作记录', 0); await expect(page.getByText('Claude 一侧还没有操作记录')).toBeVisible();
+  await counts('操作记录', 0); await expect(section).toHaveText('0'); await expect(page.getByText('Claude 一侧还没有操作记录')).toBeVisible();
   await filter('全部').click();
   await nav(page, '市场来源').click();
   await counts('市场来源', real.marketplaces.length); await expect(section).toHaveText(String(real.marketplaces.length));
@@ -264,11 +273,15 @@ test('with two Agents, every page counts what the filter shows, and a side that 
   const card = (name: string) => page.locator('.skill-card').filter({ has: page.getByRole('heading', { name, exact: true }) });
   await expect(card('more').locator('.skill-reason')).toHaveCount(0);
   await expect(card('limited').locator('.skill-reason')).toHaveText(ownReason);
+  // With only the managed side shown there is nothing to say about the other.
+  await filter('Codex').click();
+  await expect(page.locator('.side-note')).toHaveCount(0); await expect(card('limited').locator('.skill-reason')).toHaveText(ownReason);
+  await filter('全部').click();
   await page.getByRole('button', { name: /^已安装/ }).click();
   await expect(card('kit')).toHaveCount(1); await expect(card('kit').locator('.skill-reason')).toHaveCount(0);
   // The plugin's details list the skill it ships, as the library does.
   await page.getByRole('button', { name: '查看 kit 详情', exact: true }).click();
-  await expect(page.locator('.install-components')).toContainText('附带技能（1）'); await expect(page.locator('.plugin-skill-list')).toContainText('kit-skill');
+  await expect(page.locator('.install-components')).toContainText('附带技能（2）'); await expect(page.locator('.plugin-skill-list')).toContainText('kit-skill');
 });
 
 test('large plugin catalogs render in batches while search covers all results', async ({ page }) => {

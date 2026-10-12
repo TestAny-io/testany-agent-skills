@@ -8,12 +8,17 @@ export type AgentFilterValue = "all" | Agent;
 export const AGENT_LABEL: Record<Agent, string> = { codex: "Codex", claude: "Claude" };
 export const objectAgents = (item: { agents?: Agent[] }): Agent[] => item.agents ?? ["codex"];
 export const matchesAgent = (item: { agents?: Agent[] }, filter: AgentFilterValue) => filter === "all" || objectAgents(item).includes(filter);
+/**
+ * A skill whose state is not known and is its own to know. One a Claude plugin ships follows its
+ * plugin: when that is not known the plugin says so, not each of its skills (69 IF2-P2-01).
+ */
+export const stateUnknown = (item: Skill) => item.enabled === null && !(item.pluginId && objectAgents(item).join() === "claude");
 /** What each category of the skill page holds; its count and its list use the same rule (67 IF-P3-06). */
 export const SKILL_CATEGORY = {
   all: () => true,
   enabled: (item: Skill) => item.enabled === true,
   standalone: (item: Skill) => item.scope === "user" || item.scope === "project",
-  attention: (item: Skill) => item.enabled === null || (item.duplicateNames?.length || 0) > 0,
+  attention: (item: Skill) => stateUnknown(item) || (item.duplicateNames?.length || 0) > 0,
 } satisfies Record<string, (item: Skill) => boolean>;
 /** The skill page's category counts under the Agent filter in effect, so that one screen shows one total (backlog UI-02). */
 export function skillCategoryCounts(skills: Skill[], filter: AgentFilterValue) {

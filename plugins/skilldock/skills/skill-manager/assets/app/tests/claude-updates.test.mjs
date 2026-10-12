@@ -57,6 +57,8 @@ test('a Claude skill with a recorded source is checked and updated from the upda
   const skill = await installSkill(w);
   const entry = await w.item(skill.id);
   assert.deepEqual([entry.target, entry.route, entry.canCheck, entry.canAutoApply, entry.sourceInfo.kind], [{ kind: 'skill', id: skill.id, agent: 'claude' }, 'skill-source', true, true, 'tracked']);
+  // Finder's file beside it is not a local change (HLD 3.3A; Owner 2026-10-12).
+  await fs.writeFile(path.join(w.configDir, 'skills/notes/.DS_Store'), 'finder');
   assert.equal((await w.act({ action: 'update.check', agent: 'claude', target: entry.target })).updateItem.status, 'current');
   await skillFile(path.join(w.root, 'src'), 'notes', 'v2\n');
   const check = await w.act({ action: 'update.check', agent: 'claude', target: entry.target });
@@ -76,8 +78,11 @@ test('a skills-directory plugin with a recorded source updates by the same file 
   const entry = await w.item(plugin.id);
   assert.deepEqual([entry.target.agent, entry.route, entry.canCheck], ['claude', 'plugin-files', true]);
   await skillFile(path.join(w.root, 'plugin-src/skills'), 'tidy-up', 'v2\n');
+  // Nor is it one inside a skills-directory plugin, which is tracked the same way.
+  await fs.writeFile(path.join(w.configDir, 'skills/tidy/skills/.DS_Store'), 'finder');
   const check = await w.act({ action: 'update.check', agent: 'claude', target: entry.target });
   assert.equal(check.updateItem?.status, 'available', `${check.code} ${check.message}`);
+  assert.equal(check.updateItem.changes.some(change => change.path.endsWith('.DS_Store')), false);
   const applied = await w.act({ action: 'update.apply', agent: 'claude', target: entry.target, previewId: check.updateItem.previewId });
   assert.match(applied.message, /已更新 Claude 插件 tidy/);
   assert.match(await fs.readFile(path.join(w.configDir, 'skills/tidy/skills/tidy-up/SKILL.md'), 'utf8'), /v2/);
@@ -198,6 +203,28 @@ test('a Codex link into a skill of a Claude skills-directory plugin still lists 
   const codex = await w.service.snapshot('local', true);
   assert.ok(codex.skills.some(item => item.name === 'tidy-up'), 'Codex 一侧仍列出');
   assert.equal(codex.diagnostics.some(text => /运行中发生变化/.test(text)), false);
+});
+
+test('a plan target whose own skill is gone is not taken over by the skill a plugin ships at the same directory (69 IF2-P3-04)', async t => {
+  const w = await world(t);
+  const plugin = await installPluginDir(w);
+  // The project's skills directory is a link to the plugin's: a skill installed there is the project's and the plugin's at once.
+  await fs.mkdir(path.join(w.project, '.claude')); await fs.symlink(path.join(w.configDir, 'skills/tidy/skills'), path.join(w.project, '.claude/skills'));
+  const preview = (await w.act({ action: 'skill.previewInstall', agent: 'claude', scope: 'project', sourceType: 'local', source: path.join(w.root, 'src/notes') })).preview;
+  await w.act({ action: 'skill.install', agent: 'claude', scope: 'project', previewId: preview.id });
+  const before = await w.snapshot();
+  const own = before.skills.find(item => item.name === 'notes' && item.scope === 'project'); const shipped = before.skills.find(item => item.name === 'notes' && item.pluginId === plugin.id);
+  assert.ok(own && shipped && own.realPath === shipped.realPath, JSON.stringify(before.skills.map(item => [item.name, item.scope, item.pluginId])));
+  const target = { kind: 'skill', id: own.id, agent: 'claude' };
+  assert.equal((await w.act({ action: 'schedule.configure', agent: 'claude', schedule: { enabled: true, intervalMinutes: 15, timezone: 'UTC', autoApply: false, targets: [target] } })).code, undefined);
+  await fs.rm(path.join(w.project, '.claude/skills'));
+  const left = (await w.snapshot()).skills.filter(item => item.name === 'notes');
+  assert.deepEqual(left.map(item => item.id), [shipped.id], '项目的那一条不在了，插件的那一条还在');
+  w.advance(16); await w.service.tickScheduler();
+  const state = await w.snapshot();
+  assert.deepEqual(state.schedule.targets, [target], '计划目标不迁到插件自带的技能上');
+  assert.equal(state.activity.some(entry => entry.action === 'schedule.migrate'), false);
+  assert.deepEqual(state.updateRuns[0].items.map(item => [item.target.id, item.status, item.reasonCode]), [[own.id, 'skipped', 'TARGET_MISSING']]);
 });
 
 test('every message seen above has a whole English and Japanese translation', async () => {
