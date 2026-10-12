@@ -189,6 +189,52 @@
   - `testany-llm` 的命令列表和 plugin 描述改为仅保留 `prompt-optimizer`
   - 根 README、`AGENTS.md`、`CLAUDE.md` 不再引用已删除的 `skill-creator` 脚本与路径
 
+## [skilldock 0.11.0] - 2026-10-12
+
+跨 Agent 版本：一个本地实例同时管理 Codex 与 Claude（Claude Code 与 Claude 桌面应用）的技能、插件和 marketplace。在 Codex 或 Claude 中都能安装和打开 SkillDock，两边打开的是同一个实例、同一份数据。需求、设计与接口契约随本版发布：PRD-SKILLDOCK-002、HLD-SDX-001、API-SDX-001（`plugins/skilldock/skills/skill-manager/references/34`～`37`）。
+
+### 新增
+
+- **Agent 环境页**：列出本机的 Codex 与 Claude，显示配置目录、命令行、技能与插件数量、各自装的 SkillDock 版本，以及 SkillDock 对它的管理状态（已启用、只读、无法确认）。首次出现时，装有 SkillDock 的一侧默认启用管理，另一侧只读；启用前列出可能写入的位置；停用 Claude 管理时可一并清理 SkillDock 生成的本地 marketplace。
+- **Claude 技能**：从本地目录或 Git 安装到个人技能目录或当前项目的 `.claude/skills`；启停与可见性写入 Claude 设置；移除后可从操作记录恢复。两侧共用的技能修改前提示“两侧看到的内容都会改变”，两侧关联了不同来源时拒绝更新并说明冲突。
+- **Claude 插件与 marketplace**：从 marketplace 安装（用户、项目、本地三种范围）、启停、卸载（可保留插件数据）；从本地目录或 Git 安装：带 Claude manifest 的放入技能目录，否则由 SkillDock 生成一个本地 marketplace。添加、刷新、移除 marketplace。所有改动经 Claude 自己的命令行执行，并读回核对。
+- **Claude 对象的更新**：Claude 技能、技能目录插件和从 marketplace 安装的插件进入更新页。检查时按插件来源（本地目录、Git、npm、压缩包）暂存 Claude 将装入的内容，可看逐文件差异；应用前再核对一次，应用后读回。插件内容变了而版本号没变时提示维护者递增版本；没有版本号的插件更新前先复制一份。由 claude.ai 同步或组织托管的对象，以及来源为命令、需要凭证命令或项目目录已不存在的插件，不代为更新，并说明原因。
+- **后台计划**可以加入 Claude 目标。Claude 管理停用或 Claude 命令行不可用时，这些目标暂停而不算失败；一侧的技能内容在另一侧插件目录中时，加入自动应用前先确认。
+- **SkillDock 自身的更新**：某一侧的 SkillDock 比另一侧旧时，Agent 环境页可一键经该侧命令行更新并读回；更新后正在运行的实例自动切换到最高版本。迁移门槛处（另一侧还装着低于 0.10.3 的 SkillDock）也可经确认一键更新。
+- **运行环境**：启动器按固定顺序查找并保存本机可用的 Node.js 22.12+（Codex 工作区、Homebrew、nvm 等），失效时重新查找，找不到时弹出安装引导；不再自动下载 Node。启动输出同时打印所选的 Codex 与 Claude 命令行（本机有 Claude 配置目录时）。
+
+### 变更
+
+- **数据迁移**：首次以 0.11 打开 0.10.x 的数据目录时迁移到新格式（数据代号 2），计划、来源绑定、操作记录与偏好保留。迁移前确认两侧装的 SkillDock 都不低于 0.10.3，否则以退出码 4 停下并说明处理办法，不改动任何数据。
+- **单实例**：Codex 入口、Claude 入口与后台任务共用一个实例与同一份数据；较旧的入口把请求转交给最新版本。
+- Codex 原生入口的 MCP 配置改名为 `codex.mcp.json`；Claude 不加载原生入口，从技能或 `/skilldock:skill-manager` 打开网页面板。
+- 技能与插件的“管理更新”对 Codex 与 Claude 的已安装对象都可用，并定位到该对象的更新项；插件附带的技能定位到所属插件。
+- 0.10.x 的界面连接 0.11 服务时保持 0.10.2 的行为：看不到 Claude 的对象、计划目标与 Agent 环境类操作记录。
+- 清单读取达到 5 秒时，在 `server.log` 记录各部分耗时，便于排查。
+- 删去已停用的专用 Node 下载代码；0.10.x 下载过的专用 Node 仍作为候选复用。
+
+### 已知限制
+
+- SkillDock 首次检查之前对 Claude 插件做的本地修改识别不出，之后的更新照常进行；被覆盖的内容可从 Claude 保留 14 天的旧版本目录或更新前的副本找回。
+- 只读的一侧也提供 SkillDock 自身的一键更新（只改 SkillDock 本身，每次需确认）。
+- 0.10.2 及更早版本遇到 0.11 的数据时拒绝启动或启动失败，没有“请更新”的提示，但不改动计划、绑定、历史与偏好。
+- 技能库中 Claude 一侧只列个人与项目技能；Claude 插件自带的技能不能单独开关，只计入所属插件的技能数（插件页显示数量）。
+- 在 Codex 中直接更新或重装某个插件后，自动更新计划不再接管它（0.10.x 起的规则：安装目录变化即视为新对象），需要在更新页重新选择。
+- Claude 桌面应用插件页的 Update 不识别 SkillDock 的新版本（SkillDock 在 Claude 一侧以提交摘要作版本）；请在 SkillDock 的“更新”页检查并应用，0.11.1 将在 marketplace 条目中声明版本号。
+
+### 文档与分发
+
+- SkillDock 从 0.10.3 升至 0.11.0；同步插件 manifest、应用版本与 lockfile、中英文 README、应用 README，以及 Codex 原生构建产物。
+- 仓库的 Claude marketplace（`.claude-plugin/marketplace.json`）收录 SkillDock，并给 TeamDesk 条目注明“仅支持 Codex”。
+
+### 验证
+
+- 单元测试 614 项在隔离沙箱中全部通过，其中兼容矩阵 103 项对手写样本与真实 0.11.0 各跑一遍（含 V18 门槛的环境组合与 0.10.2/0.10.3 共存用例，[55](plugins/skilldock/skills/skill-manager/references/55-compat-matrix-coverage.md)）；浏览器端到端测试 86 项通过（本机 Chrome，临时配置）。沙箱不是 CI 等价环境。
+- V17：在另一台电脑的真实 Codex 中从 0.10.3 更新到 0.11.0，安装后约 70 秒由 0.10.3 自更新协调器转交给 0.11.0 并完成迁移，计划、绑定、历史、项目与后台任务保留（计划中 SkillDock 自身一项需重新选择），开着的原生页面自动重连；“重启 Codex 后”与“`$skill-manager` 为同一实例”两项以间接证据为准（[64](plugins/skilldock/skills/skill-manager/references/64-v17-results.md)）。
+- 最终 UAT：在 Claude 桌面应用中添加本仓库 marketplace、从插件浏览器安装、与 Codex 共用同一实例、在 SkillDock 更新页不用终端更新（含桌面应用刷新 marketplace 之后），以及从本地目录把插件装到 Claude（[61](plugins/skilldock/skills/skill-manager/references/61-final-uat-claude-desktop.md)）。UAT 带出的问题已修复：Codex 原生入口每次显示“已跳过无效的项目目录”、沿用实例时 stderr 的扫描目录不准、桌面应用写入的合成清单与访达的 `.DS_Store` 被判为本地修改。
+- P0 验收逐条核对（[56](plugins/skilldock/skills/skill-manager/references/56-p0-acceptance-check.md)）：全部满足，或为 Owner 认可的例外与随版发布的界面残余（记入 [41](plugins/skilldock/skills/skill-manager/references/41-ui-redesign-backlog.md)）。
+- 独立评审：HLD v1.31、API 契约 0.32（36c 0.31）、PRD 0.11 的证书绑定见 [59](plugins/skilldock/skills/skill-manager/references/59-cross-agent-6d-rereview-r2.md)；阶段 6 与最终 UAT 修复的代码评审见 57～59、62、63 系列报告。
+
 ## [testany-eng 2.8.0] - 2026-10-11
 
 ### 新增

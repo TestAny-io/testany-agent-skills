@@ -1,10 +1,19 @@
 import path from 'node:path';
 import crypto from 'node:crypto';
-import { fail, readJson, writeJson, verifyDirectoryRoot, redact } from './files.mjs';
-import { buildUpdateItems, targetKey } from './sources.mjs';
+import { AppError, fail, readJson, writeJson, verifyDirectoryRoot, redact } from './files.mjs';
+import { buildUpdateItems, applyObservations, targetKey } from './sources.mjs';
+import { defaultSchedule, defaultUpdateState } from './update-state.mjs';
+
+export { defaultSchedule, defaultUpdateState };
 
 export function validateTarget(target) {
-  if (!target || typeof target !== 'object' || Array.isArray(target) || Object.keys(target).some(key => !['kind', 'id'].includes(key)) || !['skill', 'plugin', 'host'].includes(target.kind) || typeof target.id !== 'string' || !target.id || target.id.length > 300 || /[\x00-\x1f]/.test(target.id)) fail(400, 'INVALID_TARGET', '更新目标无效。');
+  if (!target || typeof target !== 'object' || Array.isArray(target) || Object.keys(target).some(key => !['kind', 'id', 'agent', 'confirmation'].includes(key)) || !['skill', 'plugin', 'host'].includes(target.kind) || typeof target.id !== 'string' || !target.id || target.id.length > 300 || /[\x00-\x1f]/.test(target.id)) fail(400, 'INVALID_TARGET', '更新目标无效。');
+  // 36c §6: a target names its side; Codex is the default and is written without it.
+  if (target.agent !== undefined && !['codex', 'claude'].includes(target.agent) || target.agent === 'claude' && target.kind === 'host') fail(400, 'INVALID_TARGET', '更新目标无效。');
+  if (target.agent === 'codex') delete target.agent;
+  // A snapshot's target may come back with its confirmation; only `confirm` confirms (36c §6).
+  if (target.confirmation !== undefined && !['pending', 'confirmed'].includes(target.confirmation)) fail(400, 'INVALID_TARGET', '更新目标无效。');
+  delete target.confirmation;
   return target;
 }
 export function validateSchedule(schedule) {
@@ -24,24 +33,35 @@ function sameBindingIdentity(before, after) {
   return JSON.stringify(oldIdentity) === JSON.stringify(newIdentity);
 }
 
-export async function createScheduler({ environments, snapshot, perform, signature, verifySynchronized, hasPreview, coreBusy, clock = () => Date.now(), pollMs = 1000, startTimer = false, recover = true, beforeConfigure, disabledSchedule = async () => null }) {
+
+export async function createScheduler({ environments, snapshot, perform, signature, verifySynchronized, hasPreview, coreBusy, clock = () => Date.now(), pollMs = 1000, startTimer = false, recover = true, beforeConfigure, disabledSchedule = async () => null, planVersion = 1, paused = async () => null, migrate = async () => null, crossSide = null }) {
   const states = {}; const writes = {}; const configuring = new Set(); let running = false; let activeMode; let closed = false; let runningPromise; let timer; let readGeneration = 0;
   const timestamp = () => new Date(clock()).toISOString();
-  const defaultSchedule = () => ({ enabled: false, intervalMinutes: 1440, timezone: Intl.DateTimeFormat().resolvedOptions().timeZone || 'UTC', autoApply: false, targets: [], running: false });
+  // The separate record of a plan turned off carries the request's schedule. A target in it that has
+  // no state yet takes the record's request version, so a target added while turning the plan off is
+  // not taken for one inherited from 0.10.x (36c §6, 5c review P1-01).
+  function adoptDisabled(state, { origin, ...disabled }, { keepNextRun = false } = {}) {
+    // Only what the record adds: one already in the plan keeps what it had (0.10.x's had nothing; re-review P3-02).
+    const planned = new Set((state.schedule.targets ?? []).map(targetKey));
+    Object.assign(state.schedule, disabled, { enabled: false }); if (!keepNextRun) delete state.schedule.nextRunAt;
+    state.targetMeta ??= {};
+    for (const target of state.schedule.targets ?? []) if (!planned.has(targetKey(target))) state.targetMeta[targetKey(target)] ??= { origin: origin === 'v2' ? 'v2' : 'v1' };
+  }
   async function persist(mode) {
-    writes[mode] = (writes[mode] || Promise.resolve()).catch(() => {}).then(async () => { await verifyDirectoryRoot(environments[mode].stateBoundary); const disabled = await disabledSchedule(mode); if (disabled) { Object.assign(states[mode].schedule, disabled, { enabled: false }); delete states[mode].schedule.nextRunAt; } await writeJson(path.join(environments[mode].root, 'updates.json'), states[mode]); });
+    writes[mode] = (writes[mode] || Promise.resolve()).catch(() => {}).then(async () => { await verifyDirectoryRoot(environments[mode].stateBoundary); const disabled = await disabledSchedule(mode); if (disabled) adoptDisabled(states[mode], disabled); await writeJson(path.join(environments[mode].root, 'updates.json'), states[mode]); });
     return writes[mode];
   }
   async function reload({ recover = false } = {}) {
     if (running) return;
     const generation = ++readGeneration;
     for (const mode of Object.keys(environments)) {
-      const state = await readJson(path.join(environments[mode].root, 'updates.json'), { version: 1, schedule: defaultSchedule(), bindings: {}, observations: {}, runs: [], activity: [] });
-      if (!state || state.version !== 1 || !Array.isArray(state.runs) || typeof state.bindings !== 'object' || !state.schedule || !state.observations) fail(422, 'INVALID_UPDATE_STATE', '更新状态文件格式无效，未启用自动更新。');
+      const state = await readJson(path.join(environments[mode].root, 'updates.json'), defaultUpdateState(planVersion, defaultSchedule()));
+      if (state && Number.isInteger(state.version) && state.version >= 1 && state.version < planVersion) state.version = planVersion;
+      if (!state || state.version !== planVersion || !Array.isArray(state.runs) || typeof state.bindings !== 'object' || !state.schedule || !state.observations) fail(422, 'INVALID_UPDATE_STATE', '更新状态文件格式无效，未启用自动更新。');
       validateSchedule({ enabled: state.schedule.enabled, intervalMinutes: state.schedule.intervalMinutes, timezone: state.schedule.timezone, autoApply: state.schedule.autoApply, targets: state.schedule.targets });
       if (running || generation !== readGeneration) return;
       state.activity ||= []; states[mode] = state;
-      const disabled = await disabledSchedule(mode); if (disabled) { Object.assign(state.schedule, disabled, { enabled: false }); delete state.schedule.nextRunAt; }
+      const disabled = await disabledSchedule(mode); if (disabled) adoptDisabled(state, disabled);
       if (!recover) continue;
       state.schedule.running = false;
       let interrupted = false;
@@ -70,9 +90,11 @@ export async function createScheduler({ environments, snapshot, perform, signatu
     const state = states[mode];
     return { updateProgress: progress(mode), updates: buildUpdateItems(currentSnapshot, state.observations, hasPreview), schedule: { ...state.schedule, running: state.schedule.running }, updateRuns: state.runs.slice(0, 50), extraActivity: state.activity.slice(0, 100) };
   }
+  /** Another side's items take the same observations as the Codex ones. */
+  function decorate(mode, items) { return applyObservations(items, states[mode].observations, hasPreview); }
   function canonicalTarget(target, current) {
     validateTarget(target);
-    if (target.kind === 'skill') {
+    if (target.kind === 'skill' && !target.agent) {
       const skill = current.skills.find(item => item.id === target.id);
       if (skill?.pluginId && current.plugins.some(plugin => plugin.id === skill.pluginId && plugin.installed)) return { kind: 'plugin', id: skill.pluginId };
       if (skill?.scope === 'system') return { kind: 'host', id: 'codex-system-skills' };
@@ -84,23 +106,52 @@ export async function createScheduler({ environments, snapshot, perform, signatu
     for (const original of targets) { const target = canonicalTarget(original, current); const key = targetKey(target); if (!seen.has(key)) { seen.add(key); result.push(target); } }
     return result;
   }
-  async function configure(mode, input) {
+  async function configure(mode, input, options = {}) {
     if (configuring.has(mode)) fail(409, 'BUSY', '计划配置正在保存，请完成后重试。');
     configuring.add(mode);
-    try { return await configureTransaction(mode, input); } finally { configuring.delete(mode); }
+    try { return await configureTransaction(mode, input, options); } finally { configuring.delete(mode); }
   }
-  async function configureTransaction(mode, input) {
+  /** Each plan target's origin (`v1` or `v2`) and, for a cross-side skill, its confirmation (36c §6). */
+  function targetMeta(mode) { return structuredClone(states[mode].targetMeta ?? {}); }
+  /** 36c §6: a version-1 request replaces Codex's targets only; another side's stay. */
+  function requestedTargets(mode, input, version2) {
+    return version2 ? input.targets : [...input.targets.filter(target => !target.agent), ...states[mode].schedule.targets.filter(target => target.agent && target.agent !== 'codex')];
+  }
+  async function configureTransaction(mode, input, { version2 = false, confirm = false } = {}) {
     validateSchedule(input); const state = states[mode];
     if (running && input.enabled) fail(409, 'BUSY', '一轮更新正在执行；可先关闭计划，执行结束后再调整。');
-    let targets = input.targets; const bindings = {};
+    const prior = state.schedule; const priorKeys = new Set(prior.targets.map(targetKey)); const priorMeta = state.targetMeta ?? {};
+    // Another side's targets kept from a version-1 request keep their state too.
+    const kept = version2 ? [] : prior.targets.filter(target => target.agent && target.agent !== 'codex');
+    let targets = requestedTargets(mode, input, version2); const bindings = {}; let current;
     if (input.enabled) {
-      const current = await snapshot(mode); targets = await normalize(mode, targets, current);
+      current = await snapshot(mode); targets = await normalize(mode, targets, current);
       if (!targets.length) fail(400, 'EMPTY_TARGETS', '启用计划前至少选择一个有效目标。');
       for (const target of targets) {
-        const item = current.updates.find(item => targetKey(item.target) === targetKey(target));
+        const key = targetKey(target);
+        // Targets kept from outside the request, and a version-2 request's targets whose Agent is
+        // paused, keep their binding and do not stop the plan (HLD 3.6, 3.8).
+        if (kept.some(entry => targetKey(entry) === key) || version2 && await paused(mode, target)) { if (state.bindings[key]) bindings[key] = state.bindings[key]; continue; }
+        const item = current.updates.find(item => targetKey(item.target) === key);
         if (!item || !item.canCheck) fail(422, 'TARGET_NOT_READY', '所选目标尚不能检查更新，请先确认来源。');
-        bindings[targetKey(target)] = await signature(mode, target, current);
+        bindings[key] = await signature(mode, target, current);
       }
+    }
+    // A target submitted as it was keeps its state; a new one is this request's. "As it was" compares the
+    // target's identity only (36c §6; 5c review P2-01): what the confirmation answers is checked afresh.
+    const resubmitted = key => priorKeys.has(key);
+    const meta = {};
+    for (const target of targets) { const key = targetKey(target); meta[key] = resubmitted(key) ? { ...(priorMeta[key] ?? { origin: 'v1' }) } : { origin: version2 ? 'v2' : 'v1' }; }
+    if (version2 && crossSide && mode === 'local') {
+      // A skill whose content lies in the other side's plugin is confirmed for a plan while that side is managed.
+      const cross = await crossSide(current ?? await snapshot(mode), targets);
+      const counted = targets.filter(target => cross.get(targetKey(target))?.otherEnabled && meta[targetKey(target)].origin === 'v2');
+      const unconfirmed = counted.filter(target => meta[targetKey(target)].confirmation !== 'confirmed');
+      const starts = input.enabled && input.autoApply && (!prior.enabled || !prior.autoApply);
+      const needed = counted.some(target => !resubmitted(targetKey(target))) || starts;
+      if (unconfirmed.length && needed && !confirm) throw new AppError(409, 'CONFIRMATION_REQUIRED', '计划中有技能的内容在另一侧插件的目录中，请确认后重试。', { nativeRules: [{ kind: 'affected-plugins',
+        message: '计划中的这些技能，内容在另一侧插件的目录中；自动应用会改写这些插件：', items: unconfirmed.map(target => { const info = cross.get(targetKey(target)); return `${info.name} (${info.plugins.join(', ')})`; }) }] });
+      for (const target of unconfirmed) meta[targetKey(target)].confirmation = confirm ? 'confirmed' : 'pending';
     }
     await beforeConfigure?.(mode, input);
     const event = { id: crypto.randomUUID(), action: 'schedule.configure', target: mode, createdAt: timestamp(), status: 'success', message: input.enabled ? `已启用固定 ${input.intervalMinutes} 分钟周期，${targets.length} 个明确目标；${input.autoApply ? '自动应用已验证更新' : '仅检查'}。` : '已关闭自动更新；在途单项安全结束后不启动后续对象。', canRestore: false };
@@ -108,7 +159,7 @@ export async function createScheduler({ environments, snapshot, perform, signatu
     // saves must never leave an unacknowledged plan enabled in memory.
     writes[mode] = (writes[mode] || Promise.resolve()).catch(() => {}).then(async () => {
       const proposed = structuredClone(state);
-      proposed.schedule = { ...proposed.schedule, ...structuredClone(input), targets };
+      proposed.schedule = { ...proposed.schedule, ...structuredClone(input), targets }; proposed.targetMeta = meta;
       if (input.enabled) { proposed.schedule.nextRunAt = new Date(clock() + input.intervalMinutes * 60000).toISOString(); proposed.schedule.failureCount = 0; }
       else delete proposed.schedule.nextRunAt;
       if (input.enabled) proposed.bindings = bindings;
@@ -118,11 +169,12 @@ export async function createScheduler({ environments, snapshot, perform, signatu
       // The active run keeps this state object; preserve runtime fields that may
       // have advanced while the atomic file write was awaiting IO.
       const runtime = { running: state.schedule.running, lastRunAt: state.schedule.lastRunAt, lastOutcome: state.schedule.lastOutcome };
-      state.schedule = { ...proposed.schedule, ...runtime };
+      state.schedule = { ...proposed.schedule, ...runtime }; state.targetMeta = meta;
       if (input.enabled) state.bindings = bindings;
       state.activity.unshift(event); state.activity = state.activity.slice(0, 100);
     });
-    await writes[mode]; return { message: event.message, schedule: { ...state.schedule } };
+    // Like a version-1 snapshot, a version-1 answer names Codex's targets only.
+    await writes[mode]; return { message: event.message, schedule: { ...state.schedule, ...(version2 ? {} : { targets: state.schedule.targets.filter(target => !target.agent || target.agent === 'codex') }) } };
   }
   async function observe(mode, target, updateItem) {
     const { sourceInfo, installedPath, affectedSkillIds, ...publicState } = updateItem;
@@ -145,7 +197,7 @@ export async function createScheduler({ environments, snapshot, perform, signatu
     } catch { return false; }
     if (await disabledSchedule(mode) || JSON.stringify(state.bindings[key]) !== JSON.stringify(expected)) return false;
     state.bindings[key] = actual;
-    state.activity.unshift({ id: crypto.randomUUID(), action: 'schedule.reconcile', target: target.id, createdAt: timestamp(), status: 'success', message: '已核实插件外部同步，已恢复原定时计划绑定。', canRestore: false });
+    state.activity.unshift({ id: crypto.randomUUID(), action: 'schedule.reconcile', target: target.id, ...(target.agent ? { agent: target.agent } : {}), createdAt: timestamp(), status: 'success', message: '已核实插件外部同步，已恢复原定时计划绑定。', canRestore: false });
     state.activity = state.activity.slice(0, 100);
     await persist(mode);
     return true;
@@ -156,7 +208,10 @@ export async function createScheduler({ environments, snapshot, perform, signatu
     try { const actual = await signature(mode, target); return JSON.stringify(actual) === JSON.stringify(binding) ? binding : null; } catch { return null; }
   }
   async function afterOwnUpdate(mode, target, originalBinding) {
-    if (originalBinding && JSON.stringify(states[mode].bindings[targetKey(target)]) === JSON.stringify(originalBinding)) states[mode].bindings[targetKey(target)] = await signature(mode, target);
+    // The update has landed: a binding that cannot be read again now is left to the next run, which
+    // migrates or reports it, instead of failing what was done (5a/5b review P1-01).
+    if (originalBinding && JSON.stringify(states[mode].bindings[targetKey(target)]) === JSON.stringify(originalBinding))
+      try { states[mode].bindings[targetKey(target)] = await signature(mode, target); } catch { /* kept */ }
     states[mode].observations[targetKey(target)] = { status: 'current', canApply: false, message: '更新已读回确认。', checkedAt: timestamp() };
     await persist(mode);
   }
@@ -169,7 +224,18 @@ export async function createScheduler({ environments, snapshot, perform, signatu
     states[mode].bindings[targetKey(target)] = actual;
     await persist(mode);
   }
-  async function run(mode, { targets, autoApply, trigger = 'manual' }) {
+  // 36c §6: a plan applies a cross-side skill saved by a version-2 request only once confirmed while the
+  // other side is managed; a version-2 manual batch applies one only with the request's confirmation.
+  async function crossHold(mode, target, current, { trigger, version2, confirm }) {
+    // Only what could be held asks for the cross-side facts, which take a multi-Agent snapshot (5c review P3-04).
+    if (!crossSide || mode !== 'local' || target.kind !== 'skill') return null;
+    const meta = states[mode].targetMeta?.[targetKey(target)];
+    if (trigger === 'manual' ? !version2 || confirm : meta?.origin !== 'v2' || meta.confirmation === 'confirmed') return null;
+    const info = (await crossSide(current, [target])).get(targetKey(target)); if (!info) return null;
+    if (trigger === 'manual') return info.discovered ? '这项技能的内容在另一侧插件的目录中；这次批量执行没有确认，只检查、不应用。' : null;
+    return info.otherEnabled ? '这项技能的内容在另一侧插件的目录中；须先在 SkillDock 0.11 的计划设置中确认后才会自动应用（0.10.x 界面无法确认），这次只检查。' : null;
+  }
+  async function run(mode, { targets, autoApply, trigger = 'manual', version2 = false, confirm = false }) {
     if (typeof autoApply !== 'boolean') fail(400, 'INVALID_ACTION', 'autoApply 必须显式为布尔值。');
     if (closed || running || coreBusy()) fail(409, 'BUSY', '已有写操作或更新批次正在执行，请稍后重试。');
     running = true; activeMode = mode;
@@ -183,30 +249,53 @@ export async function createScheduler({ environments, snapshot, perform, signatu
         const current = await snapshot(mode);
         const selected = await normalize(mode, targets || current.updates.map(item => item.target), current);
         record.total = selected.length;
-        for (const target of selected) {
+        for (let target of selected) {
           const disabled = await disabledSchedule(mode);
-          if (disabled) Object.assign(state.schedule, disabled, { enabled: false });
+          if (disabled) adoptDisabled(state, disabled, { keepNextRun: true });
           if (closed || trigger !== 'manual' && !state.schedule.enabled) { stopped = true; break; }
           record.phase = 'checking';
           record.current = { target, name: current.updates.find(item => targetKey(item.target) === targetKey(target))?.name || target.id };
           await persist(mode);
-          const currentState = await snapshot(mode); const item = currentState.updates.find(candidate => targetKey(candidate.target) === targetKey(target));
-          const name = item?.name || target.id;
+          const currentState = await snapshot(mode); let item = currentState.updates.find(candidate => targetKey(candidate.target) === targetKey(target));
+          let name = item?.name || target.id;
           let checked;
           const appendResult = result => record.items.push({ target, name, occurredAt: timestamp(),
             ...(checked?.installedVersion || item?.installedVersion ? { installedVersion: checked?.installedVersion || item.installedVersion } : {}),
             ...(checked?.availableVersion ? { availableVersion: checked.availableVersion } : {}), ...result });
+          // HLD 3.8: a target whose Agent is not managed pauses; it is not a failure.
+          const pause = await paused(mode, target);
+          if (pause) { appendResult({ status: 'skipped', message: pause, reasonCode: 'AGENT_PAUSED' }); await persist(mode); continue; }
+          // A Claude skill that became shared changed its ID: its plan target follows by real path (HLD 3.8).
+          if (!item && target.agent === 'claude') {
+            const moved = await migrate(mode, target, state.bindings[targetKey(target)], currentState);
+            if (moved && targetKey(moved) !== targetKey(target)) {
+              const from = targetKey(target), to = targetKey(moved);
+              state.schedule.targets = state.schedule.targets.map(entry => targetKey(entry) === from ? moved : entry);
+              if (state.bindings[from]) { state.bindings[to] = { ...state.bindings[from], target: moved }; delete state.bindings[from]; }
+              if (state.targetMeta?.[from]) { state.targetMeta[to] = state.targetMeta[from]; delete state.targetMeta[from]; }
+              state.activity.unshift({ id: crypto.randomUUID(), action: 'schedule.migrate', target: moved.id, ...(moved.agent ? { agent: moved.agent } : {}), createdAt: timestamp(), status: 'success', message: '技能的共用状态已变化，计划中的这一项已随对象 ID 迁移。', canRestore: false });
+              state.activity = state.activity.slice(0, 100);
+              target = moved; item = currentState.updates.find(candidate => targetKey(candidate.target) === to); name = item?.name || target.id;
+              await persist(mode);
+            }
+          }
           if (!item) { appendResult({ status: 'skipped', message: '原目标已不存在；重新选择目标后才会纳入计划。', reasonCode: 'TARGET_MISSING' }); await persist(mode); continue; }
           if (trigger !== 'manual') {
-            let actual; try { actual = await signature(mode, target, currentState); } catch { actual = null; }
+            let actual; let unread; try { actual = await signature(mode, target, currentState); } catch (error) { actual = null; if (error.code === 'SOURCE_MISSING') unread = error; }
+            // What cannot be read this round is no change: the binding stays (phase 5 re-review P2-01).
+            if (unread) { appendResult({ status: 'skipped', reasonCode: 'SOURCE_MISSING', message: unread.message }); await persist(mode); continue; }
             if (!actual || !await reconcileBinding(mode, target, actual)) { appendResult({ status: 'skipped', reasonCode: 'TARGET_BINDING_CHANGED', message: '来源、所有者、安装目录或内容已变化；旧计划不接管新对象，请重新选择。' }); await persist(mode); continue; }
           }
           if (!item.canCheck) { appendResult({ status: 'skipped', message: item.message, reasonCode: item.reasonCode }); await persist(mode); continue; }
           try {
             checked = (await perform({ mode, action: 'update.check', target })).updateItem;
+            const wantsApply = !checked.updatedDuringCheck && checked.status === 'available' && autoApply && checked.canAutoApply && checked.canApply && (trigger === 'manual' || !await disabledSchedule(mode));
+            const hold = wantsApply ? await crossHold(mode, target, currentState, { trigger, version2, confirm }) : null;
             if (checked.updatedDuringCheck) {
               appendResult({ status: 'updated', message: checked.message });
-            } else if (checked.status === 'available' && autoApply && checked.canAutoApply && checked.canApply && (trigger === 'manual' || !await disabledSchedule(mode))) {
+            } else if (hold) {
+              appendResult({ status: 'available', message: hold, reasonCode: 'CONFIRMATION_REQUIRED' });
+            } else if (wantsApply) {
               if (trigger !== 'manual') {
                 const actual = await signature(mode, target);
                 if (JSON.stringify(actual) !== JSON.stringify(state.bindings[targetKey(target)])) {
@@ -221,7 +310,7 @@ export async function createScheduler({ environments, snapshot, perform, signatu
           } catch (error) { appendResult({ status: 'error', message: redact(error.message), reasonCode: error.code || 'UPDATE_FAILED' }); }
           await persist(mode);
         }
-        const failures = record.items.filter(item => ['error', 'skipped'].includes(item.status));
+        const failures = record.items.filter(item => ['error', 'skipped'].includes(item.status) && item.reasonCode !== 'AGENT_PAUSED');
         record.status = stopped || failures.length ? record.items.length && failures.length === record.items.length && record.items.every(item => item.status === 'error') ? 'error' : 'partial' : 'success';
       } catch (error) {
         record.status = 'error'; record.items.push({ target: { kind: 'host', id: 'update-run' }, name: 'Update run', status: 'error', occurredAt: timestamp(), reasonCode: error.code || 'UPDATE_FAILED', message: redact(error.message) });
@@ -256,5 +345,5 @@ export async function createScheduler({ environments, snapshot, perform, signatu
     initialTick = false;
   }
   if (startTimer) { timer = setInterval(() => { tick().catch(() => {}); }, pollMs); timer.unref(); setTimeout(() => { tick().catch(() => {}); }, 0).unref(); }
-  return { reload, data, progress, configure, observe, observeError, reconcileBinding, beforeOwnUpdate, afterOwnUpdate, afterOwnerRefresh, run, tick, canonicalTarget, isRunning: () => running, close: async () => { closed = true; clearInterval(timer); if (runningPromise) await runningPromise.catch(() => {}); await Promise.all(Object.values(writes).map(promise => promise.catch(() => {}))); } };
+  return { reload, data, decorate, targetMeta, requestedTargets, progress, configure, observe, observeError, reconcileBinding, beforeOwnUpdate, afterOwnUpdate, afterOwnerRefresh, run, tick, canonicalTarget, isRunning: () => running, close: async () => { closed = true; clearInterval(timer); if (runningPromise) await runningPromise.catch(() => {}); await Promise.all(Object.values(writes).map(promise => promise.catch(() => {}))); } };
 }

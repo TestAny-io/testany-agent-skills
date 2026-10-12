@@ -37,6 +37,7 @@
     },
     {
       "name": "skilldock",
+      "description": "SkillDock：可视化管理本机 Codex 与 Claude 的技能、插件、市场来源和定时更新；在 Codex 与 Claude 中均可安装和打开，两边共用同一个本地实例。命令：/skilldock:skill-manager",
       "source": "./plugins/skilldock",
       "policy": {
         "installation": "AVAILABLE",
@@ -46,6 +47,7 @@
     },
     {
       "name": "teamdesk",
+      "description": "TeamDesk（仅支持 Codex）：在现有 Codex 上管理 32 位 AI 员工、业务任务、原生协作 metadata 与共享工作记录。",
       "source": "./plugins/teamdesk",
       "policy": {
         "installation": "AVAILABLE",

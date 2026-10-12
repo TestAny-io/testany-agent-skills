@@ -6,19 +6,21 @@ import { pathToFileURL } from 'node:url';
 
 const file = process.argv[2];
 let context;
-// 0.10.3 (API-SDX-001 36b §8): newer data ends this run without touching any file.
+// Data newer than this release (generation above 2, or an unknown plan version) ends
+// this run without touching any file (API-SDX-001 36a §4, §8).
+const GENERATION = 2;
 async function newerData(stateDir) {
   if (!stateDir || !path.isAbsolute(stateDir)) return false;
   const read = async name => { try { return JSON.parse(await fs.readFile(path.join(stateDir, name), 'utf8')); } catch (error) { return error.code === 'ENOENT' ? undefined : null; } };
   const marker = await read('generation.json');
-  if (marker !== undefined && !(Number.isInteger(marker?.generation) && marker.generation < 2)) return true;
+  if (marker !== undefined && !(Number.isInteger(marker?.generation) && marker.generation <= GENERATION)) return true;
   const plan = await read('local/updates.json');
-  return plan !== undefined && plan?.version !== 1;
+  return plan !== undefined && ![1, 2].includes(plan?.version);
 }
 if (await newerData(process.env.SKILLDOCK_STATE_DIR)) process.exit(0);
 try {
   context = JSON.parse(await fs.readFile(file, 'utf8'));
-  if (context.version !== 1 || !path.isAbsolute(context.runtime) || !path.isAbsolute(context.stateDir)) throw new Error('Invalid background context');
+  if (![1, 2].includes(context.version) || !path.isAbsolute(context.runtime) || !path.isAbsolute(context.stateDir)) throw new Error('Invalid background context');
   process.env.HOME = context.home;
   process.env.CODEX_HOME = context.codexHome;
   process.env.SKILLDOCK_STATE_DIR = context.stateDir;

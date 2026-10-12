@@ -230,6 +230,12 @@ test('self-update resolves the installed version instead of retaining a deleted 
   assert.equal(await resolveBackgroundSource(context, latest), path.join(newRoot, identity.appPath));
   await assert.rejects(resolveBackgroundSource(context, { list: async () => ({ ...await adapter.list(), diagnostics: ['CLI failed'] }) }), /无法确认/);
   assert.equal(await resolveBackgroundSource(context, adapter), null);
+  // A full plugin list with a problem in an unrelated record still proves SkillDock is gone;
+  // a list that was not read, or SkillDock's own record dropped, does not.
+  const read = (listed, dropped = []) => ({ list: async () => ({ ...await adapter.list(), diagnostics: ['unrelated record'], listed: { plugins: listed, marketplaces: true }, dropped: { plugins: dropped, marketplaces: [] } }) });
+  assert.equal(await resolveBackgroundSource(context, read(true)), null);
+  await assert.rejects(resolveBackgroundSource(context, read(false)), /无法确认/);
+  await assert.rejects(resolveBackgroundSource(context, read(true, ['skilldock@test-market'])), /无法确认/);
 });
 
 test('a disabled plan performs no update, and plist values safely quote special characters', async t => {
@@ -249,7 +255,7 @@ test('a fresh plugin launcher imports before node_modules exists in the installe
   }
   const result = await new Promise((resolve, reject) => {
     const child = spawn(process.execPath, [path.join(root, 'scripts/launch.mjs'), 'status'], {
-      cwd: '/', env: { ...process.env, CODEX_HOME: f.context.codexHome, SKILLDOCK_STATE_DIR: f.context.stateDir }, stdio: ['ignore', 'pipe', 'pipe'],
+      cwd: '/', env: { ...Object.fromEntries(Object.entries(process.env).filter(([key]) => !/^(CLAUDE|ANTHROPIC_)/.test(key))), HOME: f.root, CODEX_HOME: f.context.codexHome, SKILLDOCK_STATE_DIR: f.context.stateDir }, stdio: ['ignore', 'pipe', 'pipe'],
     });
     let stdout = ''; let stderr = ''; child.stdout.on('data', data => { stdout += data; }); child.stderr.on('data', data => { stderr += data; });
     child.on('error', reject); child.on('exit', code => resolve({ code, stdout, stderr }));
@@ -267,4 +273,23 @@ test('overlapping configuration requests cannot acknowledge a disable and then e
   finally { resume.resolve(); await enabling; await writer.close(); }
   await act(f.service, 'schedule.configure', { schedule: { ...f.schedule, enabled: false } });
   assert.equal((await f.service.snapshot('local')).schedule.enabled, false);
+});
+
+test('a registration skipped while the launcher held the locks is made by a later round, once (HLD 3.8, phase 5d)', async t => {
+  const f = await fixture(t); await f.service.close();
+  let ensured = 0; const manager = { ensure: async () => { ensured++; }, status: async () => ({ provider: 'launchd', status: 'ready' }), remove: async () => {} };
+  const hold = () => acquireFileLock(operationLock(f.settings.codexHome));
+  let release = hold(); let service;
+  try { service = await createService({ ...f.settings, scheduler: undefined, background: undefined, backgroundManager: manager }); } finally { release(); }
+  t.after(() => service.close());
+  assert.equal(ensured, 0, '启动时锁被占用：跳过');
+  release = hold();
+  try { assert.equal(await service.catchUpBackground(), false); } finally { release(); }
+  assert.equal(ensured, 0, '仍被占用：留到下一轮');
+  // Not while this instance is about to be replaced (5d review M8).
+  assert.equal(service.pauseForRestart(), true);
+  assert.equal(await service.catchUpBackground(), false); assert.equal(ensured, 0);
+  service.resumeAfterRestart();
+  assert.equal(await service.catchUpBackground(), true); assert.equal(ensured, 1);
+  assert.equal(await service.catchUpBackground(), false); assert.equal(ensured, 1, '只补做一次');
 });

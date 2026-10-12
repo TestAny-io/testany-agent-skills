@@ -1,37 +1,42 @@
 ---
 name: skill-manager
-description: 打开 SkillDock 本地 GUI，浏览和管理 Codex skills、plugins 与 marketplace 来源；适用于技能库、安装更新、启禁、移除恢复的可视化管理。普通任务只需使用某个 skill 时不触发。
+description: 打开 SkillDock 本地 GUI，浏览和管理本机 Codex 与 Claude 的 skills、plugins 与 marketplace 来源；适用于技能库、安装更新、启禁、移除恢复的可视化管理。普通任务只需使用某个 skill 时不触发。
 ---
 
 # SkillDock
 
-本 skill 随独立的 `skilldock` 插件分发，仅打开本地技能管理应用。在支持原生入口的 Codex 版本中，可从 More / Explore 的 SkillDock 打开完整主页面并固定到侧栏；后台按需自动启动。也可将本地技能管理器打开在宿主浏览器面板中。GUI 按钮直接调用本地服务，打开即加载本机技能库。用户只要求打开界面时，不替其安装、禁用或移除实际技能。
+本 skill 随独立的 `skilldock` 插件分发，可在 Codex 或 Claude 中使用，仅打开本地技能管理应用。两边打开的是同一个本地实例和同一份数据。在支持原生入口的 Codex 版本中，可从 More / Explore 的 SkillDock 打开完整主页面并固定到侧栏；在 Claude 中把本地技能管理器打开在内置浏览器面板里。GUI 按钮直接调用本地服务，打开即加载本机技能库。用户只要求打开界面时，不替其安装、禁用或移除实际技能。
 
-## 原生入口
+## Codex 原生入口
 
-插件随包提供本地 MCP 服务及完整 UI。新会话/重载后，在 More / Explore 选择 **SkillDock**；可用 **Pin to sidebar** 固定。第一次打开会自动准备后台，后续复用已核实的实例。全局页面沿用已保存的项目，首次无选择时用用户主目录，用户可从项目选择器切换。后台中断时界面会重连，不自动重放写操作。原型 SkillDock Preview 是不同测试插件，正式入口需单独固定；不自动卸载用户的 Preview。
+仅 Codex 有此入口（Claude 不加载它）。插件随包提供本地 MCP 服务及完整 UI。新会话/重载后，在 More / Explore 选择 **SkillDock**；可用 **Pin to sidebar** 固定。第一次打开会自动准备后台，后续复用已核实的实例。全局页面沿用已保存的项目，首次无选择时用用户主目录，用户可从项目选择器切换。后台中断时界面会重连，不自动重放写操作。原型 SkillDock Preview 是不同测试插件，正式入口需单独固定；不自动卸载用户的 Preview。
 
 分发和生命周期说明见 [原生应用接入](references/30-native-app.md)。
 
 ## 启动与打开
 
-从本次实际加载的 `SKILL.md` 所在目录定位 `scripts/launch.sh`，不要假定仓库 checkout 或插件缓存路径。macOS 启动器自动复用 Codex 的 Node.js/npm；缺少可用组合时准备应用专用运行环境，不要求用户先安装全局 Node.js。
+从本次实际加载的 `SKILL.md` 所在目录定位 `scripts/launch.sh`，不要假定仓库 checkout 或插件缓存路径。启动器按固定顺序查找本机 Node.js 22.12+（Codex 工作区、已下载的专用版本、Homebrew、nvm/fnm/Volta/asdf/mise/nodenv、PATH），保存所选路径供两侧入口与后台任务复用，失效时重新查找；找不到时弹出安装引导（打开下载页或安装后“重新检测”），不再自动下载。
 
 ```bash
 /bin/sh "/实际安装位置/skill-manager/scripts/launch.sh" start --project "/用户项目的绝对路径"
 ```
 
-启动前确定用户项目目录，并用 `--project` 显式传入；不要先切换到下载目录或安装目录再把它作为用户项目。未指定时依次使用 `SKILLDOCK_PROJECT_DIR`、界面保存的项目、调用工作目录。界面“切换项目”可保存新的扫描选择。可用 `SKILLDOCK_STATE_DIR` 指定独立应用数据目录、`PORT` 指定端口；默认数据位于 `~/.local/share/skilldock`，默认端口 4771。启动器把源文件复制到应用数据目录，按 lockfile 安装依赖并构建，不向安装的插件缓存写入运行数据。首次启动需要 npm registry 可达；需专用运行环境时还访问 nodejs.org 并校验固定摘要，后续复用已准备的环境和相同构建。
+启动前确定用户项目目录，并用 `--project` 显式传入；不要先切换到下载目录或安装目录再把它作为用户项目。未指定时依次使用 `SKILLDOCK_PROJECT_DIR`、界面保存的项目、调用工作目录。界面“切换项目”可保存新的扫描选择。可用 `SKILLDOCK_STATE_DIR` 指定独立应用数据目录、`PORT` 指定端口；默认数据位于 `~/.local/share/skilldock`，默认端口 4771。启动器把源文件复制到应用数据目录，按 lockfile 安装依赖并构建（输出写入数据目录的 `build.log`），不向安装的插件缓存写入运行数据。首次启动需要 npm registry 可达，后续复用相同构建。
 
-CLI 逐个验证 PATH、桌面应用内置 CLI 与 Codex 管理的副本；损坏的旧 wrapper 会被跳过。指定 `SKILLDOCK_CODEX_BIN` 时必须是有效的绝对路径。CLI 诊断也包含在 `doctor` 中，实际来源说明见 [应用安装说明](assets/app/README.md)。
+Codex CLI 逐个验证 PATH、桌面应用内置 CLI 与 Codex 管理的副本；损坏的旧 wrapper 会被跳过。Claude 命令行依次取显式指定、用户手动指定的保存值、从 Claude 打开时会话提供的路径、Claude 桌面应用自带的最高版本、此前自动选中的保存值、PATH 与用户目录下的安装，选中后保存并在使用前核验版本，因此会跟上 Claude 的升级。指定 `SKILLDOCK_CODEX_BIN` 或 `SKILLDOCK_CLAUDE_BIN` 时必须是有效的绝对路径。SkillDock 的服务与它调用的命令行只继承白名单内的环境变量，不带入宿主会话变量。CLI 诊断也包含在 `doctor` 中，实际来源说明见 [应用安装说明](assets/app/README.md)。
 
-运行环境发现失败时先执行 `launch.sh doctor`。宿主若提供 `load_workspace_dependencies`，可读取其返回的真实 Node 路径，以 `SKILLDOCK_NODE_BIN` 指定；自定义 Codex 应用位置使用 `SKILLDOCK_CODEX_APP_DIR`。不要修改 Codex 的签名或用户 shell 配置来绕过加载限制。诊断及兼容边界见 [运行环境接入](references/18-codex-node-runtime.md)。
+运行环境发现失败时先执行 `launch.sh doctor`（只读，不写任何文件）。宿主若提供 `load_workspace_dependencies`，可读取其返回的真实 Node 路径，以 `SKILLDOCK_NODE_BIN` 指定；自定义 Codex 应用位置使用 `SKILLDOCK_CODEX_APP_DIR`。无人值守或没有图形界面的环境可设 `SKILLDOCK_NO_DIALOG=1` 关闭安装引导对话框。不要修改 Codex 的签名或用户 shell 配置来绕过加载限制。诊断及兼容边界见 [运行环境接入](references/18-codex-node-runtime.md)。
 
-核对启动前后打印的请求目录和最终扫描目录、目录来源与 Codex CLI 绝对路径。真实路径与请求路径不同会有符号链接说明；若最终目录不符合用户意图，修正 `--project` 后重新打开，不把 HTTP 200 当作扫描目录正确的证据。
+核对启动前后打印的请求目录和最终扫描目录、目录来源、Codex CLI 绝对路径，以及本机有 Claude 时所选的 Claude 命令行。真实路径与请求路径不同会有符号链接说明；若最终目录不符合用户意图，修正 `--project` 后重新打开，不把 HTTP 200 当作扫描目录正确的证据。
 
-读取启动器返回的实际 URL。宿主提供 `open_in_codex` 时，以 browser target、`placement: right` 打开 URL；否则使用已提供的浏览器工具，或给出可点击链接。工具不存在时不伪造面板已打开。原生全局入口已在 26.924.22138 验证；宿主未显示该入口时使用此浏览器路径。不要自行改写宿主固定记录。
+读取启动器返回的实际 URL，按当前宿主打开：
 
-默认读取本机已知技能根和可用 CLI 证据，不声称扫描整台磁盘。界面显示每个对象的可用操作和原因。已运行 Codex 会话不保证即时重新加载配置；按应用反馈提示重启/新会话。
+- **Codex**：宿主提供 `open_in_codex` 时，以 browser target、`placement: right` 打开 URL；否则使用已提供的浏览器工具，或给出可点击链接。原生全局入口已在 26.924.22138 验证；宿主未显示该入口时使用此浏览器路径。
+- **Claude**：用宿主提供的浏览器工具在内置浏览器面板中打开 URL（例如桌面应用的浏览器面板）；没有此类工具时给出可点击链接。
+
+工具不存在时不伪造面板已打开。不要自行改写宿主固定记录。
+
+默认读取本机已知技能根和可用 CLI 证据，不声称扫描整台磁盘。界面显示每个对象的可用操作和原因。已运行的 Codex 或 Claude 会话不保证即时重新加载配置；按应用反馈提示重启、新开会话或重载插件。
 
 ## 状态与停止
 
@@ -40,7 +45,9 @@ CLI 逐个验证 PATH、桌面应用内置 CLI 与 Codex 管理的副本；损�
 /bin/sh "/实际安装位置/skill-manager/scripts/launch.sh" stop
 ```
 
-退出码 3 表示数据已由 0.11 或更高版本的 SkillDock 管理、需要先更新本侧 SkillDock：把输出中的提示原样告诉用户，不要重试，也不要改用其他数据目录。
+退出码 3 表示数据已由更高版本的 SkillDock 管理、需要先更新本侧 SkillDock：把输出中的提示原样告诉用户，不要重试，也不要改用其他数据目录。
+
+退出码 4 表示某个 Agent 中还装有低于 0.10.3 的 SkillDock，0.11 暂不接管数据（旧版本照常工作，没有改动任何数据）：把 stderr 中的说明与处理步骤告诉用户，并询问是否由 SkillDock 一键更新 stderr 中列出的那个 Agent（Codex 或 Claude）里的 SkillDock。用户同意后，在原启动命令前加上 `SKILLDOCK_UPDATE_AGENT=codex` 或 `SKILLDOCK_UPDATE_AGENT=claude` 重新运行一次（只针对列出的 Agent），启动器会经该 Agent 的命令行更新、读回并重新检查；用户不同意时什么都不改动，请用户在对应 Agent 中更新或卸载旧版 SkillDock 后重新打开。两侧都被拦下时每次只指名一侧，更新后若仍被另一侧拦下，再询问用户一次；一键更新失败时把 stderr 中的原因与手动步骤告诉用户，不要反复重试；不要跳过检查，也不要改用其他数据目录。非 0 退出时 stdout 没有内容。
 
 启动是网页后台服务操作，中断调用不一定停止已创建的服务；先用 `status` 核实实际结果，需要停止网页服务时执行 `stop`。自 0.4.0 起，自动更新由独立的 macOS 用户后台任务负责；`stop` 不关闭自动更新。用户要求停止自动更新时，在更新页关闭计划并读回后台任务已移除。
 
@@ -63,6 +70,6 @@ macOS 计划首次开启时注册当前用户 LaunchAgent，结束即退出；Co
 
 ## 维护与完成标准
 
-本轮独立分发与项目选择整改见 [种子反馈记录](references/19-seed-feedback.md)。维护源码时读取 [工程设计](references/03-engineering-design.md) 与 [测试计划](references/04-test-plan.md)；需求或交互变更分别读取 [PRD](references/01-product-requirements.md) 与 [界面设计](references/02-interface-design.md)。第一轮 UAT 的主题、三语言、来源及定时更新变更见 [变更基线](references/07-uat-round1-changes.md)。最新产品边界与验证见 [第三轮整改交付](references/14-uat-round3-delivery.md)；Sandbox 已从产品移除，隔离夹具仅供开发测试使用。本软件许可为 [AGPL-3.0-only](LICENSE)，第三方材料保留自己的许可。
+跨 Agent（0.11）的需求、设计、接口契约与实施进度见 [PRD](references/34-cross-agent-prd.md)、[HLD](references/35-cross-agent-hld.md)、[接口契约](references/36-cross-agent-api-contract.md) 与 [实施计划](references/37-cross-agent-implementation-plan.md)；改动跨版本识别、启动转交或数据格式前先读契约。本轮独立分发与项目选择整改见 [种子反馈记录](references/19-seed-feedback.md)。维护源码时读取 [工程设计](references/03-engineering-design.md) 与 [测试计划](references/04-test-plan.md)；需求或交互变更分别读取 [PRD](references/01-product-requirements.md) 与 [界面设计](references/02-interface-design.md)。第一轮 UAT 的主题、三语言、来源及定时更新变更见 [变更基线](references/07-uat-round1-changes.md)。最新产品边界与验证见 [第三轮整改交付](references/14-uat-round3-delivery.md)；Sandbox 已从产品移除，隔离夹具仅供开发测试使用。本软件许可为 [AGPL-3.0-only](LICENSE)，第三方材料保留自己的许可。
 
 启动成功须有实际健康检查和可访问页面；操作成功须由后端读回证明。缓存目录存在不等于有效安装，市场刷新不等于技能/插件升级；保护系统和来源不明确的托管组件。失败、部分完成、恢复和用户 UAT 各自如实报告。

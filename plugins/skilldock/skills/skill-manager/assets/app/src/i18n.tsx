@@ -12,6 +12,11 @@ const messageSlots: Record<string, string> = {
   "插件 {v0}：{v1}": "v1",
   "缓存 {v0}：{v1}": "v1",
   "无法读取状态文件 {v0}：{v1}": "v1",
+  "比 {v0} 中的 SkillDock {v1} 旧。{v2}": "v2",
+  "无法确认 Claude 中的插件状态：{v0}": "v0",
+  "SkillDock 生成的本地 marketplace {v0} 未能清理：{v1}可在 Marketplace 页移除它，或停用 Claude 管理时一并清理。": "v1",
+  "{v0} Codex 为只读：这次检查没有改动 Codex；如有新版本，需要启用 Codex 管理后才能更新。": "v0",
+  "{v0} Codex 为只读：这次检查没有刷新来源，也没有改动 Codex；如有新版本，需要启用 Codex 管理后才能更新。": "v0",
 };
 const escapeRegex = (text: string) =>
   text.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
@@ -57,6 +62,11 @@ function translated(value: string): string | undefined {
   // UI messages already created in the active language need no source notice.
   if (Object.values(catalog).some((entry) => entry[language] === value))
     return value;
+  // A message of several lines translates line by line, only when every line is known.
+  if (value.includes("\n")) {
+    const lines = value.split("\n").map((line) => translated(line));
+    return lines.every((line) => line !== undefined) ? lines.join("\n") : undefined;
+  }
   for (const template of templates) {
     const match = value.match(template.match);
     if (match)

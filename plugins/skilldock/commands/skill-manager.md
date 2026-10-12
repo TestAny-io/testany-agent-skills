@@ -1,5 +1,5 @@
 ---
-description: 打开 SkillDock，使用本地 GUI 管理 Codex skills、plugins 和 marketplace 来源
+description: 打开 SkillDock，使用本地 GUI 管理本机 Codex 与 Claude 的 skills、plugins 和 marketplace 来源
 argument-hint: "[可选：项目目录]"
 ---
 

@@ -52,8 +52,8 @@
     "ja": "この操作は現在のサービスまたは CLI に対応していません。"
   },
   "CLI_FAILED": {
-    "en": "The Codex command failed. Review its original output before retrying.",
-    "ja": "Codex コマンドが失敗しました。元の出力を確認してから再試行してください。"
+    "en": "The Agent's command line failed. Review its original output before retrying.",
+    "ja": "Agent のコマンドラインが失敗しました。元の出力を確認してから再試行してください。"
   },
   "CLI_JSON": {
     "en": "The response or input is not valid JSON. Refresh and inspect the original details.",
@@ -68,8 +68,8 @@
     "ja": "コマンドがタイムアウトし、最終状態は不明です。一覧を再読み込みしてから再試行してください。"
   },
   "CLI_UNAVAILABLE": {
-    "en": "Codex CLI is unavailable. Configure a working executable and restart the service.",
-    "ja": "Codex CLI を利用できません。有効な実行ファイルを設定してサービスを再起動してください。"
+    "en": "The Agent's command line is unavailable. Configure a working executable and restart the service.",
+    "ja": "Agent のコマンドラインを利用できません。有効な実行ファイルを設定してサービスを再起動してください。"
   },
   "COMPONENT_ENTRY_MISSING": {
     "en": "Plugin components or their source could not be verified. Use the owning plugin manager and inspect the details.",
@@ -526,5 +526,57 @@
   "TARGET_MISSING": {
     "en": "The original target no longer exists. Select it again to include it in the schedule.",
     "ja": "元の対象が存在しません。スケジュールに含めるには再選択してください。"
+  },
+  "AGENT_READ_ONLY": {
+    "en": "This agent environment is read-only, so SkillDock will not change it. Turn on its management on the Agent environments page in SkillDock and try again.",
+    "ja": "このエージェント環境は読み取り専用のため、SkillDock は変更しません。SkillDock の「エージェント環境」ページで管理を有効にしてから再試行してください。"
+  },
+  "AGENT_UNCONFIRMED": {
+    "en": "SkillDock cannot confirm this agent environment, so changes are disabled. Refresh after fixing the cause shown.",
+    "ja": "このエージェント環境を確認できないため、変更は無効になっています。表示された原因を解消してから更新してください。"
+  },
+  "AGENT_NOT_INSTALLED": {
+    "en": "This agent was not found on this Mac.",
+    "ja": "このエージェントはこの Mac に見つかりません。"
+  },
+  "UNSUPPORTED_FOR_AGENT": {
+    "en": "This action is not available for this agent in this version of SkillDock.",
+    "ja": "このバージョンの SkillDock では、このエージェントに対してこの操作は使用できません。"
+  },
+  "NODE_UNAVAILABLE": {
+    "en": "The specified or detected Node.js cannot run SkillDock. Install Node.js 22.12 or later, or choose another path.",
+    "ja": "指定または検出された Node.js では SkillDock を実行できません。Node.js 22.12 以降をインストールするか、別のパスを指定してください。"
+  },
+  "SNAPSHOT_STALE": {
+    "en": "The host changed since this page was loaded. Refresh and try again.",
+    "ja": "このページを読み込んだ後に変更がありました。更新してから再試行してください。"
+  },
+  "CONFIRMATION_REQUIRED": {
+    "en": "This change needs your confirmation first.",
+    "ja": "この変更には先に確認が必要です。"
+  },
+  "HOST_MANAGED": {
+    "en": "The host or your organization manages this; it cannot be changed here.",
+    "ja": "これはホストまたは組織が管理しているため、ここでは変更できません。"
+  },
+  "PROJECT_PATH_MISSING": {
+    "en": "The project directory of this installation does not exist, so it is read-only.",
+    "ja": "このインストールのプロジェクトディレクトリが存在しないため、読み取り専用です。"
+  },
+  "SCOPE_INEFFECTIVE": {
+    "en": "A higher-precedence settings layer decides this; writing the chosen layer would not take effect.",
+    "ja": "より優先度の高い設定レイヤーで決まっているため、選んだレイヤーに書き込んでも反映されません。"
+  },
+  "SKILLDOCK_UPDATE_FAILED": {
+    "en": "SkillDock could not be updated in that Agent. Update it there by hand; the original details say how.",
+    "ja": "その Agent の SkillDock を更新できませんでした。その Agent で手動で更新してください。手順は元の詳細を確認してください。"
+  },
+  "READBACK_CONTENT_CHANGED": {
+    "en": "What was installed differs from the preview. Check again before applying.",
+    "ja": "インストールされた内容がプレビューと異なります。もう一度確認してから適用してください。"
+  },
+  "SOURCE_CONFLICT": {
+    "en": "The two sides name different sources for this skill. Link the same source on both sides first.",
+    "ja": "このスキルは両側で異なる取得元が関連付けられています。先に両側で同じ取得元を関連付けてください。"
   }
 }

@@ -6,6 +6,7 @@ import packageInfo from "../package.json";
 import brandIcon from "./native-icon.svg";
 import brandWordmark from "./brand-wordmark.svg";
 import { apiFetch, nativeMode, openDownload } from "./transport";
+import { GateUpdate, gateAgents } from "./GateUpdate";
 import {
   ArrowDownToLine,
   ArrowLeft,
@@ -46,6 +47,7 @@ import {
   RefreshCw,
   RotateCcw,
   Search,
+  ServerCog,
   Settings2,
   ShieldCheck,
   SlidersHorizontal,
@@ -64,6 +66,7 @@ import type {
   Skill,
   Snapshot,
   UpdatePreview,
+  NativeRule,
 } from "../shared/contracts";
 
 import {
@@ -74,6 +77,7 @@ import {
 } from "./preferences";
 import { t, locale, ServiceMessage, requestError } from "./i18n";
 import { Modal } from "./Modal";
+import { ConfirmDialog, type ConfirmContent } from "./ConfirmDialog";
 import { IconProvider, ProviderIcon } from "./ProviderIcon";
 import { Inspector, CommandMenu, type DesktopCommand } from "./DesktopUI";
 import { loadWorkspace, saveWorkspace, type Inspection, type WorkspaceState } from "./workspace-state";
@@ -87,8 +91,12 @@ import { TagStrip, TagFilter, TagsDialog, matchesTags, type TagSubject } from ".
 import { ProjectPicker, ProjectDialog } from "./ProjectControls";
 import { InstallDialog } from "./InstallDialog";
 import { LibraryFilters, ViewSwitch, CollectionFooter } from "./LibraryUI";
+import { NativeConfirmDialog, NativeRuleList, type NativeConfirmation } from "./NativeConfirm";
+import { AgentFilter, AgentBadges, AgentSplit, ClaudePluginFacts, ClaudeSkillFacts, MarketAutoUpdate, matchesAgent, showsAgents, objectAgents, type AgentFilterValue } from "./AgentUI";
+import { AgentEnvironments } from "./AgentEnvironments";
+import { creationAgent, requestAgent, requestRevision, showsCodexCliNotice, stateUrl } from "./agent-requests";
 
-type Page = "skills" | "plugins" | "markets" | "updates" | "activity";
+type Page = "skills" | "plugins" | "markets" | "updates" | "activity" | "agents";
 type Metric = "all" | "enabled" | "standalone" | "attention";
 type Dialog =
   | { type: "tags"; subject: TagSubject }
@@ -98,17 +106,9 @@ type Dialog =
   | { type: "market"; fromInstall?: boolean }
   | { type: "preferences" }
   | { type: "project" }
-  | { type: "update"; preview: UpdatePreview }
-  | {
-      type: "confirm";
-      title: string;
-      description: string;
-      target: string;
-      request: Omit<ActionRequest, "mode">;
-      danger?: boolean;
-      label: string;
-      affected?: string[];
-    };
+  | { type: "update"; preview: UpdatePreview; rules?: NativeRule[] }
+  | { type: "native-confirm"; confirmation: NativeConfirmation }
+  | ({ type: "confirm" } & ConfirmContent);
 type Toast = { kind: "success" | "error"; message: string };
 const scopeLabels: Record<Scope, string> = {
   user: "个人技能",
@@ -123,7 +123,7 @@ const nav = [
     label: "技能库",
     icon: Layers3,
     english: "YOUR CAPABILITIES",
-    description: "在一个地方，整理你的 Codex 能力。",
+    description: "在一个地方，整理你在 Codex 与 Claude 中的能力。",
   },
   {
     id: "plugins",
@@ -153,11 +153,20 @@ const nav = [
     english: "ACTIVITY",
     description: "每一次变化都有记录，需要时也能回到之前。",
   },
+  {
+    id: "agents",
+    label: "Agent 环境",
+    icon: ServerCog,
+    english: "AGENT ENVIRONMENTS",
+    description: "查看本机的 Agent 环境与 SkillDock 对它们的管理。",
+  },
 ] as const;
 const actionNames: Record<string, string> = {
   "skill.removeSelected": "移除选中的同名技能",
   "schedule.configure": "修改更新计划",
   "schedule.reconcile": "恢复更新计划绑定",
+  "agent.updateSkilldock": "一键更新 SkillDock",
+  "agent.setManagement": "调整 Agent 管理",
   "skill.connectSource": "关联更新来源",
   "plugin.update": "更新插件",
   "plugin.checkUpdate": "检查插件更新",
@@ -216,11 +225,11 @@ async function api<T>(path: string, options?: RequestInit): Promise<T> {
     throw new Error(t("服务返回了无法读取的响应，请检查服务是否仍在运行。"));
   }
   if (!response.ok) {
-    const payload = data as { error?: { message?: string; code?: string } };
-    throw requestError(
+    const payload = data as { error?: { message?: string; code?: string; nativeRules?: NativeRule[] } };
+    throw Object.assign(requestError(
       payload.error?.code || "HTTP_ERROR",
       payload.error?.message || `HTTP ${response.status}`,
-    );
+    ), { code: payload.error?.code, nativeRules: payload.error?.nativeRules });
   }
   return data as T;
 }
@@ -349,6 +358,9 @@ export default function App() {
   const scrollTimer = useRef<ReturnType<typeof setTimeout> | undefined>(undefined);
   const { connection, paused } = useRuntimeConnection(mode !== null);
   const [snapshot, setSnapshot] = useState<Snapshot | null>(null);
+  // 36c §5: the multi-agent view is asked for only from a service with API version 2.
+  const multiAgentRef = useRef(false);
+  const [agentFilter, setAgentFilter] = useState<AgentFilterValue>("all");
   const [loading, setLoading] = useState(true);
   const [loadError, setLoadError] = useState("");
   const [queries, setQueries] = useState(saved.queries);
@@ -447,7 +459,10 @@ export default function App() {
       modeRef.current = targetMode;
       setMode(targetMode);
       tokenRef.current = session.token;
-      const result = await api<Snapshot>(`/api/state?mode=${targetMode}`);
+      const health = await api<{ apiVersion?: number }>("/api/health").catch(() => null);
+      multiAgentRef.current = (health?.apiVersion ?? 1) >= 2;
+      if (health && !multiAgentRef.current) setToast({ kind: "error", message: t("SkillDock 服务版本较旧，请更新。") });
+      const result = await api<Snapshot>(stateUrl(targetMode, health?.apiVersion));
       if (seq === requestSeq.current && modeRef.current === targetMode) {
         setSnapshot(result);
         setInspection(current => current && (current.kind === "skill" ? result.skills : result.plugins).some(item => item.id === current.id) ? current : null);
@@ -502,6 +517,7 @@ export default function App() {
     if (paused) throw new Error(t("SkillDock 正在重新连接，请稍后再操作。"));
     const capturedMode = modeRef.current;
     if (!capturedMode) throw new Error("工作空间尚未就绪，请重新读取清单。");
+    let sentRevision: string | undefined;
     const key = `${request.action}:${request.id || ""}`;
     busyRef.current = key;
     setBusy(key);
@@ -513,13 +529,14 @@ export default function App() {
       )
         throw new Error("工作空间已变化，请重新读取清单后重试。");
       tokenRef.current = session.token;
+      sentRevision = multiAgentRef.current ? requestRevision(request, snapshot) : undefined;
       const result = await api<ActionResult>("/api/actions", {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
           "X-SkillDock-Token": tokenRef.current,
         },
-        body: JSON.stringify({ ...request, mode: capturedMode }),
+        body: JSON.stringify({ ...request, ...(multiAgentRef.current ? { agent: requestAgent(request, snapshot), expectedRevision: sentRevision } : {}), mode: capturedMode }),
       });
       if (modeRef.current !== capturedMode) return undefined;
       if (result.update && request.id)
@@ -553,12 +570,19 @@ export default function App() {
           kind: (result.run && result.run.status !== "success") || (result.remoteInstall && !result.remoteInstall.installed) ? "error" : "success",
           message:
             (result.run ? t(result.run.status === "success" ? "更新检查已完成" : result.run.status === "partial" ? "更新检查部分完成" : "更新检查未完成") : message) +
-            (result.needsReload ? " 新的 Codex 会话或重载后生效。" : ""),
+            (result.needsReload && result.agent !== "claude" ? " 新的 Codex 会话或重载后生效。" : ""),
         });
         await refresh();
       }
       return result;
     } catch (error) {
+      // The service asks the user first: show what the change touches, then send it again.
+      const { code, nativeRules } = error as { code?: string; nativeRules?: NativeRule[] };
+      if (code === "CONFIRMATION_REQUIRED" && Array.isArray(nativeRules) && modeRef.current === capturedMode) {
+        // The confirmed request carries the revision the user saw, so what was confirmed is what runs.
+        setDialog({ type: "native-confirm", confirmation: { request: { ...request, ...(sentRevision !== undefined ? { expectedRevision: sentRevision } : {}) }, message: (error as Error).message, rules: nativeRules } });
+        return undefined;
+      }
       if (modeRef.current === capturedMode) {
         setToast({ kind: "error", message: (error as Error).message });
         void refresh();
@@ -584,6 +608,8 @@ export default function App() {
     run({ action: "skill.toggle", id: skill.id, enabled: !skill.enabled });
   }
   function confirmRemovePlugin(plugin: Plugin) {
+    // Claude names the native rules itself (36c 7.3); its confirmation follows from the service.
+    if (!objectAgents(plugin).includes("codex")) { run({ action: "plugin.remove", id: plugin.id }); return; }
     setDialog({ type: "confirm", title: t("卸载这个插件？"), description: t("该插件及其 {v0} 个已发现技能将通过包管理入口卸载。此操作不能通过技能恢复记录撤销，需要从市场重新安装。", { v0: plugin.skillCount }), target: plugin.id, request: { action: "plugin.remove", id: plugin.id }, danger: true, label: t("确认卸载"), affected: snapshot?.skills.filter(skill => skill.pluginId === plugin.id).map(skill => `${skill.name} — ${skill.path}`) });
   }
   function confirmRemoveSkill(skill: Skill) {
@@ -607,7 +633,8 @@ export default function App() {
         action: "skill.checkUpdate",
         id: skill.id,
       });
-      if (result?.update) setDialog({ type: "update", preview: result.update });
+      // What the change does to both sides (36c §6) is shown with the preview (4c review P2-01).
+      if (result?.update) setDialog({ type: "update", preview: result.update, rules: result.nativeRules });
     } catch {
       /* shown in live notification */
     }
@@ -624,6 +651,8 @@ export default function App() {
       );
   }
   const data = snapshot?.mode === mode ? snapshot : null;
+  const showAgentDimension = showsAgents(data?.agents);
+  const effectiveAgent: AgentFilterValue = showAgentDimension ? agentFilter : "all";
   const skills = data?.skills || [];
   const counts = {
     all: skills.length,
@@ -642,6 +671,7 @@ export default function App() {
           `${skill.name} ${skill.description} ${t(skill.sourceLabel)} ${skill.path}`.toLowerCase();
         return (
           words.includes(query.toLowerCase()) &&
+          matchesAgent(skill, effectiveAgent) &&
           matchesTags(skill.tags, skillTags) &&
           (scope === "all" || skill.scope === scope) &&
           (!duplicatesOnly || !!skill.duplicateNames?.length) &&
@@ -654,22 +684,37 @@ export default function App() {
             (skill.duplicateNames?.length || 0) > 0)
         );
       }),
-    [skills, query, scope, metric, skillTags, duplicatesOnly, language],
+    [skills, query, scope, metric, skillTags, duplicatesOnly, language, effectiveAgent],
   );
-  const filteredPlugins = (data?.plugins || []).filter(
+  const inPluginCategory = (plugin: Plugin) =>
+    pluginFilter === "all" ||
+    (pluginFilter === "installed"
+      ? plugin.installed
+      : pluginFilter === "enabled" ? plugin.installed && plugin.enabled === true : !plugin.installed);
+  // Counts follow the Agent filter, so each side's numbers are never summed together.
+  const agentPlugins = (data?.plugins || []).filter(plugin => matchesAgent(plugin, effectiveAgent));
+  const filteredPlugins = agentPlugins.filter(
     (plugin) =>
-      (pluginFilter === "all" ||
-        (pluginFilter === "installed"
-          ? plugin.installed
-          : pluginFilter === "enabled" ? plugin.installed && plugin.enabled === true : !plugin.installed)) &&
+      inPluginCategory(plugin) &&
       (marketFilter === "all" || plugin.marketplace === marketFilter) &&
       matchesTags(plugin.tags, pluginTags) &&
       matchesPlugin(plugin, query),
   );
+  const visibleMarkets = (data?.marketplaces || []).filter(market => matchesAgent(market, effectiveAgent));
+  const visibleActivity = (data?.activity || []).filter(item => effectiveAgent === "all" || (item.agent ?? "codex") === effectiveAgent);
+  const agentCounts = (list: { agents?: ("codex" | "claude")[] }[]): Record<AgentFilterValue, number> =>
+    ({ all: list.length, codex: list.filter(item => objectAgents(item).includes("codex")).length, claude: list.filter(item => objectAgents(item).includes("claude")).length });
+  const pageAgentCounts = page === "skills" ? agentCounts(skills) : page === "plugins" ? agentCounts((data?.plugins || []).filter(inPluginCategory))
+    : page === "markets" ? agentCounts(data?.marketplaces || []) : agentCounts((data?.activity || []).map(item => ({ agents: [item.agent ?? "codex"] })));
   const pluginMatchesOutsideFilter = query.trim() && !filteredPlugins.length ? (data?.plugins || []).filter(plugin => matchesPlugin(plugin, query)).length : 0;
   const availableUpdates = data?.updates
     ? data.updates.filter((item) => item.status === "available").length
     : Object.values(updates).filter((update) => update.available).length;
+  // The title counts what the Agent filter shows; with both Agents shown, each side's share too.
+  const titleObjects: { agents?: ("codex" | "claude")[] }[] | null = page === "skills" ? skills : page === "plugins" ? (data?.plugins || []).filter(plugin => plugin.installed) : page === "markets" ? data?.marketplaces || [] : null;
+  const titleCount = !data ? "" : titleObjects ? titleObjects.filter(item => matchesAgent(item, effectiveAgent)).length
+    : page === "activity" ? visibleActivity.length : page === "agents" ? data.agents?.length ?? "" : availableUpdates || "";
+  const titleSplit = titleObjects && showAgentDimension && effectiveAgent === "all" ? agentCounts(titleObjects) : null;
   const displaySkill = inspection?.kind === "skill" ? skills.find(skill => skill.id === inspection.id) : null;
   const displayPlugin = inspection?.kind === "plugin" ? data?.plugins.find(plugin => plugin.id === inspection.id) : null;
   function showOwningPlugin(id?: string) {
@@ -680,9 +725,9 @@ export default function App() {
     const { kind, item } = menu.subject;
     const common: DesktopCommand[] = [
       { label: t("查看详情"), icon: <Info size={15} />, run: () => setInspection({ kind, id: item.id }) },
-      { label: t("编辑标签"), icon: <Tag size={15} />, disabled: !!busy, run: () => editTags(kind, item) },
+      { label: t("编辑标签"), icon: <Tag size={15} />, disabled: !!busy || !objectAgents(item).includes("codex"), run: () => editTags(kind, item) },
       { label: t(item.enabled ? "禁用" : "启用"), icon: <CircleCheck size={15} />, disabled: !item.canToggle || !!busy || paused, run: () => run({ action: kind === "skill" ? "skill.toggle" : "plugin.toggle", id: item.id, enabled: !item.enabled }) },
-      { label: t("管理更新"), icon: <RefreshCw size={15} />, run: () => { navigate("updates"); setUpdateFocus(item.id); } },
+      { label: t("管理更新"), icon: <RefreshCw size={15} />, disabled: kind === "plugin" && !(item as Plugin).installed, run: () => { navigate("updates"); setUpdateFocus(item.id); } },
     ];
     if (kind === "skill") {
       const skill = item as Skill;
@@ -712,7 +757,7 @@ export default function App() {
         </a>
         <div className="nav-caption">{t("资料库")}</div>
         <nav aria-label={t("主导航")}>
-          {nav.map((item) => (
+          {nav.filter(item => item.id !== "agents" || !!data?.agents).map((item) => (
             <button
               key={item.id}
               className={classNames("nav-item", page === item.id && "active")}
@@ -745,8 +790,9 @@ export default function App() {
       <div className="workspace">
         <header className="topbar">
           <button className="icon-button sidebar-toggle" aria-label={t(sidebarCollapsed ? "展开侧边栏" : "收起侧边栏")} title={t(sidebarCollapsed ? "展开侧边栏" : "收起侧边栏")} aria-expanded={!sidebarCollapsed} onClick={() => setSidebarCollapsed(value => !value)}><PanelLeft size={19} /></button>
-          <div className="workspace-title"><h1>{t(currentNav.label)}{data && <span className="title-count">{page === "skills" ? data.skills.length : page === "plugins" ? data.plugins.filter(plugin => plugin.installed).length : page === "markets" ? data.marketplaces.length : page === "activity" ? data.activity.length : availableUpdates || ""}</span>}</h1><p>{t({ skills: "浏览、整理与管理你的技能", plugins: "扩展工作流，管理插件与附带技能", markets: "管理插件的发现与安装来源", updates: "检查变化，让你的工具保持最新", activity: "查看操作结果，恢复之前的内容" }[page])}</p></div>
+          <div className="workspace-title"><h1>{t(currentNav.label)}{data && <span className="title-count">{titleCount}</span>}{titleSplit && <AgentSplit counts={titleSplit} />}</h1><p>{t({ skills: "浏览、整理与管理你的技能", plugins: "扩展工作流，管理插件与附带技能", markets: "管理插件的发现与安装来源", updates: "检查变化，让你的工具保持最新", activity: "查看操作结果，恢复之前的内容", agents: "查看本机的 Agent 环境与 SkillDock 对它们的管理" }[page])}</p></div>
           <div className="heading-actions">
+            {showAgentDimension && ["skills", "plugins", "markets", "activity"].includes(page) && <AgentFilter value={agentFilter} onChange={setAgentFilter} counts={pageAgentCounts} />}
             <Button variant="ghost" busy={loading} onClick={() => void refresh()} disabled={!!busy} aria-label={t("刷新清单")} title={t("刷新清单")}>{!loading && <RefreshCw size={17} />}</Button>
             {page === "skills" && <Button variant="primary" onClick={() => setDialog({ type: "install" })} disabled={!data || !!busy}><Plus size={16} />{t("安装技能")}</Button>}
             {page === "plugins" && <Button variant="primary" onClick={() => setDialog({ type: "plugin-install" })} disabled={!data || !!busy}><Plus size={16} />{t("安装插件")}</Button>}
@@ -766,7 +812,7 @@ export default function App() {
           {data?.projectContext?.warnings.map(warning => <div key={warning} className="project-notice" role="status"><CircleAlert size={15} /><span>{t(warning)}</span></div>)}
           {showPaths && data && (
             <div className="paths-panel">
-              {data.projectContext && <div><span>{t("目录来源")}</span><code>{t({ argument: "启动参数", environment: "环境变量", saved: "界面保存的选择", "working-directory": "启动工作目录" }[data.projectContext.source])}</code></div>}
+              {data.projectContext && <div><span>{t("目录来源")}</span><code>{t({ argument: "启动参数", environment: "环境变量", saved: "界面保存的选择", "working-directory": "启动工作目录", record: "上次运行的项目", home: "主目录" }[data.projectContext.source])}</code></div>}
               {data.projectContext && <div><span>{t("请求目录")}</span><code>{data.projectContext.requested}</code></div>}
               {data.cli.path && <div><span>Codex CLI</span><code>{data.cli.path}</code></div>}
               {Object.entries(data.paths).filter((entry): entry is [string, string] => typeof entry[1] === "string").map(([key, value]) => (
@@ -807,6 +853,7 @@ export default function App() {
               <div>
                 <strong>{t("无法刷新清单")}</strong>
                 <ServiceMessage value={loadError} error />
+                {nativeMode && gateAgents(loadError).length > 0 && <GateUpdate agents={gateAgents(loadError)} onDone={() => void refresh()} />}
               </div>
               <Button onClick={() => void refresh()} busy={loading}>
                 {t("重试")}
@@ -982,7 +1029,8 @@ export default function App() {
                                   )}
                               </p>
                             </button>
-                            <TagStrip subject={{ ...skill, kind: "skill" }} disabled={!!busy} onEdit={() => editTags("skill", skill)} />
+                            <TagStrip subject={{ ...skill, kind: "skill" }} disabled={!!busy || !objectAgents(skill).includes("codex")} onEdit={() => editTags("skill", skill)} />
+                            {(showAgentDimension || skill.visibility || skill.perAgent) && <div className="agent-line">{showAgentDimension && <AgentBadges agents={skill.agents} />}<ClaudeSkillFacts skill={skill} /></div>}
                             {!!skill.duplicateNames?.length && <code className="skill-instance-path">{skill.path}</code>}
                             <SkillReason
                               skill={skill}
@@ -1067,7 +1115,7 @@ export default function App() {
               {page === "plugins" && (
                 <>
                   {data.directoryError && <div className="notice" role="status"><CircleAlert size={18} /><p><ServiceMessage value={data.directoryError} /></p></div>}
-                  {!data.cli.available && (
+                  {showsCodexCliNotice(data) && (
                     <div className="notice">
                       <Terminal size={18} />
                       <div>
@@ -1082,12 +1130,14 @@ export default function App() {
                     </div>
                   )}
                   <LibraryFilters selected={pluginFilter} onChange={setPluginFilter} items={[
-                    { id: "all", label: "全部插件", count: data.plugins.length, icon: <Blocks size={16} /> },
-                    { id: "enabled", label: "已启用", count: data.plugins.filter(item => item.installed && item.enabled === true).length, icon: <CircleCheck size={16} /> },
-                    { id: "installed", label: "已安装", count: data.plugins.filter(item => item.installed).length, icon: <Package size={16} /> },
-                    { id: "available", label: "未安装", count: data.plugins.filter(item => !item.installed).length, icon: <Download size={16} /> },
+                    { id: "all", label: "全部插件", count: agentPlugins.length, icon: <Blocks size={16} /> },
+                    { id: "enabled", label: "已启用", count: agentPlugins.filter(item => item.installed && item.enabled === true).length, icon: <CircleCheck size={16} /> },
+                    { id: "installed", label: "已安装", count: agentPlugins.filter(item => item.installed).length, icon: <Package size={16} /> },
+                    { id: "available", label: "未安装", count: agentPlugins.filter(item => !item.installed).length, icon: <Download size={16} /> },
                   ]} />
-                  {pluginFilter === "available" && <p className="category-explanation">{t("未安装：已连接 Marketplace 中可发现的插件；也可直接从 Git 或本地目录安装单个插件。")}</p>}
+                  {pluginFilter === "available" && <p className="category-explanation">{t(effectiveAgent === "claude"
+                    ? "未安装：Claude 已添加的 Marketplace 中尚未安装的插件，取自 Claude 在本机保存的副本；这一版只能查看。"
+                    : "未安装：已连接 Marketplace 中可发现的插件；也可直接从 Git 或本地目录安装单个插件。")}</p>}
                   <div className="toolbar">
                     <SearchField
                       query={query}
@@ -1133,6 +1183,7 @@ export default function App() {
                           <PluginCard
                             key={plugin.id}
                             plugin={plugin}
+                            showAgents={showAgentDimension}
                             onEditTags={() => editTags("plugin", plugin)}
                             busy={busy}
                             onToggle={() =>
@@ -1183,10 +1234,11 @@ export default function App() {
                   </div>
                   {data.marketplaces.length ? (
                     <div className="market-list">
-                      {data.marketplaces.map((market) => (
+                      {visibleMarkets.map((market) => (
                         <MarketCard
                           key={market.id}
                           market={market}
+                          showAgents={showAgentDimension}
                           busy={busy}
                           onRefresh={() =>
                             run({
@@ -1198,10 +1250,11 @@ export default function App() {
                             navigate("plugins");
                             setPluginFilter("all");
                             setMarketFilter(market.name);
+                            if (showAgentDimension) setAgentFilter(objectAgents(market)[0]);
                             setQueries(previous => ({ ...previous, plugins: "" }));
                             setPluginTags([]);
                           }}
-                          onRemove={() =>
+                          onRemove={() => !objectAgents(market).includes("codex") ? run({ action: "marketplace.remove", id: market.id }) :
                             setDialog({
                               type: "confirm",
                               title: t("移除这个市场来源？"),
@@ -1250,7 +1303,13 @@ export default function App() {
                   execute={action}
                   onDetails={(skill) => inspectSkill(skill)}
                   onRefresh={() => void refresh()}
+                  onConfirm={(content) => setDialog({ type: "confirm", ...content })}
                 />
+              )}
+              {page === "agents" && (
+                <AgentEnvironments environments={data.agents ?? []} skills={data.skills} plugins={data.plugins} marketplaces={data.marketplaces} busy={!!busy || paused}
+                  onRun={request => run(request)}
+                  onConfirm={spec => setDialog({ type: "confirm", ...spec })} />
               )}
               {page === "activity" && (
                 <>
@@ -1262,7 +1321,7 @@ export default function App() {
                   </div>
                   {data.activity.length ? (
                     <div className="activity-list">
-                      {data.activity.map((item) => (
+                      {visibleActivity.map((item) => (
                         <article className="activity-item" key={item.id}>
                           <span
                             className={classNames(
@@ -1365,7 +1424,8 @@ export default function App() {
       {dialog?.type === "tags" && data && <TagsDialog key={`${mode}:${dialog.subject.kind}:${dialog.subject.id}`} subject={dialog.subject}
         suggestions={[...data.skills, ...data.plugins].flatMap(item => item.tags || [])} busy={!!busy} execute={action} onClose={() => setDialog(null)} />}
       {dialog?.type === "project" && data && <ProjectDialog project={data.paths.project} catalog={data.projects} busy={busy} action={action} onClose={() => setDialog(null)} />}
-      {dialog?.type === "plugin-install" && data && <InstallDialog kind="plugin" data={data} initialPlugin={dialog.plugin} initialMarket={dialog.market} busy={busy} action={action} onClose={() => setDialog(null)} onMarket={() => setDialog({ type: "market", fromInstall: true })} />}
+      {dialog?.type === "plugin-install" && data && <InstallDialog kind="plugin" data={data} initialPlugin={dialog.plugin} initialMarket={dialog.market} busy={busy} action={action}
+        agents={(data.agents ?? []).filter(item => item.installed && item.management === "enabled").map(item => item.agent)} onClose={() => setDialog(null)} onMarket={() => setDialog({ type: "market", fromInstall: true })} />}
       {displayPlugin && data && <PluginDetail plugin={displayPlugin} skills={data.skills.filter(skill => skill.pluginId === displayPlugin.id)} busy={busy}
         onClose={() => setInspection(null)} onSkill={inspectSkill} onRemove={() => confirmRemovePlugin(displayPlugin)}
         onInstall={() => setDialog({ type: "plugin-install", plugin: displayPlugin })} onToggle={() => run({ action: "plugin.toggle", id: displayPlugin.id, enabled: !displayPlugin.enabled })}
@@ -1395,6 +1455,7 @@ export default function App() {
       )}
       {dialog?.type === "install" && data && (
         <InstallDialog kind="skill" data={data} onMarket={() => setDialog({ type: "market" })}
+          agents={(data.agents ?? []).filter(item => item.installed && item.management === "enabled").map(item => item.agent)}
           busy={busy}
           action={action}
           onClose={() =>
@@ -1406,10 +1467,14 @@ export default function App() {
         <MarketDialog
           busy={busy}
           action={action}
+          agents={(data?.agents ?? []).filter(item => item.installed && item.management === "enabled").map(item => item.agent)}
           onClose={() =>
             setDialog((current) => (current === dialog ? dialog.fromInstall ? { type: "plugin-install", market: true } : null : current))
           }
         />
+      )}
+      {dialog?.type === "native-confirm" && (
+        <NativeConfirmDialog confirmation={dialog.confirmation} busy={busy} action={action} onClose={() => setDialog(current => (current === dialog ? null : current))} />
       )}
       {dialog?.type === "confirm" && (
         <ConfirmDialog
@@ -1424,6 +1489,7 @@ export default function App() {
       {dialog?.type === "update" && (
         <UpdateDialog
           preview={dialog.preview}
+          rules={dialog.rules}
           busy={busy}
           action={action}
           onClose={() =>
@@ -1496,8 +1562,8 @@ function SearchField({
     </label>
   );
 }
-function PluginCard({ plugin, busy, onToggle, onInstall, onDetails, onEditTags, selected, onMenu }: {
-  selected: boolean; onMenu: (event: React.MouseEvent) => void;
+function PluginCard({ plugin, busy, onToggle, onInstall, onDetails, onEditTags, selected, onMenu, showAgents }: {
+  selected: boolean; onMenu: (event: React.MouseEvent) => void; showAgents: boolean;
   plugin: Plugin; busy: string | null; onToggle: () => void; onInstall: () => void; onDetails: () => void; onEditTags: () => void;
 }) {
   return <article onContextMenu={onMenu} className={classNames("skill-card", selected && "is-selected", plugin.installed && plugin.enabled === false && "skill-disabled")}>
@@ -1505,7 +1571,8 @@ function PluginCard({ plugin, busy, onToggle, onInstall, onDetails, onEditTags, 
       <div className="skill-card-heading"><ProviderIcon icon={plugin.icon} className="skill-icon tone-2"><Blocks size={21} strokeWidth={1.6} /></ProviderIcon><div><h3>{pluginTitle(plugin)}</h3><span className="skill-kind">{plugin.version || t("版本未提供")} · {t(plugin.installed ? "已安装" : "未安装")}</span></div><ChevronRight className="card-chevron" size={17} /></div>
       <p className="skill-description">{plugin.description || t("这个插件尚未提供描述。请根据来源与附带技能判断是否适合你的工作流。")}</p>
     </button>
-    <TagStrip subject={{ ...plugin, name: pluginTitle(plugin), kind: "plugin" }} disabled={!!busy} onEdit={onEditTags} />
+    <TagStrip subject={{ ...plugin, name: pluginTitle(plugin), kind: "plugin" }} disabled={!!busy || !objectAgents(plugin).includes("codex")} onEdit={onEditTags} />
+    {(showAgents || plugin.installation) && <div className="agent-line">{showAgents && <AgentBadges agents={plugin.agents} />}<ClaudePluginFacts plugin={plugin} /></div>}
     {plugin.enabled === null && plugin.installed && <div className="skill-reason skill-reason-attention"><CircleAlert size={13} /><span>{t("安装或启用状态尚未核实。")}</span></div>}
     <div className="skill-card-footer"><span className="source-tag" title={plugin.marketplace}><Globe2 size={12} />{plugin.directSource ? t("单插件来源") : plugin.marketplace}</span><div className="card-status">
       {plugin.installed ? <Toggle checked={plugin.enabled} disabled={!plugin.canToggle || !!busy} busy={busy === `plugin.toggle:${plugin.id}`} label={`${plugin.enabled ? t("禁用") : t("启用")} ${pluginTitle(plugin)}`} reason={plugin.reason ? t(plugin.reason) : undefined} onChange={onToggle} /> : <Button variant="ghost" disabled={!plugin.canInstall || !!busy} onClick={onInstall}><Plus size={14} />{t("安装插件")}</Button>}
@@ -1521,7 +1588,8 @@ function PluginDetail({ plugin, skills, busy, onClose, onToggle, onRemove, onIns
       {plugin.installed && <div className="inline-toggle"><Toggle checked={plugin.enabled} disabled={!plugin.canToggle || !!busy} label={`${plugin.enabled ? t("禁用") : t("启用")} ${pluginTitle(plugin)}`} onChange={onToggle} /><span>{t(plugin.enabled === null ? "状态待确认" : plugin.enabled ? "已启用" : "已禁用")}</span></div>}
       {plugin.reason && <div className="dialog-note"><ServiceMessage value={plugin.reason} /></div>}
       {plugin.directory?.installUrl && plugin.installed && <div className="dialog-note"><ExternalLink href={plugin.directory.installUrl} target="_blank" rel="noopener noreferrer">{t('查看官方详情与授权')}</ExternalLink><span>{t(plugin.directory.connected ? '应用连接可用' : '请完成或核实账号授权')}</span></div>}
-      {plugin.installed && <div className="install-components"><strong>{t("附带技能（{v0}）", { v0: skills.length })}</strong><div className="plugin-skill-list">{skills.map(skill => <button className="text-button" key={skill.id} onClick={() => onSkill(skill)}><ProviderIcon icon={skill.icon}><Sparkles size={15} /></ProviderIcon>{skill.name}<ChevronRight size={14} /></button>)}</div></div>}
+      {plugin.installed && plugin.installation && <div className="install-components"><strong>{t("附带技能（{v0}）", { v0: plugin.skillCount })}</strong><p className="field-hint">{t("这一版只读取 Claude 插件，附带技能不单独列出。")}</p></div>}
+      {plugin.installed && !plugin.installation && <div className="install-components"><strong>{t("附带技能（{v0}）", { v0: skills.length })}</strong><div className="plugin-skill-list">{skills.map(skill => <button className="text-button" key={skill.id} onClick={() => onSkill(skill)}><ProviderIcon icon={skill.icon}><Sparkles size={15} /></ProviderIcon>{skill.name}<ChevronRight size={14} /></button>)}</div></div>}
       <p className="field-hint">{t("插件附带的技能与组件一起安装、更新和卸载。")}</p>
     </div><div className="modal-footer">{plugin.installed ? <><Button variant="danger" disabled={!plugin.canRemove || !!busy} onClick={onRemove}><Trash2 size={15} />{t("卸载")}</Button><Button disabled={!!busy} onClick={onUpdates}><RefreshCw size={15} />{t("管理更新")}</Button></> : <><Button onClick={onClose}>{t("关闭")}</Button><Button variant="primary" disabled={!plugin.canInstall || !!busy} onClick={onInstall}>{t("安装插件")}</Button></>}</div>
   </Inspector>;
@@ -1532,7 +1600,9 @@ function MarketCard({
   onRefresh,
   onBrowse,
   onRemove,
+  showAgents,
 }: {
+  showAgents: boolean;
   market: Marketplace;
   busy: string | null;
   onRefresh: () => void;
@@ -1569,6 +1639,8 @@ function MarketCard({
             {t("最近刷新：")}
             {formatDate(market.refreshedAt)}
           </span>
+          <MarketAutoUpdate market={market} />
+          {showAgents && <AgentBadges agents={market.agents} />}
         </div>
         <CompatibilityWarnings warnings={market.warnings} />
         {market.reason && (
@@ -1679,7 +1751,7 @@ function SkillDetail({
             {skill.canUpdate && <Badge tone="green">{t("已记录来源")}</Badge>}
           </div>
         </div>
-        <TagStrip subject={{ ...skill, kind: "skill" }} disabled={!!busy} onEdit={onEditTags} />
+        <TagStrip subject={{ ...skill, kind: "skill" }} disabled={!!busy || !objectAgents(skill).includes("codex")} onEdit={onEditTags} />
         <div className="detail-state">
           <div>
             <strong>{t("启用状态")}</strong>
@@ -1827,12 +1899,16 @@ type ActionHandler = (
 function MarketDialog({
   busy,
   action,
+  agents,
   onClose,
 }: {
   busy: string | null;
   action: ActionHandler;
+  /** Agents whose management is enabled; a choice appears only with more than one. */
+  agents: ("codex" | "claude")[];
   onClose: () => void;
 }) {
+  const [agent, setAgent] = useState<"codex" | "claude">(agents.includes("codex") || !agents.length ? "codex" : agents[0]);
   const [sourceType, setSourceType] = useState<"local" | "git">("local");
   const [source, setSource] = useState("");
   const [ref, setRef] = useState("");
@@ -1843,9 +1919,10 @@ function MarketDialog({
     try {
       const result = await action({
         action: "marketplace.add",
+        ...(creationAgent(agents, agent) ? { agent: creationAgent(agents, agent) } : {}),
         sourceType,
         source: source.trim(),
-        ...(sourceType === "git" && ref.trim() ? { ref: ref.trim() } : {}),
+        ...(sourceType === "git" && agent === "codex" && ref.trim() ? { ref: ref.trim() } : {}),
       });
       if (result) onClose();
     } catch (error) {
@@ -1906,7 +1983,12 @@ function MarketDialog({
               }
             />
           </label>
-          {sourceType === "git" && (
+          {agents.length > 1 && (
+            <div className="scope-choice" role="radiogroup" aria-label={t("添加到")}>
+              {agents.map(item => <label key={item}><input type="radio" name="market-agent" checked={agent === item} onChange={() => setAgent(item)} />{t("添加到 {v0}", { v0: item === "codex" ? "Codex" : "Claude" })}</label>)}
+            </div>
+          )}
+          {sourceType === "git" && agent === "codex" && (
             <label className="field">
               <span>
                 {t("分支或标签")}
@@ -1950,77 +2032,15 @@ function MarketDialog({
     </Modal>
   );
 }
-function ConfirmDialog({
-  dialog,
-  busy,
-  action,
-  onClose,
-}: {
-  dialog: Extract<Dialog, { type: "confirm" }>;
-  busy: string | null;
-  action: ActionHandler;
-  onClose: () => void;
-}) {
-  const [error, setError] = useState("");
-  async function confirm() {
-    setError("");
-    try {
-      if (await action(dialog.request)) onClose();
-    } catch (error) {
-      setError((error as Error).message);
-    }
-  }
-  return (
-    <Modal title={dialog.title} eyebrow="REVIEW YOUR ACTION" onClose={onClose}>
-      <div className="modal-body">
-        <p className="dialog-description">{dialog.description}</p>
-        <div className="confirm-target">
-          <Folder size={17} />
-          <code>{dialog.target}</code>
-        </div>
-        {!!dialog.affected?.length && (
-          <div className="affected-list">
-            <h3>
-              {t("受影响的技能（")}
-              {dialog.affected.length}）
-            </h3>
-            <ul>
-              {dialog.affected.map((item) => (
-                <li key={item}>{item}</li>
-              ))}
-            </ul>
-          </div>
-        )}
-        {error && (
-          <div className="field-error" role="alert">
-            <CircleAlert size={16} />
-            <ServiceMessage value={error} error />
-          </div>
-        )}
-      </div>
-      <div className="modal-footer">
-        <Button onClick={onClose} disabled={!!busy}>
-          {t("取消")}
-        </Button>
-        <Button
-          variant={dialog.danger ? "danger" : "primary"}
-          busy={!!busy}
-          onClick={() => void confirm()}
-        >
-          {dialog.danger ? <Trash2 size={15} /> : <Check size={15} />}
-          {dialog.label}
-        </Button>
-      </div>
-    </Modal>
-  );
-}
 function UpdateDialog({
   preview,
+  rules,
   busy,
   action,
   onClose,
 }: {
   preview: UpdatePreview;
+  rules?: NativeRule[];
   busy: string | null;
   action: ActionHandler;
   onClose: () => void;
@@ -2062,6 +2082,7 @@ function UpdateDialog({
             <ServiceMessage value={preview.message} />
           </div>
         </div>
+        {!!rules?.length && <NativeRuleList rules={rules} />}
         {preview.changes.length > 0 && (
           <div className="change-list">
             {preview.changes.map((change) => (

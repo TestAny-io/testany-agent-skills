@@ -5,6 +5,7 @@ import os from 'node:os';
 import { execFile } from 'node:child_process';
 import { promisify } from 'node:util';
 import { appRoots } from './toolchain.mjs';
+import { childEnvironment } from './process-env.mjs';
 
 const execute = promisify(execFile);
 
@@ -31,7 +32,8 @@ export async function resolveCodexCli({ env = process.env, home = os.homedir(),
       continue;
     }
     try {
-      const options = { timeout, maxBuffer: 128 * 1024, env: { ...env, CODEX_HOME: codexHome }, windowsHide: true };
+      // Found through the caller's PATH; run with the allowed variables only (DEC-SDX-024).
+      const options = { timeout, maxBuffer: 128 * 1024, env: childEnvironment(env, { CODEX_HOME: codexHome }), windowsHide: true };
       const version = (await execute(candidate.path, ['--version'], options)).stdout.trim();
       if (!/^codex(?:-cli)?\b/i.test(version)) throw new Error('未返回可识别的 Codex 版本。');
       const help = (await execute(candidate.path, ['plugin', '--help'], options)).stdout;

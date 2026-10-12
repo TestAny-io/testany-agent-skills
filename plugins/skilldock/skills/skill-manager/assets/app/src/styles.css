@@ -1350,6 +1350,10 @@ main {
   padding: 14px 17px;
   margin-bottom: 23px;
 }
+/* HLD 3.7 (G-01): the gate's one-click update under a native start failure. */
+.gate-update { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 10px; }
+.gate-confirm { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; }
+.gate-confirm p { flex-basis: 100%; }
 .notice svg,
 .error-banner > svg {
   margin-top: 2px;

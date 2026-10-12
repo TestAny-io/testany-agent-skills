@@ -421,5 +421,9 @@
 .uw-previous-issues li { display: grid; gap: 8px; }
 .uw-previous-issues li + li { padding-top: 12px; border-top: 1px solid var(--line); }
 .uw-previous-issues p { margin: 0; }
+/* 36c §6: cross-side skills in the plan that wait for confirmation. */
+.uw-pending-confirmation { margin-top: 16px; padding: 14px 16px; border: 1px solid var(--orange); border-radius: 12px; font-size: 12px; overflow-wrap: anywhere; display: grid; gap: 10px; justify-items: start; }
+.uw-pending-confirmation p { margin: 0; }
+.uw-pending-confirmation ul { margin: 0; padding-left: 18px; }
 .uw-run-context { display: flex; flex-wrap: wrap; gap: 4px 16px; color: var(--muted); font-size: 11px; overflow-wrap: anywhere; min-width: 0; }
 .uw-run-context > code { font-size: inherit; white-space: normal; }

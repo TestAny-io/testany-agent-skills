@@ -31,6 +31,14 @@ test('project catalog reads current and legacy Codex metadata, deduplicates alia
   await fs.writeFile(f.nativeFile, 'invalid'); assert.equal((await f.app.service.projects()).entries[0].path, f.projectDir); assert.ok((await f.app.service.projects()).warning);
 });
 
+test('without Codex on this computer the project catalog says nothing about Codex projects (PRD AC-013)', async t => {
+  const f = await fixture(t);
+  await fs.rm(f.nativeFile);
+  assert.match((await readCodexProjects(f.codexHome)).warning, /尚未发现 Codex 保存的本地项目/, 'Codex 在、项目记录不在：照常提示');
+  await fs.rm(f.codexHome, { recursive: true });
+  assert.deepEqual(await readCodexProjects(f.codexHome), { entries: [] });
+});
+
 test('selecting existing folders records recent projects without changing Codex-owned metadata', async t => {
   const f = await fixture(t), directory = path.join(f.home, '另一个项目 with spaces'); await fs.mkdir(directory);
   const nativeBefore = await fs.readFile(f.nativeFile, 'utf8');

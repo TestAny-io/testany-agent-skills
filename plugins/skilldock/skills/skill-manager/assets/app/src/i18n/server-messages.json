@@ -439,9 +439,13 @@
     "en": "An unverified package update record exists: {v0}. Check the plugin version and enabled state; previous write requests will not be replayed.",
     "ja": "未確認のパッケージ更新記録があります：{v0}。プラグインの版と有効状態を確認してください。以前の書き込み要求は再実行しません。"
   },
-  "CLI 返回了无法安全使用的插件身份或版本，已忽略该记录。": {
-    "en": "The CLI returned an unsafe plugin identity or version. That record was ignored.",
-    "ja": "CLI が安全に使用できないプラグイン ID または版を返したため、その記録を無視しました。"
+  "CLI 返回了无法安全使用的插件记录 {v0}，已忽略。": {
+    "en": "The CLI returned plugin record {v0} with an unsafe identity or version. That record was ignored.",
+    "ja": "CLI が安全に使用できないプラグインレコード {v0} を返したため、そのレコードを無視しました。"
+  },
+  "CLI 返回了一条没有插件身份的记录，已忽略。": {
+    "en": "The CLI returned a plugin record without an identity. That record was ignored.",
+    "ja": "CLI が識別情報のないプラグインレコードを返したため、そのレコードを無視しました。"
   },
   "市场来源不在当前已确认清单中。": {
     "en": "The marketplace source is not in the verified inventory.",
@@ -518,6 +522,10 @@
   "无法确认 SkillDock 安装状态；未删除后台任务，请恢复 Codex CLI 后重试。": {
     "en": "The SkillDock installation status could not be verified. The background task was retained; restore the Codex CLI and retry.",
     "ja": "SkillDock のインストール状態を確認できません。バックグラウンドタスクは保持しています。Codex CLI を復旧して再試行してください。"
+  },
+  "无法确认 SkillDock 安装状态：Codex 返回的插件记录中有无法安全使用的项，可能正是 SkillDock；未删除后台任务。": {
+    "en": "Cannot confirm whether SkillDock is installed: Codex returned a plugin record that cannot be used safely, and it may be SkillDock. The background task was not removed.",
+    "ja": "SkillDock のインストール状態を確認できません。Codex が安全に使用できないプラグインレコードを返しており、それが SkillDock である可能性があります。バックグラウンドタスクは削除していません。"
   },
   "无法确认 SkillDock 的已安装版本。": {
     "en": "The installed SkillDock version could not be verified.",
@@ -646,5 +654,1285 @@
   "未找到 npm，请使用 /bin/sh scripts/launch.sh 自动选择运行环境。": {
     "en": "npm was not found. Use /bin/sh scripts/launch.sh to select a runtime automatically.",
     "ja": "npm が見つかりません。/bin/sh scripts/launch.sh で実行環境を自動選択してください。"
+  },
+  "在 Codex 的插件页更新 SkillDock，或运行 codex plugin add skilldock@{v0}。": {
+    "en": "Update SkillDock on the Codex plugins page, or run codex plugin add skilldock@{v0}.",
+    "ja": "Codex のプラグインページで SkillDock を更新するか、codex plugin add skilldock@{v0} を実行してください。"
+  },
+  "在 Claude 中用 /plugin 更新 SkillDock，或在终端运行 claude plugin update skilldock@{v0}，然后重载插件。": {
+    "en": "Update SkillDock with /plugin in Claude, or run claude plugin update skilldock@{v0} in a terminal, then reload plugins.",
+    "ja": "Claude で /plugin から SkillDock を更新するか、ターミナルで claude plugin update skilldock@{v0} を実行してから、プラグインを再読み込みしてください。"
+  },
+  "比 {v0} 中的 SkillDock {v1} 旧。{v2}": {
+    "en": "Older than SkillDock {v1} in {v0}. {v2}",
+    "ja": "{v0} の SkillDock {v1} より古いバージョンです。{v2}"
+  },
+  "未找到可用的 Claude 命令行（{v0}），无法确认 Claude 中的插件状态。": {
+    "en": "No working Claude command line was found ({v0}), so the plugin state in Claude cannot be confirmed.",
+    "ja": "使用できる Claude のコマンドラインが見つからないため（{v0}）、Claude のプラグイン状態を確認できません。"
+  },
+  "本机未找到 {v0}；之前启用的管理状态保留，恢复后继续生效。": {
+    "en": "{v0} was not found on this Mac. Its earlier management setting is kept and applies again when it returns.",
+    "ja": "この Mac に {v0} が見つかりません。以前の管理設定は保持され、戻ると再び有効になります。"
+  },
+  "从 Claude 桌面应用打开的会话不会自动更新插件（桌面应用为会话关闭了自动更新）；可在 SkillDock 或终端中手动更新。": {
+    "en": "Sessions opened from the Claude desktop app do not auto-update plugins (the app turns auto-update off for them). Update them manually in SkillDock or a terminal.",
+    "ja": "Claude デスクトップアプリから開いたセッションはプラグインを自動更新しません（アプリがセッションの自動更新を無効にしています）。SkillDock またはターミナルで手動更新してください。"
+  },
+  "最近一次从 Claude 打开 SkillDock 时，Claude 使用的配置目录是 {v0}，与这里保存的 {v1} 不同；如需改用，请在下方切换 Claude 根目录。": {
+    "en": "When SkillDock was last opened from Claude, Claude used the configuration directory {v0}, not {v1} saved here. To use it, change the Claude root below.",
+    "ja": "前回 Claude から SkillDock を開いたとき、Claude の設定ディレクトリは {v0} で、ここに保存された {v1} とは異なりました。切り替える場合は、下で Claude のルートを変更してください。"
+  },
+  "{v0} 管理未启用，计划中的这一项暂停；在 SkillDock 的“Agent 环境”页启用后恢复。": {
+    "en": "{v0} management is off, so this plan item is paused. It resumes after you turn it on on the Agent environments page in SkillDock.",
+    "ja": "{v0} の管理が無効なため、このプラン項目は一時停止しています。SkillDock の「エージェント環境」ページで有効にすると再開します。"
+  },
+  "Claude 中的对象暂不能由更新计划处理，这一项暂停。": {
+    "en": "Items in Claude cannot be handled by update plans yet; this item is paused.",
+    "ja": "Claude の項目はまだ更新プランで処理できないため、この項目は一時停止しています。"
+  },
+  "已切换 Claude 根目录为 {v0}。": {
+    "en": "Switched the Claude root to {v0}.",
+    "ja": "Claude のルートを {v0} に切り替えました。"
+  },
+  "已改用 Node {v0}（{v1}）；下次启动 SkillDock 时生效。": {
+    "en": "Now using Node {v0} ({v1}); it takes effect the next time SkillDock starts.",
+    "ja": "Node {v0}（{v1}）に切り替えました。次回 SkillDock の起動時に有効になります。"
+  },
+  "检测到 Node {v0}（{v1}）；下次启动 SkillDock 时使用。": {
+    "en": "Found Node {v0} ({v1}); SkillDock uses it the next time it starts.",
+    "ja": "Node {v0}（{v1}）を検出しました。次回 SkillDock の起動時に使用します。"
+  },
+  "已启用 {v0} 管理。": {
+    "en": "Turned on {v0} management.",
+    "ja": "{v0} の管理を有効にしました。"
+  },
+  "已把 {v0} 设为只读；SkillDock 不再修改其中的技能和插件，计划中的相关项暂停。": {
+    "en": "{v0} is now read-only. SkillDock no longer changes its skills and plugins, and the related plan items pause.",
+    "ja": "{v0} を読み取り専用にしました。SkillDock はそのスキルとプラグインを変更しなくなり、関連するプラン項目は一時停止します。"
+  },
+  "无法读取 Claude 环境：{v0}": {
+    "en": "Cannot read the Claude environment: {v0}",
+    "ja": "Claude 環境を読み取れません：{v0}"
+  },
+  "这一版 SkillDock 只读取 Claude 中的对象，暂不能在这里修改。": {
+    "en": "This version of SkillDock only reads items in Claude and cannot change them here yet.",
+    "ja": "このバージョンの SkillDock は Claude の項目を読み取るだけで、ここではまだ変更できません。"
+  },
+  "由 claude.ai 同步的插件由组织管理，不能在这里修改。": {
+    "en": "Plugins synced from claude.ai are managed by your organization and cannot be changed here.",
+    "ja": "claude.ai から同期されたプラグインは組織が管理しているため、ここでは変更できません。"
+  },
+  "设置文件中是停用，但 Claude 实际启用了它：由设置文件之外的更高层级（例如组织托管设置）决定。": {
+    "en": "The settings files turn it off, but Claude has it on: a higher level outside the settings files (such as organization-managed settings) decides.",
+    "ja": "設定ファイルでは無効ですが、Claude では有効になっています。設定ファイル以外の上位レベル（組織の管理設定など）で決まっています。"
+  },
+  "设置文件中是启用，但 Claude 实际停用了它：由设置文件之外的更高层级（例如组织托管设置）决定。": {
+    "en": "The settings files turn it on, but Claude has it off: a higher level outside the settings files (such as organization-managed settings) decides.",
+    "ja": "設定ファイルでは有効ですが、Claude では無効になっています。設定ファイル以外の上位レベル（組織の管理設定など）で決まっています。"
+  },
+  "项目目录 {v0} 不存在，这条安装只读。": {
+    "en": "The project directory {v0} does not exist, so this installation is read-only.",
+    "ja": "プロジェクトディレクトリ {v0} が存在しないため、このインストールは読み取り専用です。"
+  },
+  "从 Claude 桌面应用打开的会话不会自动更新插件；终端中的会话按这个开关更新。": {
+    "en": "Sessions opened from the Claude desktop app do not auto-update plugins; terminal sessions follow this switch.",
+    "ja": "Claude デスクトップアプリから開いたセッションはプラグインを自動更新しません。ターミナルのセッションはこの設定に従います。"
+  },
+  "技能 {v0} 的可见性设置 {v1} 无法识别。": {
+    "en": "The visibility setting {v1} of skill {v0} is not recognized.",
+    "ja": "スキル {v0} の表示設定 {v1} を認識できません。"
+  },
+  "未找到可用的 Codex CLI。": {
+    "en": "No working Codex CLI was found.",
+    "ja": "使用できる Codex CLI が見つかりません。"
+  },
+  "未找到可用的 Claude 命令行。": {
+    "en": "No working Claude command line was found.",
+    "ja": "使用できる Claude のコマンドラインが見つかりません。"
+  },
+  "未找到可用的 Claude 命令行，无法确认 Claude 中的插件状态。": {
+    "en": "No working Claude command line was found, so the plugin state in Claude cannot be confirmed.",
+    "ja": "使用できる Claude のコマンドラインが見つからないため、Claude のプラグイン状態を確認できません。"
+  },
+  "Codex 环境当前为只读；在 SkillDock 的“Agent 环境”页启用 Codex 管理后才能修改。": {
+    "en": "The Codex environment is read-only. Turn on Codex management on the Agent environments page in SkillDock to make changes.",
+    "ja": "Codex 環境は読み取り専用です。変更するには、SkillDock の「エージェント環境」ページで Codex の管理を有効にしてください。"
+  },
+  "未找到可用的 {v0} 命令行，不能启用管理。": {
+    "en": "No working {v0} command line was found, so management cannot be turned on.",
+    "ja": "使用できる {v0} のコマンドラインが見つからないため、管理を有効にできません。"
+  },
+  "本机未找到 {v0}。": {
+    "en": "{v0} was not found on this Mac.",
+    "ja": "この Mac に {v0} が見つかりません。"
+  },
+  "无法确认 Claude 中的插件状态：{v0}": {
+    "en": "Cannot confirm the plugin state in Claude: {v0}",
+    "ja": "Claude のプラグイン状態を確認できません：{v0}"
+  },
+  "设置文件 {v0} 无法读取（{v1}）。": {
+    "en": "The settings file {v0} cannot be read ({v1}).",
+    "ja": "設定ファイル {v0} を読み取れません（{v1}）。"
+  },
+  "设置文件 {v0} 不是有效的 JSON。": {
+    "en": "The settings file {v0} is not valid JSON.",
+    "ja": "設定ファイル {v0} は有効な JSON ではありません。"
+  },
+  "设置文件 {v0} 的格式未知。": {
+    "en": "The settings file {v0} has an unknown format.",
+    "ja": "設定ファイル {v0} の形式が不明です。"
+  },
+  "设置文件 {v0} 中 {v1} 的格式未知。": {
+    "en": "{v1} in the settings file {v0} has an unknown format.",
+    "ja": "設定ファイル {v0} の {v1} の形式が不明です。"
+  },
+  "托管设置目录 {v0} 无法读取（{v1}）。": {
+    "en": "The managed settings directory {v0} cannot be read ({v1}).",
+    "ja": "管理設定ディレクトリ {v0} を読み取れません（{v1}）。"
+  },
+  "Claude 命令行 {v0} 失败：{v1}": {
+    "en": "The Claude command line {v0} failed: {v1}",
+    "ja": "Claude のコマンドライン {v0} が失敗しました：{v1}"
+  },
+  "Claude 命令行 {v0} 的输出无法解析。": {
+    "en": "The output of the Claude command line {v0} cannot be parsed.",
+    "ja": "Claude のコマンドライン {v0} の出力を解析できません。"
+  },
+  "Claude 命令行 {v0} 的输出形状未知。": {
+    "en": "The output of the Claude command line {v0} has an unknown shape.",
+    "ja": "Claude のコマンドライン {v0} の出力形式が不明です。"
+  },
+  "这一版 SkillDock 只读取 Claude 中的技能和插件，暂不能在这里修改它们。": {
+    "en": "This version of SkillDock only reads skills and plugins in Claude and cannot change them here yet.",
+    "ja": "このバージョンの SkillDock は Claude のスキルとプラグインを読み取るだけで、ここではまだ変更できません。"
+  },
+  "{v0} Codex 为只读：这次检查没有刷新来源，也没有改动 Codex；如有新版本，需要启用 Codex 管理后才能更新。": {
+    "en": "{v0} Codex is read-only: this check did not refresh the source or change Codex. If there is a new version, turn on Codex management to update.",
+    "ja": "{v0} Codex は読み取り専用です。今回の確認ではソースを更新せず、Codex も変更していません。新しいバージョンがある場合は、Codex の管理を有効にしてから更新してください。"
+  },
+  "技能目录 {v0} 无法读取（{v1}）。": {
+    "en": "The skills directory {v0} cannot be read ({v1}).",
+    "ja": "スキルディレクトリ {v0} を読み取れません（{v1}）。"
+  },
+  "{v0} Codex 为只读：这次检查没有改动 Codex；如有新版本，需要启用 Codex 管理后才能更新。": {
+    "en": "{v0} Codex is read-only: this check did not change Codex. If there is a new version, turn on Codex management to update.",
+    "ja": "{v0} Codex は読み取り専用です。今回の確認では Codex を変更していません。新しいバージョンがある場合は、Codex の管理を有効にしてから更新してください。"
+  },
+  "Claude 桌面应用为会话自带的插件（例如内置浏览器、电脑操作）不安装在 Claude 配置目录中，这里不列出。": {
+    "en": "Plugins the Claude desktop app provides with its sessions (such as the built-in browser and computer use) are not installed in the Claude configuration directory and are not listed here.",
+    "ja": "Claude デスクトップアプリがセッションに付属させるプラグイン（内蔵ブラウザやコンピューター操作など）は Claude の設定ディレクトリにインストールされないため、ここには表示されません。"
+  },
+  "这一版 SkillDock 只列出 Claude 中可安装的插件，暂不能在这里安装；可以在 Claude Code 中用 /plugin 安装。": {
+    "en": "This version of SkillDock only lists the plugins you can install in Claude; it cannot install them yet. Install them in Claude Code with /plugin.",
+    "ja": "このバージョンの SkillDock は Claude にインストールできるプラグインを表示するだけで、ここからはまだインストールできません。Claude Code で /plugin を使ってインストールしてください。"
+  },
+  "marketplace {v0} 的本机副本无法读取，插件数与其中未安装的插件暂不显示。": {
+    "en": "The local copy of marketplace {v0} cannot be read, so its plugin count and the plugins not installed from it are not shown.",
+    "ja": "マーケットプレイス {v0} のローカルコピーを読み取れないため、プラグイン数と未インストールのプラグインは表示されません。"
+  },
+  "marketplace {v0} 的名称无法用作插件身份，未列出其中未安装的插件。": {
+    "en": "The name of marketplace {v0} cannot be used in a plugin identity, so the plugins not installed from it are not listed.",
+    "ja": "マーケットプレイス {v0} の名前はプラグインの識別子に使えないため、未インストールのプラグインは表示されません。"
+  },
+  "Claude 中已有改动，请刷新后重试。": {
+    "en": "Claude has changed since this page was loaded. Refresh and try again.",
+    "ja": "このページを読み込んだ後に Claude で変更がありました。更新してから再試行してください。"
+  },
+  "Claude 命令行已返回，但读回的启用状态与预期不同：可能由更高层级的设置决定，请刷新核实。": {
+    "en": "The Claude command line returned, but the enablement read back differs from what was expected: a higher settings level may decide it. Refresh to check.",
+    "ja": "Claude コマンドラインは完了しましたが、読み戻した有効状態が想定と異なります。より上位の設定で決まっている可能性があります。更新して確認してください。"
+  },
+  "Claude 命令行已返回，但读回的插件清单中没有这次安装，请刷新核实。": {
+    "en": "The Claude command line returned, but the plugin list read back does not show this installation. Refresh to check.",
+    "ja": "Claude コマンドラインは完了しましたが、読み戻したプラグイン一覧にこのインストールがありません。更新して確認してください。"
+  },
+  "Claude 命令行已返回，但插件仍在已安装清单中，请刷新核实。": {
+    "en": "The Claude command line returned, but the plugin is still in the installed list. Refresh to check.",
+    "ja": "Claude コマンドラインは完了しましたが、プラグインはまだインストール済み一覧にあります。更新して確認してください。"
+  },
+  "Claude 中同时出现了多个新的 marketplace，请刷新核实。": {
+    "en": "Several new marketplaces appeared in Claude at once. Refresh to check.",
+    "ja": "Claude に複数の新しいマーケットプレイスが同時に現れました。更新して確認してください。"
+  },
+  "Claude 命令行已返回，但读回的清单中没有新的 marketplace；它可能已经存在，请刷新核实。": {
+    "en": "The Claude command line returned, but no new marketplace was read back; it may already exist. Refresh to check.",
+    "ja": "Claude コマンドラインは完了しましたが、新しいマーケットプレイスを読み戻せませんでした。既に存在する可能性があります。更新して確認してください。"
+  },
+  "Claude 命令行已返回，但读回的清单中没有这个 marketplace，请刷新核实。": {
+    "en": "The Claude command line returned, but this marketplace was not read back. Refresh to check.",
+    "ja": "Claude コマンドラインは完了しましたが、このマーケットプレイスを読み戻せませんでした。更新して確認してください。"
+  },
+  "Claude 命令行已返回，但这个 marketplace 仍在清单中，请刷新核实。": {
+    "en": "The Claude command line returned, but this marketplace is still listed. Refresh to check.",
+    "ja": "Claude コマンドラインは完了しましたが、このマーケットプレイスはまだ一覧にあります。更新して確認してください。"
+  },
+  "已把 {v0} 写入本机的 .git/info/exclude。": {
+    "en": "Added {v0} to this Mac's .git/info/exclude.",
+    "ja": "{v0} をこの Mac の .git/info/exclude に追加しました。"
+  },
+  "{v0} 不在 Git 的忽略规则中，注意不要提交它。": {
+    "en": "{v0} is not ignored by Git; take care not to commit it.",
+    "ja": "{v0} は Git の無視ルールに含まれていません。コミットしないよう注意してください。"
+  },
+  "已为当前用户安装 Claude 插件 {v0}。新会话生效，已打开的会话需要重载插件。": {
+    "en": "Installed Claude plugin {v0} for the current user. New sessions use it; reload plugins in sessions that are already open.",
+    "ja": "Claude プラグイン {v0} を現在のユーザーにインストールしました。新しいセッションで有効になります。開いているセッションではプラグインを再読み込みしてください。"
+  },
+  "已在当前项目中安装 Claude 插件 {v0}，只给你自己使用。新会话生效，已打开的会话需要重载插件。": {
+    "en": "Installed Claude plugin {v0} in the current project, for you only. New sessions use it; reload plugins in sessions that are already open.",
+    "ja": "Claude プラグイン {v0} を現在のプロジェクトに、自分専用としてインストールしました。新しいセッションで有効になります。開いているセッションではプラグインを再読み込みしてください。"
+  },
+  "已在当前项目中为所有协作者安装 Claude 插件 {v0}。新会话生效，已打开的会话需要重载插件。": {
+    "en": "Installed Claude plugin {v0} in the current project for all collaborators. New sessions use it; reload plugins in sessions that are already open.",
+    "ja": "Claude プラグイン {v0} を現在のプロジェクトのすべての共同作業者向けにインストールしました。新しいセッションで有効になります。開いているセッションではプラグインを再読み込みしてください。"
+  },
+  "已卸载 Claude 插件 {v0}。新会话生效，已打开的会话需要重载插件。": {
+    "en": "Uninstalled Claude plugin {v0}. New sessions use it; reload plugins in sessions that are already open.",
+    "ja": "Claude プラグイン {v0} をアンインストールしました。新しいセッションで有効になります。開いているセッションではプラグインを再読み込みしてください。"
+  },
+  "已卸载 Claude 插件 {v0}，插件数据已保留。新会话生效，已打开的会话需要重载插件。": {
+    "en": "Uninstalled Claude plugin {v0} and kept its data. New sessions use it; reload plugins in sessions that are already open.",
+    "ja": "Claude プラグイン {v0} をアンインストールし、データは残しました。新しいセッションで有効になります。開いているセッションではプラグインを再読み込みしてください。"
+  },
+  "已在 Claude 中添加 marketplace {v0}，可以浏览并安装其中的插件。": {
+    "en": "Added marketplace {v0} to Claude. You can browse and install its plugins.",
+    "ja": "Claude にマーケットプレイス {v0} を追加しました。プラグインを閲覧してインストールできます。"
+  },
+  "已刷新 Claude 的 marketplace {v0}；这不表示已安装的插件已经更新。": {
+    "en": "Refreshed Claude marketplace {v0}. This does not mean installed plugins were updated.",
+    "ja": "Claude のマーケットプレイス {v0} を更新しました。インストール済みプラグインが更新されたわけではありません。"
+  },
+  "已从 Claude 中移除 marketplace {v0}。": {
+    "en": "Removed marketplace {v0} from Claude.",
+    "ja": "Claude からマーケットプレイス {v0} を削除しました。"
+  },
+  "已从 Claude 中移除 marketplace {v0}，并卸载了从它安装的 {v1} 个插件。": {
+    "en": "Removed marketplace {v0} from Claude and uninstalled the {v1} plugins installed from it.",
+    "ja": "Claude からマーケットプレイス {v0} を削除し、そこからインストールした {v1} 個のプラグインをアンインストールしました。"
+  },
+  "插件安装预览已就绪。": {
+    "en": "The plugin installation preview is ready.",
+    "ja": "プラグインのインストールプレビューの準備ができました。"
+  },
+  "新会话生效；已打开的 Claude 会话需要重载插件（/reload-plugins）。": {
+    "en": "New sessions use the change; reload plugins in open Claude sessions (/reload-plugins).",
+    "ja": "新しいセッションで有効になります。開いている Claude セッションではプラグインを再読み込みしてください（/reload-plugins）。"
+  },
+  "未找到这个 Claude 插件，请刷新后重试。": {
+    "en": "This Claude plugin was not found. Refresh and try again.",
+    "ja": "この Claude プラグインが見つかりません。更新してから再試行してください。"
+  },
+  "未找到这个 Claude marketplace，请刷新后重试。": {
+    "en": "This Claude marketplace was not found. Refresh and try again.",
+    "ja": "この Claude マーケットプレイスが見つかりません。更新してから再試行してください。"
+  },
+  "这一版 SkillDock 还不能在 Claude 中执行这个操作。": {
+    "en": "This version of SkillDock cannot do this in Claude yet.",
+    "ja": "このバージョンの SkillDock は、Claude でこの操作をまだ実行できません。"
+  },
+  "这个 Claude 插件尚未安装。": {
+    "en": "This Claude plugin is not installed.",
+    "ja": "この Claude プラグインはインストールされていません。"
+  },
+  "这个插件不支持切换。": {
+    "en": "This plugin cannot be switched on or off here.",
+    "ja": "このプラグインはここで有効・無効を切り替えられません。"
+  },
+  "这个插件不能在这里安装。": {
+    "en": "This plugin cannot be installed here.",
+    "ja": "このプラグインはここではインストールできません。"
+  },
+  "这个插件不能在这里卸载。": {
+    "en": "This plugin cannot be uninstalled here.",
+    "ja": "このプラグインはここではアンインストールできません。"
+  },
+  "这个 marketplace 不能刷新。": {
+    "en": "This marketplace cannot be refreshed.",
+    "ja": "このマーケットプレイスは更新できません。"
+  },
+  "这个 marketplace 不能移除。": {
+    "en": "This marketplace cannot be removed.",
+    "ja": "このマーケットプレイスは削除できません。"
+  },
+  "这会改动协作者共享的 .claude/settings.json。": {
+    "en": "This changes .claude/settings.json, which collaborators share.",
+    "ja": "共同作業者と共有している .claude/settings.json を変更します。"
+  },
+  "写入项目共享设置会改动协作者共享的 .claude/settings.json，请确认后重试。": {
+    "en": "Writing the project's shared settings changes .claude/settings.json, which collaborators share. Confirm and try again.",
+    "ja": "プロジェクトの共有設定に書き込むと、共同作業者と共有している .claude/settings.json が変わります。確認してから再試行してください。"
+  },
+  "这次会新建 {v0}，它不在 Git 的忽略规则中；请选择是否把它写入本机的 .git/info/exclude。": {
+    "en": "This creates {v0}, which Git does not ignore. Choose whether to add it to this Mac's .git/info/exclude.",
+    "ja": "この操作で {v0} が作成されますが、Git の無視ルールに含まれていません。この Mac の .git/info/exclude に追加するか選んでください。"
+  },
+  "项目本地设置只属于你；不忽略它可能被误提交。写入 .git/info/exclude 只影响本机，不改动受版本管理的 .gitignore。": {
+    "en": "The project's local settings are yours alone; if Git does not ignore them they may be committed by mistake. Adding them to .git/info/exclude affects only this Mac and does not change the tracked .gitignore.",
+    "ja": "プロジェクトのローカル設定はあなた専用です。無視されていないと誤ってコミットされるおそれがあります。.git/info/exclude への追加はこの Mac だけに影響し、バージョン管理された .gitignore は変更しません。"
+  },
+  "这条安装的项目目录未知，暂不能修改。": {
+    "en": "The project directory of this installation is unknown, so it cannot be changed.",
+    "ja": "このインストールのプロジェクトディレクトリが不明なため、変更できません。"
+  },
+  "卸载 Claude 插件 {v0} 前需要确认。": {
+    "en": "Confirm before uninstalling Claude plugin {v0}.",
+    "ja": "Claude プラグイン {v0} をアンインストールする前に確認してください。"
+  },
+  "卸载默认删除插件数据（~/.claude/plugins/data 中该插件的目录）；可以选择保留。": {
+    "en": "Uninstalling deletes the plugin's data by default (its directory in ~/.claude/plugins/data); you can keep it.",
+    "ja": "アンインストールすると既定でプラグインのデータ（~/.claude/plugins/data 内のディレクトリ）を削除します。残すこともできます。"
+  },
+  "移除 Claude 的 marketplace {v0} 前需要确认。": {
+    "en": "Confirm before removing Claude marketplace {v0}.",
+    "ja": "Claude のマーケットプレイス {v0} を削除する前に確認してください。"
+  },
+  "移除后，从它安装的这些插件也会被卸载：": {
+    "en": "Removing it also uninstalls these plugins installed from it:",
+    "ja": "削除すると、そこからインストールした次のプラグインもアンインストールされます："
+  },
+  "没有从它安装的插件。": {
+    "en": "No plugins are installed from it.",
+    "ja": "そこからインストールしたプラグインはありません。"
+  },
+  "Claude 插件不能只启用部分技能。": {
+    "en": "A Claude plugin cannot enable only some of its skills.",
+    "ja": "Claude プラグインでは一部のスキルだけを有効にすることはできません。"
+  },
+  "Claude 的 marketplace 不能在这里指定 Git ref；请在 Claude Code 中添加。": {
+    "en": "A Git ref cannot be given for a Claude marketplace here; add it in Claude Code.",
+    "ja": "Claude のマーケットプレイスにはここで Git ref を指定できません。Claude Code で追加してください。"
+  },
+  "可以安装给当前用户（默认）、只在当前项目中给你自己用（本地设置），或给项目的所有协作者（共享设置，需要确认）。": {
+    "en": "Install for the current user (default), for yourself in the current project only (local settings), or for all collaborators in the project (shared settings, needs confirmation).",
+    "ja": "現在のユーザー向け（既定）、現在のプロジェクトで自分専用（ローカル設定）、またはプロジェクトのすべての共同作業者向け（共有設定、確認が必要）にインストールできます。"
+  },
+  "不支持该 Claude 命令行操作。": {
+    "en": "This Claude command-line operation is not supported.",
+    "ja": "この Claude コマンドライン操作はサポートされていません。"
+  },
+  "Claude 命令行操作需要恰好一个对象。": {
+    "en": "A Claude command-line operation needs exactly one target.",
+    "ja": "Claude コマンドライン操作には対象がちょうど 1 つ必要です。"
+  },
+  "不支持 Claude 命令行参数 {v0}。": {
+    "en": "The Claude command-line option {v0} is not supported.",
+    "ja": "Claude コマンドラインのオプション {v0} はサポートされていません。"
+  },
+  "作用域只能是 user、project 或 local。": {
+    "en": "The scope must be user, project or local.",
+    "ja": "スコープは user、project、local のいずれかです。"
+  },
+  "只有卸载可以保留数据。": {
+    "en": "Only uninstalling can keep data.",
+    "ja": "データを残せるのはアンインストールだけです。"
+  },
+  "Claude 写操作必须显式指定作用域。": {
+    "en": "A Claude write must name its scope.",
+    "ja": "Claude への書き込みではスコープを明示する必要があります。"
+  },
+  "Claude 写操作必须使用机器可读输出。": {
+    "en": "A Claude write must use machine-readable output.",
+    "ja": "Claude への書き込みでは機械可読の出力を使う必要があります。"
+  },
+  "这个插件需要执行 marketplace 声明的命令才能安装或更新，SkillDock 不代为确认；请在 Claude Code 中用 /plugin 手动处理。": {
+    "en": "This plugin needs a command declared by its marketplace to install or update, which SkillDock does not confirm on your behalf. Handle it in Claude Code with /plugin.",
+    "ja": "このプラグインのインストールや更新には、マーケットプレイスが宣言したコマンドの実行が必要です。SkillDock は代わりに承認しません。Claude Code で /plugin を使って処理してください。"
+  },
+  "Claude 命令行 {v0} 没有返回机器可读结果，无法确认实际状态。": {
+    "en": "The Claude command line {v0} returned no machine-readable result, so the actual state cannot be confirmed.",
+    "ja": "Claude コマンドライン {v0} が機械可読の結果を返さなかったため、実際の状態を確認できません。"
+  },
+  "这一版 SkillDock 还不能修改 Claude 中的技能。": {
+    "en": "This version of SkillDock cannot change Claude's skills yet.",
+    "ja": "このバージョンの SkillDock は、Claude のスキルをまだ変更できません。"
+  },
+  "技能目录插件的移除随后续版本提供；可以在 Claude 的技能目录中手动删除。": {
+    "en": "Removing a skills-directory plugin comes in a later version; you can delete it from Claude's skills directory by hand.",
+    "ja": "スキルディレクトリプラグインの削除は今後のバージョンで提供します。Claude のスキルディレクトリから手動で削除できます。"
+  },
+  "由组织托管设置声明的 marketplace 不能在这里移除。": {
+    "en": "A marketplace declared by organization-managed settings cannot be removed here.",
+    "ja": "組織の管理設定で宣言されたマーケットプレイスはここでは削除できません。"
+  },
+  "由组织托管安装的插件不能在这里修改。": {
+    "en": "A plugin installed by your organization cannot be changed here.",
+    "ja": "組織がインストールしたプラグインはここでは変更できません。"
+  },
+  "启用状态由组织托管设置决定，不能在这里修改。": {
+    "en": "Organization-managed settings decide whether it is enabled; it cannot be changed here.",
+    "ja": "有効かどうかは組織の管理設定で決まるため、ここでは変更できません。"
+  },
+  "Claude 没有报告这个插件的启用状态，暂不能切换。": {
+    "en": "Claude did not report whether this plugin is enabled, so it cannot be switched yet.",
+    "ja": "Claude がこのプラグインの有効状態を報告していないため、まだ切り替えられません。"
+  },
+  "Claude 尚未加载这个技能目录插件（项目目录可能未被信任），暂不能切换。": {
+    "en": "Claude has not loaded this skills-directory plugin (the project directory may not be trusted), so it cannot be switched yet.",
+    "ja": "Claude はこのスキルディレクトリプラグインをまだ読み込んでいません（プロジェクトディレクトリが信頼されていない可能性があります）。まだ切り替えられません。"
+  },
+  "Claude 环境当前为只读；在 SkillDock 的“Agent 环境”页启用 Claude 管理后才能修改。": {
+    "en": "The Claude environment is read-only. Turn on Claude management on SkillDock's Agent environments page to change it.",
+    "ja": "Claude 環境は現在読み取り専用です。SkillDock の「Agent 環境」ページで Claude の管理を有効にすると変更できます。"
+  },
+  "Claude 环境当前为只读，SkillDock 不会修改 Claude 中的插件和 marketplace。请在 SkillDock 的“Agent 环境”页启用 Claude 管理后重试。": {
+    "en": "The Claude environment is read-only, so SkillDock does not change Claude's plugins or marketplaces. Turn on Claude management on SkillDock's Agent environments page and try again.",
+    "ja": "Claude 環境は読み取り専用のため、SkillDock は Claude のプラグインやマーケットプレイスを変更しません。SkillDock の「Agent 環境」ページで Claude の管理を有効にしてから再試行してください。"
+  },
+  "无法确认 Claude 环境，暂不能修改。": {
+    "en": "The Claude environment cannot be confirmed, so it cannot be changed yet.",
+    "ja": "Claude 環境を確認できないため、まだ変更できません。"
+  },
+  "未找到可用的 Claude 命令行，暂不能修改 Claude。": {
+    "en": "No working Claude command line was found, so Claude cannot be changed yet.",
+    "ja": "使用できる Claude コマンドラインが見つからないため、まだ Claude を変更できません。"
+  },
+  "本机未找到 Claude。": {
+    "en": "Claude was not found on this Mac.",
+    "ja": "この Mac で Claude が見つかりません。"
+  },
+  "演练环境不包含 Claude。": {
+    "en": "The practice environment does not include Claude.",
+    "ja": "練習環境には Claude が含まれていません。"
+  },
+  "scope 只能是 user、project 或 local。": {
+    "en": "scope must be user, project or local.",
+    "ja": "scope は user、project、local のいずれかです。"
+  },
+  "{v0} 必须为布尔值。": {
+    "en": "{v0} must be a boolean.",
+    "ja": "{v0} はブール値である必要があります。"
+  },
+  "expectedRevision 无效。": {
+    "en": "expectedRevision is not valid.",
+    "ja": "expectedRevision が無効です。"
+  },
+  "已在用户设置中启用 Claude 插件 {v0}。新会话生效，已打开的会话需要重载插件。": {
+    "en": "Enabled Claude plugin {v0} in user settings. New sessions use it; reload plugins in sessions that are already open.",
+    "ja": "ユーザー設定で Claude プラグイン {v0} を有効にしました。新しいセッションで有効になります。開いているセッションではプラグインを再読み込みしてください。"
+  },
+  "已在用户设置中停用 Claude 插件 {v0}。新会话生效，已打开的会话需要重载插件。": {
+    "en": "Disabled Claude plugin {v0} in user settings. New sessions use it; reload plugins in sessions that are already open.",
+    "ja": "ユーザー設定で Claude プラグイン {v0} を無効にしました。新しいセッションで有効になります。開いているセッションではプラグインを再読み込みしてください。"
+  },
+  "已在项目共享设置中启用 Claude 插件 {v0}。新会话生效，已打开的会话需要重载插件。": {
+    "en": "Enabled Claude plugin {v0} in the project's shared settings. New sessions use it; reload plugins in sessions that are already open.",
+    "ja": "プロジェクトの共有設定で Claude プラグイン {v0} を有効にしました。新しいセッションで有効になります。開いているセッションではプラグインを再読み込みしてください。"
+  },
+  "已在项目共享设置中停用 Claude 插件 {v0}。新会话生效，已打开的会话需要重载插件。": {
+    "en": "Disabled Claude plugin {v0} in the project's shared settings. New sessions use it; reload plugins in sessions that are already open.",
+    "ja": "プロジェクトの共有設定で Claude プラグイン {v0} を無効にしました。新しいセッションで有効になります。開いているセッションではプラグインを再読み込みしてください。"
+  },
+  "已在项目本地设置中启用 Claude 插件 {v0}。新会话生效，已打开的会话需要重载插件。": {
+    "en": "Enabled Claude plugin {v0} in the project's local settings. New sessions use it; reload plugins in sessions that are already open.",
+    "ja": "プロジェクトのローカル設定で Claude プラグイン {v0} を有効にしました。新しいセッションで有効になります。開いているセッションではプラグインを再読み込みしてください。"
+  },
+  "已在项目本地设置中停用 Claude 插件 {v0}。新会话生效，已打开的会话需要重载插件。": {
+    "en": "Disabled Claude plugin {v0} in the project's local settings. New sessions use it; reload plugins in sessions that are already open.",
+    "ja": "プロジェクトのローカル設定で Claude プラグイン {v0} を無効にしました。新しいセッションで有効になります。開いているセッションではプラグインを再読み込みしてください。"
+  },
+  "可见性由组织托管设置决定，不能在这里修改。": {
+    "en": "Organization-managed settings decide its visibility; it cannot be changed here.",
+    "ja": "表示状態は組織の管理設定で決まるため、ここでは変更できません。"
+  },
+  "这一版 SkillDock 还不能移除或更新 Claude 中的技能。": {
+    "en": "This version of SkillDock cannot remove or update Claude's skills yet.",
+    "ja": "このバージョンの SkillDock は、Claude のスキルをまだ削除・更新できません。"
+  },
+  "未找到这个 Claude 技能，请刷新后重试。": {
+    "en": "This Claude skill was not found. Refresh and try again.",
+    "ja": "この Claude スキルが見つかりません。更新してから再試行してください。"
+  },
+  "这个技能不支持切换。": {
+    "en": "This skill cannot be switched here.",
+    "ja": "このスキルはここで切り替えられません。"
+  },
+  "修改这个技能的可见性前需要确认。": {
+    "en": "Confirm before changing this skill's visibility.",
+    "ja": "このスキルの表示状態を変更する前に確認してください。"
+  },
+  "这个技能当前为“仅显示名称”；设为可见后，这一档会被取消。": {
+    "en": "This skill is set to \"name only\"; making it visible drops that setting.",
+    "ja": "このスキルは現在「名前のみ表示」です。表示にするとこの設定は解除されます。"
+  },
+  "这个技能当前为“仅显示名称”；关闭后，这一档会被取消。": {
+    "en": "This skill is set to \"name only\"; turning it off drops that setting.",
+    "ja": "このスキルは現在「名前のみ表示」です。オフにするとこの設定は解除されます。"
+  },
+  "这个技能当前为“仅用户调用”；设为可见后，这一档会被取消。": {
+    "en": "This skill is set to \"user-invocable only\"; making it visible drops that setting.",
+    "ja": "このスキルは現在「ユーザー呼び出しのみ」です。表示にするとこの設定は解除されます。"
+  },
+  "这个技能当前为“仅用户调用”；关闭后，这一档会被取消。": {
+    "en": "This skill is set to \"user-invocable only\"; turning it off drops that setting.",
+    "ja": "このスキルは現在「ユーザー呼び出しのみ」です。オフにするとこの設定は解除されます。"
+  },
+  "已写入 {v0}，但读回的可见性与预期不同：可能由更高层级的设置决定，请刷新核实。": {
+    "en": "Wrote {v0}, but the visibility read back differs from what was expected: a higher settings level may decide it. Refresh to check.",
+    "ja": "{v0} に書き込みましたが、読み戻した表示状態が想定と異なります。より上位の設定で決まっている可能性があります。更新して確認してください。"
+  },
+  "设置条目的名称无效。": {
+    "en": "The name of the settings entry is not valid.",
+    "ja": "設定項目の名前が無効です。"
+  },
+  "设置文件 {v0} 不是有效的 JSON，SkillDock 不会改写它。": {
+    "en": "The settings file {v0} is not valid JSON; SkillDock does not rewrite it.",
+    "ja": "設定ファイル {v0} は有効な JSON ではないため、SkillDock は書き換えません。"
+  },
+  "设置文件 {v0} 的格式未知，SkillDock 不会改写它。": {
+    "en": "The format of the settings file {v0} is unknown; SkillDock does not rewrite it.",
+    "ja": "設定ファイル {v0} の形式が不明なため、SkillDock は書き換えません。"
+  },
+  "设置文件 {v0} 中 {v1} 的格式未知，SkillDock 不会改写它。": {
+    "en": "The format of {v1} in the settings file {v0} is unknown; SkillDock does not rewrite it.",
+    "ja": "設定ファイル {v0} の {v1} の形式が不明なため、SkillDock は書き換えません。"
+  },
+  "设置文件 {v0} 在读取后被改动，请刷新后重试。": {
+    "en": "The settings file {v0} changed after it was read. Refresh and try again.",
+    "ja": "設定ファイル {v0} は読み取り後に変更されました。更新してから再試行してください。"
+  },
+  "已在用户设置中把 Claude 技能 {v0} 设为可见。新会话生效。": {
+    "en": "Set Claude skill {v0} to visible in user settings. New sessions use it.",
+    "ja": "ユーザー設定で Claude スキル {v0} を表示にしました。新しいセッションで有効になります。"
+  },
+  "已在用户设置中把 Claude 技能 {v0} 设为关闭。新会话生效。": {
+    "en": "Set Claude skill {v0} to off in user settings. New sessions use it.",
+    "ja": "ユーザー設定で Claude スキル {v0} をオフにしました。新しいセッションで有効になります。"
+  },
+  "已在项目共享设置中把 Claude 技能 {v0} 设为可见。新会话生效。": {
+    "en": "Set Claude skill {v0} to visible in the project's shared settings. New sessions use it.",
+    "ja": "プロジェクトの共有設定で Claude スキル {v0} を表示にしました。新しいセッションで有効になります。"
+  },
+  "已在项目共享设置中把 Claude 技能 {v0} 设为关闭。新会话生效。": {
+    "en": "Set Claude skill {v0} to off in the project's shared settings. New sessions use it.",
+    "ja": "プロジェクトの共有設定で Claude スキル {v0} をオフにしました。新しいセッションで有効になります。"
+  },
+  "已在项目本地设置中把 Claude 技能 {v0} 设为可见。新会话生效。": {
+    "en": "Set Claude skill {v0} to visible in the project's local settings. New sessions use it.",
+    "ja": "プロジェクトのローカル設定で Claude スキル {v0} を表示にしました。新しいセッションで有効になります。"
+  },
+  "已在项目本地设置中把 Claude 技能 {v0} 设为关闭。新会话生效。": {
+    "en": "Set Claude skill {v0} to off in the project's local settings. New sessions use it.",
+    "ja": "プロジェクトのローカル設定で Claude スキル {v0} をオフにしました。新しいセッションで有効になります。"
+  },
+  "预览已过期或属于其他环境，请重新预览。": {
+    "en": "The preview has expired or belongs to another environment. Preview again.",
+    "ja": "プレビューの有効期限が切れたか、別の環境のものです。もう一度プレビューしてください。"
+  },
+  "已在 Claude 中安装技能 {v0}。新的 Claude 会话会加载它。": {
+    "en": "Installed skill {v0} in Claude. New Claude sessions load it.",
+    "ja": "Claude にスキル {v0} をインストールしました。新しい Claude セッションで読み込まれます。"
+  },
+  "已把 Claude 技能 {v0} 移至可恢复区；可从操作记录恢复。": {
+    "en": "Moved Claude skill {v0} to the restorable area. You can restore it from the activity log.",
+    "ja": "Claude スキル {v0} を復元可能領域に移動しました。操作履歴から復元できます。"
+  },
+  "已关联 Claude 技能 {v0} 的更新来源，本机文件保持原样。": {
+    "en": "Linked an update source to Claude skill {v0}; the files on this Mac are unchanged.",
+    "ja": "Claude スキル {v0} に更新元を関連付けました。この Mac のファイルは変更していません。"
+  },
+  "已更新 Claude 技能 {v0}，旧版已保留，可从操作记录恢复。": {
+    "en": "Updated Claude skill {v0}. The previous version is kept and can be restored from the activity log.",
+    "ja": "Claude スキル {v0} を更新しました。旧版は保持され、操作履歴から復元できます。"
+  },
+  "已恢复 Claude 技能 {v0}。": {
+    "en": "Restored Claude skill {v0}.",
+    "ja": "Claude スキル {v0} を復元しました。"
+  },
+  "两侧共用的技能在 Claude 一侧的移除、更新与来源关联随后续版本提供。": {
+    "en": "Removing, updating or linking a source on the Claude side of a skill both Agents share comes in a later version.",
+    "ja": "両方の Agent が共有するスキルについて、Claude 側での削除・更新・更新元の関連付けは今後のバージョンで提供します。"
+  },
+  "这个技能不支持此操作。": {
+    "en": "This skill does not support this action.",
+    "ja": "このスキルはこの操作に対応していません。"
+  },
+  "技能实际位置越出 Claude 的技能根。": {
+    "en": "The skill's actual location is outside Claude's skills root.",
+    "ja": "スキルの実際の場所が Claude のスキルルートの外にあります。"
+  },
+  "Claude 技能只能安装到个人技能目录或项目的 .claude/skills。": {
+    "en": "A Claude skill can be installed only into the personal skills directory or the project's .claude/skills.",
+    "ja": "Claude スキルは個人スキルディレクトリかプロジェクトの .claude/skills にのみインストールできます。"
+  },
+  "Claude 环境当前为只读，SkillDock 不会修改 Claude 中的技能、插件和 marketplace。请在 SkillDock 的“Agent 环境”页启用 Claude 管理后重试。": {
+    "en": "The Claude environment is read-only, so SkillDock does not change Claude's skills, plugins or marketplaces. Turn on Claude management on SkillDock's Agent environments page and try again.",
+    "ja": "Claude 環境は読み取り専用のため、SkillDock は Claude のスキル、プラグイン、マーケットプレイスを変更しません。SkillDock の「Agent 環境」ページで Claude の管理を有効にしてから再試行してください。"
+  },
+  "原位置的管理边界已变化。": {
+    "en": "The management boundary of the original location has changed.",
+    "ja": "元の場所の管理境界が変わりました。"
+  },
+  "仍有 {v0} 个从它安装的插件留在 Claude 中，请在插件页核实。": {
+    "en": "{v0} plugins installed from it are still in Claude; check them on the Plugins page.",
+    "ja": "そこからインストールした {v0} 個のプラグインがまだ Claude に残っています。プラグインページで確認してください。"
+  },
+  "这会改动协作者共享的 .claude/settings.json：其中这个 marketplace 的声明或从它安装的插件条目会被删除。": {
+    "en": "This changes .claude/settings.json, which collaborators share: its declaration of this marketplace or the entries of plugins installed from it are deleted.",
+    "ja": "共同作業者と共有している .claude/settings.json を変更します。このマーケットプレイスの宣言、またはそこからインストールしたプラグインの項目が削除されます。"
+  },
+  "Claude 命令行操作的对象名称无效。": {
+    "en": "The name given to the Claude command line is not valid.",
+    "ja": "Claude コマンドラインに渡す名前が無効です。"
+  },
+  "Claude 命令行参数不能重复。": {
+    "en": "A Claude command-line option cannot be repeated.",
+    "ja": "Claude コマンドラインのオプションは重複できません。"
+  },
+  "Claude 命令行 {v0} 超时，执行结果尚未确认；请刷新查看实际状态后再决定是否重试。": {
+    "en": "The Claude command line {v0} timed out and its outcome is not confirmed. Refresh to see the actual state before deciding whether to retry.",
+    "ja": "Claude コマンドライン {v0} がタイムアウトし、実行結果は確認できていません。更新して実際の状態を確認してから、再試行するか判断してください。"
+  },
+  "已写入用户设置，但读回的启用状态与预期不同：可能由更高层级的设置决定，请刷新核实。": {
+    "en": "Wrote user settings, but the enablement read back differs from what was expected: a higher settings level may decide it. Refresh to check.",
+    "ja": "ユーザー設定に書き込みましたが、読み戻した有効状態が想定と異なります。より上位の設定で決まっている可能性があります。更新して確認してください。"
+  },
+  "已写入项目共享设置，但读回的启用状态与预期不同：可能由更高层级的设置决定，请刷新核实。": {
+    "en": "Wrote the project's shared settings, but the enablement read back differs from what was expected: a higher settings level may decide it. Refresh to check.",
+    "ja": "プロジェクトの共有設定に書き込みましたが、読み戻した有効状態が想定と異なります。より上位の設定で決まっている可能性があります。更新して確認してください。"
+  },
+  "已写入项目本地设置，但读回的启用状态与预期不同：可能由更高层级的设置决定，请刷新核实。": {
+    "en": "Wrote the project's local settings, but the enablement read back differs from what was expected: a higher settings level may decide it. Refresh to check.",
+    "ja": "プロジェクトのローカル設定に書き込みましたが、読み戻した有効状態が想定と異なります。より上位の設定で決まっている可能性があります。更新して確認してください。"
+  },
+  "同名的其他 Claude 技能共用这一可见性条目，会一并改变：": {
+    "en": "Other Claude skills with the same name share this visibility entry and change with it:",
+    "ja": "同じ名前の他の Claude スキルもこの表示設定を共有しており、一緒に変わります："
+  },
+  "两侧共用的技能在 Claude 一侧的切换随后续版本提供。": {
+    "en": "Switching the Claude side of a skill both Agents share comes in a later version.",
+    "ja": "両方の Agent が共有するスキルの Claude 側の切り替えは今後のバージョンで提供します。"
+  },
+  "两侧共用的技能在 Claude 一侧的修改随后续版本提供。": {
+    "en": "Changing the Claude side of a skill both Agents share comes in a later version.",
+    "ja": "両方の Agent が共有するスキルの Claude 側の変更は今後のバージョンで提供します。"
+  },
+  "设置文件：{v0}": {
+    "en": "Settings file: {v0}",
+    "ja": "設定ファイル：{v0}"
+  },
+  "设置文件 {v0} 含有超出安全范围的整数，改写会改变它的值，SkillDock 不会改写它。": {
+    "en": "The settings file {v0} holds an integer beyond the safe range; rewriting would change its value, so SkillDock does not rewrite it.",
+    "ja": "設定ファイル {v0} には安全な範囲を超える整数が含まれており、書き換えると値が変わるため、SkillDock は書き換えません。"
+  },
+  "只能修改个人技能目录或当前项目 .claude/skills 中的 Claude 技能。": {
+    "en": "Only Claude skills in the personal skills directory or the current project's .claude/skills can be changed.",
+    "ja": "変更できるのは、個人スキルディレクトリか現在のプロジェクトの .claude/skills にある Claude スキルだけです。"
+  },
+  "Claude 的技能根指向插件或系统管理目录，不能修改其中的内容。": {
+    "en": "Claude's skills root points into a plugin or system-managed directory; its contents cannot be changed.",
+    "ja": "Claude のスキルルートがプラグインまたはシステム管理のディレクトリを指しているため、その内容は変更できません。"
+  },
+  "技能安装根指向插件或系统管理目录，不能写入。": {
+    "en": "The skill installation root points into a plugin or system-managed directory and cannot be written.",
+    "ja": "スキルのインストール先がプラグインまたはシステム管理のディレクトリを指しているため、書き込めません。"
+  },
+  "当前由更高优先级的设置层决定，写入所选的设置层不会生效；请改选那一层，或不指定作用域。": {
+    "en": "A higher-precedence settings layer decides this now, so writing the chosen layer would not take effect. Choose that layer, or leave the scope unset.",
+    "ja": "現在はより優先度の高い設定レイヤーで決まっているため、選んだレイヤーに書き込んでも反映されません。そのレイヤーを選ぶか、スコープを指定しないでください。"
+  },
+  "这个技能在 Claude 一侧还不能在这里切换（两侧共用技能的 Claude 一侧随后续版本提供）。": {
+    "en": "This skill cannot be switched on the Claude side here yet (the Claude side of skills both Agents share comes in a later version).",
+    "ja": "このスキルは Claude 側ではまだここで切り替えられません（両方の Agent が共有するスキルの Claude 側は今後のバージョンで提供します）。"
+  },
+  "marketplace 已从清单中移除，但设置中仍有它的声明，以后可能被重新添加；请刷新核实。": {
+    "en": "The marketplace is gone from the list, but settings still declare it, so it may be added again later. Refresh to check.",
+    "ja": "マーケットプレイスは一覧から消えましたが、設定にまだ宣言が残っているため、後で再び追加される可能性があります。更新して確認してください。"
+  },
+  "设置文件 {v0} 的链接层级过多，SkillDock 不会改写它。": {
+    "en": "The settings file {v0} goes through too many links; SkillDock does not rewrite it.",
+    "ja": "設定ファイル {v0} はリンクの段数が多すぎるため、SkillDock は書き換えません。"
+  },
+  "设置文件 {v0} 是指向不存在目录的链接，SkillDock 不会为它创建目录。": {
+    "en": "The settings file {v0} is a link into a directory that does not exist; SkillDock does not create it.",
+    "ja": "設定ファイル {v0} は存在しないディレクトリへのリンクのため、SkillDock はディレクトリを作成しません。"
+  },
+  "这个技能在 Codex 或 Claude 中已有改动，请刷新后重试。": {
+    "en": "This skill changed in Codex or Claude since this page was loaded. Refresh and try again.",
+    "ja": "このスキルは Codex または Claude で変更がありました。更新してから再試行してください。"
+  },
+  "这会移走两侧共用的技能目录：Codex 与 Claude 中都会失去这个技能（可从操作记录恢复）。": {
+    "en": "This moves away the skill directory both sides share: Codex and Claude both lose this skill (it can be restored from the activity log).",
+    "ja": "両側が共有するスキルディレクトリを移動します。Codex と Claude の両方からこのスキルがなくなります（操作履歴から復元できます）。"
+  },
+  "这个技能的内容在 {v0} 插件的目录中，这次改动会改写这些插件：": {
+    "en": "This skill's content lies in the directory of a {v0} plugin; this change rewrites these plugins:",
+    "ja": "このスキルの内容は {v0} のプラグインのディレクトリにあり、この変更で次のプラグインが書き換わります："
+  },
+  "这次改动会影响另一侧，请确认后重试。": {
+    "en": "This change affects the other side. Confirm and try again.",
+    "ja": "この変更はもう一方にも影響します。確認してから再試行してください。"
+  },
+  "另一侧（{v0}）已关联到不同的来源 {v1}；请在这一侧选择相同的来源，或在另一侧重新关联到这个来源。": {
+    "en": "The other side ({v0}) is linked to a different source, {v1}. Choose the same source on this side, or relink the other side to this one.",
+    "ja": "もう一方（{v0}）は別の更新元 {v1} に関連付けられています。こちら側で同じ更新元を選ぶか、もう一方をこの更新元に関連付け直してください。"
+  },
+  "这个技能目录由 Codex 与 Claude 共用，两侧看到的内容都会改变。": {
+    "en": "Codex and Claude share this skill directory; the content both sides see changes.",
+    "ja": "このスキルディレクトリは Codex と Claude が共有しており、両側から見える内容が変わります。"
+  },
+  "未找到这个技能在 Claude 一侧的对象，请刷新后重试。": {
+    "en": "The Claude side of this skill was not found. Refresh and try again.",
+    "ja": "このスキルの Claude 側が見つかりません。更新してから再試行してください。"
+  },
+  "这个技能在 Claude 一侧没有可以修改的对象。": {
+    "en": "This skill has nothing on the Claude side that can be changed.",
+    "ja": "このスキルには、Claude 側で変更できる対象がありません。"
+  },
+  "Codex 与 Claude 两侧为这个技能关联了不同的来源（{v0}、{v1}），两侧都不能更新；请在一侧重新关联到相同的来源。": {
+    "en": "Codex and Claude link this skill to different sources ({v0}, {v1}), so neither side can update it. Relink one side to the same source.",
+    "ja": "Codex と Claude はこのスキルを別々の更新元（{v0}、{v1}）に関連付けているため、どちらも更新できません。一方を同じ更新元に関連付け直してください。"
+  },
+  "由 Codex 侧的来源记录管理更新。": {
+    "en": "Updates follow the Codex side's source record.",
+    "ja": "更新は Codex 側の更新元の記録に従います。"
+  },
+  "这个技能在 Claude 一侧不能在这里修改。": {
+    "en": "The Claude side of this skill cannot be changed here.",
+    "ja": "このスキルの Claude 側はここでは変更できません。"
+  },
+  "这些技能目录由 Codex 与 Claude 共用，移走后两侧都会失去它们（可从操作记录恢复）：": {
+    "en": "Codex and Claude share these skill directories; moving them away removes them from both sides (they can be restored from the activity log):",
+    "ja": "これらのスキルディレクトリは Codex と Claude が共有しています。移動すると両側からなくなります（操作履歴から復元できます）："
+  },
+  "其中有技能的内容在另一侧插件的目录中，移除会改写这些插件：": {
+    "en": "Some of these skills lie in a plugin directory of the other side; removing them rewrites these plugins:",
+    "ja": "一部のスキルはもう一方のプラグインのディレクトリにあり、削除すると次のプラグインが書き換わります："
+  },
+  "这次批量移除会影响另一侧，请确认后重试。": {
+    "en": "This batch removal affects the other side. Confirm and try again.",
+    "ja": "この一括削除はもう一方にも影響します。確認してから再試行してください。"
+  },
+  "请选择 1 至 100 份不同的技能。": {
+    "en": "Select 1 to 100 different skills.",
+    "ja": "異なるスキルを 1〜100 個選んでください。"
+  },
+  "Codex 命令行不可用，无法确认 Codex 中的插件状态；技能照常管理，插件操作需要可用的 Codex 命令行。": {
+    "en": "The Codex command line is unavailable, so the plugin state in Codex cannot be confirmed. Skills are managed as usual; plugin actions need a working Codex command line.",
+    "ja": "Codex コマンドラインが使えないため、Codex のプラグイン状態を確認できません。スキルは通常どおり管理できます。プラグインの操作には使える Codex コマンドラインが必要です。"
+  },
+  "本机未找到 Codex，计划中的这一项暂停；恢复后继续。": {
+    "en": "Codex was not found on this Mac, so this plan item is paused; it resumes once Codex is back.",
+    "ja": "この Mac で Codex が見つからないため、計画のこの項目は一時停止しています。戻ると再開します。"
+  },
+  "Codex 命令行不可用，无法确认插件状态，计划中的这一项暂停；恢复后继续。": {
+    "en": "The Codex command line is unavailable and the plugin state cannot be confirmed, so this plan item is paused; it resumes once the command line works.",
+    "ja": "Codex コマンドラインが使えずプラグインの状態を確認できないため、計画のこの項目は一時停止しています。使えるようになると再開します。"
+  },
+  "已有同名的技能目录插件；个人目录中的会遮蔽项目中的同名插件：": {
+    "en": "A skills-directory plugin with the same name already exists; the one in your personal directory hides a same-named one in the project:",
+    "ja": "同じ名前のスキルディレクトリ プラグインがすでにあります。個人ディレクトリのものはプロジェクト内の同名プラグインを隠します:"
+  },
+  "放入当前项目的 .claude/skills 时，只有 Claude 以该项目为工作目录并信任它时才会加载。": {
+    "en": "Placed in the current project's .claude/skills, it loads only when Claude works in that project and trusts it.",
+    "ja": "現在のプロジェクトの .claude/skills に置いた場合、Claude がそのプロジェクトを作業ディレクトリとして信頼しているときだけ読み込まれます。"
+  },
+  "这个来源的插件已安装到 Claude。": {
+    "en": "The plugin from this source is already installed in Claude.",
+    "ja": "このソースのプラグインはすでに Claude にインストールされています。"
+  },
+  "SkillDock 会在自己的数据目录中生成一个本地 marketplace 并登记到 Claude（用户设置中会出现一条指向它的声明）；卸载最后一个这样安装的插件时一并移除。只能安装给当前用户或当前项目的本地设置。": {
+    "en": "SkillDock generates a local marketplace in its own data directory and registers it with Claude (user settings will gain an entry pointing to it); it is removed when the last plugin installed this way is uninstalled. It can be installed only for the current user or in the current project's local settings.",
+    "ja": "SkillDock は自身のデータディレクトリにローカル marketplace を生成して Claude に登録します（ユーザー設定にそれを指す宣言が追加されます）。この方法でインストールした最後のプラグインをアンインストールすると一緒に削除されます。インストール先は現在のユーザーか、現在のプロジェクトのローカル設定のみです。"
+  },
+  "带 Claude manifest 的插件放入个人技能目录或当前项目的 .claude/skills，不使用本地设置作用域。": {
+    "en": "A plugin with a Claude manifest goes into your personal skills directory or the current project's .claude/skills; the local-settings scope does not apply.",
+    "ja": "Claude manifest を持つプラグインは個人のスキルディレクトリか現在のプロジェクトの .claude/skills に置きます。ローカル設定のスコープは使いません。"
+  },
+  "插件目录已放入，但 Claude 的清单中没有读到它，请刷新核实。": {
+    "en": "The plugin directory is in place, but Claude's list does not show it; refresh to check.",
+    "ja": "プラグインのディレクトリは配置しましたが、Claude の一覧に表示されません。更新して確認してください。"
+  },
+  "已把 Claude 插件 {v0} 放入个人技能目录。新会话生效，已打开的会话需要重载插件。": {
+    "en": "Placed Claude plugin {v0} in your personal skills directory. New sessions use it; reload plugins in sessions that are already open.",
+    "ja": "Claude プラグイン {v0} を個人のスキルディレクトリに置きました。新しいセッションで有効になります。開いているセッションではプラグインを再読み込みしてください。"
+  },
+  "已把 Claude 插件 {v0} 放入当前项目的 .claude/skills。Claude 信任该项目后加载；已打开的会话需要重载插件。": {
+    "en": "Placed Claude plugin {v0} in the current project's .claude/skills. Claude loads it once it trusts the project; reload plugins in sessions that are already open.",
+    "ja": "Claude プラグイン {v0} を現在のプロジェクトの .claude/skills に置きました。Claude がプロジェクトを信頼すると読み込まれます。開いているセッションではプラグインを再読み込みしてください。"
+  },
+  "不带 Claude manifest 的来源只能安装给当前用户或当前项目的本地设置：项目共享设置会引用只在本机存在的 marketplace。": {
+    "en": "A source without a Claude manifest can be installed only for the current user or in the current project's local settings: shared project settings would point to a marketplace that exists only on this computer.",
+    "ja": "Claude manifest のないソースは、現在のユーザーか現在のプロジェクトのローカル設定にのみインストールできます。プロジェクトの共有設定は、このコンピューターにしかない marketplace を参照してしまうためです。"
+  },
+  "未能确认 SkillDock 生成的 marketplace 已登记到 Claude，请刷新核实。": {
+    "en": "Could not confirm that the marketplace SkillDock generated is registered with Claude; refresh to check.",
+    "ja": "SkillDock が生成した marketplace が Claude に登録されたことを確認できませんでした。更新して確認してください。"
+  },
+  "只能移除个人技能目录或当前项目 .claude/skills 中的技能目录插件。": {
+    "en": "Only skills-directory plugins in your personal skills directory or the current project's .claude/skills can be removed.",
+    "ja": "削除できるのは、個人のスキルディレクトリか現在のプロジェクトの .claude/skills にあるスキルディレクトリ プラグインだけです。"
+  },
+  "插件目录的实际位置越出 Claude 的技能根。": {
+    "en": "The plugin directory's real location is outside Claude's skills root.",
+    "ja": "プラグイン ディレクトリの実際の場所が Claude のスキルルートの外にあります。"
+  },
+  "已移除 SkillDock 为它生成的本地 marketplace {v0}。": {
+    "en": "Removed the local marketplace {v0} that SkillDock generated for it.",
+    "ja": "SkillDock がこのプラグイン用に生成したローカル marketplace {v0} を削除しました。"
+  },
+  "插件目录会移到 SkillDock 的可恢复区，可从操作记录恢复；Claude 保存的插件数据不变。": {
+    "en": "The plugin directory moves to SkillDock's restorable area and can be restored from the activity log; plugin data Claude keeps is unchanged.",
+    "ja": "プラグイン ディレクトリは SkillDock の復元可能領域に移動し、操作履歴から復元できます。Claude が保存しているプラグインのデータは変わりません。"
+  },
+  "已把 Claude 插件 {v0} 移至可恢复区；可从操作记录恢复。": {
+    "en": "Moved Claude plugin {v0} to the restorable area; you can restore it from the activity log.",
+    "ja": "Claude プラグイン {v0} を復元可能領域に移動しました。操作履歴から復元できます。"
+  },
+  "已恢复 Claude 插件 {v0}。": {
+    "en": "Restored Claude plugin {v0}.",
+    "ja": "Claude プラグイン {v0} を復元しました。"
+  },
+  "这个来源没有 Claude 能加载的内容（Claude 的 plugin.json、skills 或 commands），不能安装到 Claude。": {
+    "en": "This source has nothing Claude can load (a Claude plugin.json, skills or commands), so it cannot be installed in Claude.",
+    "ja": "このソースには Claude が読み込める内容（Claude の plugin.json、skills、commands）がないため、Claude にはインストールできません。"
+  },
+  "这个技能目录插件不在个人技能目录或当前项目的 .claude/skills 中，不能在这里移除。": {
+    "en": "This skills-directory plugin is not in your personal skills directory or the current project's .claude/skills, so it cannot be removed here.",
+    "ja": "このスキルディレクトリ プラグインは個人のスキルディレクトリにも現在のプロジェクトの .claude/skills にもないため、ここでは削除できません。"
+  },
+  "移除 Claude 插件 {v0} 前需要确认。": {
+    "en": "Confirm before removing Claude plugin {v0}.",
+    "ja": "Claude プラグイン {v0} を削除する前に確認してください。"
+  },
+  "SkillDock 生成的本地 marketplace 仍登记在 Claude 中：{v0}。需要清理时，重新启用管理后再停用，并勾选一并清理。": {
+    "en": "Local marketplaces SkillDock generated are still registered in Claude: {v0}. To clean them up, enable management again, then turn it off with clean-up ticked.",
+    "ja": "SkillDock が生成したローカル marketplace がまだ Claude に登録されています：{v0}。クリーンアップするには、管理を再度有効にしてから、「あわせてクリーンアップ」にチェックを入れて無効にしてください。"
+  },
+  "SkillDock 生成的本地 marketplace 未能全部清理：{v0}；管理保持启用，请在 Marketplace 页核实后重试。": {
+    "en": "Not all local marketplaces SkillDock generated could be cleaned up: {v0}; management stays enabled. Check them on the Marketplace page and try again.",
+    "ja": "SkillDock が生成したローカル marketplace をすべてはクリーンアップできませんでした：{v0}。管理は有効のままです。Marketplace ページで確認してから再試行してください。"
+  },
+  "已清理 SkillDock 生成的本地 marketplace：{v0}。": {
+    "en": "Cleaned up the local marketplaces SkillDock generated: {v0}.",
+    "ja": "SkillDock が生成したローカル marketplace をクリーンアップしました：{v0}。"
+  },
+  "SkillDock 为它生成的本地文件已一并删除。": {
+    "en": "The local files SkillDock generated for it were deleted as well.",
+    "ja": "SkillDock がこの marketplace 用に生成したローカルファイルも削除しました。"
+  },
+  "插件名称只能包含字母、数字、点、下划线与连字符。": {
+    "en": "A plugin name may contain only letters, digits, dots, underscores and hyphens.",
+    "ja": "プラグイン名に使えるのは英字、数字、ドット、アンダースコア、ハイフンだけです。"
+  },
+  "同名安装目录已存在，不能覆盖。": {
+    "en": "An installation directory with the same name already exists and is not overwritten.",
+    "ja": "同じ名前のインストール先ディレクトリがすでにあるため、上書きしません。"
+  },
+  "已把 Claude 插件 {v0} 放入当前项目的 .claude/skills；个人技能目录中有同名插件，它会遮蔽这一个，这一个不会加载。": {
+    "en": "Placed Claude plugin {v0} in the current project's .claude/skills; a plugin with the same name in your personal skills directory hides it, so this one does not load.",
+    "ja": "Claude プラグイン {v0} を現在のプロジェクトの .claude/skills に置きました。個人のスキルディレクトリに同じ名前のプラグインがあり、そちらが優先されるため、このプラグインは読み込まれません。"
+  },
+  "安装来源名称已被另一个目录使用，未修改该来源。": {
+    "en": "The source name is already used by another directory; that source was not changed.",
+    "ja": "このソース名はすでに別のディレクトリで使われているため、そのソースは変更していません。"
+  },
+  "之前为 Claude 生成的同一来源目录仍然存在且内容不同，请先核对；不再需要时，可在 Marketplace 页移除这个 marketplace 后重试。": {
+    "en": "The directory generated earlier for Claude from the same source still exists with different contents; check it first. If it is no longer needed, remove this marketplace on the Marketplace page and try again.",
+    "ja": "以前 Claude 用に同じソースから生成したディレクトリが残っており、内容が異なります。先に確認してください。不要であれば、Marketplace ページでこの marketplace を削除してから再試行してください。"
+  },
+  "已撤销这次生成的本地 marketplace。": {
+    "en": "The local marketplace generated for this attempt was taken back.",
+    "ja": "今回生成したローカル marketplace は取り消しました。"
+  },
+  "SkillDock 生成的本地 marketplace {v0} 未能清理：{v1}可在 Marketplace 页移除它，或停用 Claude 管理时一并清理。": {
+    "en": "The local marketplace {v0} SkillDock generated could not be cleaned up: {v1} You can remove it on the Marketplace page, or clean it up when turning Claude management off.",
+    "ja": "SkillDock が生成したローカル marketplace {v0} をクリーンアップできませんでした：{v1} Marketplace ページで削除するか、Claude の管理を無効にするときにあわせてクリーンアップできます。"
+  },
+  "其他项目中仍有从 SkillDock 生成的本地 marketplace {v0} 安装的插件，它保留在 Claude 中。": {
+    "en": "Other projects still have plugins installed from the local marketplace {v0} SkillDock generated, so it stays in Claude.",
+    "ja": "他のプロジェクトに、SkillDock が生成したローカル marketplace {v0} からインストールしたプラグインがまだあるため、Claude に残しています。"
+  },
+  "Codex 中的这些技能指向这个插件目录中的内容，移除后会失效（恢复插件后复原）：": {
+    "en": "These Codex skills point to content in this plugin directory and stop working once it is removed (they work again when the plugin is restored):",
+    "ja": "次の Codex スキルはこのプラグイン ディレクトリ内の内容を参照しているため、削除すると使えなくなります（プラグインを復元すると元に戻ります）："
+  },
+  "Claude 当前为只读，SkillDock 不修改其中的对象；需要清理时先启用管理。": {
+    "en": "Claude is read-only, so SkillDock does not change its objects; to clean up, enable management first.",
+    "ja": "Claude は読み取り専用のため、SkillDock はそのオブジェクトを変更しません。クリーンアップするには、先に管理を有効にしてください。"
+  },
+  "SkillDock 生成的本地 marketplace {v0} 不在 Claude 中，已删除它的本地文件。": {
+    "en": "The local marketplace {v0} SkillDock generated is not in Claude; its local files were deleted.",
+    "ja": "SkillDock が生成したローカル marketplace {v0} は Claude にないため、ローカルファイルを削除しました。"
+  },
+  "另一侧（{v0}）已关联到来源 {v1}；只有关联到相同的来源，这一侧才能关联。": {
+    "en": "The other side ({v0}) is linked to the source {v1}; this side can be linked only to the same source.",
+    "ja": "もう一方（{v0}）はソース {v1} に関連付けられています。こちら側は同じソースにのみ関連付けられます。"
+  },
+  "Codex 命令行不可用，无法确认 Codex 中的插件状态。": {
+    "en": "The Codex command line is unavailable, so the state of plugins in Codex cannot be confirmed.",
+    "ja": "Codex コマンドラインが使えないため、Codex のプラグインの状態を確認できません。"
+  },
+  "同名技能清单已变化，请重新选择。": {
+    "en": "The list of skills with this name has changed; choose again.",
+    "ja": "同じ名前のスキルの一覧が変わりました。もう一度選んでください。"
+  },
+  "选中的技能在预览后发生变化，请重新选择。": {
+    "en": "A selected skill changed after the preview; choose again.",
+    "ja": "選んだスキルがプレビュー後に変わりました。もう一度選んでください。"
+  },
+  "没有 manifest 时，插件名称取自来源目录名，只能包含字母、数字、点、下划线与连字符；可以改目录名，或在 .claude-plugin/plugin.json 中写 name。": {
+    "en": "Without a manifest the plugin is named after the source directory, and the name may contain only letters, digits, dots, underscores and hyphens; rename the directory, or set name in .claude-plugin/plugin.json.",
+    "ja": "manifest がない場合、プラグイン名はソースのディレクトリ名から取られ、英字、数字、ドット、アンダースコア、ハイフンだけが使えます。ディレクトリ名を変えるか、.claude-plugin/plugin.json に name を書いてください。"
+  },
+  "Claude 中同名的 marketplace {v0} 指向别处，未改动；已删除 SkillDock 自己的文件。": {
+    "en": "Claude's marketplace named {v0} points elsewhere and was left unchanged; SkillDock's own files were deleted.",
+    "ja": "Claude にある同名の marketplace {v0} は別の場所を指しているため変更していません。SkillDock 自身のファイルは削除しました。"
+  },
+  "这次生成的本地 marketplace 仍有从它安装的插件，已保留。": {
+    "en": "Plugins are still installed from the local marketplace generated this time, so it was kept.",
+    "ja": "今回生成したローカル marketplace からインストールしたプラグインがまだあるため、残しました。"
+  },
+  "由组织托管设置管理；SkillDock 不代为更新。": {
+    "en": "Managed by your organisation's settings; SkillDock does not update it.",
+    "ja": "組織の管理設定で管理されています。SkillDock は更新しません。"
+  },
+  "此技能通过链接接入；更新请在真实来源目录进行。": {
+    "en": "This skill is linked in; update it in its real source directory.",
+    "ja": "このスキルはリンクで取り込まれています。実際のソースディレクトリで更新してください。"
+  },
+  "这个技能不在个人技能目录或当前项目的 .claude/skills 中，属于仓库或其他项目；SkillDock 不在这里更新它。": {
+    "en": "This skill is not in your personal skills directory or the current project's .claude/skills; it belongs to the repository or other projects, so SkillDock does not update it here.",
+    "ja": "このスキルは個人のスキルディレクトリにも現在のプロジェクトの .claude/skills にもなく、リポジトリや他のプロジェクトに属するため、SkillDock はここでは更新しません。"
+  },
+  "检查已追踪来源的文件变化；更新时替换技能目录中的插件文件。": {
+    "en": "Checks the tracked source for file changes; an update replaces the plugin's files in the skills directory.",
+    "ja": "追跡しているソースのファイル変更を確認します。更新ではスキルディレクトリ内のプラグインのファイルを置き換えます。"
+  },
+  "这个技能目录插件通过链接接入；更新请在真实来源目录进行。": {
+    "en": "This skills-directory plugin is linked in; update it in its real source directory.",
+    "ja": "このスキルディレクトリ プラグインはリンクで取り込まれています。実際のソースディレクトリで更新してください。"
+  },
+  "这个技能目录插件没有 SkillDock 记录的来源；请在它的来源处更新。": {
+    "en": "SkillDock has no recorded source for this skills-directory plugin; update it at its source.",
+    "ja": "このスキルディレクトリ プラグインには SkillDock が記録したソースがありません。ソース側で更新してください。"
+  },
+  "由 claude.ai 账号同步；SkillDock 不代为更新。": {
+    "en": "Synced from your claude.ai account; SkillDock does not update it.",
+    "ja": "claude.ai アカウントから同期されています。SkillDock は更新しません。"
+  },
+  "由组织托管设置安装；SkillDock 不代为更新。": {
+    "en": "Installed by your organisation's managed settings; SkillDock does not update it.",
+    "ja": "組織の管理設定でインストールされています。SkillDock は更新しません。"
+  },
+  "已更新 Claude 插件 {v0}，旧版已保留，可从操作记录恢复。": {
+    "en": "Updated Claude plugin {v0}; the previous version was kept and can be restored from the activity log.",
+    "ja": "Claude プラグイン {v0} を更新しました。旧版は保存されており、操作履歴から復元できます。"
+  },
+  "未找到这个 Claude 技能目录插件，请刷新后重试。": {
+    "en": "This Claude skills-directory plugin was not found; refresh and try again.",
+    "ja": "この Claude スキルディレクトリ プラグインが見つかりません。更新してから再試行してください。"
+  },
+  "技能目录插件经插件操作修改。": {
+    "en": "A skills-directory plugin is changed through plugin actions.",
+    "ja": "スキルディレクトリ プラグインはプラグインの操作で変更します。"
+  },
+  "这个技能目录插件没有 SkillDock 记录的来源，或位于其他位置；请在它的来源处更新。": {
+    "en": "SkillDock has no recorded source for this skills-directory plugin, or it is elsewhere; update it at its source.",
+    "ja": "このスキルディレクトリ プラグインには SkillDock が記録したソースがないか、別の場所にあります。ソース側で更新してください。"
+  },
+  "本机未找到 Claude，计划中的这一项暂停；恢复后继续。": {
+    "en": "Claude was not found on this computer, so this plan item is paused; it resumes once Claude is back.",
+    "ja": "このコンピューターに Claude が見つからないため、計画のこの項目は一時停止しています。戻ると再開します。"
+  },
+  "无法确认 Claude 环境，计划中的这一项暂停；恢复后继续。": {
+    "en": "The Claude environment cannot be confirmed, so this plan item is paused; it resumes once it can be.",
+    "ja": "Claude 環境を確認できないため、計画のこの項目は一時停止しています。確認できるようになると再開します。"
+  },
+  "技能的共用状态已变化，计划中的这一项已随对象 ID 迁移。": {
+    "en": "The skill's sharing between the two sides changed; this plan item moved with its new object ID.",
+    "ja": "スキルの両側での共有状態が変わったため、計画のこの項目は新しいオブジェクト ID に移しました。"
+  },
+  "已安装内容与来源一致。": {
+    "en": "The installed content matches the source.",
+    "ja": "インストール済みの内容はソースと一致しています。"
+  },
+  "来源内容有变化，但版本仍是 {v0}；Claude 只在版本变化时更新，请维护者递增版本。": {
+    "en": "The source content changed, but the version is still {v0}; Claude updates only when the version changes, so the maintainer needs to raise it.",
+    "ja": "ソースの内容は変わりましたが、バージョンは {v0} のままです。Claude はバージョンが変わったときだけ更新するため、メンテナーにバージョンを上げてもらう必要があります。"
+  },
+  "发现新版本 {v0}；经 Claude 命令行更新。": {
+    "en": "Found version {v0}; it is updated through the Claude command line.",
+    "ja": "新しいバージョン {v0} が見つかりました。Claude コマンドラインで更新します。"
+  },
+  "来源内容有变化；经 Claude 命令行更新。": {
+    "en": "The source content changed; it is updated through the Claude command line.",
+    "ja": "ソースの内容が変わりました。Claude コマンドラインで更新します。"
+  },
+  "检查这个插件的来源；更新经 Claude 命令行完成，并读回核对。": {
+    "en": "Checks this plugin's source; an update runs through the Claude command line and is read back.",
+    "ja": "このプラグインのソースを確認します。更新は Claude コマンドラインで行い、結果を読み戻して確認します。"
+  },
+  "已更新 Claude 插件 {v0}（{v1} → {v2}）。新会话生效，已打开的会话需要重载插件。": {
+    "en": "Updated Claude plugin {v0} ({v1} → {v2}). New sessions use it; reload plugins in sessions that are already open.",
+    "ja": "Claude プラグイン {v0} を更新しました（{v1} → {v2}）。新しいセッションで有効になります。開いているセッションではプラグインを再読み込みしてください。"
+  },
+  "已更新 Claude 插件 {v0}。新会话生效，已打开的会话需要重载插件。": {
+    "en": "Updated Claude plugin {v0}. New sessions use it; reload plugins in sessions that are already open.",
+    "ja": "Claude プラグイン {v0} を更新しました。新しいセッションで有効になります。開いているセッションではプラグインを再読み込みしてください。"
+  },
+  "更新前的内容已复制到 {v0}；Claude 原地覆盖这类插件，无法经 Claude 回到旧版本。": {
+    "en": "The content before the update was copied to {v0}; Claude overwrites such a plugin in place, so it cannot go back to the old version through Claude.",
+    "ja": "更新前の内容を {v0} にコピーしました。Claude はこの種のプラグインをその場で上書きするため、Claude 経由で旧バージョンには戻せません。"
+  },
+  "上次装入的内容与预览不同；自动应用已暂停，请在更新页重新检查并手动应用。": {
+    "en": "Last time the installed content differed from the preview; automatic applying is paused, so check again on the updates page and apply it yourself.",
+    "ja": "前回インストールされた内容がプレビューと異なりました。自動適用は一時停止しています。更新ページで再確認し、手動で適用してください。"
+  },
+  "Claude 命令行已返回，但装入的内容与预览不同；请重新检查。更新前的内容保留在 {v0}。": {
+    "en": "The Claude command line returned, but the installed content differs from the preview; check again. The content before the update is kept in {v0}.",
+    "ja": "Claude コマンドラインは完了しましたが、インストールされた内容がプレビューと異なります。再確認してください。更新前の内容は {v0} に保存しています。"
+  },
+  "Claude 命令行已返回，但装入的内容与预览不同；请重新检查。旧版本目录 {v0} 由 Claude 保留 14 天。": {
+    "en": "The Claude command line returned, but the installed content differs from the preview; check again. Claude keeps the old version directory {v0} for 14 days.",
+    "ja": "Claude コマンドラインは完了しましたが、インストールされた内容がプレビューと異なります。再確認してください。旧バージョンのディレクトリ {v0} は Claude が 14 日間保持します。"
+  },
+  "这个插件由 marketplace 声明的命令生成；SkillDock 不代为运行这个命令。可在 Claude Code 中用 /plugin 更新。": {
+    "en": "This plugin is produced by a command its marketplace declares; SkillDock does not run that command for you. You can update it with /plugin in Claude Code.",
+    "ja": "このプラグインは marketplace が宣言したコマンドで生成されます。SkillDock はそのコマンドを代わりに実行しません。Claude Code の /plugin で更新できます。"
+  },
+  "这个插件的下载需要 marketplace 声明的凭证命令；SkillDock 不代为运行。可在 Claude Code 中用 /plugin 更新。": {
+    "en": "Downloading this plugin needs a credential command its marketplace declares; SkillDock does not run it for you. You can update it with /plugin in Claude Code.",
+    "ja": "このプラグインのダウンロードには marketplace が宣言した認証コマンドが必要です。SkillDock は代わりに実行しません。Claude Code の /plugin で更新できます。"
+  },
+  "无法识别这个插件的来源；可在 Claude Code 中用 /plugin 更新。": {
+    "en": "This plugin's source is not recognised; you can update it with /plugin in Claude Code.",
+    "ja": "このプラグインのソースを識別できません。Claude Code の /plugin で更新できます。"
+  },
+  "这个 Claude 插件已不在，请刷新后重试。": {
+    "en": "This Claude plugin is no longer there; refresh and try again.",
+    "ja": "この Claude プラグインはもうありません。更新してから再試行してください。"
+  },
+  "未找到这个插件的安装目录，请刷新后重试。": {
+    "en": "This plugin's installation directory was not found; refresh and try again.",
+    "ja": "このプラグインのインストール先ディレクトリが見つかりません。更新してから再試行してください。"
+  },
+  "这个插件的 marketplace 已不在 Claude 中，请刷新后重试。": {
+    "en": "This plugin's marketplace is no longer in Claude; refresh and try again.",
+    "ja": "このプラグインの marketplace はもう Claude にありません。更新してから再試行してください。"
+  },
+  "已安装的插件内容相对上次记录有本地修改，不能自动覆盖；请先核对。": {
+    "en": "The installed plugin has local changes since SkillDock last recorded it and is not overwritten automatically; check it first.",
+    "ja": "インストール済みのプラグインには前回の記録以降にローカルの変更があるため、自動では上書きしません。先に確認してください。"
+  },
+  "更新预览不属于这个插件。": {
+    "en": "The update preview belongs to another plugin.",
+    "ja": "この更新プレビューは別のプラグインのものです。"
+  },
+  "插件安装在预览后发生变化，请重新检查。": {
+    "en": "The plugin's installation changed after the preview; check again.",
+    "ja": "プレビュー後にプラグインのインストールが変わりました。再確認してください。"
+  },
+  "插件在预览后发生变化，请重新检查。": {
+    "en": "The plugin changed after the preview; check again.",
+    "ja": "プレビュー後にプラグインが変わりました。再確認してください。"
+  },
+  "本机文件在预览后发生变化，请重新检查更新。": {
+    "en": "Local files changed after the preview; check for updates again.",
+    "ja": "プレビュー後にローカルのファイルが変わりました。更新を再確認してください。"
+  },
+  "marketplace 中这个插件的条目在预览后发生变化，请重新检查。": {
+    "en": "This plugin's entry in its marketplace changed after the preview; check again.",
+    "ja": "プレビュー後に marketplace 内のこのプラグインのエントリーが変わりました。再確認してください。"
+  },
+  "来源在预览后发生变化，请重新检查。": {
+    "en": "The source changed after the preview; check again.",
+    "ja": "プレビュー後にソースが変わりました。再確認してください。"
+  },
+  "来源仓库在预览后有新的提交，请重新检查。": {
+    "en": "The source repository has a new commit since the preview; check again.",
+    "ja": "プレビュー後にソースリポジトリに新しいコミットがあります。再確認してください。"
+  },
+  "npm 包在预览后发生变化，请重新检查。": {
+    "en": "The npm package changed after the preview; check again.",
+    "ja": "プレビュー後に npm パッケージが変わりました。再確認してください。"
+  },
+  "压缩包在预览后发生变化，请重新检查。": {
+    "en": "The archive changed after the preview; check again.",
+    "ja": "プレビュー後にアーカイブが変わりました。再確認してください。"
+  },
+  "无法读取这个插件所在 marketplace 的本机副本；请刷新 marketplace 后再检查。": {
+    "en": "The local copy of this plugin's marketplace cannot be read; refresh the marketplace and check again.",
+    "ja": "このプラグインがある marketplace のローカルコピーを読み取れません。marketplace を更新してから再確認してください。"
+  },
+  "这个插件已不在它的 marketplace 中；请刷新 marketplace 后再检查。": {
+    "en": "This plugin is no longer in its marketplace; refresh the marketplace and check again.",
+    "ja": "このプラグインはもう marketplace にありません。marketplace を更新してから再確認してください。"
+  },
+  "插件来源越出 marketplace 根目录。": {
+    "en": "The plugin's source lies outside the marketplace root.",
+    "ja": "プラグインのソースが marketplace のルート外にあります。"
+  },
+  "无法解析来源的 Git 提交。": {
+    "en": "The source's Git commit cannot be resolved.",
+    "ja": "ソースの Git コミットを解決できません。"
+  },
+  "无法下载这个 npm 包。": {
+    "en": "This npm package cannot be downloaded.",
+    "ja": "この npm パッケージをダウンロードできません。"
+  },
+  "压缩包来源只接受 https 地址。": {
+    "en": "An archive source must be an https address.",
+    "ja": "アーカイブのソースは https アドレスのみ使えます。"
+  },
+  "下载压缩包失败：HTTP {v0}。": {
+    "en": "Downloading the archive failed: HTTP {v0}.",
+    "ja": "アーカイブのダウンロードに失敗しました：HTTP {v0}。"
+  },
+  "压缩包超过 100 MB。": {
+    "en": "The archive is larger than 100 MB.",
+    "ja": "アーカイブが 100 MB を超えています。"
+  },
+  "插件子目录越出仓库。": {
+    "en": "The plugin's subdirectory lies outside the repository.",
+    "ja": "プラグインのサブディレクトリがリポジトリの外にあります。"
+  },
+  "下载的压缩包摘要与 marketplace 条目声明的不一致，已中止。": {
+    "en": "The downloaded archive's digest does not match the one its marketplace entry declares; stopped.",
+    "ja": "ダウンロードしたアーカイブのダイジェストが marketplace のエントリーで宣言されたものと一致しないため、中止しました。"
+  },
+  "Claude 命令行列表的输出形状未知。": {
+    "en": "The Claude command line printed a list in an unknown shape.",
+    "ja": "Claude コマンドラインの一覧の出力形式が不明です。"
+  },
+  "来源中的插件名称已改为 {v0}；请卸载后从来源重新安装。": {
+    "en": "The plugin in the source is now named {v0}; uninstall it and install again from the source.",
+    "ja": "ソース内のプラグイン名が {v0} に変わりました。アンインストールしてからソースから再インストールしてください。"
+  },
+  "计划中有技能的内容在另一侧插件的目录中，请确认后重试。": {
+    "en": "Some skills in the schedule have their contents inside the other side's plugins. Confirm, then try again.",
+    "ja": "スケジュール内の一部のスキルは、内容がもう一方のプラグインのディレクトリ内にあります。確認してから再試行してください。"
+  },
+  "计划中的这些技能，内容在另一侧插件的目录中；自动应用会改写这些插件：": {
+    "en": "These skills in the schedule have their contents inside the other side's plugins; applying updates automatically changes those plugins:",
+    "ja": "スケジュール内のこれらのスキルは、内容がもう一方のプラグインのディレクトリ内にあります。自動適用するとそのプラグインが書き換えられます："
+  },
+  "这项技能的内容在另一侧插件的目录中；这次批量执行没有确认，只检查、不应用。": {
+    "en": "This skill's contents are inside the other side's plugin. This batch was not confirmed, so it was only checked, not applied.",
+    "ja": "このスキルの内容はもう一方のプラグインのディレクトリ内にあります。今回の一括実行は確認されていないため、確認のみ行い、適用していません。"
+  },
+  "这项技能的内容在另一侧插件的目录中；须先在 SkillDock 0.11 的计划设置中确认后才会自动应用（0.10.x 界面无法确认），这次只检查。": {
+    "en": "This skill's contents are inside the other side's plugin. It is applied automatically only after you confirm it in the schedule settings of SkillDock 0.11 (the 0.10.x interface cannot confirm it); this time it was only checked.",
+    "ja": "このスキルの内容はもう一方のプラグインのディレクトリ内にあります。SkillDock 0.11 のスケジュール設定で確認するまで自動適用されません（0.10.x の画面では確認できません）。今回は確認のみ行いました。"
+  },
+  "已安装的 SkillDock 都低于 {v0}，不能使用当前数据；计划暂停。请把 SkillDock 更新到最新版本。": {
+    "en": "Every installed SkillDock is older than {v0} and cannot use the current data, so the schedule is paused. Update SkillDock to the latest version.",
+    "ja": "インストールされている SkillDock はすべて {v0} より古く、現在のデータを使用できないため、スケジュールを一時停止しています。SkillDock を最新版に更新してください。"
+  },
+  "{v0} 中没有可由 SkillDock 更新的 SkillDock 安装。": {
+    "en": "{v0} has no SkillDock installation that SkillDock can update.",
+    "ja": "{v0} には SkillDock が更新できる SkillDock のインストールがありません。"
+  },
+  "{v0} 中的 SkillDock 更新失败（{v1}）。": {
+    "en": "Updating SkillDock in {v0} failed ({v1}).",
+    "ja": "{v0} の SkillDock の更新に失敗しました（{v1}）。"
+  },
+  "已运行 {v0} 的更新命令，但无法读回 SkillDock 的版本（{v1}）。请核对后重试。": {
+    "en": "{v0}'s update command ran, but the SkillDock version could not be read back ({v1}). Check it, then try again.",
+    "ja": "{v0} の更新コマンドは実行しましたが、SkillDock のバージョンを読み戻せませんでした（{v1}）。確認してから再試行してください。"
+  },
+  "已运行 {v0} 的更新命令，但读回时没有找到 SkillDock。请核对后重试。": {
+    "en": "{v0}'s update command ran, but SkillDock was not found when reading back. Check it, then try again.",
+    "ja": "{v0} の更新コマンドは実行しましたが、読み戻し時に SkillDock が見つかりませんでした。確認してから再試行してください。"
+  },
+  "{v0} 的 marketplace 中没有更新的 SkillDock（当前 {v1}）。": {
+    "en": "{v0}'s marketplace has no newer SkillDock (currently {v1}).",
+    "ja": "{v0} のマーケットプレイスに新しい SkillDock はありません（現在 {v1}）。"
+  },
+  "已把 {v0} 中的 SkillDock 从 {v1} 更新到 {v2}。已打开的 Claude 会话需重载插件后生效。": {
+    "en": "Updated SkillDock in {v0} from {v1} to {v2}. Open Claude sessions need to reload plugins for it to take effect.",
+    "ja": "{v0} の SkillDock を {v1} から {v2} に更新しました。開いている Claude セッションでは、プラグインを再読み込みすると反映されます。"
+  },
+  "已把 {v0} 中的 SkillDock 从 {v1} 更新到 {v2}。新的 Codex 会话或重载后生效。": {
+    "en": "Updated SkillDock in {v0} from {v1} to {v2}. It takes effect in new Codex sessions or after a reload.",
+    "ja": "{v0} の SkillDock を {v1} から {v2} に更新しました。新しい Codex セッションまたは再読み込み後に反映されます。"
+  },
+  "未找到可用的 Codex 命令行，无法一键更新。": {
+    "en": "No working Codex command line was found, so SkillDock cannot be updated with one click.",
+    "ja": "利用できる Codex コマンドラインが見つからないため、ワンクリック更新できません。"
+  },
+  "{v0} 中没有安装 SkillDock。": {
+    "en": "SkillDock is not installed in {v0}.",
+    "ja": "{v0} に SkillDock はインストールされていません。"
+  },
+  "{v0} 中的 SkillDock {v1} 已是两侧中最新的版本。": {
+    "en": "SkillDock {v1} in {v0} is already the newest version on either side.",
+    "ja": "{v0} の SkillDock {v1} は、両側で最新のバージョンです。"
+  },
+  "自动恢复未完成；更新前的插件目录保留在 {v0}，请据此恢复 {v1}。": {
+    "en": "Automatic recovery did not finish; the plugin directory from before the update is kept at {v0}. Restore {v1} from it.",
+    "ja": "自動復元は完了しませんでした。更新前のプラグインディレクトリは {v0} に残っています。これをもとに {v1} を復元してください。"
+  },
+  "已安装的插件内容相对上次记录有变化，可能是 Claude 自己更新过，也可能是本地修改，不能自动覆盖；请先核对。如果没有本地修改，可在 Claude 中卸载后重新安装这个插件，再检查。": {
+    "en": "The installed plugin changed since SkillDock last recorded it. Claude may have updated it itself, or it was changed locally, so it is not overwritten automatically; check it first. If nothing was changed locally, uninstall and reinstall the plugin in Claude, then check again.",
+    "ja": "インストール済みのプラグインは前回の記録から変わっています。Claude 自身が更新したか、ローカルで変更された可能性があるため、自動では上書きしません。先に確認してください。ローカルで変更していない場合は、Claude でアンインストールして再インストールしてから、もう一度確認してください。"
+  },
+  "这条安装所在的项目目录不存在，计划中的这一项暂停；项目目录恢复后继续。": {
+    "en": "The project folder of this installation no longer exists, so this plan item is paused; it resumes once the folder is back.",
+    "ja": "このインストールのプロジェクトフォルダーが存在しないため、計画のこの項目は一時停止しています。フォルダーが戻ると再開します。"
+  },
+  "下载压缩包失败：重定向过多。": {
+    "en": "Downloading the archive failed: too many redirects.",
+    "ja": "アーカイブのダウンロードに失敗しました：リダイレクトが多すぎます。"
+  },
+  "更新目标无效。": {
+    "en": "The update target is invalid.",
+    "ja": "更新対象が無効です。"
+  },
+  "更新目标不存在。": {
+    "en": "The update target does not exist.",
+    "ja": "更新対象が存在しません。"
+  },
+  "文件差异已加载。": {
+    "en": "The file differences are loaded.",
+    "ja": "ファイルの差分を読み込みました。"
+  },
+  "所选目标尚不能检查更新，请先确认来源。": {
+    "en": "A selected target cannot be checked for updates yet; confirm its source first.",
+    "ja": "選択した対象はまだ更新を確認できません。先に取得元を確認してください。"
+  },
+  "这个插件没有版本号，Claude 会原地覆盖它；更新前 SkillDock 会先复制一份，供需要时手动恢复。": {
+    "en": "This plugin has no version, so Claude overwrites it in place; SkillDock copies it first so it can be restored by hand if needed.",
+    "ja": "このプラグインにはバージョンがないため、Claude はその場で上書きします。必要なときに手動で戻せるよう、更新前に SkillDock がコピーを作成します。"
+  },
+  "{v0} 中 SkillDock 的安装所在的项目目录都不存在，无法更新。": {
+    "en": "The project folders of every SkillDock installation in {v0} no longer exist, so it cannot be updated.",
+    "ja": "{v0} にある SkillDock のインストールは、どれもプロジェクトフォルダーが存在しないため、更新できません。"
+  },
+  "另有 {v0} 处安装的版本没有变化。": {
+    "en": "{v0} other installations kept their version.",
+    "ja": "ほかに {v0} 件のインストールはバージョンが変わりませんでした。"
+  },
+  "{v0} 处安装所在的项目目录不存在，没有更新。": {
+    "en": "{v0} installations were not updated because their project folders no longer exist.",
+    "ja": "{v0} 件のインストールはプロジェクトフォルダーが存在しないため、更新していません。"
+  },
+  "无法确认 SkillDock 是否仍安装：启动记录缺失，运行来源目录已不存在；计划暂停，重新打开 SkillDock 后恢复。": {
+    "en": "Cannot confirm that SkillDock is still installed: the launch record is missing and the source it ran from is gone. The schedule is paused and resumes once SkillDock is opened again.",
+    "ja": "SkillDock がまだインストールされているか確認できません。起動記録がなく、実行元のディレクトリも存在しません。スケジュールを一時停止しました。SkillDock をもう一度開くと再開します。"
+  },
+  "另一个 SkillDock 进程正在执行操作，请稍后重试。": {
+    "en": "Another SkillDock process is carrying out an operation. Try again later.",
+    "ja": "別の SkillDock プロセスが操作を実行中です。しばらくしてから再試行してください。"
+  },
+  "压缩包来源不能指向本机。": {
+    "en": "An archive source cannot point to this computer.",
+    "ja": "アーカイブの取得元にこのコンピューターを指定することはできません。"
+  },
+  "自动恢复未完成：插件目录已移回原处，但 marketplace 条目没能改回；请刷新这个 marketplace 后核对。": {
+    "en": "Automatic recovery did not finish: the plugin directory is back in place, but the marketplace entry could not be put back. Refresh this marketplace, then check it.",
+    "ja": "自動復元は完了しませんでした。プラグインディレクトリは元に戻りましたが、マーケットプレイスの項目を戻せませんでした。このマーケットプレイスを更新してから確認してください。"
+  },
+  "取自本机保存的 marketplace 副本；检查与更新前重新读取。": {
+    "en": "Taken from the marketplace copy saved on this computer; read again before checking and updating.",
+    "ja": "このコンピューターに保存されたマーケットプレイスのコピーから取得しています。確認と更新の前に読み直します。"
+  },
+  "marketplace 条目": {
+    "en": "Marketplace entry",
+    "ja": "マーケットプレイスの項目"
+  },
+  "单插件来源": {
+    "en": "Single-plugin source",
+    "ja": "単一プラグインのソース"
   }
 }

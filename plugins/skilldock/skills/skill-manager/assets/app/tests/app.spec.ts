@@ -155,7 +155,8 @@ test('isolated market and plugin lifecycle changes actual inventory and preserve
 });
 
 test('large plugin catalogs render in batches while search covers all results', async ({ page }) => {
-  await page.route('**/api/state?mode=sandbox', async route => {
+  // A version-2 interface asks for `/api/state?mode=sandbox&multiAgent=1`.
+  await page.route('**/api/state?mode=sandbox*', async route => {
     const response = await route.fetch();
     const snapshot: Snapshot = await response.json();
     snapshot.plugins = Array.from({ length: 4106 }, (_, index) => ({

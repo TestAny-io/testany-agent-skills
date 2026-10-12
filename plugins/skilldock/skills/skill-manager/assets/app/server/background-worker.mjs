@@ -5,12 +5,27 @@ import path from 'node:path';
 import { createService } from './service.mjs';
 import { readJson, writeJson, redact, safeSegment } from './files.mjs';
 import { acquireFileLock, operationLock } from './process-lock.mjs';
+import { instanceLock } from './state-locks.mjs';
 import { createBackgroundManager, backgroundPaths, normalizeBackgroundStatus } from './background.mjs';
-import { CodexAdapter } from './cli.mjs';
+import { CodexAdapter, listCovers } from './cli.mjs';
 import { installationIdentity, sameInstallation } from './installation.mjs';
 import { captureSource } from '../scripts/source-bundle.mjs';
 import { prepareRuntime } from './runtime.mjs';
 import { resolveCodexCli } from './codex-runtime.mjs';
+import { readGeneration, CURRENT_GENERATION, CURRENT_GENERATION_MINIMUM } from './generation.mjs';
+import { restoreMissingRecord } from './launcher-record.mjs';
+import { backgroundFamily, inPluginCache, refreshInstallations } from './launch-plan.mjs';
+
+// DEC-SDX-010: instance lock → Codex lock for a version-2 context (the Codex root is never
+// created by locking); a version-1 context keeps 0.10.x locking. Throws BUSY.
+async function acquireWorkerLock(context) {
+  if (context.version !== 2) return acquireFileLock(operationLock(context.codexHome));
+  const instance = acquireFileLock(instanceLock(context.stateDir));
+  try {
+    const codex = await fs.stat(context.codexHome).then(() => true, () => false) ? acquireFileLock(operationLock(context.codexHome)) : () => {};
+    return () => { codex(); instance(); };
+  } catch (error) { instance(); throw error; }
+}
 
 export async function resolveBackgroundSource(context, adapter) {
   if (context.installation.kind !== 'plugin') {
@@ -19,9 +34,14 @@ export async function resolveBackgroundSource(context, adapter) {
   }
   const catalog = await adapter.list();
   const identity = context.installation;
-  const installed = catalog.plugins.find(plugin => plugin.installed && plugin.id === `${identity.plugin}@${identity.marketplace}`);
+  const id = `${identity.plugin}@${identity.marketplace}`;
+  const installed = catalog.plugins.find(plugin => plugin.installed && plugin.id === id);
   if (!installed) {
-    if (!catalog.cli.available || catalog.diagnostics.length) throw new Error('无法确认 SkillDock 安装状态；未删除后台任务，请恢复 Codex CLI 后重试。');
+    const read = catalog.cli.available && (catalog.listed ? catalog.listed.plugins === true : !catalog.diagnostics.length);
+    if (!read) throw new Error('无法确认 SkillDock 安装状态；未删除后台任务，请恢复 Codex CLI 后重试。');
+    // Removing the task cannot be undone: a dropped record that merely bears SkillDock's name
+    // counts as possibly SkillDock too.
+    if (!listCovers(catalog, 'plugins', id) || catalog.dropped?.pluginNames?.includes(identity.plugin)) throw new Error('无法确认 SkillDock 安装状态：Codex 返回的插件记录中有无法安全使用的项，可能正是 SkillDock；未删除后台任务。');
     return null;
   }
   if (installed.enabled === false) return null;
@@ -31,23 +51,53 @@ export async function resolveBackgroundSource(context, adapter) {
   return source;
 }
 
+/**
+ * HLD 3.8: on generation 2 the background follows the highest SkillDock of the running family
+ * on either side that reads the current data, and never one that does not (3.7). Only when the
+ * record names no installed family, or none of it is found on either side, does the 0.10.2
+ * check decide, which never removes the task on uncertain evidence.
+ */
+export async function resolveFamilySource(context, adapter) {
+  if (context.version === 2) {
+    // The saved Claude root, never the LaunchAgent's environment (HLD 3.8).
+    const found = await backgroundFamily({ state: context.stateDir, codexHome: context.codexHome, home: context.home, env: {} });
+    if (found?.best) return found.best.appPath;
+    if (found?.family.length) throw new Error(`已安装的 SkillDock 都低于 ${CURRENT_GENERATION_MINIMUM}，不能使用当前数据；计划暂停。请把 SkillDock 更新到最新版本。`);
+    // No record to name the family: a source in a plugin cache that is gone may be a version Claude
+    // removed after replacing it, so it is not taken for an uninstall (5d review P3-05).
+    if (!found && context.installation.kind !== 'plugin' && !await fs.stat(context.source).then(() => true, () => false)
+      && await inPluginCache({ state: context.stateDir, codexHome: context.codexHome, home: context.home, env: {}, appDir: context.source }))
+      throw new Error('无法确认 SkillDock 是否仍安装：启动记录缺失，运行来源目录已不存在；计划暂停，重新打开 SkillDock 后恢复。');
+  }
+  return resolveBackgroundSource(context, adapter);
+}
+
 export async function refreshBackgroundRuntime(context, adapter, { prepare = prepareRuntime } = {}) {
-  const source = await resolveBackgroundSource(context, adapter);
+  const source = await resolveFamilySource(context, adapter);
   if (!source) return null;
   const snapshot = await captureSource(source);
   if (context.digest === snapshot.sourceDigest) return context;
   // A source checkout used for development already has its dependencies.
   const runtime = source === context.runtime ? context.runtime : await prepare(context.stateDir, snapshot);
-  const next = { ...context, source, runtime, digest: snapshot.sourceDigest, node: process.execPath };
+  // Another installation, possibly on the other side, has its own identity.
+  const installation = source === context.source ? context.installation : await installationIdentity(source, context.codexHome);
+  const next = { ...context, source, runtime, installation, digest: snapshot.sourceDigest, node: process.execPath };
   await writeJson(backgroundPaths(context.stateDir, context.home).context, next);
   return next;
 }
 
 export async function runBackground(context, options = {}) {
-  // 0.10.3 (API-SDX-001 36b §8): never read or write plans written by a newer version.
-  const { readGeneration } = await import('./handover.mjs');
+  // API-SDX-001 36b §7.4: a version-1 context (a 0.10.x entry) works only on generation-1
+  // data and its version-1 plan; a version-2 context only once the migration is complete.
+  // Newer data, or a migration still in progress, is left untouched.
+  const generation = await readGeneration(context.stateDir);
   const plan = await readJson(path.join(context.stateDir, 'local/updates.json'), null).catch(() => ({ version: 0 }));
-  if (await readGeneration(context.stateDir) >= 2 || (plan && plan.version !== 1)) return { outcome: 'newer-data' };
+  if (generation > CURRENT_GENERATION || (context.version !== 2 && (generation >= CURRENT_GENERATION || (plan && plan.version !== 1)))) return { outcome: 'newer-data' };
+  if (context.version === 2 && (generation < CURRENT_GENERATION || (plan && ![1, 2].includes(plan.version)))) return { outcome: generation < CURRENT_GENERATION ? 'migration-pending' : 'newer-data' };
+  if (context.version === 2) {
+    await restoreMissingRecord(context.stateDir, context.codexHome).catch(() => {});
+    await refreshInstallations({ state: context.stateDir, codexHome: context.codexHome, home: context.home, appDir: context.source }).catch(() => {});
+  }
   const clock = options.now || Date.now; const stamp = () => new Date(clock()).toISOString();
   const paths = backgroundPaths(context.stateDir, context.home);
   const stateFile = path.join(context.stateDir, 'local/updates.json');
@@ -63,7 +113,7 @@ export async function runBackground(context, options = {}) {
     // A crashed registration must not leave a dormant job behind. During a
     // successful enable transaction the owning UI still holds this lock.
     let release;
-    try { release = acquireFileLock(operationLock(context.codexHome)); } catch (error) { if (error.code !== 'BUSY') throw error; }
+    try { release = await acquireWorkerLock(context); } catch (error) { if (error.code !== 'BUSY') throw error; }
     if (release) {
       let remove = false;
       try {
@@ -86,7 +136,7 @@ export async function runBackground(context, options = {}) {
     await report({ finishedAt: stamp(), outcome: retryPending ? 'retry-pending' : 'idle' }); return status;
   }
   let release;
-  try { release = acquireFileLock(operationLock(context.codexHome)); }
+  try { release = await acquireWorkerLock(context); }
   catch (error) { if (error.code !== 'BUSY') throw error; await report({ finishedAt: stamp(), outcome: 'busy' }); return status; }
   let service; let removeRegistration = false; let stopping = false;
   const stop = () => { stopping = true; service?.close().catch(() => {}); };
@@ -105,7 +155,7 @@ export async function runBackground(context, options = {}) {
       }
     }
     const adapter = options.adapter || new CodexAdapter({ codexHome: context.codexHome, codexBin });
-    let source = await resolveBackgroundSource(context, adapter);
+    const source = await resolveFamilySource(context, adapter);
     if (!source) {
       await writeJson(paths.disabled, { ...schedule, enabled: false });
       const state = await readJson(stateFile); state.schedule.enabled = false; delete state.schedule.nextRunAt; await writeJson(stateFile, state);

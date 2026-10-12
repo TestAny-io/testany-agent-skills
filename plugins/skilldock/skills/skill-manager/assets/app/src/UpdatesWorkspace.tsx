@@ -26,6 +26,7 @@ import { ExternalLink } from "./ExternalLink";
 import { SourceProvenance } from "./SourceProvenance";
 import { DiffBrowser } from "./DiffBrowser";
 import { GitSourceFields, ResolvedGitSource } from "./GitSourceFields";
+import type { ConfirmContent } from "./ConfirmDialog";
 import "./UpdatesWorkspace.css";
 
 type Language = "zh" | "en" | "ja";
@@ -81,7 +82,7 @@ const copy = {
     last: "上次更新检查",
     none: "尚未记录",
     lifecycle:
-      "由 macOS 在后台按需执行，完成即退出；无需打开 SkillDock 或 Codex。重启并登录后自动恢复，休眠或离线错过的检查会补做。实际开始时间可能比计划晚最多约 5 分钟。",
+      "由 macOS 在后台按需执行，完成即退出；无需打开 SkillDock、Codex 或 Claude。重启并登录后自动恢复，休眠或离线错过的检查会补做。实际开始时间可能比计划晚最多约 5 分钟。",
     interval: "检查周期（小时）",
     customInterval: "自定义间隔（小时）",
     hours: "小时",
@@ -124,6 +125,8 @@ const copy = {
     error: "检查失败",
     "skill-source": "按技能更新",
     "plugin-reinstall": "按整个插件更新",
+    "plugin-files": "替换技能目录中的插件文件",
+    "claude-plugin": "经 Claude 命令行更新",
     "owner-managed": "由宿主管理",
     "connect-source": "需要关联来源",
     connect: "关联更新来源",
@@ -166,6 +169,11 @@ const copy = {
     result: "运行结果",
     selectedOnly: "计划仅适用于已选择的安装。",
     cadence: "间隔从每轮完成时计算，时区用于显示时间。",
+    pendingConfirm: "这些技能的内容在另一侧插件的目录中，确认后计划才会自动应用它们的更新：",
+    confirmPending: "确认",
+    confirmPendingTitle: "让计划自动应用这些技能的更新？",
+    confirmPendingHelp: "这些技能的内容在另一侧插件的目录中，自动应用会改写所在的插件。确认会按当前设置重新保存计划，下次运行时间从现在重新计算。",
+    confirmPendingAffected: "待确认的技能",
   },
   en: {
     checkOnly: "Check only",
@@ -219,7 +227,7 @@ const copy = {
     last: "Last update check",
     none: "Not recorded",
     lifecycle:
-      "macOS runs updates on demand, then the task exits. SkillDock and Codex can stay closed. Scheduling resumes after restarting and signing in, with catch-up after sleep or offline periods. Runs may start up to about 5 minutes after the planned time.",
+      "macOS runs updates on demand, then the task exits. SkillDock, Codex and Claude can stay closed. Scheduling resumes after restarting and signing in, with catch-up after sleep or offline periods. Runs may start up to about 5 minutes after the planned time.",
     interval: "Check interval (hours)",
     customInterval: "Custom interval (hours)",
     hours: "hours",
@@ -265,6 +273,8 @@ const copy = {
     error: "Check failed",
     "skill-source": "Update this skill",
     "plugin-reinstall": "Update the whole plugin",
+    "plugin-files": "Replace the plugin files in the skills directory",
+    "claude-plugin": "Update through the Claude command line",
     "owner-managed": "Managed by host",
     "connect-source": "Connect a source",
     connect: "Connect update source",
@@ -309,6 +319,11 @@ const copy = {
     selectedOnly: "This schedule applies only to the selected installations.",
     cadence:
       "The interval starts when a run finishes. The time zone controls displayed times.",
+    pendingConfirm: "These skills’ contents are inside the other side’s plugins. The schedule applies their updates automatically only once you confirm:",
+    confirmPending: "Confirm",
+    confirmPendingTitle: "Let the schedule apply updates to these skills?",
+    confirmPendingHelp: "These skills’ contents are inside the other side’s plugins, so applying updates automatically changes those plugins. Confirming saves the schedule again with its current settings, and the next run is counted from now.",
+    confirmPendingAffected: "Skills awaiting confirmation",
   },
   ja: {
     checkOnly: "更新の確認のみ",
@@ -362,7 +377,7 @@ const copy = {
     last: "前回の更新確認",
     none: "未記録",
     lifecycle:
-      "macOSが必要なときだけ更新を実行し、完了後に終了します。SkillDockやCodexを開く必要はありません。再起動・ログイン後に自動再開し、スリープやオフライン中の確認を補います。予定時刻から約5分遅れる場合があります。",
+      "macOSが必要なときだけ更新を実行し、完了後に終了します。SkillDock、Codex、Claude を開く必要はありません。再起動・ログイン後に自動再開し、スリープやオフライン中の確認を補います。予定時刻から約5分遅れる場合があります。",
     interval: "確認間隔（時間）",
     customInterval: "カスタム間隔（時間）",
     hours: "時間",
@@ -407,6 +422,8 @@ const copy = {
     error: "確認に失敗",
     "skill-source": "スキル単位で更新",
     "plugin-reinstall": "プラグイン全体を更新",
+    "plugin-files": "スキルディレクトリ内のプラグインファイルを置き換え",
+    "claude-plugin": "Claude コマンドラインで更新",
     "owner-managed": "ホストが管理",
     "connect-source": "取得元の関連付けが必要",
     connect: "更新元を関連付け",
@@ -451,6 +468,11 @@ const copy = {
     selectedOnly: "この設定は選択したインストールのみに適用されます。",
     cadence:
       "各実行の完了時から間隔を計算します。タイムゾーンは時刻の表示に使用します。",
+    pendingConfirm: "これらのスキルの内容はもう一方のプラグインのディレクトリ内にあります。確認するまで、スケジュールはこれらの更新を自動適用しません：",
+    confirmPending: "確認",
+    confirmPendingTitle: "これらのスキルの更新をスケジュールで自動適用しますか？",
+    confirmPendingHelp: "これらのスキルの内容はもう一方のプラグインのディレクトリ内にあるため、自動適用するとそのプラグインが書き換えられます。確認すると、現在の設定でスケジュールを保存し直し、次回の実行時刻は今から数え直します。",
+    confirmPendingAffected: "確認待ちのスキル",
   },
 } as const;
 type Key = keyof typeof copy.zh;
@@ -478,6 +500,27 @@ function minutesForHours(value: string): number | undefined {
     ? wholeMinutes
     : undefined;
 }
+/**
+ * 36c §6: cross-side skills a version-2 save put in an applying plan, waiting to be confirmed in the
+ * plan settings; confirming saves the plan again as it is, with `confirm`.
+ */
+/**
+ * Whether an update item belongs to the object “Manage updates” came from: its own item, or the
+ * plugin item that updates a bundled skill. Any Agent's object (Owner, 2026-10-10: UI-14).
+ */
+export function focusMatches(item: UpdateItem, focusTarget?: string) {
+  return !focusTarget || item.target.id === focusTarget || !!item.affectedSkillIds?.includes(focusTarget);
+}
+
+export function pendingConfirmation(data: Snapshot, language: Language): ConfirmContent | undefined {
+  const schedule = data.schedule; const t = (key: Key) => copy[language][key];
+  const pending = schedule?.autoApply ? schedule.targets.filter((target) => target.confirmation === "pending") : [];
+  if (!schedule || !pending.length) return undefined;
+  return { title: t("confirmPendingTitle"), description: t("confirmPendingHelp"), target: t("schedule"), label: t("confirmPending"), affectedTitle: t("confirmPendingAffected"),
+    affected: pending.map((target) => (data.updates || []).find((item) => targetKey(item.target) === targetKey(target))?.name ?? target.id),
+    request: { action: "schedule.configure", confirm: true, schedule: { enabled: schedule.enabled, intervalMinutes: schedule.intervalMinutes, timezone: schedule.timezone, autoApply: schedule.autoApply,
+      targets: schedule.targets.map(({ confirmation: _shown, ...target }) => target) } } };
+}
 interface Props {
   data: Snapshot;
   runPending: boolean;
@@ -490,6 +533,7 @@ interface Props {
   ) => Promise<ActionResult | undefined>;
   onDetails: (skill: Skill) => void;
   onRefresh: () => void;
+  onConfirm: (content: ConfirmContent) => void;
 }
 
 export function UpdatesWorkspace({
@@ -502,6 +546,7 @@ export function UpdatesWorkspace({
   execute,
   onDetails,
   onRefresh,
+  onConfirm,
 }: Props) {
   const t = (key: Key) => copy[language][key];
   const [search, setSearch] = useState("");
@@ -537,10 +582,12 @@ export function UpdatesWorkspace({
   const eligible = items.filter((item) =>
     form?.autoApply ? item.canAutoApply : item.canCheck,
   );
+  const focusedPlugin = focusTarget ? data.plugins.find(plugin => plugin.id === focusTarget) : undefined;
+  const focusedSkill = focusTarget && !focusedPlugin ? data.skills.find(skill => skill.id === focusTarget) : undefined;
   const shown = useMemo(
     () =>
       items.filter((item) =>
-        (!focusTarget || item.target.kind === "plugin" && item.target.id === focusTarget) && `${item.name} ${item.owner} ${item.installedPath || ""} ${item.sourceInfo?.source || ""}`
+        focusMatches(item, focusTarget) && `${item.name} ${item.owner} ${item.installedPath || ""} ${item.sourceInfo?.source || ""}`
           .toLowerCase()
           .includes(search.toLowerCase()),
       ),
@@ -573,6 +620,7 @@ export function UpdatesWorkspace({
       return undefined;
     }
   };
+  const pending = pendingConfirmation(data, language);
   const openSchedule = () => {
     const schedule = data.schedule;
     if (!schedule) {
@@ -638,7 +686,7 @@ export function UpdatesWorkspace({
   const hint = (item: UpdateItem) =>
     item.route === "connect-source"
       ? t("connect-hint")
-      : item.route === "owner-managed"
+      : item.route === "owner-managed" || (item.route === "claude-plugin" && !item.canCheck)
         ? t("host-hint")
         : t("ready-hint");
   const manager = (owner: string) => {
@@ -729,6 +777,13 @@ export function UpdatesWorkspace({
             <span>{data.schedule.timezone}</span>
           </p>
         )}
+        {pending && (
+          <div className="uw-pending-confirmation" role="status">
+            <p>{t("pendingConfirm")}</p>
+            <ul>{pending.affected!.map((name, index) => <li key={index}>{name}</li>)}</ul>
+            <button className="button button-secondary" onClick={() => onConfirm(pending)} disabled={busy}>{t("confirmPending")}</button>
+          </div>
+        )}
         {background && (
           <div className={`uw-background-status${needsAttention ? " needs-attention" : ""}`} role="status">
             <div><strong>{t("background")}</strong><span>{t(backgroundLabel[background.status])}</span></div>
@@ -780,8 +835,8 @@ export function UpdatesWorkspace({
         </button>
       </div>
       <UpdateProgress key={data.mode} mode={data.mode} seed={data.updateProgress} pending={runPending} onComplete={() => refreshRef.current()} onRunningChange={setBatchRunning} />
-      {focusTarget && <div className="uw-focused-plugin"><div><strong>{data.plugins.find(plugin => plugin.id === focusTarget)?.name || focusTarget}</strong>
-        <p>{translate("更新整个插件及其附带技能")}</p></div><button className="text-button" onClick={onClearFocus}>{translate("查看全部更新对象")}</button></div>}
+      {focusTarget && <div className="uw-focused-plugin"><div><strong>{focusedPlugin?.name || focusedSkill?.name || focusTarget}</strong>
+        <p>{translate(focusedPlugin ? "更新整个插件及其附带技能" : focusedSkill?.pluginId ? "这个技能随所属插件一起更新" : "更新这个技能")}</p></div><button className="text-button" onClick={onClearFocus}>{translate("查看全部更新对象")}</button></div>}
       <label className="uw-search">
         <Search size={17} />
         <input

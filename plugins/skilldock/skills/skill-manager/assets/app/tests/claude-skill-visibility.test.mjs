@@ -1,0 +1,203 @@
+// SPDX-License-Identifier: AGPL-3.0-only
+// Phase 4b1: Claude skill visibility (HLD 3.4, DEC-SDX-006; API-SDX-001 36c §7.3): one entry
+// of one settings file, patched in place. Claude's lists are stand-ins; settings files live in
+// a temporary world.
+import test from 'node:test';
+import assert from 'node:assert/strict';
+import fs from 'node:fs/promises';
+import os from 'node:os';
+import path from 'node:path';
+import { createService } from '../server/service.mjs';
+import { writeGeneration } from '../server/generation.mjs';
+import { patchClaudeSetting } from '../server/claude-settings.mjs';
+import { assertTranslated } from './i18n-helper.mjs';
+
+const seen = new Set();
+const see = value => { for (const text of [value?.message, value?.reason, ...(value?.nativeRules ?? []).map(rule => rule.message)]) if (typeof text === 'string') seen.add(text); return value; };
+
+const write = async (file, value) => { await fs.mkdir(path.dirname(file), { recursive: true }); await fs.writeFile(file, typeof value === 'string' ? value : JSON.stringify(value)); };
+const skill = (directory, name) => write(path.join(directory, name, 'SKILL.md'), `---\nname: ${name}\ndescription: ${name} skill.\n---\n`);
+const json = async file => JSON.parse(await fs.readFile(file, 'utf8'));
+
+async function world(t, { repo = null } = {}) {
+  const root = await fs.realpath(await fs.mkdtemp(path.join(os.tmpdir(), 'skilldock-claude-skills-')));
+  const home = path.join(root, 'home'); const configDir = path.join(home, '.claude'); const project = path.join(root, 'project'); const managedDir = path.join(root, 'managed');
+  for (const name of ['u1', 'u2', 'u3', 'm1']) await skill(path.join(configDir, 'skills'), name);
+  await skill(path.join(project, '.claude/skills'), 'p1');
+  // The user's own settings: other keys and four-space indentation must survive a patch.
+  await write(path.join(configDir, 'settings.json'), `{\n    "env": { "KEEP": "1" },\n    "skillOverrides": { "u2": "name-only" }\n}\n`);
+  await write(path.join(managedDir, 'managed-settings.json'), { skillOverrides: { m1: 'off' } });
+  const state = path.join(root, 'state'); await fs.mkdir(state); await writeGeneration(state, 2);
+  await write(path.join(state, 'settings/agents.json'), { format: 1, agents: { claude: { management: 'enabled', origin: 'user', changedAt: '2026-10-09T00:00:00.000Z' } } });
+  const service = await createService({ home, codexHome: path.join(home, '.codex'), projectDir: project, stateDir: state, background: false, env: { HOME: home },
+    adapter: { list: async () => ({ plugins: [], marketplaces: [], diagnostics: [], listed: { plugins: true, marketplaces: true }, cli: { available: false, error: 'stand-in' } }) },
+    claudeCli: async () => ({ available: true, version: '2.1.288', path: '/stand-in/claude' }),
+    claudeCatalog: { managedDir, listPlugins: async () => [], listMarketplaces: async () => [] },
+    claudeWriter: () => async () => { throw new Error('no command line for skills'); },
+    claudeGit: async (directory, args) => {
+      if (!repo) throw new Error('not a repository');
+      if (args[0] === 'rev-parse' && args[1] === '--show-toplevel') return project;
+      if (args[0] === 'check-ignore' || args[0] === 'ls-files') throw new Error('no');
+      if (args[0] === 'rev-parse' && args[1] === '--git-path') return '.git/info/exclude';
+      throw new Error('unexpected');
+    } });
+  t.after(async () => { await service.close(); await fs.rm(root, { recursive: true, force: true }); });
+  const skills = async () => (await service.snapshot('local', true, { multiAgent: true })).skills.filter(item => item.agents?.includes('claude')).map(see);
+  const find = async name => (await skills()).find(item => item.name === name);
+  const act = request => service.action({ mode: 'local', agent: 'claude', ...request }).then(see, see);
+  return { root, home, configDir, project, managedDir, service, skills, find, act };
+}
+
+test('a personal skill is switched in the user settings: only its entry changes, the file keeps its form', async t => {
+  const w = await world(t);
+  const u1 = await w.find('u1');
+  assert.deepEqual([u1.canToggle, u1.visibility], [true, 'enabled']);
+  assert.equal((await w.act({ action: 'skill.toggle', id: u1.id, enabled: false })).code, 'SNAPSHOT_STALE');
+  const result = await w.act({ action: 'skill.toggle', id: u1.id, enabled: false, expectedRevision: u1.revision });
+  assert.match(result.message, /已在用户设置中把 Claude 技能 u1 设为关闭/); assert.deepEqual([result.agent, result.needsReload], ['claude', true]);
+  const text = await fs.readFile(path.join(w.configDir, 'settings.json'), 'utf8');
+  assert.deepEqual(JSON.parse(text), { env: { KEEP: '1' }, skillOverrides: { u2: 'name-only', u1: 'off' } });
+  assert.match(text, /^\{\n {4}"env"/); assert.ok(text.endsWith('}\n'), '保留缩进与结尾换行');
+  assert.deepEqual([(await w.find('u1')).visibility, (await w.find('u1')).enabled], ['disabled', false]);
+  const activity = (await w.service.snapshot('local', true, { multiAgent: true })).activity.find(item => item.agent === 'claude' && item.action === 'skill.toggle');
+  assert.equal(activity.status, 'success'); assert.equal('restore' in activity, false, '撤销所需的旧值不进入快照');
+});
+
+test('a middle visibility is confirmed before it is replaced; a project skill goes to the local settings', async t => {
+  const w = await world(t);
+  const u2 = await w.find('u2');
+  const ask = await w.act({ action: 'skill.toggle', id: u2.id, enabled: true, expectedRevision: u2.revision });
+  assert.equal(ask.code, 'CONFIRMATION_REQUIRED'); assert.deepEqual(ask.nativeRules.map(rule => rule.kind), ['visibility', 'reload']);
+  assert.match(ask.nativeRules[0].message, /仅显示名称/);
+  await w.act({ action: 'skill.toggle', id: u2.id, enabled: true, confirm: true, expectedRevision: u2.revision });
+  assert.equal((await json(path.join(w.configDir, 'settings.json'))).skillOverrides.u2, 'on');
+  const p1 = await w.find('p1');
+  assert.equal(p1.scope, 'project');
+  await w.act({ action: 'skill.toggle', id: p1.id, enabled: false, expectedRevision: p1.revision });
+  assert.deepEqual(await json(path.join(w.project, '.claude/settings.local.json')), { skillOverrides: { p1: 'off' } });
+  assert.equal((await w.find('p1')).visibility, 'disabled');
+  // The local settings decide p1 now: the shared settings would not take effect. Elsewhere they need confirmation.
+  const again = await w.find('p1');
+  assert.equal((await w.act({ action: 'skill.toggle', id: again.id, enabled: true, scope: 'project', expectedRevision: again.revision })).code, 'SCOPE_INEFFECTIVE');
+  const u3 = await w.find('u3');
+  assert.equal((await w.act({ action: 'skill.toggle', id: u3.id, enabled: false, scope: 'project', expectedRevision: u3.revision })).code, 'CONFIRMATION_REQUIRED');
+});
+
+test('when the project decides a personal skill, the local settings are written; managed settings lock it', async t => {
+  const w = await world(t);
+  await write(path.join(w.project, '.claude/settings.json'), { skillOverrides: { u3: 'off' } });
+  const u3 = await w.find('u3');
+  assert.deepEqual([u3.visibility, u3.enablement.decidedBy], ['disabled', 'project']);
+  await w.act({ action: 'skill.toggle', id: u3.id, enabled: true, expectedRevision: u3.revision });
+  assert.deepEqual(await json(path.join(w.project, '.claude/settings.local.json')), { skillOverrides: { u3: 'on' } });
+  assert.deepEqual(await json(path.join(w.project, '.claude/settings.json')), { skillOverrides: { u3: 'off' } }, '共享设置不变');
+  assert.equal((await w.find('u3')).visibility, 'enabled');
+  // Asked to write the user settings anyway: the local settings decide now, so it is refused unwritten.
+  const now = await w.find('u3');
+  const before = await fs.readFile(path.join(w.configDir, 'settings.json'), 'utf8');
+  assert.equal((await w.act({ action: 'skill.toggle', id: now.id, enabled: false, scope: 'user', expectedRevision: now.revision })).code, 'SCOPE_INEFFECTIVE');
+  assert.equal(await fs.readFile(path.join(w.configDir, 'settings.json'), 'utf8'), before, '用户设置不变');
+  const m1 = await w.find('m1');
+  assert.deepEqual([m1.canToggle, m1.protection], [false, 'managed']); assert.match(m1.reason, /组织托管设置决定/);
+  assert.equal((await w.act({ action: 'skill.toggle', id: m1.id, enabled: true, expectedRevision: m1.revision })).code, 'HOST_MANAGED');
+});
+
+test('a middle tier, the shared settings and same-named skills are confirmed together; local files name their place', async t => {
+  const w = await world(t, { repo: true });
+  await fs.mkdir(path.join(w.project, '.git/info'), { recursive: true });
+  const u2 = await w.find('u2');
+  const ask = await w.act({ action: 'skill.toggle', id: u2.id, enabled: true, scope: 'project', expectedRevision: u2.revision });
+  assert.deepEqual(ask.nativeRules.map(rule => rule.kind), ['visibility', 'scope', 'reload'], '中间档与共享设置一次确认');
+  // A personal and a project skill with the same name share one entry.
+  await skill(path.join(w.project, '.claude/skills'), 'u1');
+  const u1 = await w.find('u1');
+  const same = await w.act({ action: 'skill.toggle', id: u1.id, enabled: false, expectedRevision: u1.revision });
+  assert.equal(same.code, 'CONFIRMATION_REQUIRED');
+  assert.deepEqual(same.nativeRules[0].items, [path.join(w.project, '.claude/skills/u1/SKILL.md')]);
+  // A new local settings file in a repository that does not ignore it asks about the exclude list.
+  const p1 = await w.find('p1');
+  const local = await w.act({ action: 'skill.toggle', id: p1.id, enabled: false, expectedRevision: p1.revision });
+  assert.deepEqual(local.nativeRules[0].items, ['.claude/settings.local.json']);
+  const done = await w.act({ action: 'skill.toggle', id: p1.id, enabled: false, gitExclude: true, expectedRevision: p1.revision });
+  assert.match(done.message, /设置文件：\.claude\/settings\.local\.json/); assert.match(done.message, /写入本机的 \.git\/info\/exclude/);
+  assert.equal(await fs.readFile(path.join(w.project, '.git/info/exclude'), 'utf8'), '/.claude/settings.local.json\n');
+  // The undo data (the entry's previous value) is journaled, not shown.
+  const journal = JSON.parse(await fs.readFile(w.service.environments.local.registryFile, 'utf8')).activity.find(item => item.agent === 'claude' && item.action === 'skill.toggle');
+  assert.deepEqual([journal.restore.key, journal.restore.previous, journal.restore.created], ['p1', null, true]);
+});
+
+test('a lower layer than the deciding one is refused unwritten; a middle tier and a new local file are confirmed together', async t => {
+  const w = await world(t, { repo: true });
+  await fs.mkdir(path.join(w.project, '.git/info'), { recursive: true });
+  // The user settings hold a middle tier, the project decides "on": the user layer cannot take effect.
+  await write(path.join(w.project, '.claude/settings.json'), { skillOverrides: { u2: 'on' } });
+  const u2 = await w.find('u2');
+  assert.deepEqual([u2.visibility, u2.enablement.decidedBy], ['enabled', 'project']);
+  assert.equal((await w.act({ action: 'skill.toggle', id: u2.id, enabled: false, scope: 'user', expectedRevision: u2.revision })).code, 'SCOPE_INEFFECTIVE');
+  assert.equal((await json(path.join(w.configDir, 'settings.json'))).skillOverrides.u2, 'name-only', '不写');
+  // A project skill whose shared entry is a middle tier, written to a new local file: one confirmation.
+  await write(path.join(w.project, '.claude/settings.json'), { skillOverrides: { p1: 'user-invocable-only' } });
+  const p1 = await w.find('p1');
+  const both = await w.act({ action: 'skill.toggle', id: p1.id, enabled: false, expectedRevision: p1.revision });
+  assert.deepEqual(both.nativeRules.map(rule => rule.kind), ['visibility', 'scope', 'reload'], '中间档与本地设置文件的选择一次确认');
+  await w.act({ action: 'skill.toggle', id: p1.id, enabled: false, confirm: true, gitExclude: false, expectedRevision: p1.revision });
+  assert.equal(await fs.stat(path.join(w.project, '.git/info/exclude')).then(() => true, () => false), false, '不同意时不写 exclude');
+  assert.equal((await w.find('p1')).visibility, 'disabled');
+  // A Codex ID names a shared skill: its Claude side is not switched yet, and says so.
+  assert.equal((await w.act({ action: 'skill.toggle', id: 'abcdef0123456789abcdef01', enabled: false })).code, 'UNSUPPORTED_FOR_AGENT');
+});
+
+test('the settings patch keeps permissions, follows a dangling link, accepts any name but __proto__, and refuses what it cannot keep', async t => {
+  const root = await fs.realpath(await fs.mkdtemp(path.join(os.tmpdir(), 'skilldock-claude-settings2-')));
+  t.after(() => fs.rm(root, { recursive: true, force: true }));
+  const privateFile = path.join(root, 'private.json'); await write(privateFile, '{}'); await fs.chmod(privateFile, 0o600);
+  await patchClaudeSetting(privateFile, 'skillOverrides', 'constructor', 'off');
+  assert.equal((await fs.stat(privateFile)).mode & 0o777, 0o600, '权限不变');
+  assert.deepEqual(await json(privateFile), { skillOverrides: { constructor: 'off' } }, '名为 constructor 的技能可以写');
+  const target = path.join(root, 'dotfiles/settings.json'); const dangling = path.join(root, 'link.json');
+  await fs.symlink(target, dangling); await fs.mkdir(path.dirname(target));
+  await patchClaudeSetting(dangling, 'skillOverrides', 'x', 'off');
+  assert.deepEqual([(await fs.lstat(dangling)).isSymbolicLink(), await json(target)], [true, { skillOverrides: { x: 'off' } }], '悬空链接写到它指向的位置');
+  // Two links, the last one dangling: written at the final place; links into a missing directory are refused.
+  const final = path.join(root, 'final/settings.json'); await fs.mkdir(path.dirname(final));
+  await fs.symlink(final, path.join(root, 'second.json')); await fs.symlink(path.join(root, 'second.json'), path.join(root, 'first.json'));
+  await patchClaudeSetting(path.join(root, 'first.json'), 'skillOverrides', 'y', 'on');
+  assert.deepEqual([(await fs.lstat(path.join(root, 'second.json'))).isSymbolicLink(), await json(final)], [true, { skillOverrides: { y: 'on' } }]);
+  await fs.symlink(path.join(root, 'missing/dir/settings.json'), path.join(root, 'nowhere.json'));
+  await assert.rejects(patchClaudeSetting(path.join(root, 'nowhere.json'), 'skillOverrides', 'z', 'on'), { code: 'SETTINGS_FORMAT' });
+  assert.equal(await fs.stat(path.join(root, 'missing')).then(() => true, () => false), false, '不创建目录');
+  // The caller's check on the entry as the patch reads it stops the write.
+  await assert.rejects(patchClaudeSetting(privateFile, 'skillOverrides', 'constructor', 'on', { beforeWrite: previous => { if (previous !== 'on') throw Object.assign(new Error('stale'), { code: 'SNAPSHOT_STALE' }); } }), { code: 'SNAPSHOT_STALE' });
+  assert.deepEqual(await json(privateFile), { skillOverrides: { constructor: 'off' } }, '核对不过不写');
+  for (const [text, label] of [['[1]', '顶层不是对象'], ['{"skillOverrides":[]}', '条目段不是对象'], ['{"big": 12345678901234567890}', '超出安全范围的整数']]) {
+    const file = path.join(root, `${label}.json`); await write(file, text);
+    await assert.rejects(patchClaudeSetting(file, 'skillOverrides', 'x', 'off'), { code: 'SETTINGS_FORMAT' }, label);
+    assert.equal(await fs.readFile(file, 'utf8'), text, `${label}：不改写`);
+  }
+});
+
+test('the settings patch: written through a link, refused for invalid JSON, stopped when the file changed meanwhile', async t => {
+  const root = await fs.realpath(await fs.mkdtemp(path.join(os.tmpdir(), 'skilldock-claude-settings-')));
+  t.after(() => fs.rm(root, { recursive: true, force: true }));
+  const real = path.join(root, 'dotfiles/settings.json'); await write(real, '{\n  "a": 1\n}\n');
+  const link = path.join(root, '.claude/settings.json'); await fs.mkdir(path.dirname(link)); await fs.symlink(real, link);
+  const result = await patchClaudeSetting(link, 'skillOverrides', 'x', 'off');
+  assert.deepEqual([result.previous, result.created, (await fs.lstat(link)).isSymbolicLink()], [undefined, false, true]);
+  assert.deepEqual(await json(real), { a: 1, skillOverrides: { x: 'off' } });
+  assert.equal((await patchClaudeSetting(link, 'skillOverrides', 'x', 'on')).previous, 'off');
+  const broken = path.join(root, 'broken.json'); await write(broken, '{ not json');
+  await assert.rejects(patchClaudeSetting(broken, 'skillOverrides', 'x', 'off'), error => see(error).code === 'SETTINGS_FORMAT');
+  assert.equal(await fs.readFile(broken, 'utf8'), '{ not json');
+  await assert.rejects(patchClaudeSetting(real, 'skillOverrides', 'x', 'off', { beforeCommit: () => fs.writeFile(real, '{"changed":true}') }), error => see(error).code === 'SNAPSHOT_STALE');
+  assert.equal(await fs.readFile(real, 'utf8'), '{"changed":true}', 'Claude 的写入保留');
+  assert.deepEqual((await fs.readdir(path.dirname(real))).filter(name => name.endsWith('.tmp')), [], '临时文件已清理');
+  await assert.rejects(patchClaudeSetting(path.join(root, 'new.json'), 'skillOverrides', '__proto__', 'off'), { code: 'INVALID_SETTING' });
+  const created = await patchClaudeSetting(path.join(root, 'new/settings.local.json'), 'skillOverrides', 'y', 'off');
+  assert.equal(created.created, true); assert.equal(await fs.readFile(path.join(root, 'new/settings.local.json'), 'utf8'), '{\n  "skillOverrides": {\n    "y": "off"\n  }\n}\n');
+});
+
+test('every message, rule and reason seen above has a whole English and Japanese translation', async () => {
+  const messages = [...seen].filter(text => /[一-鿿]/.test(text));
+  assert.ok(messages.length > 8, `${messages.length}`);
+  await assertTranslated(messages);
+});

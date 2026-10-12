@@ -2,25 +2,62 @@
 # SPDX-License-Identifier: AGPL-3.0-only
 set -eu
 script_dir=$(CDPATH='' cd -- "$(/usr/bin/dirname -- "$0")" && pwd -P)
-workspace=${SKILLDOCK_WORKSPACE_RUNTIME:-"$HOME/.cache/codex-runtimes/codex-primary-runtime"}
-state=${SKILLDOCK_STATE_DIR:-"$HOME/.local/share/skilldock"}
-path_node=$(command -v node || true)
-app=${SKILLDOCK_CODEX_APP_DIR:-/Applications/ChatGPT.app}
 
 # Discovery runs the bundled MCP server only; opening the UI starts the application.
-for candidate in "${SKILLDOCK_NODE_BIN:-}" "$workspace/dependencies/node/bin/node" "$state"/node/node-v*-darwin-*/bin/node "$path_node" \
-  "$app/Contents/Resources/cua_node/bin/node" \
-  "$app/Contents/Resources/node" \
-  /Applications/Codex.app/Contents/Resources/cua_node/bin/node \
-  /Applications/Codex.app/Contents/Resources/node \
-  "$HOME/Applications/ChatGPT.app/Contents/Resources/cua_node/bin/node" \
-  "$HOME/Applications/ChatGPT.app/Contents/Resources/node" \
-  "$HOME/Applications/Codex.app/Contents/Resources/cua_node/bin/node" \
-  "$HOME/Applications/Codex.app/Contents/Resources/node"; do
-  case "$candidate" in /*) ;; *) continue ;; esac
-  if [ -x "$candidate" ] && "$candidate" -e 'const [a,b]=process.versions.node.split(".").map(Number);process.exit(a>22||a===22&&b>=12?0:1)' >/dev/null 2>&1; then
-    exec "$candidate" "$script_dir/../assets/native/server.mjs" "$@"
-  fi
-done
-printf '%s\n' 'SkillDock：未找到可运行引导程序的 Node.js。请使用当前 Codex macOS 桌面应用；若应用装在自定义目录，可通过 SKILLDOCK_CODEX_APP_DIR 指定其绝对路径。' >&2
+# It never shows a dialog, downloads or builds (HLD 3.10).
+# BEGIN node-candidates (generated from assets/app/server/node-candidates.mjs; run `node assets/app/scripts/node-candidates.mjs --write`)
+state=${SKILLDOCK_STATE_DIR:-"$HOME/.local/share/skilldock"}
+saved_node=$(/usr/bin/head -n 1 "$state/settings/node-path" 2>/dev/null || true)
+workspace=${SKILLDOCK_WORKSPACE_RUNTIME:-"$HOME/.cache/codex-runtimes/codex-primary-runtime"}
+nvm_dir=${NVM_DIR:-"$HOME/.nvm"}
+fnm_dir=${FNM_DIR:-"$HOME/.local/share/fnm"}
+fnm_mac="$HOME/Library/Application Support/fnm"
+volta_home=${VOLTA_HOME:-"$HOME/.volta"}
+asdf_dir=${ASDF_DATA_DIR:-"$HOME/.asdf"}
+mise_dir=${MISE_DATA_DIR:-"$HOME/.local/share/mise"}
+nodenv_root=${NODENV_ROOT:-"$HOME/.nodenv"}
+path_node=$(command -v node || true)
+app=${SKILLDOCK_CODEX_APP_DIR:-/Applications/ChatGPT.app}
+node_bin=
+skilldock_node_version() {
+  case "$1" in /*) ;; *) return 1 ;; esac
+  [ -x "$1" ] || return 1
+  "$1" -e 'const v=process.versions.node.split(".").map(Number);if(v[0]>22||v[0]===22&&v[1]>=12)process.stdout.write(String(v[0]*1e6+v[1]*1e3+v[2]));else process.exit(1)' 2>/dev/null
+}
+skilldock_pick() {
+  [ -z "$node_bin" ] || return 0
+  skilldock_best=; skilldock_best_version=0
+  for skilldock_candidate in "$@"; do
+    skilldock_version=$(skilldock_node_version "$skilldock_candidate") || continue
+    case "$skilldock_version" in ""|*[!0-9]*) continue ;; esac
+    if [ "$skilldock_version" -gt "$skilldock_best_version" ]; then skilldock_best=$skilldock_candidate; skilldock_best_version=$skilldock_version; fi
+  done
+  if [ -n "$skilldock_best" ]; then node_bin=$skilldock_best; fi
+  return 0
+}
+skilldock_pick "${SKILLDOCK_NODE_BIN:-}"
+skilldock_pick "$saved_node"
+skilldock_pick "$workspace"/dependencies/node/bin/node
+skilldock_pick "$state"/node/node-v*-darwin-*/bin/node
+skilldock_pick /opt/homebrew/bin/node
+skilldock_pick /usr/local/bin/node
+skilldock_pick "$nvm_dir"/versions/node/v*/bin/node
+skilldock_pick "$fnm_dir"/node-versions/v*/installation/bin/node
+skilldock_pick "$fnm_mac"/node-versions/v*/installation/bin/node
+skilldock_pick "$volta_home"/tools/image/node/*/bin/node
+skilldock_pick "$asdf_dir"/installs/nodejs/*/bin/node
+skilldock_pick "$mise_dir"/installs/node/*/bin/node
+skilldock_pick "$nodenv_root"/versions/*/bin/node
+skilldock_pick "$path_node"
+skilldock_pick "$app"/Contents/Resources/cua_node/bin/node
+skilldock_pick "$app"/Contents/Resources/node
+skilldock_pick /Applications/Codex.app/Contents/Resources/cua_node/bin/node
+skilldock_pick /Applications/Codex.app/Contents/Resources/node
+skilldock_pick "$HOME"/Applications/ChatGPT.app/Contents/Resources/cua_node/bin/node
+skilldock_pick "$HOME"/Applications/ChatGPT.app/Contents/Resources/node
+skilldock_pick "$HOME"/Applications/Codex.app/Contents/Resources/cua_node/bin/node
+skilldock_pick "$HOME"/Applications/Codex.app/Contents/Resources/node
+# END node-candidates
+if [ -n "$node_bin" ]; then exec "$node_bin" "$script_dir/../assets/native/server.mjs" "$@"; fi
+printf '%s\n' 'SkillDock：未找到可运行的 Node.js 22.12 或更新版本。请安装 Node.js（https://nodejs.org）后重启 Codex；也可用 SKILLDOCK_NODE_BIN 指定 Node 的绝对路径。' >&2
 exit 1

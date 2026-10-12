@@ -2,7 +2,7 @@
 
 **Practical workflows for requirements, design, reviews, content, and testing — ready for your AI agent.**
 
-Open-source tools by [Testany](https://testany.io): four domain plugins plus **SkillDock**, a visual manager for local Codex skills and plugins. Install each plugin independently, according to what you need.
+Open-source tools by [Testany](https://testany.io): four domain plugins plus **SkillDock**, a visual manager for local Codex and Claude skills and plugins. Install each plugin independently, according to what you need.
 
 [简体中文](README.md) · [Choose a plugin](#choose-a-plugin) · [SkillDock screenshots & setup](plugins/skilldock/README.en.md) · [Feedback](#feedback) · [Meet Testany](https://testany.io)
 
@@ -14,9 +14,9 @@ Open-source tools by [Testany](https://testany.io): four domain plugins plus **S
 | Improve a prompt | **[testany-llm](plugins/testany-llm/README.md)** | `prompt-optimizer` with your prompt and intended outcome |
 | Write content for different platforms | **[testany-mrkt](plugins/testany-mrkt/README.md)** | `media-writer` with your audience, platform, and goal |
 | Author, orchestrate, run, and diagnose tests in Testany | **[testany-bot](plugins/testany-bot/README.md)** | Connect Testany MCP, then choose a case, pipeline, or execution workflow |
-| Organize, install, and update local Codex skills / plugins visually | **[SkillDock](plugins/skilldock/README.en.md)** | Install `skilldock`, then open it with `$skill-manager` |
+| Organize, install, and update local Codex and Claude skills / plugins visually | **[SkillDock](plugins/skilldock/README.en.md)** | Install `skilldock`, then open it with `$skill-manager` in Codex or `/skilldock:skill-manager` in Claude |
 
-The [skill catalog](README.md#包含的-skills) and detailed plugin documentation are maintained in Chinese. Host-specific capabilities and prerequisites are documented per plugin; SkillDock currently targets Codex on macOS.
+The [skill catalog](README.md#包含的-skills) and detailed plugin documentation are maintained in Chinese. Host-specific capabilities and prerequisites are documented per plugin; SkillDock targets Codex and Claude on macOS, and TeamDesk targets Codex on macOS.
 
 `code-reviewer` saves complete machine evidence to files and returns bounded summaries, with reusable evidence verification tools. See the [artifact tool guide](plugins/testany-eng/skills/code-reviewer/references/artifact-tools.md) for usage and the `--full-json` option for consumers of the previous full snapshot stdout.
 
@@ -45,7 +45,7 @@ Add this marketplace, then install the plugin you want. For example, in a Claude
 /plugin install testany-eng@testany-agent-skills
 ```
 
-Replace `testany-eng` with `testany-llm`, `testany-mrkt`, or `testany-bot` to install another plugin. Adding a marketplace only adds its catalog; it does not install every plugin.
+Replace `testany-eng` with `testany-llm`, `testany-mrkt`, or `testany-bot` to install another plugin. Adding a marketplace only adds its catalog; it does not install every plugin. SkillDock can be installed in Claude too; see [Use SkillDock in Claude](#use-skilldock-in-claude). TeamDesk supports Codex only.
 
 Try a task:
 
@@ -75,11 +75,36 @@ Copy this request into Codex on your Mac:
 Install the standalone SkillDock plugin from https://github.com/TestAny-io/testany-agent-skills and open its skill management panel.
 ```
 
-This installs only `skilldock` and its `skill-manager` entry. You need Git and a Codex CLI with plugin support. The launcher selects or prepares Node.js/npm; installing a global Node.js runtime is not a prerequisite.
+This installs only `skilldock` and its `skill-manager` entry. You need Git and a Codex CLI with plugin support. Opening it needs Node.js 22.12 or later on your Mac: the launcher looks for one you already have (the Node bundled with the Codex workspace, Homebrew, nvm and others) and saves its choice; if none is found, it shows installation guidance. It does not download Node or change your shell configuration. The first start needs network access to install dependencies.
 
-Current version: **0.10.0**, with real-name search, descriptions, logos, and installation previews for official Codex app plugins such as Miro. Installation and account connection are verified separately. After installation, open **SkillDock** from More / Explore and choose **Pin to sidebar**. Opening the page starts the backend on demand and keeps your saved project. The native entry has been verified in desktop build 26.924.22138; if your host does not show it, open a new Codex task and ask `$skill-manager` to open the browser panel.
+Current version: **0.11.0**. One local instance manages the skills, plugins, and marketplaces of both Codex and Claude, and opens from either side (see [Use SkillDock in Claude](#use-skilldock-in-claude)). It still offers real-name search, descriptions, logos, and installation previews for official Codex app plugins such as Miro. Installation and account connection are verified separately. After installation, open **SkillDock** from More / Explore and choose **Pin to sidebar**. Opening the page starts the backend on demand and keeps your saved project. The native entry has been verified in desktop build 26.924.22138; if your host does not show it, open a new Codex task and ask `$skill-manager` to open the browser panel.
 
 See the [SkillDock product page](plugins/skilldock/README.en.md) for screenshots, first steps, updates, and feedback. Existing users of the old bundled version should follow the [migration instructions](README.md#从旧版-testany-eng-迁移).
+
+## Use SkillDock in Claude
+
+Since 0.11.0, SkillDock can also be installed in Claude Code or the Claude desktop app. Both sides open the same local instance with the same data; installed on one side only, it still shows and manages the other.
+
+To install in the Claude desktop app, without a terminal:
+
+1. Open the plugins page: **Customize** → **Plugins** in the sidebar (typing `/plugin` in the prompt box opens the same page).
+2. Click **+ Add ▾** at the top right → **Add marketplace**, enter `TestAny-io/testany-agent-skills` under **URL**, and click **Sync**.
+3. On **Discover**, find **Skilldock** (the page shows plugin names) and click **Add**; it installs for your user.
+
+It is ready in the current session: type `/skilldock:skill-manager` or just ask Claude to open SkillDock. Claude opens it in its built-in browser panel, or gives you a link when no browser tool is available; Claude has no native sidebar entry like Codex.
+
+In Claude Code you can also add and install it with commands (run `/reload-plugins` if an open session does not show it):
+
+```text
+/plugin marketplace add TestAny-io/testany-agent-skills
+/plugin install skilldock@testany-agent-skills
+```
+
+- **Requirements**: macOS, Git, and Node.js 22.12 or later (found or guided as above).
+- **Management**: when SkillDock first sees an Agent, the side where SkillDock is installed is managed and the other side is read-only. SkillDock only reads a read-only side; turn management on in **Agent environments** to let it make changes, after a list of the places it may write. Changes to Claude go through Claude's own command line and are read back.
+- **Updates**: on SkillDock's **Updates** page, find Claude's skilldock, click **Check for updates**, and confirm the preview when an update is found. The check refreshes this repository's marketplace first, then updates through Claude's own command line and reads the result back, with no terminal; when the two sides run different versions, **Agent environments** also offers a one-click update. In 0.11.0 the **Update** button on the Claude desktop app's plugins page does not detect new SkillDock versions (on the Claude side SkillDock is versioned by commit), so use SkillDock's page; the desktop app refreshes a marketplace from **+ Add ▾** → **Manage marketplaces** → **⋮** → **Check for updates**. In Claude Code you can also run `/plugin`, select `testany-agent-skills` on the **Marketplaces** tab and choose **Update marketplace**, or run `claude plugin marketplace update testany-agent-skills` and `claude plugin update skilldock@testany-agent-skills` in a terminal. Updates take effect in new sessions; run `/reload-plugins` in open ones.
+- **SkillDock on both sides**: when 0.11 first opens older data, it checks that neither side has a SkillDock older than 0.10.3; otherwise it stops, changes nothing, and explains what to do (including a one-click update after you confirm).
+- **Going back**: to return to 0.10.x, use a separate data directory (`SKILLDOCK_STATE_DIR`) or keep 0.11.x. SkillDock 0.10.3 does not take over 0.11 data and asks you to update; 0.10.2 and earlier refuse to start or fail to start without changing your plans, bindings, history or preferences (they may remove the launch record, which 0.11 writes back next time). A separate data directory applies to SkillDock started from the skill or the command line; see `SKILL.md`.
 
 ## Feedback
 

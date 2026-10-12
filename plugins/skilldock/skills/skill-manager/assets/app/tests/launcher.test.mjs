@@ -2,53 +2,13 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 import { promises as fs } from 'node:fs';
 import path from 'node:path';
-import os from 'node:os';
 import net from 'node:net';
-import { fileURLToPath } from 'node:url';
 import { fingerprint, launch, probe } from '../../../scripts/launch.mjs';
-import { ROOT_FILES } from '../scripts/source-bundle.mjs';
+import { fixture, listen, installedVersion, installedClaudeVersion } from './helpers/launcher-fixture.mjs';
+import { acquireFileLock, operationLock } from '../server/process-lock.mjs';
 
-async function fixture(t) {
-  const root = await fs.mkdtemp(path.join(os.tmpdir(), 'skilldock launcher '));
-  const sourceRoot = path.join(root, 'software source');
-  const appDir = path.join(sourceRoot, 'assets/app');
-  const stateDir = path.join(root, 'app state');
-  const projectDir = path.join(root, 'project');
-  for (const folder of ['src', 'server', 'shared', 'scripts', 'tests']) await fs.mkdir(path.join(appDir, folder), { recursive: true });
-  await fs.mkdir(path.join(sourceRoot, 'scripts'), { recursive: true });
-  for (const file of ROOT_FILES) await fs.copyFile(fileURLToPath(new URL(`../../../${file}`, import.meta.url)), path.join(sourceRoot, file));
-  await fs.copyFile(fileURLToPath(new URL('../scripts/source-bundle.mjs', import.meta.url)), path.join(appDir, 'scripts/source-bundle.mjs'));
-  await fs.copyFile(fileURLToPath(new URL('../server/installation.mjs', import.meta.url)), path.join(appDir, 'server/installation.mjs'));
-  await fs.copyFile(fileURLToPath(new URL('../server/toolchain.mjs', import.meta.url)), path.join(appDir, 'server/toolchain.mjs'));
-  for (const file of ['codex-runtime.mjs', 'project-context.mjs']) await fs.copyFile(fileURLToPath(new URL(`../server/${file}`, import.meta.url)), path.join(appDir, `server/${file}`));
-  await fs.mkdir(projectDir);
-  await fs.writeFile(path.join(appDir, 'package.json'), JSON.stringify({
-    name: 'skilldock-launcher-fixture', version: '0.0.0', type: 'module',
-    scripts: { build: 'node scripts/source-bundle.mjs --stage && node scripts/source-bundle.mjs' },
-  }));
-  await fs.writeFile(path.join(appDir, 'package-lock.json'), JSON.stringify({
-    name: 'skilldock-launcher-fixture', version: '0.0.0', lockfileVersion: 3,
-    packages: { '': { name: 'skilldock-launcher-fixture', version: '0.0.0' } },
-  }));
-  for (const file of ['tsconfig.json', 'vite.config.ts', 'index.html', 'README.md', 'playwright.config.ts']) await fs.writeFile(path.join(appDir, file), 'fixture');
-  await fs.writeFile(path.join(appDir, 'server/index.mjs'), `
-    import http from 'node:http';
-    const server = http.createServer((req,res) => {
-      res.setHeader('Content-Type','application/json');
-      res.end(JSON.stringify({app:'skilldock',pid:process.pid,project:process.env.SKILLDOCK_PROJECT_DIR,state:process.env.SKILLDOCK_STATE_DIR}));
-    });
-    server.listen(Number(process.env.PORT),'127.0.0.1');
-    process.on('SIGTERM',()=>server.close(()=>process.exit(0)));
-  `);
-  t.after(() => fs.rm(root, { recursive: true, force: true }));
-  return { root, sourceRoot, appDir, stateDir, projectDir, codexBin: path.join(root, 'absent-cli') };
-}
-
-async function listen() {
-  const server = net.createServer();
-  await new Promise(resolve => server.listen(0, '127.0.0.1', resolve));
-  return { server, port: server.address().port };
-}
+const readRecordFile = async state => JSON.parse(await fs.readFile(path.join(state, 'launcher.json'), 'utf8'));
+async function freePort() { const { server, port } = await listen(); await new Promise(resolve => server.close(resolve)); return port; }
 
 test('fingerprint includes distributed sources and license but excludes verification records and installed dependencies', async t => {
   const options = await fixture(t);
@@ -118,7 +78,8 @@ test('a failed ownership-record write does not leave an unmanaged background ser
   await fs.mkdir(path.join(options.stateDir, 'launcher.json.tmp'), { recursive: true });
   await assert.rejects(launch('start', { ...options, port }), { code: 'EISDIR' });
   assert.equal(await probe(`http://127.0.0.1:${port}`), null);
-  await assert.rejects(fs.stat(path.join(options.stateDir, 'launcher.json')), { code: 'ENOENT' });
+  // The fresh data directory was migrated first; its record stays in the stopped form.
+  assert.equal(JSON.parse(await fs.readFile(path.join(options.stateDir, 'launcher.json'), 'utf8')).status, 'stopped');
   const tester = net.createServer();
   await new Promise((resolve, reject) => { tester.once('error', reject); tester.listen(port, '127.0.0.1', resolve); });
   await new Promise(resolve => tester.close(resolve));
@@ -149,66 +110,66 @@ test('start rebuilds a corrupted generated runtime instead of serving mismatched
   } finally { await launch('stop', startOptions); }
 });
 
-async function installedVersion(options, version, plugin = 'testany-eng') {
-  const codexHome = path.join(options.root, 'codex');
-  const packageRoot = path.join(codexHome, 'plugins/cache/testany-agent-skills', plugin, version);
-  const skill = path.join(packageRoot, 'skills/skill-manager');
-  await fs.cp(options.sourceRoot, skill, { recursive: true });
-  await fs.mkdir(path.join(packageRoot, '.claude-plugin'), { recursive: true });
-  await fs.writeFile(path.join(packageRoot, '.claude-plugin/plugin.json'), JSON.stringify({ name: plugin, version }));
-  await fs.appendFile(path.join(skill, 'assets/app/README.md'), `\n${version}`);
-  return { ...options, codexHome, appDir: path.join(skill, 'assets/app') };
-}
-
-test('a versioned plugin upgrade preserves state and accepts only the same plugin identity', async t => {
-  const fixtureOptions = await fixture(t); const { server, port } = await listen();
+test('a newer installation of the same product family takes over the data; other plugins are refused', async t => {
+  const f = await fixture(t); const { server, port } = await listen();
   await new Promise(resolve => server.close(resolve));
-  const firstOptions = { ...await installedVersion(fixtureOptions, '2.4.0'), port };
-  const nextOptions = { ...await installedVersion(fixtureOptions, '2.5.0'), port };
-  const unrelated = { ...await installedVersion(fixtureOptions, '2.5.0', 'other-plugin'), port };
+  const firstOptions = { ...await installedVersion(f, '0.11.0'), port };
+  const unrelated = { ...await installedVersion(f, '0.11.0', { plugin: 'other-plugin' }), port };
   const first = await launch('start', firstOptions);
   const sentinel = path.join(first.state, 'saved-plan-and-history.json');
   await fs.writeFile(sentinel, '{"plan":"every day","history":["kept"]}');
+  let nextOptions;
   try {
-    await assert.rejects(launch('start', unrelated), /另一个源码实例/);
+    await assert.rejects(launch('start', unrelated), /另一个安装来源/);
     assert.equal((await probe(first.url)).pid, first.pid);
+    nextOptions = { ...await installedVersion(f, '0.11.1'), port };
+    // DEC-SDX-008: the older launcher hands over to the newer installation.
+    await assert.rejects(launch('start', firstOptions), error => error.code === 'SKILLDOCK_DELEGATE' && error.target.version === '0.11.1');
+    assert.equal((await launch('status', firstOptions)).pid, first.pid, 'status 与 stop 不转交');
     await fs.rm(path.resolve(firstOptions.appDir, '../../../..'), { recursive: true, force: true });
     const next = await launch('start', nextOptions);
     assert.notEqual(next.pid, first.pid);
     assert.equal(next.state, first.state);
     assert.equal(await fs.readFile(sentinel, 'utf8'), '{"plan":"every day","history":["kept"]}');
     const record = JSON.parse(await fs.readFile(path.join(next.state, 'launcher.json'), 'utf8'));
-    assert.equal(record.source, await fs.realpath(nextOptions.appDir));
-    assert.equal(record.installation.plugin, 'testany-eng');
+    const nextApp = await fs.realpath(nextOptions.appDir);
+    assert.deepEqual([record.format, record.generation, record.status], [2, 2, 'running']);
+    assert.deepEqual([record.running.appPath, record.running.version, record.running.sourceKey], [nextApp, '0.11.1', 'github.com/testany-io/testany-agent-skills']);
+    assert.equal(record.source, nextApp); assert.equal(record.installation.plugin, 'skilldock');
+    assert.equal(record.project, path.join(next.state, 'compat/legacy-project'));
+    assert.equal(record.actualProject, await fs.realpath(f.projectDir));
+    assert.equal(JSON.parse(await fs.readFile(path.join(next.state, 'generation.json'), 'utf8')).generation, 2);
     assert.equal((await launch('status', nextOptions)).pid, next.pid);
-  } finally { await launch('stop', nextOptions); }
+  } finally { await launch('stop', nextOptions ?? firstOptions); }
+  const stopped = JSON.parse(await fs.readFile(path.join(first.state, 'launcher.json'), 'utf8'));
+  assert.equal(stopped.status, 'stopped', '0.11 停止后保留“已停止”形态的记录');
 });
 
 test('failed new-version builds leave the old service and ownership record intact', async t => {
   const fixtureOptions = await fixture(t); const { server, port } = await listen();
   await new Promise(resolve => server.close(resolve));
-  const oldOptions = { ...await installedVersion(fixtureOptions, '2.4.0'), port };
-  const nextOptions = { ...await installedVersion(fixtureOptions, '2.5.0'), port };
+  const oldOptions = { ...await installedVersion(fixtureOptions, '0.11.0'), port };
+  const first = await launch('start', oldOptions);
+  const nextOptions = { ...await installedVersion(fixtureOptions, '0.11.1'), port };
   const packageFile = path.join(nextOptions.appDir, 'package.json');
   const metadata = JSON.parse(await fs.readFile(packageFile, 'utf8'));
   metadata.scripts.build = 'node -e "process.exit(9)"';
   await fs.writeFile(packageFile, JSON.stringify(metadata));
-  const first = await launch('start', oldOptions);
   const ownership = await fs.readFile(path.join(first.state, 'launcher.json'), 'utf8');
   try {
     await assert.rejects(launch('start', nextOptions), /失败（9）/);
     assert.equal((await probe(first.url)).pid, first.pid);
     assert.equal(await fs.readFile(path.join(first.state, 'launcher.json'), 'utf8'), ownership);
-  } finally { await launch('stop', oldOptions); }
+  } finally { await launch('stop', nextOptions); }
 });
 
 test('failed new-version startup restores the verified old runtime without replacing saved plans', async t => {
   const fixtureOptions = await fixture(t); const { server, port } = await listen();
   await new Promise(resolve => server.close(resolve));
-  const oldOptions = { ...await installedVersion(fixtureOptions, '2.4.0'), port };
-  const nextOptions = { ...await installedVersion(fixtureOptions, '2.5.0'), port };
-  await fs.writeFile(path.join(nextOptions.appDir, 'server/index.mjs'), 'process.exit(7);');
+  const oldOptions = { ...await installedVersion(fixtureOptions, '0.11.0'), port };
   const first = await launch('start', oldOptions);
+  const nextOptions = { ...await installedVersion(fixtureOptions, '0.11.1'), port };
+  await fs.writeFile(path.join(nextOptions.appDir, 'server/index.mjs'), 'process.exit(7);');
   const oldRecord = JSON.parse(await fs.readFile(path.join(first.state, 'launcher.json'), 'utf8'));
   const sentinel = path.join(first.state, 'updates.json'); await fs.writeFile(sentinel, '{"targets":["skilldock"]}');
   await fs.rm(path.resolve(oldOptions.appDir, '../../../..'), { recursive: true, force: true });
@@ -219,21 +180,25 @@ test('failed new-version startup restores the verified old runtime without repla
     assert.notEqual(running.pid, first.pid);
     const restored = JSON.parse(await fs.readFile(path.join(first.state, 'launcher.json'), 'utf8'));
     assert.equal(restored.source, oldRecord.source); assert.equal(restored.digest, oldRecord.digest);
+    assert.deepEqual(restored.running, oldRecord.running);
     assert.equal(await fs.readFile(sentinel, 'utf8'), '{"targets":["skilldock"]}');
+    // Generation 2 too: the failed target is recorded, so restart jobs into it are refused (5d review P2-01).
+    const failure = JSON.parse(await fs.readFile(path.join(first.state, 'compat/migration-failure.json'), 'utf8'));
+    assert.deepEqual([failure.version, await fs.realpath(failure.appDir)], ['0.11.1', await fs.realpath(nextOptions.appDir)]);
   } finally { await launch('stop', nextOptions); }
 });
 
 test('an explicit stop during preparation cancels the automatic replacement instead of restarting later', async t => {
   const fixtureOptions = await fixture(t); const { server, port } = await listen();
   await new Promise(resolve => server.close(resolve));
-  const oldOptions = { ...await installedVersion(fixtureOptions, '2.4.0'), port };
-  const nextOptions = { ...await installedVersion(fixtureOptions, '2.5.0'), port };
+  const oldOptions = { ...await installedVersion(fixtureOptions, '0.11.0'), port };
+  const old = await launch('start', oldOptions);
+  const nextOptions = { ...await installedVersion(fixtureOptions, '0.11.1'), port };
   const marker = path.join(fixtureOptions.root, 'build-started');
   await fs.writeFile(path.join(nextOptions.appDir, 'tests/delayed-build.mjs'), `import fs from 'node:fs/promises'; await fs.writeFile(${JSON.stringify(marker)}, 'started'); await new Promise(resolve => setTimeout(resolve, 1500));`);
   const file = path.join(nextOptions.appDir, 'package.json'); const value = JSON.parse(await fs.readFile(file, 'utf8'));
   value.scripts.build = 'node scripts/source-bundle.mjs --stage && node tests/delayed-build.mjs && node scripts/source-bundle.mjs';
   await fs.writeFile(file, JSON.stringify(value));
-  const old = await launch('start', oldOptions);
   const upgrading = assert.rejects(launch('start', nextOptions), /运行实例已变化/);
   for (let i = 0; i < 100; i++) { if (await fs.stat(marker).catch(() => null)) break; await new Promise(resolve => setTimeout(resolve, 50)); }
   assert.ok(await fs.stat(marker));
@@ -242,25 +207,36 @@ test('an explicit stop during preparation cancels the automatic replacement inst
   assert.equal((await launch('status', nextOptions)).status, 'stopped');
 });
 
-
-test('explicit migration from testany-eng to independent skilldock retains data and rejects unrelated identities', async t => {
+test('a 0.10.x restart job is accepted with an executor mark and always closed; leftovers are closed by the next start', async t => {
   const f = await fixture(t); const { server, port } = await listen(); await new Promise(resolve => server.close(resolve));
-  const oldOptions = { ...await installedVersion(f, '2.4.0'), port };
-  const nextOptions = { ...await installedVersion(f, '0.2.0', 'skilldock'), port };
-  const unrelated = { ...await installedVersion(f, '0.2.0', 'different-app'), port, migrateFrom: 'testany-eng' };
-  const old = await launch('start', oldOptions);
-  const sentinel = path.join(old.state, 'updates-and-history.json'); await fs.writeFile(sentinel, '{"targets":["testany-eng"],"history":["kept"]}');
+  const options = { ...f, port }; const appDir = await fs.realpath(f.appDir);
+  const first = await launch('start', options);
+  const restartFile = path.join(first.state, 'restart.json');
   try {
-    await assert.rejects(launch('start', nextOptions), /--migrate-from/);
-    await assert.rejects(launch('start', unrelated), /另一个源码实例/);
-    const next = await launch('start', { ...nextOptions, migrateFrom: 'testany-eng' });
-    assert.notEqual(next.pid, old.pid); assert.equal(next.state, old.state);
-    assert.equal(await fs.readFile(sentinel, 'utf8'), '{"targets":["testany-eng"],"history":["kept"]}');
-    assert.equal(JSON.parse(await fs.readFile(path.join(old.state, 'launcher.json'), 'utf8')).installation.plugin, 'skilldock');
-    assert.equal((await launch('status', nextOptions)).pid, next.pid);
-  } finally {
-    await launch('stop', nextOptions).catch(() => launch('stop', oldOptions));
+    // The digest of a 0.10.x job is not compared (36b §7.4).
+    const job = { id: 'job-1', source: appDir, sourceDigest: 'from-0.10.x', previousPid: first.pid, url: first.url, status: 'preparing', requestedAt: new Date().toISOString() };
+    await fs.writeFile(restartFile, JSON.stringify(job));
+    const next = await launch('restart', { ...options, restartJob: 'job-1' });
+    const done = JSON.parse(await fs.readFile(restartFile, 'utf8'));
+    assert.deepEqual([done.status, done.pid, done.executor.pid], ['ready', next.pid, process.pid]);
+    // A job left in progress by another source is closed as failed by a successful start.
+    await fs.writeFile(restartFile, JSON.stringify({ ...job, id: 'job-2', source: path.join(f.root, 'elsewhere'), previousPid: next.pid }));
+    assert.equal((await launch('start', options)).reused, true);
+    assert.equal(JSON.parse(await fs.readFile(restartFile, 'utf8')).status, 'failed');
+    // A mismatched job is refused before anything is written.
+    await fs.writeFile(restartFile, JSON.stringify({ ...job, id: 'job-3', previousPid: 1 }));
+    await assert.rejects(launch('restart', { ...options, restartJob: 'job-3' }), /不匹配/);
+    assert.equal(JSON.parse(await fs.readFile(restartFile, 'utf8')).executor, undefined);
+  } finally { await launch('stop', options); }
+});
+
+test('newer data stops every action with exit code 3 before anything is written', async t => {
+  const f = await fixture(t); await fs.mkdir(f.stateDir, { recursive: true });
+  await fs.writeFile(path.join(f.stateDir, 'generation.json'), JSON.stringify({ format: 1, generation: 3, minimumCompatibleGeneration: 3 }));
+  for (const action of ['start', 'status', 'stop']) {
+    await assert.rejects(launch(action, f), error => error.exitCode === 3 && error.output.status === 'update-required');
   }
+  assert.deepEqual((await fs.readdir(f.stateDir)).sort(), ['generation.json']);
 });
 
 test('status and stop keep identifying a service after its scan project changes', async t => {
@@ -278,4 +254,271 @@ test('status and stop keep identifying a service after its scan project changes'
     assert.equal((await launch('status', options)).project, other);
     assert.equal((await launch('start', { ...options, projectDir: other })).pid, first.pid);
   } finally { assert.equal((await launch('stop', options)).status, 'stopped'); }
+});
+
+for (const held of ['instance', 'codex']) test(`a busy ${held} lock fails a restart before the old instance stops (HLD 3.7)`, async t => {
+  const f = await fixture(t); const codexHome = path.join(f.root, 'codex home'); await fs.mkdir(codexHome);
+  const options = { ...f, codexHome, port: await freePort() };
+  const first = await launch('start', options);
+  const release = acquireFileLock(held === 'instance' ? path.join(first.state, 'instance.lock') : operationLock(await fs.realpath(codexHome)));
+  try {
+    await assert.rejects(launch('restart', { ...options, lockWait: 300 }), /未停止现有服务/);
+    assert.equal((await probe(first.url)).pid, first.pid, '旧实例仍在运行');
+    assert.deepEqual([(await readRecordFile(first.state)).pid, (await readRecordFile(first.state)).status], [first.pid, 'running']);
+  } finally { release(); await launch('stop', options); }
+});
+
+test('stop with busy locks still stops the process; the record follows on a later run', async t => {
+  const f = await fixture(t); const options = { ...f, port: await freePort() };
+  const first = await launch('start', options);
+  const release = acquireFileLock(path.join(first.state, 'instance.lock'));
+  try { assert.equal((await launch('stop', options)).status, 'stopped'); } finally { release(); }
+  assert.equal(await probe(first.url), null);
+  assert.equal((await launch('status', options)).status, 'stopped');
+  const again = await launch('start', options);
+  try { assert.notEqual(again.pid, first.pid); } finally { await launch('stop', options); }
+});
+
+test('a restart job that fails before the old instance stops is closed as failed without restored (G-12)', async t => {
+  const f = await fixture(t); const options = { ...f, port: await freePort() };
+  const first = await launch('start', options); const appDir = await fs.realpath(f.appDir);
+  try {
+    await fs.writeFile(path.join(first.state, 'restart.json'), JSON.stringify({ id: 'job', source: appDir, sourceDigest: 'x', previousPid: first.pid, url: first.url, status: 'preparing' }));
+    const file = path.join(f.appDir, 'package.json'); const value = JSON.parse(await fs.readFile(file, 'utf8'));
+    value.scripts.build = 'node -e "process.exit(9)"'; await fs.writeFile(file, JSON.stringify(value));
+    await assert.rejects(launch('restart', { ...options, restartJob: 'job' }), /失败（9）/);
+    const job = JSON.parse(await fs.readFile(path.join(first.state, 'restart.json'), 'utf8'));
+    assert.deepEqual([job.status, job.restored, typeof job.executor.pid], ['failed', undefined, 'number']);
+    assert.equal((await probe(first.url)).pid, first.pid);
+  } finally { await launch('stop', options); }
+});
+
+test('leftover jobs are closed as ready when the instance runs their source; a closed job is still accepted (G-17)', async t => {
+  const f = await fixture(t); const options = { ...f, port: await freePort() };
+  const first = await launch('start', options); const appDir = await fs.realpath(f.appDir);
+  const restartFile = path.join(first.state, 'restart.json');
+  let last = first;
+  try {
+    await fs.writeFile(restartFile, JSON.stringify({ id: 'j1', source: appDir, sourceDigest: 'x', previousPid: first.pid, url: first.url, status: 'preparing' }));
+    assert.equal((await launch('start', options)).reused, true);
+    const closed = JSON.parse(await fs.readFile(restartFile, 'utf8'));
+    assert.deepEqual([closed.status, closed.pid], ['ready', first.pid]);
+    // Its own launcher arrives after the window and runs it (36b 7.4).
+    last = await launch('restart', { ...options, restartJob: 'j1' });
+    const ran = JSON.parse(await fs.readFile(restartFile, 'utf8'));
+    assert.deepEqual([ran.status, ran.pid, typeof ran.executor.pid], ['ready', last.pid, 'number']);
+  } finally { await launch('stop', options); }
+});
+
+test('a stopped record of a live instance is corrected by start and still stopped by stop (36b 6.3)', async t => {
+  const f = await fixture(t); const options = { ...f, port: await freePort() };
+  const first = await launch('start', options);
+  const write = async status => fs.writeFile(path.join(first.state, 'launcher.json'), JSON.stringify({ ...await readRecordFile(first.state), status }));
+  await write('stopped');
+  const again = await launch('start', options);
+  assert.deepEqual([again.reused, (await readRecordFile(first.state)).status], [true, 'running']);
+  await write('stopped');
+  await launch('stop', options);
+  assert.equal(await probe(first.url), null, '进程确实已停止');
+  assert.equal((await readRecordFile(first.state)).status, 'stopped');
+});
+
+test('a version switch keeps the running project unless one is given explicitly (36b 6.3)', async t => {
+  const f = await fixture(t); const port = await freePort();
+  const other = path.join(f.root, 'other'); await fs.mkdir(other);
+  const oldOptions = { ...await installedVersion(f, '0.11.0'), port, projectDir: other };
+  const first = await launch('start', oldOptions);
+  const { projectDir, ...nextOptions } = { ...await installedVersion(f, '0.11.1'), port };
+  try {
+    const { result: next, stderr } = await stderrOf(() => launch('start', nextOptions));
+    assert.equal(stderr.match(/最终扫描目录 /g)?.length, 1, stderr);
+    assert.ok(stderr.includes(`最终扫描目录 ${await fs.realpath(other)}（沿用运行实例的项目）`), stderr);
+    assert.notEqual(next.pid, first.pid);
+    assert.equal(next.project, await fs.realpath(other));
+    assert.equal((await readRecordFile(next.state)).actualProject, await fs.realpath(other));
+  } finally { await launch('stop', nextOptions); }
+  assert.ok(projectDir);
+});
+
+test('every run on migrated data restores the fixed legacy directory and keeps the saved Codex home', async t => {
+  const f = await fixture(t); const options = { ...f, port: await freePort() };
+  const custom = path.join(f.root, 'custom codex'); await fs.mkdir(custom);
+  const first = await launch('start', { ...options, codexHome: custom });
+  try {
+    await fs.rm(path.join(first.state, 'compat/legacy-project'), { recursive: true });
+    assert.equal((await launch('status', options)).status, 'running');
+    assert.ok((await fs.stat(path.join(first.state, 'compat/legacy-project'))).isDirectory(), '36a 第 7 节：缺失即重建');
+    const next = await launch('restart', options);
+    assert.equal((await readRecordFile(next.state)).codexHome, await fs.realpath(custom), '没有 CODEX_HOME 时沿用记录中的值');
+  } finally { await launch('stop', options); }
+});
+
+async function stderrOf(run) {
+  const write = process.stderr.write; let text = '';
+  process.stderr.write = (chunk, ...rest) => { text += String(chunk); return write.call(process.stderr, chunk, ...rest); };
+  try { return { result: await run(), stderr: text }; } finally { process.stderr.write = write; }
+}
+
+test('a skipped --project is noted on stderr only, and the final directory is the one scanned (36b 6.3; UAT 2026-10-10)', async t => {
+  const f = await fixture(t); const options = { ...f, port: await freePort() };
+  const first = await launch('start', options);
+  const legacy = path.join(first.state, 'compat/legacy-project');
+  await launch('stop', options);
+  // The native entry passes the record's legacy directory: the fallback chain picks the project, no notice.
+  const { result: next, stderr } = await stderrOf(() => launch('start', { ...options, projectDir: legacy }));
+  try {
+    assert.equal(next.reused, false);
+    assert.deepEqual(next.projectContext.warnings, [], '不另弹提示');
+    assert.deepEqual(Object.keys(next.projectContext).sort(), ['effective', 'requested', 'source', 'warnings', 'workingDirectory'], 'skipped 不进入服务');
+    assert.match(stderr, /已跳过无效的项目目录 .*legacy-project（--project）/);
+    assert.equal(stderr.match(/最终扫描目录 /g)?.length, 1, stderr);
+    // Without an explicit project the running instance keeps its own; stderr says which.
+    const { projectDir, ...implicit } = options;
+    const elsewhere = path.join(f.root, 'elsewhere'); await fs.mkdir(elsewhere);
+    const cwd = process.cwd(); process.chdir(elsewhere);
+    let reused;
+    try { reused = await stderrOf(() => launch('start', implicit)); } finally { process.chdir(cwd); }
+    assert.deepEqual([reused.result.reused, reused.result.project], [true, next.project]);
+    assert.ok(reused.stderr.includes(`最终扫描目录 ${next.project}（沿用运行实例的项目）`), reused.stderr);
+    assert.equal(reused.stderr.match(/最终扫描目录 /g)?.length, 1, reused.stderr);
+  } finally { await launch('stop', options); }
+});
+
+test('the saved-project note is written only for a caller directory, never in a 0.10.3 handover (62 UF-P3-01)', async t => {
+  const f = await fixture(t); const options = { ...f, port: await freePort() };
+  const first = await launch('start', options);
+  await launch('stop', options);
+  await fs.writeFile(path.join(first.state, 'project.json'), JSON.stringify({ path: f.projectDir }));
+  const { projectDir, ...implicit } = options;
+  const elsewhere = path.join(f.root, 'elsewhere'); await fs.mkdir(elsewhere);
+  const cwd = process.cwd();
+  let handover; let caller; let switched;
+  const other = path.join(f.root, 'other-project'); await fs.mkdir(other);
+  try {
+    // 36b 6.2: a 0.10.3 handover runs in the data directory and takes the saved project.
+    process.chdir(first.state);
+    handover = await stderrOf(() => launch('start', { ...implicit, env: { ...options.env, SKILLDOCK_HANDOVER: '1' } }));
+    process.chdir(elsewhere);
+    caller = await stderrOf(() => launch('start', implicit));
+    // The instance switched to another project: an implicit run keeps it and says nothing of the saved one.
+    await launch('start', { ...options, projectDir: other });
+    switched = await stderrOf(() => launch('start', implicit));
+  } finally { process.chdir(cwd); await launch('stop', options); }
+  const saved = await fs.realpath(f.projectDir);
+  assert.deepEqual([handover.result.project, caller.result.project, caller.result.reused], [saved, saved, true]);
+  assert.ok(!handover.stderr.includes('使用界面保存的项目'), handover.stderr);
+  assert.ok(caller.stderr.includes('使用界面保存的项目'), caller.stderr);
+  const kept = await fs.realpath(other);
+  assert.deepEqual([switched.result.reused, switched.result.project], [true, kept]);
+  assert.ok(switched.stderr.includes(`最终扫描目录 ${kept}（沿用运行实例的项目）`), switched.stderr);
+  assert.ok(!switched.stderr.includes('使用界面保存的项目'), switched.stderr);
+});
+
+test('dependency and build output goes to build.log, which starts over past 1 MiB (36b 6.3)', async t => {
+  const f = await fixture(t); const options = { ...f, port: await freePort() };
+  await fs.mkdir(f.stateDir, { recursive: true });
+  const log = path.join(f.stateDir, 'build.log'); await fs.writeFile(log, 'x'.repeat(1024 * 1024 + 1));
+  const first = await launch('start', options);
+  try {
+    assert.equal((await fs.stat(`${log}.1`)).size, 1024 * 1024 + 1, '上一份日志保留为 .1');
+    assert.match(await fs.readFile(log, 'utf8'), /source-bundle/, '本次构建输出写入 build.log');
+  } finally { await launch('stop', options); }
+  assert.ok(first.pid);
+});
+
+test('the service inherits only allowed variables; the command line of a Claude session is recorded, its variables are not passed on (DEC-SDX-024)', async t => {
+  const f = await fixture(t); const options = { ...f, port: await freePort() };
+  const entry = path.join(f.appDir, 'server/index.mjs');
+  await fs.writeFile(entry, (await fs.readFile(entry, 'utf8')).replace("server.listen(", "(await import('node:fs')).writeFileSync(process.env.SKILLDOCK_STATE_DIR + '/service-env.json', JSON.stringify(Object.keys(process.env))); server.listen("));
+  // The Codex command-line probe and the dependency build record what they receive too.
+  const seen = path.join(f.root, 'seen'); await fs.mkdir(seen);
+  const codexBin = path.join(f.root, 'codex-stand-in');
+  await fs.writeFile(codexBin, `#!/bin/sh\n/usr/bin/env | /usr/bin/cut -d= -f1 > "${seen}/codex-$1"\ncase "$1" in --version) echo "codex-cli 0.1.0" ;; plugin) echo "marketplace list" ;; esac\n`, { mode: 0o755 });
+  const manifest = path.join(f.appDir, 'package.json'); const pkg = JSON.parse(await fs.readFile(manifest, 'utf8'));
+  pkg.scripts.build = `node -e "require('fs').writeFileSync('${path.join(seen, 'build')}', Object.keys(process.env).join(String.fromCharCode(10)))" && ${pkg.scripts.build}`;
+  await fs.writeFile(manifest, JSON.stringify(pkg));
+  const session = path.join(f.root, 'claude-cli');
+  const env = { ...f.env, CLAUDECODE: '1', CLAUDE_CODE_EXECPATH: session, CLAUDE_CODE_ENTRYPOINT: 'claude-desktop', ANTHROPIC_API_KEY: 'not-a-real-key',
+    CLAUDE_CODE_OAUTH_TOKEN: 'not-a-real-token', CODEX_THREAD_ID: 'thread', npm_config_loglevel: 'warn', SKILLDOCK_TEST_MARK: 'launch-env' };
+  const selection = { SKILLDOCK_NODE_SOURCE: 'nvm', SKILLDOCK_SELECTED_NPM_CLI: path.join(f.root, 'npm-cli.js'), SKILLDOCK_SELECTED_NPM_VERSION: '11.0.0' };
+  const first = await launch('start', { ...options, env: { ...env, ...selection }, codexBin });
+  try {
+    // The launcher saves the bootstrap's selection once the data directory is known to be its own.
+    const saved = JSON.parse(await fs.readFile(path.join(first.state, 'settings/runtime.json'), 'utf8'));
+    assert.deepEqual([saved.node, saved.nodeVersion, saved.npmCli, saved.npmVersion, saved.source], [process.execPath, process.version, selection.SKILLDOCK_SELECTED_NPM_CLI, '11.0.0', 'nvm']);
+    const keys = JSON.parse(await fs.readFile(path.join(first.state, 'service-env.json'), 'utf8'));
+    const sessionKeys = ['CLAUDECODE', 'CLAUDE_CODE_EXECPATH', 'CLAUDE_CODE_ENTRYPOINT', 'ANTHROPIC_API_KEY', 'CLAUDE_CODE_OAUTH_TOKEN', 'CODEX_THREAD_ID'];
+    for (const key of [...sessionKeys, 'npm_config_loglevel', 'SKILLDOCK_SELECTED_NPM_VERSION', 'SKILLDOCK_NODE_SOURCE']) assert.equal(keys.includes(key), false, key);
+    for (const key of ['HOME', 'PATH', 'PORT', 'SKILLDOCK_STATE_DIR', 'SKILLDOCK_PROJECT_DIR']) assert.ok(keys.includes(key), key);
+    for (const name of ['codex---version', 'codex-plugin', 'build']) {
+      const received = (await fs.readFile(path.join(seen, name), 'utf8')).split('\n');
+      for (const key of sessionKeys) assert.equal(received.includes(key), false, `${name} ${key}`);
+      assert.equal(received.includes('npm_config_loglevel'), name === 'build', `${name} npm_config_loglevel`);
+      assert.ok(received.includes('SKILLDOCK_TEST_MARK'), `${name} 使用启动器收到的环境，而不是测试进程自身的环境`);
+    }
+    assert.equal(JSON.parse(await fs.readFile(path.join(first.state, 'settings/claude-cli.json'), 'utf8')).sessionPath, session);
+  } finally { await launch('stop', { ...options, env }); }
+});
+
+test('either side uses the instance the other side started, and a newer installation on either side takes over (REQ-SDX-017)', async t => {
+  const f = await fixture(t); const port = await freePort();
+  const codex = { ...await installedVersion(f, '0.11.0'), port };
+  const claude = { ...await installedClaudeVersion(f, '0.11.0'), port };
+  const running = async state => JSON.parse(await fs.readFile(path.join(state, 'launcher.json'), 'utf8')).running;
+  // Started from Claude; Codex reads, opens and stops the same instance.
+  const fromClaude = await launch('start', claude);
+  let open = true;
+  try {
+    assert.deepEqual([(await running(fromClaude.state)).agent, (await running(fromClaude.state)).appPath], ['claude', await fs.realpath(claude.appDir)]);
+    assert.equal((await launch('status', codex)).pid, fromClaude.pid);
+    assert.equal((await launch('start', codex)).pid, fromClaude.pid, '版本相同时保留运行中的来源，不重启');
+    assert.equal((await launch('stop', codex)).status, 'stopped'); open = false;
+    assert.equal(await probe(fromClaude.url), null);
+  } finally { if (open) await launch('stop', claude); }
+  // Started from Codex; Claude does the same.
+  const fromCodex = await launch('start', codex);
+  open = true;
+  try {
+    assert.equal((await running(fromCodex.state)).agent, 'codex');
+    assert.equal((await launch('status', claude)).pid, fromCodex.pid);
+    assert.equal((await launch('start', claude)).pid, fromCodex.pid);
+    assert.equal((await launch('stop', claude)).status, 'stopped'); open = false;
+  } finally { if (open) await launch('stop', codex); }
+  // A newer installation on the other side is where start goes, from either side.
+  const claudeNewer = { ...await installedClaudeVersion(f, '0.11.1'), port };
+  await assert.rejects(launch('start', codex), error => error.code === 'SKILLDOCK_DELEGATE' && error.target.agent === 'claude' && error.target.version === '0.11.1');
+  const codexNewer = { ...await installedVersion(f, '0.11.2'), port };
+  await assert.rejects(launch('start', claudeNewer), error => error.code === 'SKILLDOCK_DELEGATE' && error.target.agent === 'codex' && error.target.version === '0.11.2');
+  const newest = await launch('start', codexNewer);
+  try {
+    assert.equal((await running(newest.state)).version, '0.11.2');
+    assert.equal((await launch('status', claude)).pid, newest.pid, '较旧的一侧仍能查看较新一侧的实例');
+  } finally { await launch('stop', claude); }
+  assert.equal(await probe(newest.url), null);
+});
+
+test('the launch output names the Claude command line only when Claude is on this computer (UAT 2026-10-10)', async t => {
+  const f = await fixture(t); const options = { ...f, port: await freePort() };
+  const claudeBin = path.join(f.root, 'claude-stand-in');
+  await fs.writeFile(claudeBin, '#!/bin/sh\necho "2.1.288 (Claude Code)"\n', { mode: 0o755 });
+  const env = { ...f.env, SKILLDOCK_CLAUDE_BIN: claudeBin };
+  const output = async run => {
+    const lines = []; const write = process.stderr.write;
+    process.stderr.write = chunk => { lines.push(String(chunk)); return true; };
+    try { await run(); } finally { process.stderr.write = write; }
+    return lines.join('');
+  };
+  try {
+    assert.doesNotMatch(await output(() => launch('start', { ...options, env })), /Claude 命令行/, '没有 Claude 配置目录时不查找、不打印');
+    await fs.mkdir(path.join(f.home, '.claude'));
+    assert.match(await output(() => launch('restart', { ...options, env })), new RegExp(`SkillDock：Claude 命令行 ${claudeBin.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}（2\\.1\\.288）`));
+    await fs.writeFile(claudeBin, '#!/bin/sh\nexit 1\n', { mode: 0o755 });
+    assert.match(await output(() => launch('restart', { ...options, env })), /SkillDock：跳过 Claude 命令行 .*\nSkillDock：未找到可用的 Claude 命令行。/);
+    // Found on PATH (a source that would be saved elsewhere): printed, never saved by the launcher (phase 6 review P3-01).
+    const bin = path.join(f.root, 'path-bin'); await fs.mkdir(bin); await fs.writeFile(path.join(bin, 'claude'), '#!/bin/sh\necho "2.1.290 (Claude Code)"\n', { mode: 0o755 });
+    const { SKILLDOCK_CLAUDE_BIN, ...withoutExplicit } = env;
+    const found = await output(() => launch('restart', { ...options, env: { ...withoutExplicit, PATH: `${bin}:${env.PATH}` } }));
+    assert.match(found, /SkillDock：Claude 命令行 .*path-bin\/claude（2\.1\.290）/);
+    assert.equal(await fs.stat(path.join(f.stateDir, 'settings/claude-cli.json')).then(() => true, () => false), false, '启动器不保存所选命令行');
+  } finally { await launch('stop', { ...options, env }); }
 });
