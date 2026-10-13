@@ -1,7 +1,7 @@
 {
   "inputs": {
-    "package-lock.json": "4630eca7306e4c46784657609fcb2e195d49da4c8d28bd3a7d039e348949ea8b",
-    "package.json": "d0622e1b15b0b2cc2ece4f6e482b842707b49acbbc19c450d53e1ae80113c34c",
+    "package-lock.json": "ba35e719b1e7fb7641f4b76e28d694dd1aa8b988f70a2aee41702ed7cbb83d56",
+    "package.json": "dab281eb5c2b420f2da4fa1caf45837dd81776d7e237c42c9e3044ba615eb2c9",
     "scripts/native-bundle.mjs": "122d7fe7b48c71f0b27892bdc97f152cbff9acf23886d1387619134c45a9e80c",
     "server/cache-paths.mjs": "8b1afee122352a7e8a0cb977f5f56cd712da1c87700ed945d695fb87535c90ff",
     "server/claude-cli.mjs": "e45b0a6d787f0c5c0920967f9e1aa820732b09905a497271aba1a1e0794700fc",
@@ -72,8 +72,8 @@
   },
   "artifacts": {
     "server.mjs": "952873b18b656dcc75483e6e20f4278f3e2cd9463b9667f489020ed6bec9cff2",
-    "ui.html": "b91ff0633d0cd41cf88ea2ef8688ada2b7a7849008b4fdd006464eb523e571f0",
+    "ui.html": "176925cfb1be81c4295dd0d77cdfe26e18efe43ba015d3b120fb9814a1ab6808",
     "icon.svg": "9b7d7c19189c56b43fe691c0cb01e19b1f88abc61d1d130c974c5f5411b7288c",
-    "THIRD_PARTY_NOTICES.txt": "0580c525bbaf94d006050bf773e482a470c9f983971e23b26e8048505e11bd4f"
+    "THIRD_PARTY_NOTICES.txt": "b95ebf2f7bead7a6418bf66898b4c3e0302d749289ceb9d9ea86d12979886e89"
   }
 }

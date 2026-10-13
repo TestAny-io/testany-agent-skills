@@ -155,7 +155,7 @@ SOFTWARE.
 ```
 
 
-## smol-toml 1.8.0 — BSD-3-Clause
+## smol-toml 1.9.0 — BSD-3-Clause
 
 ```text
 Copyright (c) Squirrel Chat et al., All rights reserved.
@@ -240,7 +240,7 @@ OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 
 ## Native MCP app bundles
 
-The native UI and server use @modelcontextprotocol/sdk 1.30.1, @modelcontextprotocol/ext-apps 1.7.5 and zod 4.6.5, together with their bundled dependencies. The reproducible `npm run build:native` build preserves inline notices and generates the complete dependency license texts in `assets/native/THIRD_PARTY_NOTICES.txt`. Their upstream licenses remain unchanged. Build sources are included in the corresponding source archive.
+The native UI and server use @modelcontextprotocol/sdk 1.31.0, @modelcontextprotocol/ext-apps 1.7.5 and zod 4.6.5, together with their bundled dependencies. The reproducible `npm run build:native` build preserves inline notices and generates the complete dependency license texts in `assets/native/THIRD_PARTY_NOTICES.txt`. Their upstream licenses remain unchanged. Build sources are included in the corresponding source archive.
 
 ## Marketplace compatibility test fixture
 
