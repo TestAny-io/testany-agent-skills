@@ -134,6 +134,12 @@ test('Finder\'s .DS_Store does not unbind a planned skill, a binding saved while
   assert.deepEqual((await readJson(file)).bindings[key], saved, '重新选择后按新写法绑定');
   await fs.writeFile(path.join(directory, 'mine.txt'), 'mine');
   assert.equal((await due()).reasonCode, 'TARGET_BINDING_CHANGED');
+  // An update by hand keeps the plan of a binding that counted Finder's files, as a run does (75 C12-P3-06 S12).
+  await fs.rm(path.join(directory, 'mine.txt'));
+  state.bindings[key] = { ...saved, fingerprint: (await inspectTree(directory)).fingerprint }; await running.close(); await writeJson(file, state); running = await createService(options); t.after(() => running.close());
+  const checked = (await act(running, 'update.check', { target: skillTarget(writing) })).updateItem; assert.equal(checked.status, 'available');
+  await act(running, 'update.apply', { target: skillTarget(writing), previewId: checked.previewId });
+  assert.equal((await due()).status, 'current');
 });
 
 test('failed schedule persistence cannot enable a latent plan when the obstacle is removed', async t => {

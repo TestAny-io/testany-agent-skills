@@ -48,6 +48,12 @@ const rootedPlugins = [
   { name: 'r-extra', source: './', description: 'Lists another directory.', skills: ['./extra'] },
   { name: 'r-absent', source: './', description: 'Lists a directory that is not there.', skills: ['./skills/absent'] },
   { name: 'r-none', source: './', description: 'Lists nothing.' },
+  // The default directory is read before what else is listed, wherever the entry puts it: a skill inside it that is
+  // listed too goes by its folder's name. Another directory is read where it is listed (75 C12-P3-01).
+  { name: 'r-childfirst', source: './', description: 'Lists a skill of the default directory, then the directory.', skills: ['./skills/x', './skills'] },
+  { name: 'r-childonly', source: './', description: 'Lists a skill of the default directory.', skills: ['./skills/x'] },
+  { name: 'r-rootlater', source: './', description: 'Lists a skill of the default directory, then the root.', skills: ['./skills/x', './'] },
+  { name: 'r-morefirst', source: './', description: 'Lists a skill of another directory, then that directory.', skills: ['./more/m1', './more'] },
 ];
 // A third whose one plugin Claude does not load: its entry is not strict and the root's manifest declares components too.
 // Claude's list reports that in the same field as a declared path that failed, which leaves the rest loaded (`file`,
@@ -87,8 +93,9 @@ try {
   await write(path.join(work, 'plugins/man/commands/cmd-only.md'), '---\ndescription: A command.\n---\nrun\n');
   await write(path.join(rooted, '.claude-plugin/marketplace.json'), { name: 'rooted', owner: { name: 'smoke' }, plugins: rootedPlugins });
   await write(path.join(rooted, '.claude-plugin/plugin.json'), { name: 'rooted', description: 'The root has a manifest.', skills: './more' });
-  for (const name of ['x', 'y', 'z']) await skill(path.join(rooted, 'skills'), name);
-  await skill(path.join(rooted, 'more'), 'm1'); await skill(path.join(rooted, 'more'), 'm2'); await skill(path.join(rooted, 'extra'), 'e1'); await named(rooted, 'root-skill');
+  for (const name of ['y', 'z']) await skill(path.join(rooted, 'skills'), name);
+  await named(path.join(rooted, 'skills/x'), 'fm-x'); await named(path.join(rooted, 'more/m1'), 'fm-m1');
+  await skill(path.join(rooted, 'more'), 'm2'); await skill(path.join(rooted, 'extra'), 'e1'); await named(rooted, 'root-skill');
   await write(path.join(broken, '.claude-plugin/marketplace.json'), { name: 'broken', owner: { name: 'smoke' }, plugins: brokenPlugins });
   await write(path.join(broken, '.claude-plugin/plugin.json'), { name: 'conflict', description: 'The root has a manifest.', skills: './more' });
   await skill(path.join(broken, 'skills'), 'x'); await skill(path.join(broken, 'more'), 'm1');
@@ -106,6 +113,9 @@ try {
     assert.equal(JSON.parse(await fs.readFile(path.join(configDir, 'plugins/known_marketplaces.json'), 'utf8'))[market.name].source.source, 'github', 'marketplace 按真实来源登记');
     for (const { name } of market.plugins) await claude('plugin', 'install', `${name}@${market.name}`);
   }
+  // A skills-directory plugin whose manifest declares a directory that is not there: Claude reports that in the same list (75 C12-P3-02).
+  await write(path.join(configDir, 'skills/sdp/.claude-plugin/plugin.json'), { name: 'sdp', description: 'In the skills directory.', skills: './absent' });
+  await skill(path.join(configDir, 'skills/sdp/skills'), 'sd-inner');
   const session = await offered();
   const catalog = await claudeCatalog({ claudeRoot: { configDir, pluginCacheDir: path.join(configDir, 'plugins/cache') }, project: fixture, cli: { available: true, path: claudePath }, env, managedDir: path.join(fixture, 'no-managed') });
   assert.equal(catalog.unconfirmed, null, catalog.unconfirmed ?? '');
@@ -128,7 +138,8 @@ try {
   // A declared path that is the skill itself goes by its frontmatter's name, a skill below a directory by its folder's.
   assert.deepEqual(['direct', 'subdirect', 'single', 'solo', 'file'].map(name => compared[name].listed), [['fm-direct', 'nameless'], ['fm-subdirect', 's1'], ['root-skill', 'x', 'y', 'z'], ['fm-solo', 'inner'], ['x', 'y', 'z']]);
   // The root's own manifest adds its directory only when the entry lists no directory that exists.
-  assert.deepEqual(rootedPlugins.map(({ name }) => compared[name].listed.join(' ')), ['x y z', 'x y z', 'root-skill x y z', 'e1 x y z', 'e1', 'm1 m2 x y z', 'm1 m2 x y z']);
+  assert.deepEqual(rootedPlugins.map(({ name }) => compared[name].listed.join(' ')), ['x y z', 'x y z', 'root-skill x y z', 'e1 x y z', 'e1', 'm1 m2 x y z', 'm1 m2 x y z',
+    'x y z', 'fm-x', 'root-skill x y z', 'fm-m1 m2']);
   // A session offers exactly what is listed, except of the plugin that holds skills it does not offer the model.
   // (The second marketplace's plugins share one manifest, and a session names their skills by its name: not compared.)
   for (const { name } of plugins) if (name !== 'man') assert.deepEqual(compared[name].offers, compared[name].listed, name);
@@ -136,9 +147,15 @@ try {
   assert.ok(['m1', 'noname', 'renamed'].every(value => compared.man.offers.includes(value)) && !compared.man.offers.includes('other-name'));
   // What Claude's list reports about loading: for the plugin it does not load (no details, no skill in a session) and for
   // the two with a declared path that failed, which load the rest. SkillDock shows each report with the plugin.
-  const reports = Object.fromEntries(JSON.parse(await claude('plugin', 'list', '--json')).filter(item => item.errors?.length).map(item => [item.id, item.errorDetails?.map(detail => detail.type)]));
-  assert.deepEqual(reports, { 'conflict@broken': ['generic-error'], 'file@declared': ['component-load-failed'], 'r-absent@rooted': ['path-not-found'] });
-  await assert.rejects(claude('plugin', 'details', 'conflict@broken'));
+  const claudeList = JSON.parse(await claude('plugin', 'list', '--json'));
+  const reports = Object.fromEntries(claudeList.filter(item => item.errors?.length).map(item => [item.id, item.errorDetails?.map(detail => detail.type)]));
+  assert.deepEqual(reports, { 'conflict@broken': ['generic-error'], 'file@declared': ['component-load-failed'], 'r-absent@rooted': ['path-not-found'], 'sdp@skills-dir': ['path-not-found'] });
+  // The others carry neither field; the one that loaded nothing is still enabled; a failed path names its component.
+  assert.deepEqual(claudeList.filter(item => !reports[item.id] && ('errors' in item || 'errorDetails' in item)).map(item => item.id), []);
+  const reported = id => claudeList.find(item => item.id === id);
+  assert.equal(reported('conflict@broken').enabled, true);
+  assert.deepEqual(Object.keys(reported('file@declared').errorDetails[0]).sort(), ['component', 'path', 'plugin', 'type']); assert.equal(reported('file@declared').errorDetails[0].component, 'skills');
+  await assert.rejects(claude('plugin', 'details', 'conflict@broken'), /not found/);
   assert.equal(session.filter(value => value.startsWith('conflict:')).length, 0);
   for (const id of Object.keys(reports)) {
     const plugin = catalog.plugins.find(item => `${item.name}@${item.marketplace}` === id && item.installed);
@@ -146,7 +163,7 @@ try {
     assert.ok(catalog.skills.filter(item => item.pluginId === plugin.id).every(item => item.reason.startsWith('Claude 报告所属插件有加载问题')), id);
     assert.equal(catalog.diagnostics.filter(line => line.startsWith(`插件 ${id}：Claude 报告了加载问题`)).length, 1, id);
   }
-  assert.equal(catalog.plugins.filter(item => item.warnings).length, 3);
+  assert.equal(catalog.plugins.filter(item => item.warnings).length, 4);
   result = { passed: true, cli: (await claude('--version')).trim(), compared, reports };
 } catch (error) { result = { passed: false, error: error.stack }; process.exitCode = 1; }
 await fs.rm(fixture, { recursive: true, force: true });

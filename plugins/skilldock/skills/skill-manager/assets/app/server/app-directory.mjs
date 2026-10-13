@@ -59,12 +59,20 @@ export function officialAppUrl(value) {
 }
 
 export class AppDirectory {
-  constructor({ binary, env, request = withAppDirectory, ttl = 10 * 60000 } = {}) {
-    Object.assign(this, { binary, env, request, ttl }); this.cached = null; this.expires = 0;
+  constructor({ binary, env, request = withAppDirectory, ttl = 10 * 60000, now = Date.now } = {}) {
+    Object.assign(this, { binary, env, request, ttl, now }); this.cached = null; this.expires = 0; this.failed = false;
   }
   async list(force = false) {
-    if (!force && this.cached && Date.now() < this.expires) return this.cached;
-    if (!force && this.failureUntil > Date.now()) throw this.lastError;
+    if (!force && this.cached && this.now() < this.expires) return this.cached;
+    if (!force && this.failureUntil > this.now()) throw this.lastError;
+    // Reading the list takes 20 to 30 s on a real machine, and every snapshot waited for it once the
+    // ten minutes were over (HLD 9.3 V26). Once read, an expired list is served while the next one is
+    // read behind it, so only a process's first read waits. A read that fails ends that until one
+    // succeeds: the failure shows as it did.
+    if (!force && this.cached && !this.failed) { this.load(false).catch(() => {}); return this.cached; }
+    return this.load(force);
+  }
+  load(force) {
     if (this.loading) return this.loading;
     this.loading = this.request(this.binary, { env: this.env }, async request => {
       const apps = [], cursors = new Set(); let cursor;
@@ -78,8 +86,8 @@ export class AppDirectory {
       } while (cursor);
       const map = new Map();
       for (const app of apps) if (typeof app.id === 'string' && typeof app.name === 'string') map.set(`plugin_${app.id}`, app);
-      this.cached = map; this.expires = Date.now() + this.ttl; this.failureUntil = 0; return map;
-    }).catch(error => { this.lastError = error; this.failureUntil = Date.now() + 60000; throw error; }).finally(() => { this.loading = null; });
+      this.cached = map; this.expires = this.now() + this.ttl; this.failureUntil = 0; this.failed = false; return map;
+    }).catch(error => { this.lastError = error; this.failureUntil = this.now() + 60000; this.failed = true; throw error; }).finally(() => { this.loading = null; });
     return this.loading;
   }
   async read(appId) {

@@ -590,7 +590,7 @@ export async function createService(options = {}) {
         if ((await fs.lstat(directory)).isSymbolicLink() || await exists(path.join(directory, '.git'))) fail(422, 'GIT_OWNER_MANAGED', '链接或 Git 仓库根由原所有者管理；请选择独立技能副本关联来源。');
         const current = await inspectTree(directory); const staged = await stageSource(env, request); const id = crypto.randomUUID();
         previews.set(id, { ...staged, id, mode: env.mode, kind: 'source-link', ...side.tag, target: directory, skillId: record.id, baseline: current.fingerprint, installedFiles: current.entries, targetBoundary: await captureDirectoryRoot(directory), created: previewNow() });
-        return { early: { message: '请确认来源与本机差异；关联本身不会替换内容。', ...side.tag, sourcePreview: { id, skillId: record.id, name: record.name, source: staged.source, subpath: staged.subpath, ref: staged.ref, commit: staged.commit, target: record.path, matchesInstalled: current.fingerprint === staged.tree.fingerprint, changes: diffFiles(current.entries, staged.tree.entries) } } };
+        return { early: { message: '请确认来源与本机差异；关联本身不会替换内容。', ...side.tag, sourcePreview: { id, skillId: record.id, name: record.name, source: staged.source, subpath: staged.subpath, ref: staged.ref, commit: staged.commit, target: record.path, matchesInstalled: contentFingerprint(current.entries) === contentFingerprint(staged.tree.entries), changes: diffFiles(withoutFinderFiles(current.entries), withoutFinderFiles(staged.tree.entries)) } } };
       }
       case 'skill.connectSource': {
         const preview = await assertPreview(env, request.previewId, 'source-link', side.agent);

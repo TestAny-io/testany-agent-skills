@@ -173,6 +173,13 @@ test('a manual check also repairs the plan of a plugin Codex itself moved to a h
   assert.deepEqual([(await f.tick()).items[0].status, f.commands.length], ['current', 0]);
 });
 
+test('a Codex plugin\'s binding counts every file, Finder\'s included, as its baseline does (HLD 3.3A; 75 C12-P3-06 B1)', async t => {
+  const f = await fixture(t, { git: true }); await f.configure(); const binding = (await f.state()).bindings[f.key];
+  await fs.writeFile(path.join(f.installed, '.DS_Store'), 'finder');
+  assert.equal((await f.tick()).items[0].reasonCode, 'TARGET_BINDING_CHANGED'); assert.deepEqual((await f.state()).bindings[f.key], binding);
+  await fs.rm(path.join(f.installed, '.DS_Store')); assert.equal((await f.tick()).items[0].status, 'current');
+});
+
 // Each of these leaves the plan asking for the target to be selected again, with nothing run or saved.
 for (const [name, change] of Object.entries({
   'a lower version': async f => { await codexInstalls(f, '2.4.0'); },

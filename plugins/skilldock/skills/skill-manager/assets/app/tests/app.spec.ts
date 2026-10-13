@@ -288,6 +288,8 @@ test('with two Agents, every page counts what the filter shows, and a side that 
   await page.getByRole('button', { name: /^已安装/ }).click();
   await expect(card('kit')).toHaveCount(1); await expect(card('kit').locator('.skill-reason')).toHaveCount(0);
   await expect(card('held')).toHaveCount(1); await expect(card('held').locator('.skill-reason')).toHaveCount(0);
+  // Its switch is not the user's to turn either: grey on the plugin's card as on a skill's (75 C12-P3-06 U2).
+  await expect(card('held').getByRole('switch')).toHaveClass(/is-locked/);
   // The plugin's details list the skill it ships, as the library does.
   await page.getByRole('button', { name: '查看 kit 详情', exact: true }).click();
   await expect(page.locator('.install-components')).toContainText('附带技能（2）'); await expect(page.locator('.plugin-skill-list')).toContainText('kit-skill');

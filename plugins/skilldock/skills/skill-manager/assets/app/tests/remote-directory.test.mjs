@@ -54,10 +54,39 @@ test('repeating cursors fail closed and failed reads are bounded rather than ret
   assert.equal(calls, 2);
 });
 
+// With a time limit: a read that waits where it should not would otherwise hang the run instead of failing it.
+test('an expired app directory is served while the next is read behind it; a read that fails ends that until one succeeds (HLD 9.3 V26)', { timeout: 10000 }, async () => {
+  let time = 0, connections = 0, down = false; const gates = [], key = `plugin_${app.id}`;
+  const directory = new AppDirectory({ now: () => time, request: async (_b, _o, operation) => {
+    const number = ++connections; await new Promise(resolve => gates.push(resolve)); if (down) throw new Error('down');
+    return operation(async () => ({ data: [{ ...app, name: `read ${number}` }], nextCursor: null }));
+  } });
+  const open = () => gates.shift()(), settle = async () => { for (let turn = 0; turn < 5; turn += 1) await new Promise(resolve => setImmediate(resolve)); };
+  // A process's first read waits.
+  let done = false; const first = directory.list(); first.then(() => { done = true; }); await settle(); assert.equal(done, false);
+  open(); assert.equal((await first).get(key).name, 'read 1');
+  // Past the ten minutes: served at once, one read behind it however many ask.
+  time += 10 * 60000 + 1;
+  assert.deepEqual([(await directory.list()).get(key).name, (await directory.list()).get(key).name, connections], ['read 1', 'read 1', 2]);
+  open(); await settle();
+  assert.deepEqual([(await directory.list()).get(key).name, connections], ['read 2', 2]);
+  // The read behind fails: the failure shows as it did, bounded, and the next read waits again.
+  time += 10 * 60000 + 1; down = true;
+  assert.deepEqual([(await directory.list()).get(key).name, connections], ['read 2', 3]); open(); await settle();
+  await assert.rejects(directory.list(), /down/); assert.equal(connections, 3);
+  time += 60001; down = false; done = false;
+  const again = directory.list(); again.then(() => { done = true; }); await settle(); assert.deepEqual([done, connections], [false, 4]);
+  open(); assert.equal((await again).get(key).name, 'read 4');
+  // A forced read waits whatever is held.
+  done = false; const forced = directory.list(true); forced.then(() => { done = true; }); await settle(); assert.equal(done, false); open(); assert.equal((await forced).get(key).name, 'read 5');
+});
+
 test('opaque remote identity gets real branding while installation uses the original identity and policy', async () => {
   const { adapter, state, directory } = adapterFixture();
   const catalog = await adapter.list(), plugin = catalog.plugins[0];
   assert.equal(plugin.id, id); assert.equal(plugin.name, 'app-opaque-board'); assert.equal(plugin.displayName, 'Miro fixture');
+  // The app directory was asked: its read is timed with the two lists (75 C12-P3-06 T2).
+  assert.deepEqual(Object.keys(adapter.timing).sort(), ['app-directory', 'marketplace-list', 'plugin-list']);
   assert.equal(plugin.description, app.description); assert.equal(plugin.canInstall, true); assert.equal(plugin.canRemove, false);
   assert.equal(plugin.directory.connected, false); assert.deepEqual(plugin.icon, { remote: id });
   assert.equal(catalog.marketplaces[0].displayName, 'Codex Plugin Directory');
