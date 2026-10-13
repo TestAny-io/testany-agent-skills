@@ -29,6 +29,13 @@ const plugins = [
   { name: 'sub', source: './plugins/sub', strict: false, description: 'A subdirectory; adds ./tools.', skills: ['./tools'] },
   { name: 'subone', source: './plugins/sub', strict: false, description: 'A subdirectory; adds one skill.', skills: ['./tools/t1'] },
   { name: 'man', source: './plugins/man', description: 'Its own manifest adds ./custom.' },
+  // The declared path is the skill itself, named differently from its folder; the plugin's own directory is a skill;
+  // a listed file is no directory.
+  { name: 'direct', source: './', strict: false, description: 'The root; lists skills by their own folders.', skills: ['./named/dirname', './named/nameless'] },
+  { name: 'subdirect', source: './plugins/sub', strict: false, description: 'A subdirectory; adds a skill named differently.', skills: ['./tools/onedir'] },
+  { name: 'single', source: './', strict: false, description: 'The root itself is a skill.', skills: ['./'] },
+  { name: 'solo', source: './plugins/solo', strict: false, description: 'The plugin directory itself is a skill.', skills: ['.'] },
+  { name: 'file', source: './', strict: false, description: 'The root; lists a file.', skills: ['./skills/x/SKILL.md'] },
 ];
 const env = { ...claudeCliEnvironment({ HOME: home, PATH: '/usr/bin:/bin', LANG: 'en_US.UTF-8' }, { configDir }), CLAUDE_CODE_DISABLE_NONESSENTIAL_TRAFFIC: '1' };
 const git = async (...args) => (await runProcess('git', args, { cwd: fixture, timeout: 60000 })).stdout.trim();
@@ -48,6 +55,10 @@ try {
   await write(path.join(work, '.claude-plugin/marketplace.json'), { name: 'declared', owner: { name: 'smoke' }, plugins });
   for (const name of ['x', 'y', 'z']) await skill(path.join(work, 'skills'), name);
   await skill(path.join(work, 'plugins/sub/skills'), 's1'); await skill(path.join(work, 'plugins/sub/tools'), 't1'); await skill(path.join(work, 'plugins/sub/tools'), 't2');
+  const named = (directory, name) => write(path.join(directory, 'SKILL.md'), name ? `---\nname: ${name}\ndescription: ${name} skill.\n---\nbody\n` : '---\ndescription: No name.\n---\nbody\n');
+  await named(path.join(work, 'named/dirname'), 'fm-direct'); await named(path.join(work, 'named/nameless')); await named(work, 'root-skill');
+  await named(path.join(work, 'plugins/sub/tools/onedir'), 'fm-subdirect'); await named(path.join(work, 'plugins/solo'), 'fm-solo'); await skill(path.join(work, 'plugins/solo/skills'), 'inner');
+  await skill(path.join(work, 'plugins/man/skills'), '.hidden');
   await write(path.join(work, 'plugins/man/.claude-plugin/plugin.json'), { name: 'man', description: 'Manifest.', skills: './custom' });
   await skill(path.join(work, 'plugins/man/skills'), 'm1'); await skill(path.join(work, 'plugins/man/custom'), 'c1');
   await write(path.join(work, 'plugins/man/skills/noname/SKILL.md'), '---\ndescription: No name here.\n---\nbody\n');
@@ -78,14 +89,17 @@ try {
     compared[name] = { listed, offers };
     assert.deepEqual(listed, details, name);
     assert.equal(plugin.skillCount, details.length, `${name} 的技能数`);
-    assert.deepEqual(offers.filter(value => !listed.includes(value)), [], `${name}：会话提供的都在清单中`);
+    // A session writes a leading dot of a folder's name as a hyphen; Claude's own list, and SkillDock's, keep the dot.
+    assert.deepEqual(offers.filter(value => !listed.map(item => item.replace(/^\./, '-')).includes(value)), [], `${name}：会话提供的都在清单中`);
   }
   // The cases are not vacuous: the root's listed directories are a complete set, others add to the default;
   // a skill goes by its folder's name and is listed whatever its frontmatter holds.
-  assert.deepEqual(['one', 'two', 'rootall', 'sub', 'subone'].map(name => compared[name].listed), [['x'], ['y'], ['x', 'y', 'z'], ['s1', 't1', 't2'], ['s1', 't1']]);
-  // For these five a session offers exactly what is listed; the sixth holds skills a session does not offer the model.
-  for (const name of ['one', 'two', 'rootall', 'sub', 'subone']) assert.deepEqual(compared[name].offers, compared[name].listed, name);
-  assert.deepEqual(compared.man.listed, ['alias', 'bare', 'c1', 'm1', 'nodesc', 'noname', 'renamed']);
+  assert.deepEqual(['one', 'two', 'rootall', 'sub', 'subone'].map(name => compared[name].listed), [['x'], ['y'], ['x', 'y', 'z'], ['onedir', 's1', 't1', 't2'], ['s1', 't1']]);
+  // A declared path that is the skill itself goes by its frontmatter's name, a skill below a directory by its folder's.
+  assert.deepEqual(['direct', 'subdirect', 'single', 'solo', 'file'].map(name => compared[name].listed), [['fm-direct', 'nameless'], ['fm-subdirect', 's1'], ['root-skill', 'x', 'y', 'z'], ['fm-solo', 'inner'], ['x', 'y', 'z']]);
+  // A session offers exactly what is listed, except of the plugin that holds skills it does not offer the model.
+  for (const { name } of plugins) if (name !== 'man') assert.deepEqual(compared[name].offers, compared[name].listed, name);
+  assert.deepEqual(compared.man.listed, ['.hidden', 'alias', 'bare', 'c1', 'm1', 'nodesc', 'noname', 'renamed']);
   assert.ok(['m1', 'noname', 'renamed'].every(value => compared.man.offers.includes(value)) && !compared.man.offers.includes('other-name'));
   result = { passed: true, cli: (await claude('--version')).trim(), compared };
 } catch (error) { result = { passed: false, error: error.stack }; process.exitCode = 1; }

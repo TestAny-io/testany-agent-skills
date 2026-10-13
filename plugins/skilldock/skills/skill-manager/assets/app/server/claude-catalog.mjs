@@ -154,26 +154,32 @@ async function skillFolders(directory, manifest, entry, atMarketRoot, diagnostic
   const listed = declaredPaths(entry.skills);
   let paths = ['skills', ...declaredPaths(manifest?.skills), ...listed];
   if (atMarketRoot && listed.length && !listed.some(value => ['.', './skills'].includes(value.replace(/\/+$/, '') || '.'))) {
+    // Directories only: an entry that lists a file names no directory, and the default applies (71 IF3-P3-02).
     const existing = [];
-    for (const value of listed) if (inside(base, path.resolve(base, value)) && await within(path.resolve(base, value))) existing.push(value);
+    for (const value of listed) {
+      const location = path.resolve(base, value);
+      if (inside(base, location) && await within(location) && (await fs.stat(location).catch(() => null))?.isDirectory()) existing.push(value);
+    }
     if (existing.length) paths = existing;
   }
   const folders = [];
-  // A skill is a folder whose SKILL.md lies inside the installation, also by its real path.
-  const add = async folder => {
+  // A skill is a folder whose SKILL.md lies inside the installation, also by its real path. `direct`: the
+  // declared path is itself the skill, which Claude then names by its frontmatter (71 IF3-P2-01).
+  const add = async (folder, direct) => {
     if (!await exists(path.join(folder, 'SKILL.md'))) return false;
     if (!await within(path.join(folder, 'SKILL.md'))) diagnostics.push(`${path.join(directory, path.relative(base, folder))}：技能链接越出插件目录，未列出。`);
-    else if (!folders.includes(folder)) folders.push(folder);
+    else if (!folders.some(item => item.folder === folder)) folders.push({ folder, direct });
     return true;
   };
   for (const value of paths) {
     const root = path.resolve(base, value);
-    if (!inside(base, root) || !await within(root) || await add(root)) continue;
+    if (!inside(base, root) || !await within(root) || await add(root, true)) continue;
+    // Every folder below, those whose names begin with a dot too: Claude loads them (71 IF3-P3-01).
     for (const child of (await fs.readdir(root, { withFileTypes: true }).catch(() => [])).sort((a, b) => a.name.localeCompare(b.name))) {
-      if (!child.name.startsWith('.') && (child.isDirectory() || child.isSymbolicLink())) await add(path.join(root, child.name));
+      if (child.isDirectory() || child.isSymbolicLink()) await add(path.join(root, child.name), false);
     }
   }
-  return folders.map(folder => path.join(directory, path.relative(base, folder)));
+  return folders.map(({ folder, direct }) => ({ folder: path.join(directory, path.relative(base, folder)), direct }));
 }
 
 /**
@@ -181,11 +187,12 @@ async function skillFolders(directory, manifest, entry, atMarketRoot, diagnostic
  * Owner 2026-10-12): Claude turns a plugin's skills on and off with the plugin, never one by one.
  * `listed` is the plugin's entry in its marketplace copy. A plugin installed as a copy of the
  * marketplace root carries the marketplace file of its own version, which says what that version ships.
+ * A skills-directory plugin comes from no marketplace: only its manifest counts (71 IF3-P3-02).
  * Legacy `commands/` files are not skills and are not listed.
  */
 async function pluginSkills(plugin, directory, diagnostics, listed, read) {
   let own;
-  try { own = JSON.parse(await fs.readFile(path.join(directory, '.claude-plugin/marketplace.json'), 'utf8'))?.plugins?.find?.(item => item?.name === plugin.name); } catch { /* not a copy of a marketplace root */ }
+  if (plugin.marketplace !== 'skills-dir') try { own = JSON.parse(await fs.readFile(path.join(directory, '.claude-plugin/marketplace.json'), 'utf8'))?.plugins?.find?.(item => item?.name === plugin.name); } catch { /* not a copy of a marketplace root */ }
   const known = [listed, own].find(item => item && typeof item === 'object') ?? {};
   const atMarketRoot = rootSource(known);
   const entry = atMarketRoot && rootSource(own) ? own : known;
@@ -196,19 +203,21 @@ async function pluginSkills(plugin, directory, diagnostics, listed, read) {
     let folders = [];
     try { folders = await skillFolders(directory, await readManifest(directory), entry, atMarketRoot, diagnostics); }
     catch (error) { diagnostics.push(`${directory}：${redact(error.message)}`); }
-    for (const folder of folders) {
+    for (const { folder, direct } of folders) {
       try {
         const { data, updatedAt } = await skillText(folder);
-        found.push({ folder, real: await fs.realpath(path.join(folder, 'SKILL.md')), isLink: (await fs.lstat(folder)).isSymbolicLink(), updatedAt,
+        // Claude's name for it: the folder's, or the frontmatter's where the declared path is the skill itself (9.3 V23).
+        const named = direct && typeof data?.name === 'string' && data.name.trim() ? data.name.trim().slice(0, 200) : path.basename(folder);
+        found.push({ folder, name: named, real: await fs.realpath(path.join(folder, 'SKILL.md')), isLink: (await fs.lstat(folder)).isSymbolicLink(), updatedAt,
           description: typeof data?.description === 'string' ? data.description.trim().slice(0, 4000) : '' });
       } catch (error) { diagnostics.push(`${folder}：${redact(error.message)}`); }
     }
     read.set(key, found);
   }
   const reason = plugin.enabled === false ? PLUGIN_OFF : plugin.enabled === null ? PLUGIN_UNKNOWN : PLUGIN_SKILL;
-  // Claude names a plugin's skill after its folder, and loads it whatever its frontmatter holds (9.3 V23).
-  const skills = read.get(key).map(({ folder, real, isLink, updatedAt, description }) => ({
-    agents: ['claude'], id: claudeIds.pluginSkill(plugin.id, folder), name: path.basename(folder), description, path: path.join(folder, 'SKILL.md'), realPath: real,
+  // Listed whatever its frontmatter holds, as Claude loads it (9.3 V23).
+  const skills = read.get(key).map(({ folder, name, real, isLink, updatedAt, description }) => ({
+    agents: ['claude'], id: claudeIds.pluginSkill(plugin.id, folder), name, description, path: path.join(folder, 'SKILL.md'), realPath: real,
     scope: 'plugin', sourceLabel: 'Claude 插件技能', pluginId: plugin.id, ...(plugin.version ? { version: plugin.version } : {}), enabled: plugin.enabled, managed: true, isLink,
     canToggle: false, canRemove: false, canUpdate: false, reason, statusEvidence: 'Claude 插件的启用状态', updatedAt,
     revision: revision({ real, plugin: plugin.id, enabled: plugin.enabled }),

@@ -229,7 +229,9 @@ test('with two Agents, every page counts what the filter shows, and a side that 
     const kit = { agents: ['claude'], id: 'claude:plugin:kit@m:user', name: 'kit', description: 'Claude kit.', marketplace: 'm', version: '1.0.0', installed: true, enabled: true, skillCount: 1,
       canInstall: false, canRemove: false, canToggle: false, reason: sideReason, installation: { scope: 'user' } } as Plugin;
     snapshot.plugins.push(kit, { ...kit, id: 'claude:plugin:more@m', name: 'more', installed: false, enabled: null, skillCount: 0, installation: undefined },
-      { id: 'limited@catalog', name: 'limited', description: '', marketplace: 'catalog', installed: false, enabled: false, skillCount: 0, canInstall: false, canRemove: false, canToggle: false, reason: ownReason } as Plugin);
+      { id: 'limited@catalog', name: 'limited', description: '', marketplace: 'catalog', installed: false, enabled: false, skillCount: 0, canInstall: false, canRemove: false, canToggle: false, reason: ownReason } as Plugin,
+      // Installed, on the managed side, with a reason of its own: that belongs to its switch, not to a line on the card.
+      { id: 'held@catalog', name: 'held', description: '', marketplace: 'catalog', version: '1.0.0', installed: true, enabled: true, skillCount: 0, canInstall: false, canRemove: false, canToggle: false, reason: ownReason } as Plugin);
     const shipped = { ...snapshot.skills[0], agents: ['claude'], id: 'claude:skill:plugin:0123456789ab', name: 'kit-skill', description: 'Shipped by kit.', path: '/claude/plugins/cache/m/kit/1.0.0/skills/kit-skill/SKILL.md',
       scope: 'plugin', sourceLabel: 'Claude 插件技能', pluginId: kit.id, enabled: true, managed: true, canToggle: false, canRemove: false, canUpdate: false, reason: shippedReason, duplicateNames: undefined } as Skill;
     // A second one whose plugin's state is not known: that is the plugin's to report, not this skill's (69 IF2-P2-01).
@@ -279,6 +281,7 @@ test('with two Agents, every page counts what the filter shows, and a side that 
   await filter('全部').click();
   await page.getByRole('button', { name: /^已安装/ }).click();
   await expect(card('kit')).toHaveCount(1); await expect(card('kit').locator('.skill-reason')).toHaveCount(0);
+  await expect(card('held')).toHaveCount(1); await expect(card('held').locator('.skill-reason')).toHaveCount(0);
   // The plugin's details list the skill it ships, as the library does.
   await page.getByRole('button', { name: '查看 kit 详情', exact: true }).click();
   await expect(page.locator('.install-components')).toContainText('附带技能（2）'); await expect(page.locator('.plugin-skill-list')).toContainText('kit-skill');

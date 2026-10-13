@@ -101,6 +101,12 @@ test('Finder\'s .DS_Store beside a recorded skill is not a local change; one the
   await fs.writeFile(path.join(directory, 'mine.txt'), 'mine');
   await assert.rejects(act(service, 'skill.checkUpdate', { id: writing.id }), { code: 'LOCAL_CHANGES' });
   await fs.rm(path.join(directory, 'mine.txt'));
+  // Only Finder's own file: one whose name merely ends alike, or a folder of that name, is content (71 F3, F9).
+  for (const stray of ['x.DS_Store', 'kept/.DS_Store/inside.txt']) {
+    await fs.mkdir(path.dirname(path.join(directory, stray)), { recursive: true }); await fs.writeFile(path.join(directory, stray), 'mine');
+    await assert.rejects(act(service, 'skill.checkUpdate', { id: writing.id }), { code: 'LOCAL_CHANGES' }, stray);
+    await fs.rm(path.join(directory, stray.split('/')[0]), { recursive: true });
+  }
   // A `.DS_Store` that came with the source is recorded content: changing or removing it is a local change.
   const source = state.examples.skillSource; await fs.writeFile(path.join(source, '.DS_Store'), 'from the source');
   const preview = (await act(service, 'skill.previewInstall', { sourceType: 'local', source })).preview;
@@ -111,6 +117,11 @@ test('Finder\'s .DS_Store beside a recorded skill is not a local change; one the
   await assert.rejects(act(service, 'skill.checkUpdate', { id: installed.id }), { code: 'LOCAL_CHANGES' });
   await fs.rm(path.join(preview.target, '.DS_Store'));
   await assert.rejects(act(service, 'skill.checkUpdate', { id: installed.id }), { code: 'LOCAL_CHANGES' });
+  // The source and the installation each gained the same Finder file: nothing to update, rather than an update that
+  // applying then refuses (71 IF3-P3-03).
+  await fs.writeFile(path.join(preview.target, '.DS_Store'), 'from the source'); await fs.mkdir(path.join(source, 'shown')); await fs.mkdir(path.join(preview.target, 'shown'));
+  await fs.writeFile(path.join(source, 'shown/.DS_Store'), 'same bytes'); await fs.writeFile(path.join(preview.target, 'shown/.DS_Store'), 'same bytes');
+  assert.equal((await act(service, 'skill.checkUpdate', { id: installed.id })).update.available, false);
 });
 
 test('Git source installs a resolved commit from an isolated local repository', async t => {

@@ -621,10 +621,12 @@ export async function createService(options = {}) {
         const { record, directory, key } = await side.record(request.id, 'canUpdate'); const source = sources[key];
         // Compared with the record, and with the source, without Finder's files the record did not have;
         // the preview still binds what is on disk, so the update and its restore see every file.
-        const onDisk = await inspectTree(directory); const current = withoutFinderFiles(onDisk, source.files);
+        // A record without its file list is compared as it is: there is no telling which files it had (71 IF3-P3-03).
+        const onDisk = await inspectTree(directory); const current = source.files ? withoutFinderFiles(onDisk, source.files) : onDisk;
         if (current.fingerprint !== source.fingerprint) fail(409, 'LOCAL_CHANGES', '已安装技能有本地修改；请先保留或整理修改，不能自动覆盖。');
         // A skills-directory plugin's source is a plugin directory, not a skill (phase 5a).
-        const staged = await stageSource(env, source, record.plugin ? 'claude-plugin' : 'skill'); const changes = diffFiles(current.entries, staged.tree.entries); const id = crypto.randomUUID();
+        // Nothing to update either when the source holds exactly what is on disk, Finder's file included.
+        const staged = await stageSource(env, source, record.plugin ? 'claude-plugin' : 'skill'); const changes = staged.tree.fingerprint === onDisk.fingerprint ? [] : diffFiles(current.entries, staged.tree.entries); const id = crypto.randomUUID();
         if (changes.length) previews.set(id, { ...staged, id, mode: env.mode, kind: 'update', ...side.tag, target: directory, skillId: record.id, baseline: onDisk.fingerprint, sourceIdentity: JSON.stringify(source), targetBoundary: await captureDirectoryRoot(directory), created: previewNow() });
         else await removeStaging(env, staged.staging);
         return { early: { message: changes.length ? '发现来源变化，请检查文件列表。' : '当前内容与来源一致。', ...side.tag, update: { id, skillId: record.id, name: record.name, available: changes.length > 0, changes, message: changes.length ? `${changes.length} 个文件有变化；更新前会保留旧版本。` : '当前内容与来源一致。' } } };

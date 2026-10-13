@@ -200,8 +200,11 @@ test('a skill a Claude plugin ships is listed read-only beside a Codex skill at 
   assert.equal((await w.act({ action: 'skill.previewRemoval', agent: 'claude', groupName: 'inner', ids: [shipped.id] })).code, 'INVALID_SELECTION');
   const toggled = await w.act({ action: 'skill.toggle', agent: 'claude', id: own.id, enabled: false, expectedRevision: own.revision });
   assert.deepEqual([toggled.code, toggled.nativeRules], [undefined, undefined], '同名的插件技能不算共用这一条目，不必确认');
-  // Its content can be read like any skill's.
+  // Its content can be read like any skill's, also when it has no frontmatter at all (71 T1).
   assert.match((await w.service.skill('local', shipped.id)).content, /name: inner/);
+  await write(path.join(w.configDir, 'skills/sd/skills/raw/SKILL.md'), 'Just text.');
+  const raw = (await w.snapshot()).skills.find(item => item.name === 'raw' && item.pluginId === plugin.id);
+  assert.deepEqual([raw.description, (await w.service.skill('local', raw.id)).content], ['', 'Just text.']);
   // A version-1 snapshot knows nothing of it.
   assert.equal((await w.service.snapshot('local', true)).skills.some(item => item.id === shipped.id), false);
 });
