@@ -23,9 +23,10 @@ function skillItem(skill, sources) {
   return blocked(skill.name, view.path, 'SOURCE_UNKNOWN', '关联一个本地或 Git 来源后，预览差异并更新；关联本身不会替换文件。', 'connect-source', extra);
 }
 
-function pluginItem(plugin, sources, skillsDir, owner) {
+function pluginItem(plugin, sources, skillsDir, owner, skills) {
   const target = { kind: 'plugin', id: plugin.id, agent: 'claude' };
-  const path = plugin.installedPath; const extra = { target, sourceInfo: sources.get(plugin.id) ?? plugin.sourceInfo, installedVersion: plugin.version, affectedSkillIds: [] };
+  // The skills it ships: “Manage updates” on one of them finds this item.
+  const path = plugin.installedPath; const extra = { target, sourceInfo: sources.get(plugin.id) ?? plugin.sourceInfo, installedVersion: plugin.version, affectedSkillIds: skills.filter(skill => skill.pluginId === plugin.id).map(skill => skill.id) };
   const name = plugin.displayName || plugin.name;
   if (plugin.marketplace === 'skills-dir') {
     const { canUpdate, isLink } = skillsDir.get(plugin.id) ?? {};
@@ -57,7 +58,7 @@ export function claudeUpdateItems(snapshot, { sources = new Map(), skillsDir = n
     const leads = skill.agents?.length === 2 && !!skill.perAgent?.claude?.canUpdate;
     if (claudeOnly || leads) items.push(skillItem(skill, sources));
   }
-  for (const plugin of snapshot.plugins) if (plugin.installed && plugin.agents?.length === 1 && plugin.agents[0] === 'claude') items.push(pluginItem(plugin, sources, skillsDir, owner));
+  for (const plugin of snapshot.plugins) if (plugin.installed && plugin.agents?.length === 1 && plugin.agents[0] === 'claude') items.push(pluginItem(plugin, sources, skillsDir, owner, snapshot.skills));
   return items;
 }
 

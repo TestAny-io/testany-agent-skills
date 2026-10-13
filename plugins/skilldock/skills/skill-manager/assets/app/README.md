@@ -2,7 +2,7 @@
 
 一个在 Codex 原生主内容区、Codex 或 Claude 的浏览器面板、或普通浏览器中运行的本地技能管理器，同时管理本机 Codex 与 Claude 的技能、插件和 marketplace。支持中文、英文、日文，以及浅色、深色和跟随系统外观；包含技能库、插件、市场来源、更新、操作记录与 Agent 环境。打开即加载本机技能库，直接查看与管理自己的安装。
 
-此目录是可复现的 app 源码，随独立 `skilldock` 插件分发，包含 `skill-manager` skill 与 Codex 原生 MCP 应用入口。当前版本为 0.11.0（跨 Agent 版本）：同一个本地实例同时管理 Codex 与 Claude，在两边都能打开；Claude 一侧的技能、插件与 marketplace 支持安装、启停、移除恢复、更新和后台计划，改动经 Claude 命令行执行并读回；“Agent 环境”页显示两侧状态，并决定 SkillDock 是否修改某一侧；SkillDock 自身可一键更新较旧的一侧。要点见下文[跨 Agent（0.11.0）](#跨-agent0110)。此前版本的能力继续保留：第三方 marketplace 的重复版本兼容与 strict 校验、Miro 等官方应用插件的真实名称搜索与安装预览、完整主页面与按需启动、重复技能筛选、安装前的技能清单与逐项启用、从本地目录或 Git 链接安装单个插件、项目选择、macOS 独立后台定时更新、逐行 diff、私仓认证、CLI 回退、自定义目录兼容性与同名技能按路径移除。
+此目录是可复现的 app 源码，随独立 `skilldock` 插件分发，包含 `skill-manager` skill 与 Codex 原生 MCP 应用入口。当前版本为 0.11.1（跨 Agent 版本）：同一个本地实例同时管理 Codex 与 Claude，在两边都能打开；Claude 一侧的技能、插件与 marketplace 支持安装、启停、移除恢复、更新和后台计划，改动经 Claude 命令行执行并读回；“Agent 环境”页显示两侧状态，并决定 SkillDock 是否修改某一侧；SkillDock 自身可一键更新较旧的一侧。要点见下文[跨 Agent（0.11.0）](#跨-agent0110)。此前版本的能力继续保留：第三方 marketplace 的重复版本兼容与 strict 校验、Miro 等官方应用插件的真实名称搜索与安装预览、完整主页面与按需启动、重复技能筛选、安装前的技能清单与逐项启用、从本地目录或 Git 链接安装单个插件、项目选择、macOS 独立后台定时更新、逐行 diff、私仓认证、CLI 回退、自定义目录兼容性与同名技能按路径移除。
 
 ## 安装技能与插件
 
@@ -66,7 +66,7 @@ printf 'Using Codex CLI: %s\n' "$CODEX_CLI"
 
 开启新的 Codex 任务，用 `$skill-manager 打开技能管理面板` 启动。这只安装独立 SkillDock 应用，不会安装 testany-eng 研发工具集。CLI 版本缺少 `plugin add` 时，可在 Codex 插件页面从同名市场安装。
 
-在 Claude 中安装：桌面应用插件页（Customize → Plugins）**+ Add ▾** → **Add marketplace** 填 `TestAny-io/testany-agent-skills` 并 **Sync**，再在 **Discover** 中对 **Skilldock** 点 **Add**；Claude Code 中也可运行 `/plugin marketplace add TestAny-io/testany-agent-skills` 与 `/plugin install skilldock@testany-agent-skills`。之后用 `/skilldock:skill-manager` 打开（已打开的 Claude Code 会话中没有出现时 `/reload-plugins`）。更新：在 SkillDock 的“更新”页对 Claude 中的 skilldock 点“检查更新”（先刷新 marketplace，再经 Claude 命令行更新）；0.11.0 中桌面应用的 Update 不识别 SkillDock 的新版本。Claude Code 中也可 `/plugin` → **Marketplaces** → **Update marketplace**，或在终端用 `claude plugin marketplace update testany-agent-skills` 与 `claude plugin update skilldock@testany-agent-skills`。更新后新会话生效。Claude 不加载 Codex 原生入口，打开的是同一个网页面板。
+在 Claude 中安装：桌面应用插件页（Customize → Plugins）**+ Add ▾** → **Add marketplace** 填 `TestAny-io/testany-agent-skills` 并 **Sync**，再在 **Discover** 中对 **Skilldock** 点 **Add**；Claude Code 中也可运行 `/plugin marketplace add TestAny-io/testany-agent-skills` 与 `/plugin install skilldock@testany-agent-skills`。之后用 `/skilldock:skill-manager` 打开（已打开的 Claude Code 会话中没有出现时 `/reload-plugins`）。更新：在 SkillDock 的“更新”页对 Claude 中的 skilldock 点“检查更新”（先刷新 marketplace，再经 Claude 命令行更新）。自 0.11.1 起 marketplace 条目声明版本号（与 Codex manifest 相同），Claude 命令行按它识别新版本，也只在它变化时更新（`tests/claude-upgrade-smoke.mjs`）；最终 UAT 中桌面应用的 Update 没有识别出 0.11.0（以提交摘要作版本）之后的提交，声明版本后是否可用尚未确认。Claude Code 中也可 `/plugin` → **Marketplaces** → **Update marketplace**，或在终端用 `claude plugin marketplace update testany-agent-skills` 与 `claude plugin update skilldock@testany-agent-skills`。更新后新会话生效。Claude 不加载 Codex 原生入口，打开的是同一个网页面板。
 
 获取新版本先执行 `"$CODEX_CLI" plugin marketplace upgrade testany-agent-skills`，再执行同一条 `"$CODEX_CLI" plugin add` 更新安装副本，之后在新任务调用 `$skill-manager`。源码、市场目录和已安装副本各有自己的生命周期；只执行 `git pull` 不保证已安装缓存同步。源码包下载是 AGPL 对应源码，不能当 marketplace 注册包直接安装。
 
@@ -203,7 +203,7 @@ SKILLDOCK_PROJECT_DIR="/你的项目路径" npm start
 
 可选 macOS 无系统 Node/npm 演练：`node tests/runtime-smoke.mjs` 验证 Codex 环境复用、构建及重启。测试子进程 PATH 排除 Homebrew/nvm，并使用独立源码副本、数据目录与端口。
 
-可选真实 Claude 演练（都在临时 HOME 与 Claude 配置目录中进行，请在断网沙箱中运行）：`SKILLDOCK_SMOKE_CLAUDE=<claude 命令行> node tests/claude-writes-smoke.mjs` 用真实 Claude 命令行走通添加 marketplace、安装、启停、保留数据卸载、刷新与移除；`node tests/claude-distribution-smoke.mjs` 把当前提交作为本地 marketplace 安装到 Claude，确认只装上 SkillDock 且不加载 Codex 原生入口。
+可选真实 Claude 演练（都在临时 HOME 与 Claude 配置目录中进行，请在断网沙箱中运行）：`SKILLDOCK_SMOKE_CLAUDE=<claude 命令行> node tests/claude-writes-smoke.mjs` 用真实 Claude 命令行走通添加 marketplace、安装、启停、保留数据卸载、刷新与移除；`node tests/claude-distribution-smoke.mjs` 把当前提交作为本地 marketplace 安装到 Claude，确认只装上 SkillDock 且不加载 Codex 原生入口；`SKILLDOCK_SMOKE_CLAUDE=<claude 命令行> node tests/claude-upgrade-smoke.mjs` 让 Claude 命令行从 0.11.0（条目没有版本）更新到当前提交，再核对“同一版本只改内容不更新、条目版本升高才更新”与会话中的 SkillDock 入口；同样用法的 `tests/claude-plugin-skills-smoke.mjs` 装上几种声明技能路径的插件，核对 SkillDock 为每个 Claude 插件列出的技能与 Claude 自己列出的相同、会话提供的都在其中。
 
 可选真实 GitHub 地址演练：`node tests/github-source-smoke.mjs` 在全新临时配置中访问上面的公开目录链接，验证规范来源、实际 commit、diff、关联不覆盖文件，以及后续检查更新；不会使用或修改用户技能目录。浏览器测试中的同一 GitHub 传输由本机 Git 夹具替代，解析、clone、关联与更新仍走真实服务逻辑。
 

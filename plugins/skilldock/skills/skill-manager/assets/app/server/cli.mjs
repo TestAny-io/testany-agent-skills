@@ -150,7 +150,8 @@ export class CodexAdapter {
         if (!safeSegment(m?.name) || typeof m.root !== 'string' || !path.isAbsolute(m.root)) { if (typeof m?.name === 'string') dropped.marketplaces.push(m.name); else dropped.unidentified.marketplaces = true; continue; }
         const type = m.marketplaceSource?.sourceType || 'managed'; const source = m.marketplaceSource?.source || m.root;
         const managed = /^(openai-bundled|openai-primary-runtime|openai-curated|openai-curated-remote)$/.test(m.name);
-        marketplaces.push({ id: m.name, name: m.name, source: publicSource(typeof source === 'string' ? source : m.root), type, pluginCount: plugins.filter(p => p.marketplace === m.name).length, canRemove: !!m.marketplaceSource && !managed, canRefresh: type === 'git' && !managed, reason: managed ? '平台维护的市场来源。' : undefined, _root: m.root });
+        const ref = typeof m.marketplaceSource?.ref === 'string' ? m.marketplaceSource.ref.replace(/\p{C}/gu, '').slice(0, 200) : '';
+        marketplaces.push({ id: m.name, name: m.name, source: publicSource(typeof source === 'string' ? source : m.root), type, ...(ref ? { ref } : {}), pluginCount: plugins.filter(p => p.marketplace === m.name).length, canRemove: !!m.marketplaceSource && !managed, canRefresh: type === 'git' && !managed, reason: managed ? '平台维护的市场来源。' : undefined, _root: m.root });
       }
     } else diagnostics.push(redact(results[1].reason.message));
     // Canonical app plugins declare plugin_<app id> as their remote source ID.
@@ -270,22 +271,26 @@ async function readManifestRecord(directory, boundary) {
     let manifest;
     try { manifest = JSON.parse(await fs.readFile(file, 'utf8')); } catch { fail(422, 'INVALID_MANIFEST', '插件 manifest 无法解析。'); }
     if (!manifest || typeof manifest !== 'object' || Array.isArray(manifest)) fail(422, 'INVALID_MANIFEST', '插件 manifest 必须是 JSON 对象。');
-    return { manifest, hasManifest: true };
+    // Claude reads only its own manifest: a plugin with just the Codex one has no version Claude can see.
+    const codexOnly = relative === '.codex-plugin/plugin.json' && !(await exists(path.join(directory, '.claude-plugin/plugin.json')));
+    return { manifest, hasManifest: true, codexOnly };
   }
-  return { manifest: {}, hasManifest: false };
+  return { manifest: {}, hasManifest: false, codexOnly: false };
 }
 export async function readPluginManifest(directory, boundary = directory) {
   return (await readManifestRecord(directory, boundary)).manifest;
 }
 export async function readPluginDefinition(directory, { marketRoot = directory, entry = {} } = {}) {
-  const definition = await readManifestRecord(directory, marketRoot);
+  const { codexOnly, ...definition } = await readManifestRecord(directory, marketRoot);
   const { manifest, hasManifest } = definition;
   if (entry.strict !== undefined && typeof entry.strict !== 'boolean') fail(422, 'INVALID_MARKETPLACE', 'strict 必须是布尔值。');
   if (hasManifest && entry.strict === false && ENTRY_COMPONENT_FIELDS.some(field => Object.hasOwn(entry, field))) {
     fail(422, 'STRICT_CONFLICT', 'strict:false 时，存在 plugin.json 的插件不能同时在 marketplace 条目声明 commands、agents、skills、hooks、outputStyles 或 themes。');
   }
   if (manifest.version !== undefined && !safeSegment(manifest.version) || entry.version !== undefined && !safeSegment(entry.version)) fail(422, 'INVALID_VERSION', '插件版本必须是安全的单段字符串，不能包含路径。');
-  const warnings = manifest.version !== undefined && entry.version !== undefined
+  // An entry repeating the version of a Codex-only plugin mirrors it for Claude, which has no other.
+  const mirrored = codexOnly && manifest.version === entry.version;
+  const warnings = manifest.version !== undefined && entry.version !== undefined && !mirrored
     ? [`两处版本声明：${entry.name || manifest.name || 'plugin'} 的市场版本为 ${entry.version}，plugin.json 版本为 ${manifest.version}；采用 plugin.json 版本。`] : [];
   return { ...definition, version: manifest.version ?? entry.version, warnings };
 }

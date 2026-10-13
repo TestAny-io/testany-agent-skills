@@ -58,7 +58,7 @@ $skill-manager 打开技能管理面板
 /plugin install skilldock@testany-agent-skills
 ```
 
-装好后用 `/skilldock:skill-manager` 打开，或直接说“打开 SkillDock”；界面打开在 Claude 的内置浏览器面板中。以后更新：在 SkillDock 的“更新”页对 Claude 中的 skilldock 点 **检查更新**，它会先刷新 marketplace 再经 Claude 命令行更新，不用终端（0.11.0 中桌面应用插件页的 **Update** 不识别 SkillDock 的新版本）。两边打开的是同一个实例、同一份数据，只装在一边也能管理另一边。
+装好后用 `/skilldock:skill-manager` 打开，或直接说“打开 SkillDock”；界面打开在 Claude 的内置浏览器面板中。以后更新：在 SkillDock 的“更新”页对 Claude 中的 skilldock 点 **检查更新**，它会先刷新 marketplace 再经 Claude 命令行更新，不用终端（自 0.11.1 起 SkillDock 在 Claude 一侧也声明版本号；桌面应用插件页的 **Update** 在测试中没有识别出 0.11.0 之后的提交，声明版本后是否可用尚未确认）。两边打开的是同一个实例、同一份数据，只装在一边也能管理另一边。
 
 <details>
 <summary><strong>安装要求、入口不见了，或命令报错？</strong></summary>
@@ -215,7 +215,7 @@ $skill-manager 打开技能管理面板
 
 ## 版本、许可与开发
 
-通过 GitHub 仓库分发，当前版本为 **0.11.0**。[变更记录](../../CHANGELOG.md) · [AGPL-3.0-only](LICENSE) · [第三方声明](skills/skill-manager/THIRD_PARTY_NOTICES.md)。其他插件遵循各自的许可证。
+通过 GitHub 仓库分发，当前版本为 **0.11.1**。[变更记录](../../CHANGELOG.md) · [AGPL-3.0-only](LICENSE) · [第三方声明](skills/skill-manager/THIRD_PARTY_NOTICES.md)。其他插件遵循各自的许可证。
 
 开发、启动与验证命令见[应用 README](skills/skill-manager/assets/app/README.md)。
 

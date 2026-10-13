@@ -288,6 +288,8 @@ export interface Marketplace {
   name: string;
   source: string;
   type: string;
+  /** The branch, tag or commit a Git marketplace is pinned to, when its record names one. */
+  ref?: string;
   pluginCount: number;
   canRemove: boolean;
   canRefresh: boolean;

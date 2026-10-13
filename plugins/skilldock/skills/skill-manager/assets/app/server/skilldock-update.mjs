@@ -15,8 +15,8 @@ export const manualUpdate = {
   claude: marketplace => `在 Claude 中用 /plugin 更新 SkillDock，或在终端运行 claude plugin update skilldock@${marketplace}，然后重载插件。`,
 };
 
-// The application version of a Claude installation: its package (the plugin version of a
-// Git-sourced plugin is a commit digest). An orphaned directory is no longer in use.
+// The application version of a Claude installation: its package (the plugin version is the
+// marketplace entry's from 0.11.1, and a commit digest before). An orphaned directory is no longer in use.
 export async function claudeAppVersion(installPath) {
   if (typeof installPath !== 'string' || !path.isAbsolute(installPath)) return null;
   if (await readText(path.join(installPath, '.orphaned_at')) !== undefined) return null;

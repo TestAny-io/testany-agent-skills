@@ -1,7 +1,7 @@
 // Opt-in: actual Claude installation of the committed tree, in a temporary HOME and Claude
 // configuration directory, never the user's (REQ-SDX-017; DEC-SDX-013, 014; HLD 9.3 V6).
 // A local clone stands in for the marketplace: a directory marketplace also copies
-// untracked files (V8), and without Git history Claude records the version as "unknown".
+// untracked files (V8).
 // Only the Claude command line is borrowed from the user's machine. It is never asked for
 // the remote plugin directory (`plugin list --available` downloads it, HLD 3.3); run this
 // inside a sandbox that denies outbound connections to be sure nothing else goes out.
@@ -35,10 +35,13 @@ try {
   const listed = JSON.parse(await claude(['plugin', 'list', '--json']));
   assert.deepEqual(listed.map(item => [item.id, item.enabled]), [['skilldock@testany-agent-skills', true]], '只装上 SkillDock');
   const installed = listed[0];
-  assert.ok(commit.startsWith(installed.version), 'Claude 以提交摘要作版本');
+  // The marketplace entry states the version (0.11.1), so Claude no longer names it after the commit.
+  const declared = JSON.parse(await fs.readFile(path.join(market, '.claude-plugin/marketplace.json'), 'utf8')).plugins.find(item => item.name === 'skilldock').version;
+  assert.equal(installed.version, declared, 'Claude 采用条目声明的版本');
   // DEC-SDX-013: no Claude manifest, and the Codex MCP configuration is not loaded.
+  // One skill only: 0.11.0 also carried commands/skill-manager.md, listed here as a second skill-manager.
   const details = await claude(['plugin', 'details', 'skilldock@testany-agent-skills']);
-  assert.match(details, /MCP servers \(0\)/); assert.match(details, /Skills \(2\)\s+skill-manager, skill-manager/);
+  assert.match(details, /MCP servers \(0\)/); assert.match(details, /Skills \(1\)\s+skill-manager\b(?!,)/);
   const root = await fs.readdir(installed.installPath);
   assert.deepEqual(['.mcp.json', '.claude-plugin', 'codex.mcp.json'].filter(name => root.includes(name)), ['codex.mcp.json']);
   // DEC-SDX-014: the plugin browser shows which Agents each entry supports.

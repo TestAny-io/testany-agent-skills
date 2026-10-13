@@ -49,18 +49,22 @@ export async function atomicWrite(file, content, mode = 0o600) {
 }
 export const writeJson = (file, value) => atomicWrite(file, `${JSON.stringify(value, null, 2)}\n`);
 
-export async function metadata(directory) {
+/** A skill's text and, where it parses, its frontmatter; `problem` says why there is none. */
+export async function skillText(directory) {
   const entry = path.join(directory, 'SKILL.md');
   const stat = await fs.stat(entry);
   if (stat.size > 2 * 1024 * 1024) fail(422, 'SKILL_TOO_LARGE', 'SKILL.md 超过 2 MB。');
   const content = await fs.readFile(entry, 'utf8');
   const match = /^\uFEFF?---\r?\n([\s\S]*?)\r?\n---(?:\r?\n|$)/.exec(content);
-  if (!match) fail(422, 'INVALID_SKILL', 'SKILL.md 需要 YAML frontmatter（name 和 description）。');
-  let data;
-  try { data = parseYaml(match[1], { uniqueKeys: true, maxAliasCount: 20 }); }
-  catch { fail(422, 'INVALID_SKILL', 'SKILL.md 的 YAML 无法安全解析。'); }
+  let data = null; let problem = match ? null : 'SKILL.md 需要 YAML frontmatter（name 和 description）。';
+  if (match) try { data = parseYaml(match[1], { uniqueKeys: true, maxAliasCount: 20 }); } catch { problem = 'SKILL.md 的 YAML 无法安全解析。'; }
+  return { data, problem, content, updatedAt: stat.mtime.toISOString() };
+}
+export async function metadata(directory) {
+  const { data, problem, content, updatedAt } = await skillText(directory);
+  if (problem) fail(422, 'INVALID_SKILL', problem);
   if (!data || typeof data.name !== 'string' || !data.name.trim() || typeof data.description !== 'string' || !data.description.trim()) fail(422, 'INVALID_SKILL', 'SKILL.md 必须包含非空的 name 和 description。');
-  return { name: data.name.trim().slice(0, 200), description: data.description.trim().slice(0, 4000), content, updatedAt: stat.mtime.toISOString() };
+  return { name: data.name.trim().slice(0, 200), description: data.description.trim().slice(0, 4000), content, updatedAt };
 }
 
 // Imports are data only. Never execute scripts, follow external links or copy device files.
@@ -88,6 +92,18 @@ export async function inspectTree(root, { skip } = {}) {
   }
   await walk(realRoot);
   return { fingerprint: hash(JSON.stringify(entries)), entries, files: count, bytes, realRoot };
+}
+
+/**
+ * A tree without the `.DS_Store` files its record did not have. Finder writes one into a folder it
+ * has shown; hidden as it is, the user could not find what SkillDock called a local change (HLD 3.3A;
+ * Owner 2026-10-12). One the record has is content like any other.
+ */
+export function withoutFinderFiles(tree, recorded = {}) {
+  const dropped = Object.keys(tree.entries).filter(file => (file === '.DS_Store' || file.endsWith('/.DS_Store')) && !Object.hasOwn(recorded, file));
+  if (!dropped.length) return tree;
+  const entries = Object.fromEntries(Object.entries(tree.entries).filter(([file]) => !dropped.includes(file)));
+  return { ...tree, entries, files: tree.files - dropped.length, fingerprint: hash(JSON.stringify(entries)) };
 }
 
 /** `skip`: top-level entries left out of the copy and its fingerprint, as `inspectTree` does. */

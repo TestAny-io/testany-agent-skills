@@ -6,6 +6,7 @@ import assert from 'node:assert/strict';
 import fs from 'node:fs/promises';
 import os from 'node:os';
 import path from 'node:path';
+import { metadata, skillText } from '../server/files.mjs';
 import { claudeCatalog, readClaudeSettings } from '../server/claude-catalog.mjs';
 
 const write = async (file, value) => { await fs.mkdir(path.dirname(file), { recursive: true }); await fs.writeFile(file, typeof value === 'string' ? value : JSON.stringify(value)); return file; };
@@ -69,12 +70,125 @@ test('plugins: enablement source, overrides, managed and synced protection, mani
   assert.match(byName('b').id, /^claude:plugin:b@m:project:[a-f0-9]{12}$/);
   // A skills-directory plugin (name@skills-dir) is a plugin, never a standalone skill.
   assert.deepEqual([byName('sd').marketplace, byName('sd').installation.scope, byName('sd').skillCount], ['skills-dir', 'user', 1]);
-  assert.equal(catalog.skills.some(item => ['sd', 'inner'].includes(item.name)), false);
+  assert.equal(catalog.skills.some(item => item.name === 'sd'), false);
+  assert.deepEqual(catalog.skills.filter(item => item.name === 'inner').map(item => [item.scope, item.pluginId]), [['plugin', byName('sd').id]], '它带的技能列在它名下');
+});
+
+test('the skills an installed plugin ships are listed read-only under it; commands and uninstalled plugins are not (REQ-SDX-002; Owner 2026-10-12)', async t => {
+  const w = await world(t);
+  // A second skill, a legacy command of the same name, a folder without SKILL.md, and skills Claude loads all the same (9.3 V23):
+  // one whose folder's name begins with a dot, one without frontmatter, one whose frontmatter names it differently, a link inside the plugin.
+  await skill(path.join(w.installA, 'skills'), 'b-skill');
+  await write(path.join(w.installA, 'commands/a-skill.md'), '---\ndescription: legacy\n---\nrun');
+  await fs.mkdir(path.join(w.installA, 'skills/notes'), { recursive: true }); await skill(path.join(w.installA, 'skills'), '.hidden');
+  await write(path.join(w.installA, 'skills/broken/SKILL.md'), 'no frontmatter');
+  await write(path.join(w.installA, 'skills/folder-name/SKILL.md'), '---\nname: other-name\ndescription: Named after its folder.\n---\n');
+  await skill(path.join(w.installA, 'extra'), 'real'); await fs.symlink('../extra/real', path.join(w.installA, 'skills/linked'));
+  // One that is too large to read is said so, once, though two installations share the directory.
+  await write(path.join(w.installA, 'skills/huge/SKILL.md'), 'x'.repeat(2 * 1024 * 1024 + 1));
+  // The same cache directory serves a second installation of the plugin, which is disabled.
+  const plugins = [...await w.base.listPlugins(), { id: 'a@m', scope: 'project', projectPath: w.project, enabled: false, version: 'abc', installPath: w.installA }];
+  const catalog = await claudeCatalog({ ...w.base, listPlugins: async () => plugins });
+  const [user, project] = catalog.plugins.filter(item => item.name === 'a');
+  assert.deepEqual([user.installation.scope, user.skillCount, project.installation.scope, project.skillCount], ['user', 6, 'project', 6], '命令文件不计入');
+  const shipped = catalog.skills.filter(item => item.pluginId === user.id);
+  assert.deepEqual(shipped.map(item => [item.name, item.description, item.isLink]), [['.hidden', '.hidden skill.', false], ['a-skill', 'a-skill skill.', false], ['b-skill', 'b-skill skill.', false], ['broken', '', false], ['folder-name', 'Named after its folder.', false], ['linked', 'real skill.', true]], '技能目录下的以目录名为名；说明头读不出时说明为空');
+  assert.ok(shipped.every(item => item.scope === 'plugin' && item.enabled === true && item.version === 'abc' && item.sourceLabel === 'Claude 插件技能'));
+  assert.ok(shipped.every(item => item.agents.join() === 'claude' && item.managed && !item.canToggle && !item.canRemove && !item.canUpdate && /随所属插件一起启用或停用/.test(item.reason) && item.revision
+    && item.path === path.join(w.installA, 'skills', item.name, 'SKILL.md') && /^claude:skill:plugin:[a-f0-9]{12}$/.test(item.id) && item.visibility === undefined && item.enablement === undefined));
+  // Each installation lists its own copy, with its own identity and the state of its plugin.
+  const other = catalog.skills.filter(item => item.pluginId === project.id);
+  assert.deepEqual(other.map(item => [item.name, item.enabled]), ['.hidden', 'a-skill', 'b-skill', 'broken', 'folder-name', 'linked'].map(name => [name, false]));
+  assert.ok(other.every(item => /所属插件已停用/.test(item.reason)));
+  assert.equal(new Set(catalog.skills.map(item => item.id)).size, catalog.skills.length, 'ID 不重复');
+  assert.deepEqual(catalog.diagnostics.filter(line => line.includes(w.installA)).map(line => line.replace(w.installA, '')), ['/skills/huge：SKILL.md 超过 2 MB。'], '读不了的技能记入诊断一次，不列出');
+  // Nothing for a plugin without an installation directory, or one that is only available.
+  const b = catalog.plugins.find(item => item.name === 'b' && item.installed);
+  assert.deepEqual([b.skillCount, catalog.skills.filter(item => item.pluginId === b.id).length], [0, 0]);
+  assert.ok(catalog.plugins.filter(item => !item.installed).every(item => item.skillCount === 0));
+  // The revision follows the plugin's state: a write carrying an old one is refused like any other.
+  plugins[0] = { ...plugins[0], enabled: false };
+  const again = (await claudeCatalog({ ...w.base, listPlugins: async () => plugins })).skills.find(item => item.id === shipped[0].id);
+  assert.deepEqual([again.enabled, again.revision === shipped[0].revision], [false, false]);
+  // A plugin whose state Claude does not report: its skills say that it is the plugin's state that is unknown.
+  plugins[0] = { ...plugins[0], enabled: undefined };
+  const unknown = (await claudeCatalog({ ...w.base, listPlugins: async () => plugins })).skills.find(item => item.id === shipped[0].id);
+  assert.deepEqual([unknown.enabled, /所属插件的启用状态尚未核实/.test(unknown.reason)], [null, true]);
+});
+
+test('a plugin\'s skills are the ones Claude loads: the default directory and what is declared besides; a marketplace root lists a complete set (9.3 V23)', async t => {
+  const w = await world(t); const cache = path.join(w.configDir, 'plugins/cache/d'); const marketDir = path.join(w.configDir, 'plugins/marketplaces/d');
+  // The layouts of tests/claude-plugin-skills-smoke.mjs, as Claude installs them: a plugin whose source is the
+  // marketplace root is a copy of that root, marketplace file included.
+  const entries = [
+    { name: 'one', source: './', strict: false, skills: ['./skills/x'] }, { name: 'two', source: '.', strict: false, skills: './skills/y' }, { name: 'rootall', source: './', strict: false },
+    { name: 'gone', source: './', strict: false, skills: ['./skills/absent'] }, { name: 'whole', source: './', strict: false, skills: ['./skills/', './skills/x'] },
+    { name: 'sub', source: './plugins/sub', strict: false, skills: ['./tools'] }, { name: 'subone', source: './plugins/sub', strict: false, skills: ['./tools/t1', './../outside', '../outside', 7] },
+    { name: 'man', source: './plugins/man' }, { name: 'elsewhere', source: { source: 'github', repo: 'o/elsewhere' }, skills: ['./extra'] },
+    // The declared path is the skill itself: named by its frontmatter where that has a name (71 IF3-P2-01).
+    { name: 'direct', source: './', strict: false, skills: ['./skills/x', './named/dirname', './named/nameless'] }, { name: 'subdirect', source: './plugins/sub', strict: false, skills: ['./tools/onedir'] },
+    // The plugin's own directory is a skill, written either way; the default directory still counts (71 M3).
+    { name: 'single', source: './', strict: false, skills: ['./'] }, { name: 'singledot', source: './plugins/solo', strict: false, skills: ['.'] },
+    // A listed file names no directory: the default applies (71 IF3-P3-02).
+    { name: 'file', source: './', strict: false, skills: ['./skills/x/SKILL.md'] },
+    // Not a root source here, whatever a marketplace file inside its own directory says (71 M9).
+    { name: 'mixed', source: './plugins/mixed' },
+  ];
+  const named = (directory, name) => write(path.join(directory, 'SKILL.md'), name ? `---\nname: ${name}\ndescription: ${name} skill.\n---\n` : '---\ndescription: No name.\n---\n');
+  const root = async directory => {
+    for (const name of ['x', 'y', 'z']) await skill(path.join(directory, 'skills'), name);
+    await named(path.join(directory, 'named/dirname'), 'fm-direct'); await named(path.join(directory, 'named/nameless')); await named(directory, 'root-skill');
+    await write(path.join(directory, '.claude-plugin/marketplace.json'), { name: 'd', plugins: entries });
+  };
+  const sub = async directory => { await skill(path.join(directory, 'skills'), 's1'); await skill(path.join(directory, 'tools'), 't1'); await skill(path.join(directory, 'tools'), 't2'); await named(path.join(directory, 'tools/onedir'), 'fm-subdirect'); };
+  await root(marketDir);
+  for (const name of ['one', 'two', 'rootall', 'gone', 'whole', 'direct', 'single', 'file']) await root(path.join(cache, name, '1'));
+  for (const name of ['sub', 'subone', 'subdirect']) await sub(path.join(cache, name, '1'));
+  await named(path.join(cache, 'singledot/1'), 'fm-rootdot'); await skill(path.join(cache, 'singledot/1/skills'), 'inner');
+  await skill(path.join(cache, 'mixed/1/skills'), 'a'); await skill(path.join(cache, 'mixed/1/skills'), 'b');
+  await write(path.join(cache, 'mixed/1/.claude-plugin/marketplace.json'), { name: 'other', plugins: [{ name: 'mixed', source: './', skills: ['./skills/a'] }] });
+  // A skills-directory plugin comes from no marketplace: a marketplace file in it does not narrow what it ships (71 IF3-P3-02).
+  await skill(path.join(w.configDir, 'skills/sd/skills'), 'second');
+  await write(path.join(w.configDir, 'skills/sd/.claude-plugin/marketplace.json'), { name: 'own', plugins: [{ name: 'sd', source: './', skills: ['./skills/inner'] }] });
+  await write(path.join(cache, 'man/1/.claude-plugin/plugin.json'), { name: 'man', skills: './custom' }); await skill(path.join(cache, 'man/1/skills'), 'm1'); await skill(path.join(cache, 'man/1/custom'), 'c1');
+  await skill(path.join(cache, 'elsewhere/1/skills'), 'e1'); await skill(path.join(cache, 'elsewhere/1/extra'), 'e2');
+  // Nothing outside the installation is the plugin's: a skill linked from elsewhere, a declared path that leaves it.
+  await skill(path.join(w.root, 'outside'), 'stray'); await fs.symlink(path.join(w.root, 'outside/stray'), path.join(cache, 'sub/1/skills/stray')); await skill(path.join(cache, 'subone'), 'outside');
+  // A plugin no longer in the marketplace, and one whose listing there moved on after it was installed.
+  await skill(path.join(cache, 'removed/1/skills'), 'r1');
+  const names = [...entries.map(entry => entry.name), 'removed'];
+  const catalog = await claudeCatalog({ ...w.base,
+    listPlugins: async () => names.map(name => ({ id: `${name}@d`, scope: 'user', enabled: true, version: '1', installPath: path.join(cache, name, '1') })),
+    listMarketplaces: async () => [{ name: 'd', source: 'github', repo: 'o/d', installLocation: marketDir }] });
+  const shipped = name => { const plugin = catalog.plugins.find(item => item.name === name && item.installed); const list = catalog.skills.filter(item => item.pluginId === plugin.id).map(item => item.name).sort(); assert.equal(plugin.skillCount, list.length, name); return list; };
+  assert.deepEqual(Object.fromEntries(names.map(name => [name, shipped(name)])), {
+    one: ['x'], two: ['y'], rootall: ['x', 'y', 'z'], gone: ['x', 'y', 'z'], whole: ['x', 'y', 'z'],
+    sub: ['onedir', 's1', 't1', 't2'], subone: ['s1', 't1'], man: ['c1', 'm1'], elsewhere: ['e1', 'e2'],
+    direct: ['fm-direct', 'nameless', 'x'], subdirect: ['fm-subdirect', 's1'], single: ['root-skill', 'x', 'y', 'z'], singledot: ['fm-rootdot', 'inner'], file: ['x', 'y', 'z'], mixed: ['a', 'b'], removed: ['r1'] });
+  assert.deepEqual(shipped('sd'), ['inner', 'second']);
+  assert.deepEqual(catalog.skills.filter(item => item.name === 't1').map(item => path.relative(cache, item.path)).sort(), ['sub/1/tools/t1/SKILL.md', 'subone/1/tools/t1/SKILL.md']);
+  assert.deepEqual(catalog.diagnostics.filter(line => line.includes('越出插件目录')).map(line => path.relative(cache, line)), ['sub/1/skills/stray：技能链接越出插件目录，未列出。']);
+  // What the installed version ships is what its own copy of the marketplace file says, whatever the marketplace lists now.
+  await write(path.join(marketDir, '.claude-plugin/marketplace.json'), { name: 'd', plugins: entries.map(entry => entry.name === 'one' ? { ...entry, skills: ['./skills/x', './skills/z'] } : entry).filter(entry => entry.name !== 'two') });
+  const later = await claudeCatalog({ ...w.base, listPlugins: async () => ['one', 'two'].map(name => ({ id: `${name}@d`, scope: 'user', enabled: true, version: '1', installPath: path.join(cache, name, '1') })),
+    listMarketplaces: async () => [{ name: 'd', source: 'github', repo: 'o/d', installLocation: marketDir }] });
+  assert.deepEqual(['one', 'two'].map(name => later.skills.filter(item => item.pluginId === later.plugins.find(plugin => plugin.name === name && plugin.installed).id).map(item => item.name)), [['x'], ['y']]);
+});
+
+test('a skill\'s text is read as it is; its frontmatter is required only of a skill that must have one (71 T2)', async t => {
+  const w = await world(t); const directory = path.join(w.root, 'texts');
+  const cases = { none: 'No frontmatter.', yaml: '---\nname: [unclosed\n---\n', nameless: '---\ndescription: Only a description.\n---\n' };
+  for (const [name, text] of Object.entries(cases)) await write(path.join(directory, name, 'SKILL.md'), text);
+  assert.deepEqual(await Promise.all(Object.keys(cases).map(name => metadata(path.join(directory, name)).then(() => null, error => [error.code, error.message]))), [
+    ['INVALID_SKILL', 'SKILL.md 需要 YAML frontmatter（name 和 description）。'], ['INVALID_SKILL', 'SKILL.md 的 YAML 无法安全解析。'], ['INVALID_SKILL', 'SKILL.md 必须包含非空的 name 和 description。']]);
+  const texts = await Promise.all(Object.keys(cases).map(name => skillText(path.join(directory, name))));
+  assert.deepEqual(texts.map(text => [text.content, text.data?.description ?? null, !!text.problem]), [[cases.none, null, true], [cases.yaml, null, true], [cases.nameless, 'Only a description.', false]]);
 });
 
 test('skills: visibility from the deciding layer by name, user and project roots up to the repository root', async t => {
   const w = await world(t);
-  const { skills } = await claudeCatalog(w.base);
+  // Claude's own skills; those a plugin ships have their own case above.
+  const skills = (await claudeCatalog(w.base)).skills.filter(item => !item.pluginId);
   const byName = name => skills.find(item => item.name === name);
   assert.deepEqual(skills.map(item => [item.name, item.scope]).sort(), [['p1', 'project'], ['p2', 'project'], ['u1', 'user'], ['u2', 'user'], ['u3', 'user']]);
   assert.deepEqual([byName('u1').visibility, byName('u1').enabled, byName('u1').enablement], ['disabled', false, { decidedBy: 'user' }]);
@@ -95,6 +209,15 @@ test('marketplaces: auto-update from settings, Claude\'s record or the default; 
   await write(path.join(w.configDir, 'settings.json'), { extraKnownMarketplaces: { m: { source: { source: 'github', repo: 'o/m' }, autoUpdate: false } } });
   const declared = (await claudeCatalog(w.base)).marketplaces.find(item => item.name === 'm');
   assert.deepEqual([declared.autoUpdate.enabled, declared.autoUpdate.isDefault, declared.autoUpdate.note], [false, false, undefined], '设置中的声明优先于 Claude 的记录');
+  // Backlog UI-18: the branch a marketplace is pinned to comes from Claude's own record; none when it follows the default.
+  assert.equal('ref' in m, false);
+  await write(path.join(w.configDir, 'plugins/known_marketplaces.json'), { m: { source: { source: 'github', repo: 'o/m', ref: 'feature/x\u0007' }, installLocation: path.join(w.configDir, 'plugins/marketplaces/m') } });
+  assert.equal((await claudeCatalog(w.base)).marketplaces.find(item => item.name === 'm').ref, 'feature/x', '去掉控制字符');
+  // Claude's list names the ref before its record does; it is bounded, and the revision does not follow it (36c: display only).
+  const withRef = ref => claudeCatalog({ ...w.base, listMarketplaces: async () => [{ name: 'm', source: 'github', repo: 'o/m', ...(ref === undefined ? {} : { ref }) }] }).then(catalog => catalog.marketplaces.find(item => item.name === 'm'));
+  const [fromRecord, fromList, long] = [await withRef(undefined), await withRef('release/1.x'), await withRef('r'.repeat(300))];
+  assert.deepEqual([fromRecord.ref, fromList.ref, long.ref.length], ['feature/x', 'release/1.x', 200]);
+  assert.deepEqual([fromList.revision, long.revision], [fromRecord.revision, fromRecord.revision]);
 });
 
 test('a failing list or an unknown settings format leaves Claude unconfirmed; its install record is shown meanwhile', async t => {
@@ -148,7 +271,7 @@ test('settings: only the three relevant keys are read; a home-directory project 
   assert.deepEqual(Object.keys(settings.layers.user).sort(), ['enabledPlugins', 'skillOverrides']);
   assert.equal(JSON.stringify(settings).includes('never read'), false);
   const atHome = await claudeCatalog({ ...w.base, project: w.home });
-  assert.deepEqual(atHome.skills.map(item => [item.name, item.scope]).sort(), [['u1', 'user'], ['u2', 'user'], ['u3', 'user']]);
+  assert.deepEqual(atHome.skills.filter(item => !item.pluginId).map(item => [item.name, item.scope]).sort(), [['u1', 'user'], ['u2', 'user'], ['u3', 'user']]);
   assert.deepEqual(atHome.plugins.find(item => item.name === 'b').enablement, { decidedBy: 'user' }, '主目录项目不把用户设置算作项目设置');
 });
 

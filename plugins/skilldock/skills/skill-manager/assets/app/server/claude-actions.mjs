@@ -10,6 +10,7 @@ import { AppError, fail, redact } from './errors.mjs';
 import { acquireFileLock, operationLock } from './process-lock.mjs';
 import { localSettingsExposure, excludeLocalSettings } from './local-settings.mjs';
 import { patchClaudeSetting } from './claude-settings.mjs';
+import { copyManifests } from './claude-plugin-updates.mjs';
 
 export const CLAUDE_WRITES = new Set(['skill.toggle', 'plugin.toggle', 'plugin.previewMarketplace', 'plugin.install', 'plugin.remove', 'marketplace.add', 'marketplace.refresh', 'marketplace.remove']);
 // Whole sentences per case, so that each translates as one message.
@@ -124,7 +125,8 @@ export function createClaudeActions({ root, read, writer, journal, git, removeSk
       // other skills with the same name, which share the entry (P3-03), the shared project
       // settings, and a new local settings file Git does not ignore.
       const entry = await readEntry(file, 'skillOverrides', skill.name);
-      const sameName = state.claude.skills.filter(item => item.name === skill.name && item.id !== skill.id);
+      // A plugin's skill is named after its plugin in Claude and does not share the entry.
+      const sameName = state.claude.skills.filter(item => item.name === skill.name && item.id !== skill.id && !item.pluginId);
       const middles = [...new Set([skill.visibility, entry].filter(tier => MIDDLE[tier]))];
       const exposure = layer === 'local' ? await localSettingsExposure(project, gitOptions) : null;
       const rules = [
@@ -178,10 +180,13 @@ export function createClaudeActions({ root, read, writer, journal, git, removeSk
       const plugin = find(state.claude.plugins, request.id, 'plugin');
       if (plugin.installed || !plugin.canInstall) fail(403, 'PROTECTED_PLUGIN', plugin.reason || '这个插件不能在这里安装。');
       const market = state.claude.marketplaces.find(item => item.name === plugin.marketplace);
+      // From the copy the listing read the entry from (67 IF-P3-04).
+      const location = state.claude.copies?.[plugin.marketplace];
+      const manifests = typeof location === 'string' ? await copyManifests(location, plugin.name) : null;
       return { message: '插件安装预览已就绪。', agent: 'claude', pluginPreview: {
         agent: 'claude', id: `claude-preview:${plugin.id}`, name: plugin.name, version: plugin.version || '', description: plugin.description || '', source: plugin.marketplace,
         sourceType: ['directory', 'file'].includes(market?.type) ? 'local' : 'git', marketplace: plugin.marketplace, pluginId: plugin.id,
-        scopes: ['user', 'local', 'project'], defaultScope: 'user', skills: [], skillDetails: [], canSelectSkills: false, components: [], duplicates: [],
+        scopes: ['user', 'local', 'project'], defaultScope: 'user', skills: [], skillDetails: [], canSelectSkills: false, components: [], duplicates: [], ...(manifests ? { manifests } : {}),
         nativeRules: [{ kind: 'scope', message: '可以安装给当前用户（默认）、只在当前项目中给你自己用（本地设置），或给项目的所有协作者（共享设置，需要确认）。' }, RELOAD] } };
     },
     async 'plugin.install'(request, state, run) {

@@ -51,6 +51,25 @@ test('version precedence accepts duplicate declarations, preserves both inputs, 
   }
 });
 
+test('an entry mirroring a Codex manifest version is not a duplicate declaration; a different value still warns', async t => {
+  const root = await temporary(t);
+  await writeJson(path.join(root, '.codex-plugin/plugin.json'), { name: 'compat-plugin', version: '2.0.0' });
+  await configure(root, { version: '2.0.0' });
+  let catalog = await readMarketplace(root);
+  assert.equal(catalog.plugins[0].version, '2.0.0'); assert.deepEqual(catalog.warnings, []); assert.deepEqual(catalog.plugins[0].warnings, []);
+  await configure(root, { version: '2.0.1' });
+  catalog = await readMarketplace(root);
+  assert.equal(catalog.plugins[0].version, '2.0.0', 'Codex 仍以自己的 manifest 为准');
+  assert.equal(catalog.warnings.length, 1); assert.ok(catalog.warnings[0].includes('2.0.1')); assert.ok(catalog.warnings[0].includes('2.0.0'));
+  // With a Claude manifest beside it, Claude reads that one: the entry is a second declaration again.
+  await configure(root, { version: '2.0.0' }, { name: 'compat-plugin', version: '2.0.0' });
+  assert.equal((await readMarketplace(root)).warnings.length, 1, '两种 manifest 并存');
+  // A root plugin.json is not a Codex manifest.
+  await configure(root, { version: '2.0.0' }); await fs.rm(path.join(root, '.codex-plugin'), { recursive: true });
+  await writeJson(path.join(root, 'plugin.json'), { name: 'compat-plugin', version: '2.0.0' });
+  assert.equal((await readMarketplace(root)).warnings.length, 1, '根目录 plugin.json');
+});
+
 test('strict matrix uses manifest existence and the six entry component fields, including empty declarations', async t => {
   const root = await temporary(t); await skill(root, 'skills/default-skill'); await skill(root, 'custom/manifest-skill'); await skill(root, 'extra/entry-skill');
   for (const strict of [undefined, true, false]) for (const hasManifest of [false, true]) {
@@ -138,6 +157,19 @@ test('upstream metadata works through add, preview, install, rediscovery and upd
   assert.equal(state.skills.filter(s => s.pluginId === id && s.enabled).length, 1);
   assert.equal((await act('update.check', { target })).updateItem.status, 'current');
   assert.equal((await readJson(path.join(market, '.claude-plugin/marketplace.json'))).plugins[0].version, '2.13.0');
+});
+
+test('a Codex marketplace pinned to a ref says so, cleaned and bounded; one that is not omits it (41 UI-18; 36c)', async t => {
+  const root = await temporary(t); await realMetadataFixture(root);
+  const adapter = new CodexAdapter({ codexHome: path.join(root, '.codex') });
+  adapter.probe = async () => (adapter.info = { available: true });
+  const source = { sourceType: 'git', source: 'https://example.invalid/o/r.git' };
+  let listed;
+  adapter.command = async args => args[1] === 'marketplace' ? { marketplaces: listed.map((marketplaceSource, index) => ({ name: `m${index}`, root, marketplaceSource })) } : { installed: [], available: [] };
+  listed = [{ ...source, ref: 'feature/x' }, source, { ...source, ref: '' }, { ...source, ref: 7 }, { ...source, ref: `a\u0000b\u202e${'c'.repeat(300)}` }];
+  const refs = (await adapter.list()).marketplaces.map(market => [Object.hasOwn(market, 'ref'), market.ref]);
+  assert.deepEqual(refs.slice(0, 4), [[true, 'feature/x'], [false, undefined], [false, undefined], [false, undefined]]);
+  assert.deepEqual([refs[4][1].length, refs[4][1].startsWith('abccc')], [200, true], '去掉控制字符并限长');
 });
 
 test('CLI catalog rediscovery retains nonfatal warnings for both available and installed plugins', async t => {

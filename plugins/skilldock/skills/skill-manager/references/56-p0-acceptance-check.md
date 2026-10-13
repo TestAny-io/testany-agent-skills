@@ -25,7 +25,7 @@
 
 | 验收项 | 证据 | 结论 |
 |------|------|------|
-| 个人、项目技能、已安装插件与 marketplace 齐全，与 Claude 自身列表一致 | 自动：`claude-catalog`；实测：`claude-writes-smoke`（真实 Claude 2.1.288）；UAT：插件 5、marketplace 3 与命令行读回一致 | 满足 |
+| 个人、项目技能、已安装插件与 marketplace 齐全，与 Claude 自身列表一致 | 自动：`claude-catalog`；实测：`claude-writes-smoke`（真实 Claude 2.1.288）；UAT：插件 5、marketplace 3 与命令行读回一致。“已安装插件（含其技能）”一半：0.11.0 只给技能数；0.11.1 起插件自带的技能以只读条目列出（Owner 2026-10-12；`claude-catalog` “the skills an installed plugin ships…”、`shared-skills` “a skill a Claude plugin ships…”） | 满足（“含其技能”自 0.11.1） |
 | 插件显示 marketplace、版本、范围、启用状态与覆盖来源 | 自动：`claude-catalog` “plugins: enablement source, overrides…”、`agent-ui` “Claude facts…” | 满足 |
 | marketplace 显示自动更新实际值与上次刷新时间；桌面应用整体关闭自动更新时说明 | 自动：`claude-catalog` “marketplaces: auto-update…”；代码：`agents.mjs`、`claude-catalog.mjs` 的桌面应用说明 | 满足 |
 | 托管与同步插件无写操作入口 | 自动：`claude-catalog`（managed、synced 保护）、`claude-actions` “capabilities…” | 满足 |

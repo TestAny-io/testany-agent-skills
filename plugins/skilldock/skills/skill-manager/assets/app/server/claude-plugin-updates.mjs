@@ -125,6 +125,24 @@ export function localDirectory(source, installLocation, pluginRoot) {
   return relativeDirectory(installLocation, source.relative, pluginRoot);
 }
 
+/**
+ * Which Agents' manifests a plugin's directory holds in its marketplace copy, the evidence an install
+ * preview shows (HLD 3.12; 41 UI-10). Null where the entry names no directory there: a plugin
+ * fetched from elsewhere is not read before it is installed.
+ */
+export async function copyManifests(installLocation, name) {
+  try {
+    const { entry, pluginRoot } = await marketplaceEntry(installLocation, name);
+    if (typeof entry.source !== 'string' || !entry.source) return null;
+    const directory = relativeDirectory(installLocation, entry.source, pluginRoot);
+    if (!(await fs.stat(directory)).isDirectory()) return null;
+    // A manifest is a file inside the copy, also by its real path: nothing outside it is evidence.
+    const root = await fs.realpath(installLocation);
+    const holds = async file => { try { const real = await fs.realpath(path.join(directory, file)); return inside(root, real) && (await fs.stat(real)).isFile(); } catch { return false; } };
+    return [...await holds('.claude-plugin/plugin.json') ? ['claude'] : [], ...await holds('.codex-plugin/plugin.json') ? ['codex'] : []];
+  } catch { return null; }
+}
+
 /** Default network access, for the service; tests replace it. */
 export function defaultFetchers({ env, timeout = 60000, fetchImpl = fetch, archiveLimit = 100 * 1024 * 1024 } = {}) {
   return {

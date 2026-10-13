@@ -30,7 +30,7 @@ export function mergeClaude(result, claude) {
     if (STANDALONE.has(skill.scope) && !skill.pluginId && skill.realPath) codexByReal.set(skill.realPath, skill);
   }
   for (const skill of claude.skills) {
-    const shared = codexByReal.get(skill.realPath);
+    const shared = STANDALONE.has(skill.scope) && !skill.pluginId ? codexByReal.get(skill.realPath) : undefined;
     if (!shared) { result.skills.push(skill); continue; }
     shared.agents = ['codex', 'claude'];
     shared.perAgent = { codex: side(shared), claude: side(skill) };

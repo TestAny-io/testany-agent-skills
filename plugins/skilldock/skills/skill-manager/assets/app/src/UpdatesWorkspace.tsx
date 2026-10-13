@@ -11,6 +11,7 @@ import {
 import type {
   ActionRequest,
   ActionResult,
+  NativeRule,
   ScheduleInput,
   Skill,
   Snapshot,
@@ -25,6 +26,8 @@ import { UpdateProgress } from "./UpdateProgress";
 import { ExternalLink } from "./ExternalLink";
 import { SourceProvenance } from "./SourceProvenance";
 import { DiffBrowser } from "./DiffBrowser";
+import { pluginTitle } from "./plugin-presentation";
+import { NativeRuleList } from "./NativeConfirm";
 import { GitSourceFields, ResolvedGitSource } from "./GitSourceFields";
 import type { ConfirmContent } from "./ConfirmDialog";
 import "./UpdatesWorkspace.css";
@@ -174,6 +177,7 @@ const copy = {
     confirmPendingTitle: "让计划自动应用这些技能的更新？",
     confirmPendingHelp: "这些技能的内容在另一侧插件的目录中，自动应用会改写所在的插件。确认会按当前设置重新保存计划，下次运行时间从现在重新计算。",
     confirmPendingAffected: "待确认的技能",
+    pendingTag: "待确认",
   },
   en: {
     checkOnly: "Check only",
@@ -324,6 +328,7 @@ const copy = {
     confirmPendingTitle: "Let the schedule apply updates to these skills?",
     confirmPendingHelp: "These skills’ contents are inside the other side’s plugins, so applying updates automatically changes those plugins. Confirming saves the schedule again with its current settings, and the next run is counted from now.",
     confirmPendingAffected: "Skills awaiting confirmation",
+    pendingTag: "Awaiting confirmation",
   },
   ja: {
     checkOnly: "更新の確認のみ",
@@ -473,6 +478,7 @@ const copy = {
     confirmPendingTitle: "これらのスキルの更新をスケジュールで自動適用しますか？",
     confirmPendingHelp: "これらのスキルの内容はもう一方のプラグインのディレクトリ内にあるため、自動適用するとそのプラグインが書き換えられます。確認すると、現在の設定でスケジュールを保存し直し、次回の実行時刻は今から数え直します。",
     confirmPendingAffected: "確認待ちのスキル",
+    pendingTag: "確認待ち",
   },
 } as const;
 type Key = keyof typeof copy.zh;
@@ -512,12 +518,26 @@ export function focusMatches(item: UpdateItem, focusTarget?: string) {
   return !focusTarget || item.target.id === focusTarget || !!item.affectedSkillIds?.includes(focusTarget);
 }
 
+/**
+ * The other side's plugins whose directory holds a plan skill's content, by the rule the service
+ * confirms them with (36c §6), so the plan names them as its CONFIRMATION_REQUIRED does (41 UI-12).
+ */
+export function holdingPlugins(data: Snapshot, target: UpdateTarget): string[] {
+  const skill = target.kind === "skill" ? data.skills.find((item) => item.id === target.id) : undefined;
+  if (!skill) return [];
+  const other = (target.agent ?? "codex") === "codex" ? "claude" : "codex";
+  const file = skill.realPath ?? skill.path; const directory = file.slice(0, file.lastIndexOf("/"));
+  return data.plugins.filter((plugin) => (plugin.agents ?? ["codex"]).includes(other) && plugin.installed && plugin.realPath
+    && (directory === plugin.realPath || directory.startsWith(`${plugin.realPath}/`))).map(pluginTitle);
+}
+
 export function pendingConfirmation(data: Snapshot, language: Language): ConfirmContent | undefined {
   const schedule = data.schedule; const t = (key: Key) => copy[language][key];
   const pending = schedule?.autoApply ? schedule.targets.filter((target) => target.confirmation === "pending") : [];
   if (!schedule || !pending.length) return undefined;
   return { title: t("confirmPendingTitle"), description: t("confirmPendingHelp"), target: t("schedule"), label: t("confirmPending"), affectedTitle: t("confirmPendingAffected"),
-    affected: pending.map((target) => (data.updates || []).find((item) => targetKey(item.target) === targetKey(target))?.name ?? target.id),
+    affected: pending.map((target) => { const plugins = holdingPlugins(data, target);
+      return `${(data.updates || []).find((item) => targetKey(item.target) === targetKey(target))?.name ?? target.id}${plugins.length ? ` (${plugins.join(", ")})` : ""}`; }),
     request: { action: "schedule.configure", confirm: true, schedule: { enabled: schedule.enabled, intervalMinutes: schedule.intervalMinutes, timezone: schedule.timezone, autoApply: schedule.autoApply,
       targets: schedule.targets.map(({ confirmation: _shown, ...target }) => target) } } };
 }
@@ -557,6 +577,8 @@ export function UpdatesWorkspace({
   const [customHours, setCustomHours] = useState("24");
   const [error, setError] = useState<{ key: Key } | { service: string }>();
   const [preview, setPreview] = useState<UpdateItem>();
+  // What applying the checked update touches on the other side, as the check names it (41 UI-11).
+  const [previewRules, setPreviewRules] = useState<NativeRule[]>();
   const [connecting, setConnecting] = useState<UpdateItem>();
   const [sourceType, setSourceType] = useState<"local" | "git">("local");
   const [source, setSource] = useState("");
@@ -646,6 +668,7 @@ export function UpdatesWorkspace({
     });
     if (result?.updateItem) {
       setPreview(result.updateItem);
+      setPreviewRules(result.nativeRules);
       onRefresh();
     }
   };
@@ -1202,6 +1225,8 @@ export function UpdatesWorkspace({
                       />
                       <span>
                         {item.name}
+                        {/* Confirmation matters only to a plan that applies, as the notice above the plan says (67 IF-P3-05). */}
+                        {form.autoApply && data.schedule?.targets.some((target) => target.confirmation === "pending" && targetKey(target) === targetKey(item.target)) && <em className="uw-pending-tag">{t("pendingTag")}</em>}
                         <small>{t(item.route)}</small>
                         <code>{item.installedPath || t("unknown")}</code>
                       </span>
@@ -1270,6 +1295,7 @@ export function UpdatesWorkspace({
               </p>
             )}
             {technical(preview.message)}
+            {!!previewRules?.length && <NativeRuleList rules={previewRules} />}
             {changes(preview.changes)}
             {preview.previewId && preview.changes?.length ? <DiffBrowser key={preview.previewId} previewId={preview.previewId} changes={preview.changes} execute={execute} /> : null}
             {error && (

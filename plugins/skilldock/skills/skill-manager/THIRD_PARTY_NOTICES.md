@@ -18,10 +18,12 @@ The SkillDock wordmark in `assets/app/src/brand-wordmark.svg` is an outlined gra
 
 ## Agent marks
 
-The Claude mark in `assets/app/src/AgentUI.tsx` is the `claude` icon from Simple Icons 16.0.0, whose icon data is released under CC0 1.0 Universal. Claude is a trademark of Anthropic, PBC. SkillDock uses the mark only to show which objects belong to Claude; this does not imply endorsement by Anthropic.
+The two marks in `assets/app/src/AgentUI.tsx` are the official artwork of their owners, with the path data unchanged. SkillDock shows them only to say which objects belong to Codex and which to Claude. They are trademarks of their owners, and their use here does not imply endorsement, sponsorship or affiliation.
 
-Codex objects are shown with Lucide's generic `square-terminal` icon (ISC, see below). OpenAI's logo is not used: OpenAI's brand guidelines require permission to use its logos, and Simple Icons removed it in 16.0.0 for that reason.
+- **OpenAI Blossom**, for Codex objects: `OpenAI-logos/SVGs/OAI_OpenAI-Blossom_Black.svg` from the logo kit on OpenAI's brand page (<https://openai.com/brand/>, retrieved 2026-10-12). The OpenAI name and logo are property of OpenAI. The mark is shown in black or white only and never recolored, it is smaller than SkillDock's own mark, and it is drawn on the kit's whole canvas, so the clear space the kit leaves around the artwork surrounds it wherever it appears. This use is meant to follow the Marks usage terms on that page, under which OpenAI may ask for changes or end the permission; the project owner decided on it on 2026-10-12.
+- **Claude Spark**, for Claude objects: `Claude logos/3 Claude Spark/SVG/Claude Spark - Clay.svg` from Anthropic's media resources, linked as “Download press kit” on <https://www.anthropic.com/news> (retrieved 2026-10-12). Claude is a trademark of Anthropic, PBC. The mark is shown in the kit's Clay color (`#D97757`), with space added around it to match.
 
+SkillDock 0.11.0 used the `claude` icon from Simple Icons 16.0.0 and Lucide's generic `square-terminal` icon for these two.
 
 ## lucide-react 1.45.0 — ISC
 

@@ -58,7 +58,7 @@ On the desktop app's plugins page (**Customize** → **Plugins** in the sidebar,
 /plugin install skilldock@testany-agent-skills
 ```
 
-Then open it with `/skilldock:skill-manager` or ask Claude to open SkillDock; it opens in Claude's built-in browser panel. To update later, click **Check for updates** for Claude's skilldock on SkillDock's **Updates** page: it refreshes the marketplace and updates through Claude's command line, with no terminal (in 0.11.0 the desktop app's **Update** button does not detect new SkillDock versions). Both sides open the same instance with the same data, and installing on one side is enough to manage the other.
+Then open it with `/skilldock:skill-manager` or ask Claude to open SkillDock; it opens in Claude's built-in browser panel. To update later, click **Check for updates** for Claude's skilldock on SkillDock's **Updates** page: it refreshes the marketplace and updates through Claude's command line, with no terminal (from 0.11.1 SkillDock states its version on the Claude side too; in testing the desktop app's **Update** button did not detect commits after 0.11.0, and whether it works once the version is stated is not yet confirmed). Both sides open the same instance with the same data, and installing on one side is enough to manage the other.
 
 <details>
 <summary><strong>Requirements, a missing entry, or a broken command?</strong></summary>
@@ -215,7 +215,7 @@ Include your SkillDock version, your Codex or Claude version, and reproduction s
 
 ## Version, license, and development
 
-Distributed through this GitHub repository. Current version: **0.11.0**. [Changelog](../../CHANGELOG.md) · [AGPL-3.0-only](LICENSE) · [Third-party notices](skills/skill-manager/THIRD_PARTY_NOTICES.md). Other plugins follow their respective licenses.
+Distributed through this GitHub repository. Current version: **0.11.1**. [Changelog](../../CHANGELOG.md) · [AGPL-3.0-only](LICENSE) · [Third-party notices](skills/skill-manager/THIRD_PARTY_NOTICES.md). Other plugins follow their respective licenses.
 
 See the [application README](skills/skill-manager/assets/app/README.md) for development, launch, and verification commands.
 

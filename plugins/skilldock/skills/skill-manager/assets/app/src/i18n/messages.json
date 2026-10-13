@@ -1731,9 +1731,9 @@
     "en": "Not installed: plugins found in connected marketplaces. You can also install a single plugin directly from Git or a local folder.",
     "ja": "未インストール：接続済み Marketplace のプラグインです。Git やローカルフォルダーから単一プラグインを直接インストールすることもできます。"
   },
-  "未安装：Claude 已添加的 Marketplace 中尚未安装的插件，取自 Claude 在本机保存的副本；这一版只能查看。": {
-    "en": "Not installed: plugins in the marketplaces added to Claude that are not installed yet, read from the copies Claude keeps on this Mac. This version can only show them.",
-    "ja": "未インストール：Claude に追加したマーケットプレイスのうち、まだインストールしていないプラグインです。Claude がこの Mac に保存しているコピーから読み取ります。このバージョンでは表示のみです。"
+  "未安装：Claude 已添加的 Marketplace 中尚未安装的插件，取自 Claude 在本机保存的副本。": {
+    "en": "Not installed: plugins in the marketplaces added to Claude that are not installed yet, read from the copies Claude keeps on this Mac.",
+    "ja": "未インストール：Claude に追加したマーケットプレイスのうち、まだインストールしていないプラグインです。Claude がこの Mac に保存しているコピーから読み取ります。"
   },
   "从本地目录、Git 仓库或 Marketplace 安装第一个插件。": {
     "en": "Install your first plugin from a local folder, Git repository, or marketplace.",
@@ -2375,6 +2375,14 @@
     "en": "Claude project skills",
     "ja": "Claude のプロジェクトスキル"
   },
+  "Claude 插件技能": {
+    "en": "Claude plugin skills",
+    "ja": "Claude のプラグインスキル"
+  },
+  "Claude 插件的启用状态": {
+    "en": "The Claude plugin's enabled state",
+    "ja": "Claude プラグインの有効状態"
+  },
   "Claude 技能目录 + 设置中的技能可见性": {
     "en": "Claude skills directory + skill visibility in settings",
     "ja": "Claude のスキルディレクトリ + 設定のスキル表示"
@@ -2398,10 +2406,6 @@
   "这一版 SkillDock 只读取 Claude 中的对象；启用后，后续版本才能按你的操作修改 Claude 中的技能、插件和 marketplace，并把它们加入后台更新计划。这不会改动 Claude 自身的设置。": {
     "en": "This version of SkillDock only reads items in Claude. Once on, later versions can change skills, plugins and marketplaces in Claude when you ask them to, and add them to background update plans. This does not change Claude's own settings.",
     "ja": "このバージョンの SkillDock は Claude の項目を読み取るだけです。有効にすると、以降のバージョンで、操作に応じて Claude のスキル・プラグイン・マーケットプレイスを変更し、バックグラウンド更新プランに追加できるようになります。Claude 自体の設定は変更しません。"
-  },
-  "这一版只读取 Claude 插件，附带技能不单独列出。": {
-    "en": "This version only reads Claude plugins; their skills are not listed one by one.",
-    "ja": "このバージョンは Claude のプラグインを読み取るだけで、付属スキルは個別に表示しません。"
   },
   "启用后 SkillDock 可能写入的位置": {
     "en": "Where SkillDock may write once management is on",
@@ -2530,5 +2534,41 @@
   "从已连接的 Marketplace 选择插件。": {
     "en": "Choose a plugin from a connected marketplace.",
     "ja": "接続済みのマーケットプレイスからプラグインを選択します。"
+  },
+  "正在读取本机的技能与插件清单，有时需要半分钟（例如 Codex 正在刷新它的插件目录），请稍候。": {
+    "en": "Reading the skills and plugins on this Mac. This can take half a minute, for example while Codex refreshes its plugin directory. Please wait.",
+    "ja": "この Mac のスキルとプラグインを読み込んでいます。Codex がプラグイン一覧を更新している場合などは 30 秒ほどかかることがあります。しばらくお待ちください。"
+  },
+  "固定在 {v0}": {
+    "en": "Pinned to {v0}",
+    "ja": "{v0} に固定"
+  },
+  "{v0} 一侧还没有市场来源": {
+    "en": "No sources on the {v0} side yet",
+    "ja": "{v0} 側にはまだ配布元がありません"
+  },
+  "另一侧的来源可以用上方的 Agent 筛选查看。": {
+    "en": "Use the Agent filter above to see the other side's sources.",
+    "ja": "もう一方の配布元は、上の Agent フィルターで確認できます。"
+  },
+  "{v0} 一侧还没有操作记录": {
+    "en": "No activity on the {v0} side yet",
+    "ja": "{v0} 側にはまだ操作履歴がありません"
+  },
+  "另一侧的记录可以用上方的 Agent 筛选查看。": {
+    "en": "Use the Agent filter above to see the other side's activity.",
+    "ja": "もう一方の履歴は、上の Agent フィルターで確認できます。"
+  },
+  "技能": {
+    "en": "Skills",
+    "ja": "スキル"
+  },
+  "已安装的插件": {
+    "en": "Installed plugins",
+    "ja": "インストール済みのプラグイン"
+  },
+  "可用更新": {
+    "en": "Available updates",
+    "ja": "利用可能な更新"
   }
 }

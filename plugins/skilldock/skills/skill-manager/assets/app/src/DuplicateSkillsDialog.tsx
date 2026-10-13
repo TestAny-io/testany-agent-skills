@@ -1,7 +1,8 @@
 import { useEffect, useRef, useState } from "react";
 import { ArrowLeft, ArrowUpRight, Check, CircleAlert, Folder, Link2, Loader2, LockKeyhole, Trash2 } from "lucide-react";
-import type { ActionRequest, ActionResult, RemovalPreview, Skill } from "../shared/contracts";
+import type { ActionRequest, ActionResult, NativeRule, RemovalPreview, Skill } from "../shared/contracts";
 import { Modal } from "./Modal";
+import { NativeRuleList } from "./NativeConfirm";
 import { ServiceMessage, t } from "./i18n";
 import "./DuplicateSkillsDialog.css";
 
@@ -17,6 +18,8 @@ export function DuplicateSkillsDialog({ name, skills, busy, action, onClose, onP
 }) {
   const [selected, setSelected] = useState<string[]>([]);
   const [preview, setPreview] = useState<RemovalPreview | null>(null);
+  // What the removal touches on the other side, as the preview names it (41 UI-11).
+  const [rules, setRules] = useState<NativeRule[]>([]);
   const [error, setError] = useState("");
   const body = useRef<HTMLDivElement>(null);
   const group = skills.filter(skill => skill.name === name).sort((a, b) => Number(b.canRemove) - Number(a.canRemove) || a.path.localeCompare(b.path));
@@ -35,7 +38,7 @@ export function DuplicateSkillsDialog({ name, skills, busy, action, onClose, onP
     setError("");
     try {
       const result = await action({ action: "skill.previewRemoval", groupName: name, ids: selected });
-      if (result?.removalPreview) setPreview(result.removalPreview);
+      if (result?.removalPreview) { setPreview(result.removalPreview); setRules(result.nativeRules ?? []); }
     } catch (error) { setError((error as Error).message); }
   }
   async function apply() {
@@ -64,6 +67,7 @@ export function DuplicateSkillsDialog({ name, skills, busy, action, onClose, onP
         <p className="dialog-description">{t("仅移除以下选中项，未选择项的文件和启用状态保持原样。每份都可从操作记录单独恢复。")}</p>
         {paths(t("将移除"), preview.remove, true)}
         {paths(t("将保留"), preview.keep)}
+        {!!rules.length && <NativeRuleList rules={rules} />}
       </> : <>
         <p className="dialog-description">{t("默认全部保留。勾选要移除的安装副本，可以选择一份或多份；保留不会改变启用状态。")}</p>
         <div className="duplicate-tools">

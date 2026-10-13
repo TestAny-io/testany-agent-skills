@@ -24,6 +24,11 @@ test('only standalone skills at the same real path merge; the Codex ID and field
   assert.deepEqual([shared.perAgent.codex.enabled, shared.perAgent.claude.enabled, shared.perAgent.claude.visibility, shared.perAgent.claude.path], [true, false, 'disabled', '/claude/shared/SKILL.md'], '两侧状态独立');
   assert.ok(shared.revision && shared.perAgent.codex.revision && shared.perAgent.claude.revision === 'cl1');
   assert.deepEqual([result.plugins.map(item => item.id), result.diagnostics], [['claude:plugin:x'], ['d']]);
+  // A skill a Claude plugin ships is never merged, though a Codex skill may sit at the same real path.
+  const shipped = { agents: ['claude'], id: 'claude:skill:plugin:ccc', name: 'shared', path: '/claude/cache/p/skills/shared/SKILL.md', realPath: '/real/shared/SKILL.md', scope: 'plugin', pluginId: 'claude:plugin:p@m:user', enabled: true, canToggle: false, canRemove: false, canUpdate: false };
+  const own = { ...codex, agents: undefined, perAgent: undefined };
+  const apart = mergeClaude({ skills: [own], plugins: [], marketplaces: [], diagnostics: [] }, { skills: [shipped], plugins: [], marketplaces: [], diagnostics: [] });
+  assert.deepEqual(apart.skills.map(item => [item.id, item.agents.join(), !!item.perAgent]), [['c1', 'codex', false], ['claude:skill:plugin:ccc', 'claude', false]]);
 });
 
 async function world(t) {

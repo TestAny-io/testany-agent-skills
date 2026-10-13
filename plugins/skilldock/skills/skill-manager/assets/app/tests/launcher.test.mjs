@@ -157,7 +157,8 @@ test('failed new-version builds leave the old service and ownership record intac
   await fs.writeFile(packageFile, JSON.stringify(metadata));
   const ownership = await fs.readFile(path.join(first.state, 'launcher.json'), 'utf8');
   try {
-    await assert.rejects(launch('start', nextOptions), /失败（9）/);
+    // A failed build is not a failed download: only dependency installation names the network (41 UI-15).
+    await assert.rejects(launch('start', nextOptions), error => /失败（9）/.test(error.message) && !error.message.includes('联网'));
     assert.equal((await probe(first.url)).pid, first.pid);
     assert.equal(await fs.readFile(path.join(first.state, 'launcher.json'), 'utf8'), ownership);
   } finally { await launch('stop', nextOptions); }
@@ -384,7 +385,7 @@ test('a skipped --project is noted on stderr only, and the final directory is th
   } finally { await launch('stop', options); }
 });
 
-test('the saved-project note is written only for a caller directory, never in a 0.10.3 handover (62 UF-P3-01)', async t => {
+test('the saved-project note is written only for a caller directory: not in a 0.10.3 handover, not from the native entry (62 UF-P3-01, r3 UF3-P3-02)', async t => {
   const f = await fixture(t); const options = { ...f, port: await freePort() };
   const first = await launch('start', options);
   await launch('stop', options);
@@ -392,14 +393,25 @@ test('the saved-project note is written only for a caller directory, never in a 
   const { projectDir, ...implicit } = options;
   const elsewhere = path.join(f.root, 'elsewhere'); await fs.mkdir(elsewhere);
   const cwd = process.cwd();
-  let handover; let caller; let switched;
+  let handover; let native; let caller; let switched; let strayHandover; let atProject; let explicit;
+  const legacy = path.join(first.state, 'compat/legacy-project'); await fs.mkdir(legacy, { recursive: true });
   const other = path.join(f.root, 'other-project'); await fs.mkdir(other);
   try {
     // 36b 6.2: a 0.10.3 handover runs in the data directory and takes the saved project.
     process.chdir(first.state);
     handover = await stderrOf(() => launch('start', { ...implicit, env: { ...options.env, SKILLDOCK_HANDOVER: '1' } }));
+    // The 0.10.2 native entry passes the fixed legacy directory as --project and runs in it.
+    process.chdir(legacy);
+    native = await stderrOf(() => launch('start', { ...options, projectDir: legacy }));
     process.chdir(elsewhere);
     caller = await stderrOf(() => launch('start', implicit));
+    // A handover that does not run in the data directory is still not a caller (67 IF-P3-01).
+    strayHandover = await stderrOf(() => launch('start', { ...implicit, env: { ...options.env, SKILLDOCK_HANDOVER: '1' } }));
+    // Nor is the note written from the saved project itself, or for a project given explicitly (67 IF-P3-02).
+    process.chdir(f.projectDir);
+    atProject = await stderrOf(() => launch('start', implicit));
+    process.chdir(elsewhere);
+    explicit = await stderrOf(() => launch('start', { ...options, projectDir: f.projectDir }));
     // The instance switched to another project: an implicit run keeps it and says nothing of the saved one.
     await launch('start', { ...options, projectDir: other });
     switched = await stderrOf(() => launch('start', implicit));
@@ -407,11 +419,41 @@ test('the saved-project note is written only for a caller directory, never in a 
   const saved = await fs.realpath(f.projectDir);
   assert.deepEqual([handover.result.project, caller.result.project, caller.result.reused], [saved, saved, true]);
   assert.ok(!handover.stderr.includes('使用界面保存的项目'), handover.stderr);
+  assert.deepEqual([native.result.project, native.result.reused], [saved, true]);
+  assert.match(native.stderr, /已跳过无效的项目目录 .*legacy-project（--project）/);
+  assert.ok(!native.stderr.includes('使用界面保存的项目'), native.stderr);
   assert.ok(caller.stderr.includes('使用界面保存的项目'), caller.stderr);
+  for (const [name, run] of Object.entries({ strayHandover, atProject, explicit })) {
+    assert.deepEqual([run.result.project, run.result.reused], [saved, true], name);
+    assert.ok(!run.stderr.includes('使用界面保存的项目'), `${name}: ${run.stderr}`);
+  }
   const kept = await fs.realpath(other);
   assert.deepEqual([switched.result.reused, switched.result.project], [true, kept]);
   assert.ok(switched.stderr.includes(`最终扫描目录 ${kept}（沿用运行实例的项目）`), switched.stderr);
   assert.ok(!switched.stderr.includes('使用界面保存的项目'), switched.stderr);
+});
+
+test('the symlink note is written with the final directory, and only when that is the requested project (62 r3 UF3-P3-02)', async t => {
+  const f = await fixture(t); const options = { ...f, port: await freePort() };
+  const link = path.join(f.root, 'link'); await fs.symlink(f.projectDir, link);
+  const other = path.join(f.root, 'other-project'); await fs.mkdir(other);
+  const { projectDir, ...implicit } = options;
+  const note = '请求目录包含符号链接，扫描使用解析后的真实目录。';
+  let first; let kept;
+  try {
+    first = await stderrOf(() => launch('start', { ...options, projectDir: link }));
+    await fs.writeFile(path.join(first.result.state, 'project.json'), JSON.stringify({ path: link }));
+    // The saved project is the link, but the instance keeps the project it was switched to.
+    await launch('start', { ...options, projectDir: other });
+    kept = await stderrOf(() => launch('start', implicit));
+  } finally { await launch('stop', options); }
+  const real = await fs.realpath(f.projectDir);
+  assert.equal(first.result.project, real);
+  assert.equal(first.stderr.split(note).length, 2, first.stderr);
+  assert.ok(first.stderr.indexOf(note) > first.stderr.indexOf(`最终扫描目录 ${real}\n`) && first.stderr.includes(`最终扫描目录 ${real}\n`), first.stderr);
+  assert.deepEqual([kept.result.reused, kept.result.project], [true, await fs.realpath(other)]);
+  assert.ok(kept.stderr.includes(`请求项目目录 ${link}（saved）`), kept.stderr);
+  assert.ok(!kept.stderr.includes(note), kept.stderr);
 });
 
 test('dependency and build output goes to build.log, which starts over past 1 MiB (36b 6.3)', async t => {
@@ -424,6 +466,18 @@ test('dependency and build output goes to build.log, which starts over past 1 Mi
     assert.match(await fs.readFile(log, 'utf8'), /source-bundle/, '本次构建输出写入 build.log');
   } finally { await launch('stop', options); }
   assert.ok(first.pid);
+});
+
+test('the launch says dependencies need the network, before preparing and when their installation fails (41 UI-15)', async t => {
+  const f = await fixture(t); const options = { ...f, port: await freePort() };
+  // An unreadable lockfile fails `npm ci` at once, with no network access.
+  await fs.writeFile(path.join(f.appDir, 'package-lock.json'), '{');
+  let failure;
+  const { stderr } = await stderrOf(() => launch('start', options).catch(error => { failure = error; }));
+  assert.match(stderr, /准备隔离运行目录与锁定的依赖（[^）]*需要联网）/);
+  // It names the step and does not claim the cause: this very failure has nothing to do with the network (67 IF-P3-07).
+  assert.match(failure?.message ?? '', /失败（\d+）；这一步是安装依赖，需要联网：若本机离线，请联网后重试，详见 .*build\.log$/);
+  assert.equal((await launch('status', options)).status, 'stopped');
 });
 
 test('the service inherits only allowed variables; the command line of a Claude session is recorded, its variables are not passed on (DEC-SDX-024)', async t => {

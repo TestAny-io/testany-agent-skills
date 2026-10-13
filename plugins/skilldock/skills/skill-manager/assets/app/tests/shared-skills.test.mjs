@@ -183,6 +183,32 @@ test('a standalone skill whose content lies inside a plugin of the other side is
   assert.match((await w.act({ action: 'skill.remove', id: inner.id })).message, /已将 inner 移至可恢复区/);
 });
 
+test('a skill a Claude plugin ships is listed read-only beside a Codex skill at the same place; nothing writes through it (REQ-SDX-002; Owner 2026-10-12)', async t => {
+  const w = await world(t, { codexIntoPlugin: true });
+  await skillFile(path.join(w.configDir, 'skills'), 'inner');
+  const state = await w.snapshot();
+  const plugin = state.plugins.find(item => item.name === 'sd');
+  const [codex, shipped, own] = ['codex', 'plugin', 'user'].map(kind => state.skills.find(item => item.name === 'inner' && (kind === 'codex' ? item.agents.join() === 'codex' : item.agents.join() === 'claude' && item.scope === kind)));
+  assert.deepEqual([codex.agents.length, shipped.pluginId, shipped.realPath === codex.realPath, plugin.skillCount], [1, plugin.id, true, 1], '同一处内容，两条各自的条目，不合并');
+  assert.deepEqual([shipped.canToggle, shipped.canRemove, shipped.canUpdate, shipped.managed], [false, false, false, true]);
+  // The plugin's update item names it, so “Manage updates” on the skill finds the plugin; it has no item of its own.
+  assert.deepEqual(state.updates.filter(item => item.affectedSkillIds?.includes(shipped.id)).map(item => [item.target.kind, item.target.id]), [['plugin', plugin.id]]);
+  assert.equal(state.updates.some(item => item.target.id === shipped.id), false);
+  // No change goes through it, and it does not share Claude's own skill's visibility entry.
+  assert.equal((await w.act({ action: 'skill.toggle', agent: 'claude', id: shipped.id, enabled: false, expectedRevision: shipped.revision })).code, 'PROTECTED_SKILL');
+  assert.equal((await w.act({ action: 'skill.remove', agent: 'claude', id: shipped.id, expectedRevision: shipped.revision })).code, 'PROTECTED_SKILL');
+  assert.equal((await w.act({ action: 'skill.previewRemoval', agent: 'claude', groupName: 'inner', ids: [shipped.id] })).code, 'INVALID_SELECTION');
+  const toggled = await w.act({ action: 'skill.toggle', agent: 'claude', id: own.id, enabled: false, expectedRevision: own.revision });
+  assert.deepEqual([toggled.code, toggled.nativeRules], [undefined, undefined], '同名的插件技能不算共用这一条目，不必确认');
+  // Its content can be read like any skill's, also when it has no frontmatter at all (71 T1).
+  assert.match((await w.service.skill('local', shipped.id)).content, /name: inner/);
+  await write(path.join(w.configDir, 'skills/sd/skills/raw/SKILL.md'), 'Just text.');
+  const raw = (await w.snapshot()).skills.find(item => item.name === 'raw' && item.pluginId === plugin.id);
+  assert.deepEqual([raw.description, (await w.service.skill('local', raw.id)).content], ['', 'Just text.']);
+  // A version-1 snapshot knows nothing of it.
+  assert.equal((await w.service.snapshot('local', true)).skills.some(item => item.id === shipped.id), false);
+});
+
 test('batch removal of copies of a name: Claude copies in version 2, a shared directory confirmed first', async t => {
   const w = await world(t);
   // A Claude-only copy of the same name in the project.

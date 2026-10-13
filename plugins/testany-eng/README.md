@@ -4,7 +4,7 @@
 
 研发流程工具集：从业务需求、设计到源码评审、测试设计与运维准备的完整链路。
 
-SkillDock 已迁移为独立的 [skilldock 插件](../skilldock/README.md)。`testany-eng 2.8.0` 包含 24 个研发与协作 skills，本版新增 ui-designer，并把 prototype-designer 收窄为在沙箱中验证流程、状态和数据；两者共用设计指南和沙箱规则。需要图形管理器时单独安装 SkillDock。发布版本以 plugin.json 和 CHANGELOG 为准；使用新版需要更新完整插件，发布不表示本机已安装或在线线程已采用。
+SkillDock 已迁移为独立的 [skilldock 插件](../skilldock/README.md)。`testany-eng 2.8.1` 包含 24 个研发与协作 skills。2.8.0 新增 ui-designer，并把 prototype-designer 收窄为在沙箱中验证流程、状态和数据；两者共用设计指南和沙箱规则。2.8.1 只改仓库校验脚本：只带 Codex manifest 的插件可以在 marketplace 条目中重复同一版本。需要图形管理器时单独安装 SkillDock。发布版本以 plugin.json 和 CHANGELOG 为准；使用新版需要更新完整插件，发布不表示本机已安装或在线线程已采用。
 
 ## 概述
 

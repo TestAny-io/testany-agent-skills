@@ -2,6 +2,8 @@
 // production components and translator.
 import test from 'node:test';
 import assert from 'node:assert/strict';
+import crypto from 'node:crypto';
+import fs from 'node:fs/promises';
 import { createRequire } from 'node:module';
 import { fileURLToPath } from 'node:url';
 import { runInNewContext } from 'node:vm';
@@ -120,10 +122,61 @@ test('Agents are shown by their marks, named for screen readers and tooltips; th
   assert.equal((badges.match(/<svg/g) || []).length, 2);
   assert.match(badges, /role="img" aria-label="Codex" title="Codex"/); assert.match(badges, /aria-label="Claude" title="Claude"/);
   assert.equal(/>(Codex|Claude)</.test(badges), false, '不再用文字标识');
-  const split = render(AgentSplit, { counts: { codex: 28, claude: 5 } });
-  assert.match(split, /agent-split-item agent-codex.*Codex<\/span>28/); assert.match(split, /agent-split-item agent-claude.*Claude<\/span>5/);
+  // Each share says whose it is and what it counts, to the eye on hover and to a screen reader (41 UI-03).
+  const split = render(AgentSplit, { counts: { codex: 28, claude: 5 }, counted: '已安装的插件' });
+  assert.match(split, /agent-split-item agent-codex" title="Codex 已安装的插件 28".*<span class="sr-only">Codex 已安装的插件<\/span>28/);
+  assert.match(split, /agent-split-item agent-claude" title="Claude 已安装的插件 5".*<span class="sr-only">Claude 已安装的插件<\/span>5/);
   const filter = render(AgentFilter, { value: 'all', onChange() {}, counts: { all: 33, codex: 28, claude: 5 } });
   assert.equal((filter.match(/<svg/g) || []).length, 2, '筛选按钮带图标');
+});
+
+test('skill category counts follow the Agent filter: all, Codex, Claude, and a version-1 snapshot without agents', () => {
+  const { skillCategoryCounts } = ui();
+  const skills = [
+    { enabled: true, scope: 'user' }, { enabled: false, scope: 'plugin', agents: ['codex'] }, { enabled: null, scope: 'project', agents: ['claude'] },
+    { enabled: true, scope: 'user', agents: ['codex', 'claude'], duplicateNames: ['x'] },
+  ];
+  for (const [filter, expected] of [
+    ['all', { all: 4, enabled: 2, standalone: 3, attention: 2 }],
+    ['codex', { all: 3, enabled: 2, standalone: 2, attention: 1 }],
+    ['claude', { all: 2, enabled: 1, standalone: 2, attention: 2 }],
+  ]) assert.deepEqual({ ...skillCategoryCounts(skills, filter) }, expected, filter);
+  assert.deepEqual({ ...skillCategoryCounts([], 'claude') }, { all: 0, enabled: 0, standalone: 0, attention: 0 });
+  // A skill a Claude plugin ships follows its plugin: its unknown state is the plugin's to report, not a skill needing
+  // attention; a Codex plugin's skill, whose state is its own, still is one (69 IF2-P2-01).
+  const { stateUnknown } = ui();
+  const shipped = { enabled: null, scope: 'plugin', pluginId: 'claude:plugin:kit@m:user', agents: ['claude'] };
+  const codexPlugin = { enabled: null, scope: 'plugin', pluginId: 'kit@m' };
+  assert.deepEqual([shipped, codexPlugin, { ...shipped, pluginId: undefined }, { ...shipped, enabled: true }].map(stateUnknown), [false, true, true, false]);
+  assert.deepEqual({ ...skillCategoryCounts([shipped, codexPlugin, { ...shipped, duplicateNames: ['x'] }], 'all') }, { all: 3, enabled: 0, standalone: 0, attention: 2 });
+});
+
+test('a side SkillDock does not manage gives its reason once, for the list, when its plugins carry one (67 IF-P2-01; 69 IF2-P3-05)', () => {
+  const { sideNotes } = ui();
+  const claude = { agents: ['claude'], reason: 'Claude 只读' }; const codex = { reason: 'Codex 的原因' }; const plain = { agents: ['claude'] };
+  const side = (agent, management, installed = true) => ({ agent, management, installed });
+  const notes = (plugins, environments) => sideNotes(plugins, environments).map(note => [note.agent, note.reason]);
+  assert.deepEqual(notes([claude, codex], [side('codex', 'enabled'), side('claude', 'read-only')]), [['claude', 'Claude 只读']]);
+  assert.deepEqual(notes([claude, codex], [side('codex', 'enabled'), side('claude', 'unconfirmed')]), [['claude', 'Claude 只读']], '无法确认同样是整侧的原因');
+  assert.deepEqual(notes([claude, codex], [side('codex', 'read-only'), side('claude', 'enabled')]), [['codex', 'Codex 的原因']], '没有 agents 的插件属于 Codex');
+  assert.deepEqual(notes([claude, codex], [side('codex', 'enabled'), side('claude', 'enabled')]), []);
+  assert.deepEqual(notes([claude], [side('claude', 'read-only', false)]), [], '本机没有的一侧不说明');
+  assert.deepEqual(notes([plain, codex], [side('codex', 'enabled'), side('claude', 'read-only')]), [], '该侧没有带原因的插件');
+  assert.deepEqual(notes([claude], []), [], '1 版快照没有环境');
+});
+
+test('the Agent marks are the official artwork: path data, canvas and colors as THIRD_PARTY_NOTICES.md says', async () => {
+  const { AgentMark } = ui(); const sha = text => crypto.createHash('sha256').update(text).digest('hex');
+  const codex = render(AgentMark, { agent: 'codex' }), claude = render(AgentMark, { agent: 'claude' });
+  // The path strings of OAI_OpenAI-Blossom_Black.svg and "Claude Spark - Clay.svg", character for character.
+  assert.equal(sha(codex.match(/ d="([^"]+)"/)[1]), '68f124fd05f3b1a4783d1a941d7f0ece8da163532cb23d24799fcc4ee53d7f60');
+  assert.equal(sha(claude.match(/ d="([^"]+)"/)[1]), '1097e5265789c38109fc8cbb44b39ddaff2b7e09739a51290d600f41b3e9a4b3');
+  // The Blossom on the kit's whole canvas, in the page's black or white; the Spark in Clay, never tinted.
+  assert.match(codex, /class="agent-mark-codex"[^>]* viewBox="0 0 716 716"/); assert.match(codex, /<path fill="currentColor"/);
+  assert.match(claude, /<path fill="#D97757"/); assert.equal(/currentColor|opacity|filter/.test(claude), false);
+  const css = await fs.readFile(new URL('../src/AgentUI.css', import.meta.url), 'utf8');
+  assert.match(css, /\.agent-mark-codex \{ color: light-dark\(#000000, #ffffff\); \}/);
+  assert.equal(/agent-(codex|claude|mark)[^{]*\{[^}]*(opacity|filter)/.test(css), false, '标志上不加透明度或滤镜');
 });
 
 test('Claude facts: install scope, enablement source, protection, visibility and auto-update', () => {
@@ -149,8 +202,8 @@ test('the new texts are translated (en)', () => {
 test('the new notes and diagnostics are translated (en, ja)', () => {
   for (const language of ['en', 'ja']) {
     const { t } = translatorFor(language);
-    for (const text of ['Claude 桌面应用为会话自带的插件（例如内置浏览器、电脑操作）不安装在 Claude 配置目录中，这里不列出。', '这一版 SkillDock 只列出 Claude 中可安装的插件，暂不能在这里安装；可以在 Claude Code 中用 /plugin 安装。',
-      '未安装：Claude 已添加的 Marketplace 中尚未安装的插件，取自 Claude 在本机保存的副本；这一版只能查看。', 'CLI 返回了无法安全使用的插件记录 bad@elsewhere，已忽略。', 'marketplace broken 的本机副本无法读取，插件数与其中未安装的插件暂不显示。',
+    for (const text of ['Claude 桌面应用为会话自带的插件（例如内置浏览器、电脑操作）不安装在 Claude 配置目录中，这里不列出。',
+      '未安装：Claude 已添加的 Marketplace 中尚未安装的插件，取自 Claude 在本机保存的副本。', 'CLI 返回了无法安全使用的插件记录 bad@elsewhere，已忽略。', 'marketplace broken 的本机副本无法读取，插件数与其中未安装的插件暂不显示。',
       'CLI 返回了一条没有插件身份的记录，已忽略。', 'marketplace odd:name 的名称无法用作插件身份，未列出其中未安装的插件。', '无法确认 SkillDock 安装状态：Codex 返回的插件记录中有无法安全使用的项，可能正是 SkillDock；未删除后台任务。']) {
       const translated = t(text);
       assert.notEqual(translated, text, text);
@@ -200,6 +253,22 @@ test('a new marketplace or skill names the chosen side whenever an Agent is mana
   assert.equal(creationAgent(['claude'], 'codex'), 'claude');
   assert.equal(creationAgent(['codex'], 'codex'), 'codex');
   assert.equal(creationAgent([], 'codex'), undefined, '都不可管理时按 1 版处理');
+  // Backlog UI-13: a creation dialog starts on the side the page is filtered to.
+  const { defaultCreationAgent } = ui();
+  assert.equal(defaultCreationAgent(['codex', 'claude'], 'claude'), 'claude', '筛选为 Claude 时默认 Claude');
+  assert.equal(defaultCreationAgent(['codex', 'claude'], 'all'), 'codex');
+  assert.equal(defaultCreationAgent(['codex', 'claude']), 'codex');
+  assert.equal(defaultCreationAgent(['codex'], 'claude'), 'codex', '筛选的一侧不可管理时不选它');
+  assert.equal(defaultCreationAgent(['claude'], 'all'), 'claude');
+  assert.equal(defaultCreationAgent([], 'claude'), 'codex');
+  // Backlog UI-04: the note under "未安装" follows the Agents that have such plugins on the page.
+  const { availableNotes } = ui();
+  const codex = { installed: false }, claude = { installed: false, agents: ['claude'] }, installed = { installed: true, agents: ['claude'] };
+  assert.equal(availableNotes([codex], ['codex', 'claude']).length, 1); assert.match(availableNotes([codex], ['claude'])[0], /已连接 Marketplace/);
+  assert.match(availableNotes([claude, installed], ['codex'])[0], /^未安装：Claude/);
+  assert.equal(availableNotes([codex, claude], []).length, 2, '两侧都有时各说明一句');
+  assert.match(availableNotes([installed], ['claude'])[0], /^未安装：Claude/, '没有未安装项时按页面覆盖的一侧');
+  assert.match(availableNotes([], [])[0], /已连接 Marketplace/, '1 版快照按 Codex');
 });
 
 test('nested service messages translate both the outer and the inner sentence (en)', () => {
@@ -248,6 +317,30 @@ test('the plan lists the cross-side skills waiting for confirmation, and confirm
   assert.equal(pendingConfirmation({ ...data, schedule: { ...schedule, autoApply: false } }, 'zh'), undefined);
   assert.doesNotMatch(render(UpdatesWorkspace, { ...props, data: { ...data, schedule: { ...schedule, autoApply: false } } }), /uw-pending-confirmation/);
   assert.match(pendingConfirmation(data, 'en').description, /changes those plugins/); assert.match(pendingConfirmation(data, 'ja').title, /自動適用しますか/);
+});
+
+test('a skill waiting for confirmation is listed with the other side\'s plugins that hold it (41 UI-12)', () => {
+  const { UpdatesWorkspace, pendingConfirmation, holdingPlugins } = updatesUi();
+  const inner = { kind: 'skill', id: 'a'.repeat(24) }; const claudeOwn = { kind: 'skill', id: 'c'.repeat(24), agent: 'claude' }; const plain = { kind: 'skill', id: 'b'.repeat(24) };
+  const item = (target, name) => ({ target, name, owner: 'SkillDock', route: 'skill-source', status: 'unknown', canCheck: true, canApply: false, canAutoApply: false, installedPath: `/skills/${name}` });
+  const skill = (target, name, directory) => ({ id: target.id, name, path: `${directory}/SKILL.md`, agents: [target.agent ?? 'codex'] });
+  const plugin = (name, agents, realPath, more = {}) => ({ id: `${name}@m`, name, agents, installed: true, realPath, ...more });
+  const data = { mode: 'local', marketplaces: [], activity: [], diagnostics: [], updateRuns: [],
+    skills: [{ ...skill(inner, 'inner', '/link/inner'), realPath: '/claude/cache/kit/1.0.0/skills/inner/SKILL.md' }, skill(claudeOwn, 'own', '/codex/cache/tools/2.0.0/skills/own'), skill(plain, 'plain', '/claude/cache/kit/1.0.0-other/skills/plain')],
+    plugins: [plugin('kit', ['claude'], '/claude/cache/kit/1.0.0', { displayName: 'Kit' }), plugin('outer', ['claude'], '/claude/cache/kit/1.0.0/skills'), plugin('absent', ['claude'], '/claude/cache/kit/1.0.0', { installed: false }),
+      plugin('same-side', ['codex'], '/claude/cache/kit/1.0.0'), plugin('tools', undefined, '/codex/cache/tools/2.0.0'), plugin('unread', ['claude'], undefined)],
+    updates: [item(inner, 'inner'), item(claudeOwn, 'own'), item(plain, 'plain')],
+    schedule: { enabled: true, intervalMinutes: 60, timezone: 'UTC', autoApply: true, running: false, nextRunAt: '2026-10-10T01:00:00Z', targets: [{ ...inner, confirmation: 'pending' }, { ...claudeOwn, confirmation: 'pending' }, plain] } };
+  // The real directory decides; only the other side's installed plugins count; a sibling directory with the same prefix does not.
+  assert.deepEqual([...holdingPlugins(data, inner)], ['Kit', 'outer']);
+  assert.deepEqual([...holdingPlugins(data, claudeOwn)], ['tools'], 'Claude 的技能看 Codex 的插件；未写 agents 的插件属于 Codex');
+  assert.deepEqual([...holdingPlugins(data, plain)], []);
+  // A skill directory that is the plugin's own root is held by it too.
+  assert.deepEqual([...holdingPlugins({ ...data, plugins: [plugin('root', ['claude'], '/claude/cache/kit/1.0.0/skills/inner')] }, inner)], ['root']);
+  assert.deepEqual([...holdingPlugins(data, { kind: 'plugin', id: 'kit@m' })], []);
+  assert.deepEqual([...pendingConfirmation(data, 'zh').affected], ['inner (Kit, outer)', 'own (tools)']);
+  const props = { data, runPending: false, onClearFocus() {}, busy: false, language: 'zh', execute: async () => undefined, onDetails() {}, onRefresh() {}, onConfirm() {} };
+  assert.match(render(UpdatesWorkspace, props), /<li>inner \(Kit, outer\)<\/li><li>own \(tools\)<\/li>/);
 });
 
 // HLD 3.7 (G-01, phase 5d2b): the native start failure's one-click update.

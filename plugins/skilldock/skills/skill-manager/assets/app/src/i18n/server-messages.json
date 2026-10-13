@@ -823,10 +823,6 @@
     "en": "Plugins the Claude desktop app provides with its sessions (such as the built-in browser and computer use) are not installed in the Claude configuration directory and are not listed here.",
     "ja": "Claude デスクトップアプリがセッションに付属させるプラグイン（内蔵ブラウザやコンピューター操作など）は Claude の設定ディレクトリにインストールされないため、ここには表示されません。"
   },
-  "这一版 SkillDock 只列出 Claude 中可安装的插件，暂不能在这里安装；可以在 Claude Code 中用 /plugin 安装。": {
-    "en": "This version of SkillDock only lists the plugins you can install in Claude; it cannot install them yet. Install them in Claude Code with /plugin.",
-    "ja": "このバージョンの SkillDock は Claude にインストールできるプラグインを表示するだけで、ここからはまだインストールできません。Claude Code で /plugin を使ってインストールしてください。"
-  },
   "marketplace {v0} 的本机副本无法读取，插件数与其中未安装的插件暂不显示。": {
     "en": "The local copy of marketplace {v0} cannot be read, so its plugin count and the plugins not installed from it are not shown.",
     "ja": "マーケットプレイス {v0} のローカルコピーを読み取れないため、プラグイン数と未インストールのプラグインは表示されません。"
@@ -1130,6 +1126,18 @@
   "已在项目本地设置中停用 Claude 插件 {v0}。新会话生效，已打开的会话需要重载插件。": {
     "en": "Disabled Claude plugin {v0} in the project's local settings. New sessions use it; reload plugins in sessions that are already open.",
     "ja": "プロジェクトのローカル設定で Claude プラグイン {v0} を無効にしました。新しいセッションで有効になります。開いているセッションではプラグインを再読み込みしてください。"
+  },
+  "Claude 插件自带的技能随所属插件一起启用或停用，不能单独开关；更新和卸载按所属插件进行。": {
+    "en": "Skills bundled with a Claude plugin are enabled or disabled with their plugin and cannot be switched one by one; update and uninstall them with the plugin.",
+    "ja": "Claude プラグインに付属するスキルはプラグインと一緒に有効・無効になり、個別には切り替えられません。更新とアンインストールはプラグイン単位で行います。"
+  },
+  "所属插件的启用状态尚未核实；这个技能随所属插件一起启用或停用。": {
+    "en": "The parent plugin's enabled state is not verified yet; this skill is enabled or disabled with its plugin.",
+    "ja": "親プラグインの有効状態はまだ確認できていません。このスキルはプラグインと一緒に有効・無効になります。"
+  },
+  "所属插件已停用；启用插件后其中的技能才可用。": {
+    "en": "The parent plugin is disabled; its skills are available once the plugin is enabled.",
+    "ja": "親プラグインが無効です。プラグインを有効にすると、そのスキルが使えるようになります。"
   },
   "可见性由组织托管设置决定，不能在这里修改。": {
     "en": "Organization-managed settings decide its visibility; it cannot be changed here.",

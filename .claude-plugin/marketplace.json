@@ -37,6 +37,7 @@
     },
     {
       "name": "skilldock",
+      "version": "0.11.1",
       "description": "SkillDock：可视化管理本机 Codex 与 Claude 的技能、插件、市场来源和定时更新；在 Codex 与 Claude 中均可安装和打开，两边共用同一个本地实例。命令：/skilldock:skill-manager",
       "source": "./plugins/skilldock",
       "policy": {
