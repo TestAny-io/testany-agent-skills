@@ -101,7 +101,8 @@ export class CodexAdapter {
     catch (error) { throw gitAccessError(error); }
     try { return JSON.parse(result.stdout); } catch { fail(502, 'CLI_JSON', 'CLI 没有返回有效 JSON，无法确认实际状态。'); }
   }
-  async list() {
+  /** `fresh`: the app directory as it is now, not an expired one served meanwhile (a readback that tells the user of a connection). */
+  async list({ fresh = false } = {}) {
     const diagnostics = []; let plugins = []; let marketplaces = []; let directoryError;
     // Which lists were read in full, and every identity of the records that were dropped: a
     // readback after an operation checks only these for its own target (unrelated problems stay
@@ -161,7 +162,7 @@ export class CodexAdapter {
     // Match that exact identity, never a fuzzy display name or a hardcoded brand.
     if (plugins.some(plugin => typeof plugin._remote?.id === 'string' && plugin._remote.id.startsWith('plugin_'))) {
       try {
-        const apps = await clock('app-directory', async () => (await this.directory()).list());
+        const apps = await clock('app-directory', async () => (await this.directory()).list(false, { stale: !fresh }));
         for (const plugin of plugins) {
           const remote = plugin._remote, app = remote && apps.get(remote.id);
           if (!app) continue;

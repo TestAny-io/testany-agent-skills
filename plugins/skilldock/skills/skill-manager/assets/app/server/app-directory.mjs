@@ -62,18 +62,22 @@ export class AppDirectory {
   constructor({ binary, env, request = withAppDirectory, ttl = 10 * 60000, now = Date.now } = {}) {
     Object.assign(this, { binary, env, request, ttl, now }); this.cached = null; this.expires = 0; this.failed = false;
   }
-  async list(force = false) {
+  /** `stale: false`: an expired list will not do (what is said to the user depends on it); the read is waited for, as before 0.11.2. */
+  async list(force = false, { stale = true } = {}) {
     if (!force && this.cached && this.now() < this.expires) return this.cached;
     if (!force && this.failureUntil > this.now()) throw this.lastError;
     // Reading the list takes 20 to 30 s on a real machine, and every snapshot waited for it once the
-    // ten minutes were over (HLD 9.3 V26). Once read, an expired list is served while the next one is
-    // read behind it, so only a process's first read waits. A read that fails ends that until one
-    // succeeds: the failure shows as it did.
-    if (!force && this.cached && !this.failed) { this.load(false).catch(() => {}); return this.cached; }
+    // ten minutes were over (HLD 9.3 V26). Once read, an expired list is served, however old, while the
+    // next one is read behind it, so only a process's first read waits. A read that fails ends that
+    // until one succeeds: the failure shows as it did.
+    if (!force && stale && this.cached && !this.failed) { this.load(false).catch(() => {}); return this.cached; }
     return this.load(force);
   }
   load(force) {
-    if (this.loading) return this.loading;
+    // A forced read does not ride on one under way that was not forced, now that one is under way
+    // whenever the list has expired: it follows it, so what it returns was asked for anew (77 C13-P3-01).
+    if (this.loading) return force && !this.forced ? this.loading.catch(() => {}).then(() => this.load(true)) : this.loading;
+    this.forced = force;
     this.loading = this.request(this.binary, { env: this.env }, async request => {
       const apps = [], cursors = new Set(); let cursor;
       do {

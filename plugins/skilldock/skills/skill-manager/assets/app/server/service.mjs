@@ -1705,7 +1705,8 @@ export async function createService(options = {}) {
             target = plugin.displayName || plugin.name;
             try { await adapter.command(['plugin', 'add', plugin.id, '--json'], { mutation: true }); }
             catch (error) { throw new AppError(error.status || 502, 'REMOTE_INSTALL_UNCONFIRMED', '安装结果尚未确认。请先刷新安装状态，必要时完成官方授权，再决定是否重试。'); }
-            const readback = await adapter.list(); cachedCatalog = readback; catalogTime = Date.now();
+            // The result says whether the app is connected: not from an expired app directory (77 C13-P3-02).
+            const readback = await adapter.list({ fresh: true }); cachedCatalog = readback; catalogTime = Date.now();
             const installed = readback.plugins.find(item => item.id === plugin.id);
             if (!listCovers(readback, 'plugins', plugin.id) || !installed?.directory) fail(502, 'READBACK_FAILED', 'CLI 操作已返回，但无法确认安装终态；请刷新官方清单后再操作。');
             pluginCatalogPreviews.delete(request.previewId);
