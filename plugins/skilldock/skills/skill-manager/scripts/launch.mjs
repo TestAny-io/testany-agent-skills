@@ -2,8 +2,9 @@
 import { promises as fs, openSync, closeSync } from 'node:fs';
 import path from 'node:path';
 import os from 'node:os';
+import net from 'node:net';
 import { fileURLToPath } from 'node:url';
-import { spawn } from 'node:child_process';
+import { spawn, execFile } from 'node:child_process';
 import { captureSource } from '../assets/app/scripts/source-bundle.mjs';
 import { canonicalPath, readRestart, writeRestart } from '../assets/app/server/installation.mjs';
 import { prepareRuntime, verifyRuntime } from '../assets/app/server/runtime.mjs';
@@ -39,6 +40,22 @@ export async function probe(url) {
   } catch { return null; }
 }
 
+/**
+ * Whether nothing listens at the url. Only a refused connection says so: one that is accepted and then
+ * answers late, badly or not at all is a listener, and a connection that cannot be tried says nothing.
+ */
+export function refused(url, { connect = net.connect, wait = 1500 } = {}) {
+  return new Promise(resolve => {
+    let target; try { target = new URL(url); } catch { return resolve(false); }
+    if (!net.isIP(target.hostname) || !target.port) return resolve(false);
+    const socket = connect({ host: target.hostname, port: Number(target.port) });
+    const done = value => { socket.destroy(); resolve(value); };
+    socket.setTimeout(wait, () => done(false));
+    socket.once('connect', () => done(false));
+    socket.once('error', error => done(error.code === 'ECONNREFUSED'));
+  });
+}
+
 // 0.10.x records carry the launch project; 0.11 records carry the fixed legacy
 // directory there (API-SDX-001 36a §5.2), so they are tied to the instance by pid,
 // state and source digest only.
@@ -66,28 +83,70 @@ async function settle(record, recordFile, codexHome, { locked = false } = {}) {
   catch (error) { if (error.code !== 'BUSY') throw error; }
 }
 
-async function stop(record, recordFile, codexHome, { locked = false } = {}) {
+const processAlive = pid => { try { process.kill(pid, 0); return true; } catch (error) { if (error.code === 'ESRCH') return false; throw error; } };
+// Signals a process; one that went meanwhile needs none.
+const signal = (pid, name) => { try { process.kill(pid, name); } catch (error) { if (error.code !== 'ESRCH') throw error; } };
+// Whether the process is gone within `tenths` tenths of a second.
+async function gone(pid, tenths) {
+  for (let i = 0; i < tenths; i++) { await new Promise(resolve => setTimeout(resolve, 100)); if (!processAlive(pid)) return true; }
+  return false;
+}
+/** A process's command line from the process table, or null where there is none to ask (Windows, a sandbox). */
+export function processCommand(pid) {
+  return new Promise(resolve => {
+    if (process.platform === 'win32') return resolve(null);
+    // A sandbox may refuse to run it at all (it is set-user-ID on macOS): that is "cannot be asked", not a failure.
+    // Asked in a UTF-8 locale: without one, ps writes the bytes of a non-ASCII path as escapes.
+    try { execFile('/bin/ps', ['-ww', '-p', String(pid), '-o', 'args='], { timeout: 2000, env: { ...process.env, LC_ALL: 'en_US.UTF-8' } }, (error, stdout) => resolve(error ? null : String(stdout).trim() || null)); }
+    catch { resolve(null); }
+  });
+}
+// A 0.11 record's process is this state's service when its command line is the one the launcher started
+// for that record (startRuntime): the record's Node running the record's runtime, and nothing else.
+// Asked only where health cannot tell.
+async function recordedService(record, commandOf) {
+  if (!isCurrentRecord(record)) return false;
+  const node = record.execution?.node;
+  if (![node, record.runtime].every(value => typeof value === 'string' && path.isAbsolute(value))) return false;
+  const command = await commandOf(record.pid).catch(() => null);
+  return command === `${node} ${path.join(record.runtime, 'server/index.mjs')}`;
+}
+
+// `wait`: tenths of a second a service told to stop is given. `commandOf`: see processCommand.
+async function stop(record, recordFile, codexHome, { locked = false, wait = 100, commandOf = processCommand } = {}) {
   const health = await probe(record.url);
   if (!matches(health, record)) {
     // A stopped 0.11 record names an instance that is gone; its pid may have been reused.
     if (isCurrentRecord(record) && record.status === 'stopped') return { status: 'stopped', message: '此实例已停止。' };
     let alive = false;
     try { process.kill(record.pid, 0); alive = true; } catch {}
-    if (alive) throw new Error('无法核实记录中的进程属于此 SkillDock 实例；未停止任何进程。');
+    // A service told to stop closes its listener last, and one of 0.11.2 or before then stays for as long
+    // as a client keeps a connection in use: alive, answering nobody new, and in the way of every start
+    // (real machine, 2026-10-13). Nothing listens at its address and the process is the record's runtime
+    // serving: it is that service, past its writes, and is ended here. A listener that is slow, or is
+    // something else, is not this case.
+    if (alive && await refused(record.url) && await recordedService(record, commandOf)) {
+      signal(record.pid, 'SIGTERM');
+      if (!await gone(record.pid, 30)) { signal(record.pid, 'SIGKILL'); await gone(record.pid, 30); }
+      alive = processAlive(record.pid);
+    }
+    if (alive) throw new Error('无法核实记录中的进程属于此 SkillDock 实例；未停止任何进程。若刚更新过 SkillDock，可能是上一版本的服务没有退出：关闭所有打开着的 SkillDock 页面（包括 Codex 里的）等几秒再试，或在确认后手动结束该进程。');
     await settle(record, recordFile, codexHome, { locked });
     return { status: 'stopped', message: '此实例已停止。' };
   }
-  process.kill(record.pid, 'SIGTERM');
-  for (let i = 0; i < 100; i++) {
-    await new Promise(resolve => setTimeout(resolve, 100));
-    let running = true;
-    try { process.kill(record.pid, 0); } catch (error) { if (error.code === 'ESRCH') running = false; else throw error; }
-    if (!running) {
-      await settle(record, recordFile, codexHome, { locked });
-      return { status: 'stopped', message: 'SkillDock 网页服务已停止。已启用的独立自动更新不受影响，可在更新页关闭计划。' };
-    }
+  signal(record.pid, 'SIGTERM');
+  if (!await gone(record.pid, wait)) {
+    // Verified a moment ago, told to stop, still there. While it listens it is finishing a write, however
+    // slowly it answers, and is left to it, as before. A 0.11 service closes its listener after its
+    // writes: once nothing listens at its address, what keeps it is a connection a client goes on using
+    // (0.11.2 and before set no limit to that), and it is ended here. A 0.10.x service is not presumed to
+    // close in that order.
+    if (!isCurrentRecord(record) || !await refused(record.url)) throw new Error('服务尚未停止；保留启动记录，请稍后检查状态。');
+    signal(record.pid, 'SIGKILL');
+    if (!await gone(record.pid, 30)) throw new Error('服务尚未停止；保留启动记录，请稍后检查状态。');
   }
-  throw new Error('服务尚未停止；保留启动记录，请稍后检查状态。');
+  await settle(record, recordFile, codexHome, { locked });
+  return { status: 'stopped', message: 'SkillDock 网页服务已停止。已启用的独立自动更新不受影响，可在更新页关闭计划。' };
 }
 
 // Starts the runtime a record names. A 0.10.x record is only started to restore the old
@@ -251,7 +310,9 @@ export async function launch(action = 'start', options = {}) {
           state, execution: initial.execution, cli: initial.cli, backgroundService: true, appVersion: health.appVersion }
       : { status: 'stopped', state };
   }
-  if (action === 'stop') return initial ? stop(initial, recordFile, codexHome) : { status: 'stopped', message: '没有本启动器管理的运行实例。' };
+  // For tests: how long a service is given to stop, and how a process's command line is read.
+  const halting = { ...(options.stopWait ? { wait: options.stopWait } : {}), ...(options.processCommand ? { commandOf: options.processCommand } : {}) };
+  if (action === 'stop') return initial ? stop(initial, recordFile, codexHome, halting) : { status: 'stopped', message: '没有本启动器管理的运行实例。' };
 
   const projectInfo = await resolveLaunchProject({ projectDir: options.projectDir, env, cwd: process.cwd(), stateDir: state,
     actualProject: isCurrentRecord(initial) ? initial.actualProject : undefined, home });
@@ -281,9 +342,12 @@ export async function launch(action = 'start', options = {}) {
   // closed, ready when the instance now runs its source.
   const closeLeftoverJob = async (pid, runningAppPath) => {
     const leftover = await readRestart(state).catch(() => null);
-    if (!leftover || !['preparing', 'restarting'].includes(leftover.status)) return;
-    const ready = leftover.source === runningAppPath; const completedAt = new Date().toISOString();
-    await writeRestart(state, ready ? { ...leftover, status: 'ready', pid, completedAt } : { ...leftover, status: 'failed', message: '重启任务未完成。', completedAt });
+    const ready = leftover?.source === runningAppPath; const completedAt = new Date().toISOString();
+    // A job that failed and whose target runs after all (brought up by this start) is ready too, without
+    // what it failed with (0.11.3).
+    if (!leftover || !(['preparing', 'restarting'].includes(leftover.status) || leftover.status === 'failed' && ready)) return;
+    const { message, ...settled } = leftover;
+    await writeRestart(state, ready ? { ...settled, status: 'ready', pid, completedAt } : { ...leftover, status: 'failed', message: '重启任务未完成。', completedAt });
   };
   try {
     await options.onLocked?.();
@@ -347,7 +411,7 @@ export async function launch(action = 'start', options = {}) {
     await finalProject(runProject);
     // Compilation and dependency failures leave a healthy old process running.
     if (!live) {
-      if (current) await stop(current, recordFile, codexHome);
+      if (current) await stop(current, recordFile, codexHome, halting);
       const { createServer } = await import('node:net');
       await new Promise((resolve, reject) => {
         const tester = createServer(); tester.once('error', () => reject(new Error(`端口 ${port} 已占用；请设置其他 PORT。未停止现有服务。`)));
@@ -397,7 +461,7 @@ export async function launch(action = 'start', options = {}) {
     // until the new one is recorded or the old one is back; busy locks fail before stopping.
     const next = await withStateLocks(state, codexHome, async () => {
       if (JSON.stringify(await readRecord(state)) !== expected) throw new Error('运行实例已变化，已取消本次重启。');
-      if (live) { await report('restarting'); await stop(current, recordFile, codexHome, { locked: true }); stopped = true; }
+      if (live) { await report('restarting'); await stop(current, recordFile, codexHome, { locked: true, ...halting }); stopped = true; }
       try {
         if (migrating) {
           // The stopped form keeps the last known pid: the old instance's, or this launcher's.

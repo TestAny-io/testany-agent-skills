@@ -7,6 +7,7 @@ import { fileURLToPath } from 'node:url';
 import { createSelfUpdater } from '../server/self-update.mjs';
 import { createService } from '../server/service.mjs';
 import { captureSource } from '../scripts/source-bundle.mjs';
+import { writeRestart } from '../server/installation.mjs';
 import { writeGeneration } from '../server/generation.mjs';
 import { writeMigrationFailure } from '../server/migration.mjs';
 
@@ -64,6 +65,27 @@ test('worker failure records a visible error and releases the old service for fu
   t.after(() => updater.close()); updater.request(); await updater.tick();
   await until(async () => (await updater.status())?.status === 'failed' && !f.isPaused());
   assert.match((await updater.status()).message, /fixture build unavailable/);
+});
+
+test('a restart recorded as failed is ready for the instance that runs its target after all; any other instance still shows the failure (real machine, 2026-10-13)', async t => {
+  const f = await fixture(t); const target = f.versions['2.5.0']; const digest = (await captureSource(target)).sourceDigest;
+  // What the launcher that gave up on the old service left behind.
+  const job = { id: 'job-1', source: target, sourceDigest: digest, previousPid: 1, url: 'http://127.0.0.1:4771', status: 'failed', message: '服务尚未停止；保留启动记录，请稍后检查状态。' };
+  await writeRestart(f.stateDir, job);
+  const as = options => { const updater = createSelfUpdater({ ...f, startTimer: false, worker: async () => {}, ...options }); t.after(() => updater.close()); return updater.status(); };
+  assert.deepEqual(await as({ appSource: target, sourceDigest: digest }), { id: 'job-1', status: 'ready' });
+  // The old instance, the same path with other content, and a job that names no path of this instance: the failure as recorded.
+  const shown = { id: 'job-1', status: 'failed', message: job.message };
+  assert.deepEqual(await as({ appSource: f.versions['2.4.0'], sourceDigest: 'other' }), shown);
+  assert.deepEqual(await as({ appSource: target, sourceDigest: 'other' }), shown);
+  assert.deepEqual(await as({ appSource: undefined, sourceDigest: digest }), shown);
+  assert.deepEqual(await as({ appSource: f.versions['2.4.0'], sourceDigest: digest }), shown);
+  // Where either has no digest (a job written without one; an instance started without one) the path alone decides.
+  await writeRestart(f.stateDir, { ...job, sourceDigest: undefined });
+  assert.deepEqual(await as({ appSource: target, sourceDigest: 'other' }), { id: 'job-1', status: 'ready' });
+  assert.deepEqual(await as({ appSource: f.versions['2.4.0'], sourceDigest: 'other' }), shown);
+  await writeRestart(f.stateDir, job);
+  assert.deepEqual(await as({ appSource: target, sourceDigest: '' }), { id: 'job-1', status: 'ready' });
 });
 
 test('unchanged installations and foreign ownership records never trigger a restart', async t => {

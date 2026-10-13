@@ -235,7 +235,11 @@ test('with two Agents, every page counts what the filter shows, and a side that 
     const shipped = { ...snapshot.skills[0], agents: ['claude'], id: 'claude:skill:plugin:0123456789ab', name: 'kit-skill', description: 'Shipped by kit.', path: '/claude/plugins/cache/m/kit/1.0.0/skills/kit-skill/SKILL.md',
       scope: 'plugin', sourceLabel: 'Claude 插件技能', pluginId: kit.id, enabled: true, managed: true, canToggle: false, canRemove: false, canUpdate: false, reason: shippedReason, duplicateNames: undefined } as Skill;
     // A second one whose plugin's state is not known: that is the plugin's to report, not this skill's (69 IF2-P2-01).
-    snapshot.skills.push(shipped, { ...shipped, id: 'claude:skill:plugin:ba9876543210', name: 'kit-pending', enabled: null });
+    snapshot.skills.push(shipped, { ...shipped, id: 'claude:skill:plugin:ba9876543210', name: 'kit-pending', enabled: null },
+      // And one whose plugin is off: its switch is the grey one.
+      { ...shipped, id: 'claude:skill:plugin:0f0f0f0f0f0f', name: 'kit-off', enabled: false },
+      // A Codex plugin's skill has a switch of its own: locked here for a reason that is not its plugin.
+      { ...shipped, agents: ['codex'], id: 'held-skill', name: 'held-skill', path: '/codex/plugins/cache/catalog/held/1.0.0/skills/held-skill/SKILL.md', sourceLabel: 'held', pluginId: 'held@catalog', reason: ownReason });
     snapshot.marketplaces = snapshot.marketplaces.map((market, index) => index ? market : { ...market, ref: 'release/1.x' });
     snapshot.activity = [{ id: 'codex-activity', action: 'skill.toggle', target: 'design-review', createdAt: '2026-10-12T00:00:00.000Z', status: 'success', message: '已启用 design-review。', canRestore: false }, ...snapshot.activity];
     await route.fulfill({ response, json: snapshot });
@@ -246,19 +250,25 @@ test('with two Agents, every page counts what the filter shows, and a side that 
   const filter = (name: string) => page.getByRole('group', { name: '按 Agent 筛选' }).getByRole('button', { name: new RegExp(`^${name}`) });
   const section = page.locator('.collection-heading h2 span');
   // Skills: the title and the categories count the same objects; Claude's one skill is the plugin's, read-only.
-  await counts('技能', real.skills.length + 2); await expect(page.locator('.workspace-heading .title-count')).toHaveText(`技能${real.skills.length + 2}`);
+  await counts('技能', real.skills.length + 4); await expect(page.locator('.workspace-heading .title-count')).toHaveText(`技能${real.skills.length + 4}`);
   // Asserted once the counts are there: they sit beside the heading, not in it.
   await expect(page.getByRole('heading', { level: 1 })).toHaveText('技能库');
   await filter('Claude').click();
   const category = (name: string) => page.getByRole('button', { name: new RegExp(`^${name}`) });
-  await counts('技能', 2); await expect(category('全部技能')).toHaveText(/全部技能\s*2$/);
-  await expect(page.locator('.skill-card')).toHaveCount(2);
+  await counts('技能', 3); await expect(category('全部技能')).toHaveText(/全部技能\s*3$/);
+  await expect(page.locator('.skill-card')).toHaveCount(3);
   await expect(page.getByRole('switch', { name: '禁用 kit-skill', exact: true })).toBeDisabled();
-  // Not the user's to switch: grey, which a switch merely waiting for another action is not (UAT 2026-10-13).
-  await expect(page.getByRole('switch', { name: '禁用 kit-skill', exact: true })).toHaveClass(/is-locked/);
-  await expect(page.getByRole('switch', { name: '禁用 kit-skill', exact: true })).toHaveCSS('filter', 'grayscale(1)');
+  // Not the user's to switch: locked, with a word for whose it is. On, it keeps its colour; off, it is grey
+  // (real machine, 2026-10-13: all grey read as "not enabled").
+  const locked = page.getByRole('switch', { name: '禁用 kit-skill', exact: true }), off = page.getByRole('switch', { name: '启用 kit-off', exact: true });
+  await expect(locked).toHaveClass(/is-locked/); await expect(locked).toHaveCSS('filter', 'none'); await expect(locked.locator('svg')).toHaveCount(1);
+  await expect(off).toHaveClass(/is-locked/); await expect(off).toHaveCSS('filter', 'grayscale(1)');
+  await expect(page.locator('.skill-card', { hasText: 'kit-skill' }).locator('.toggle-note')).toHaveText('随插件');
   await filter('全部').click();
   await expect(page.getByRole('switch', { name: '禁用 design-review', exact: true })).not.toHaveClass(/is-locked/);
+  // Locked, and not because of its plugin: no such word beside it.
+  await expect(page.getByRole('switch', { name: '禁用 held-skill', exact: true })).toHaveClass(/is-locked/);
+  await expect(page.locator('.skill-card', { hasText: 'held-skill' }).locator('.toggle-note')).toHaveCount(0);
   await filter('Claude').click();
   // Neither is a standalone skill, and neither needs attention of its own.
   await expect(category('状态待确认')).toHaveText(/状态待确认\s*0$/); await expect(page.locator('.skill-reason-attention')).toHaveCount(0);
@@ -292,7 +302,7 @@ test('with two Agents, every page counts what the filter shows, and a side that 
   await expect(card('held').getByRole('switch')).toHaveClass(/is-locked/);
   // The plugin's details list the skill it ships, as the library does.
   await page.getByRole('button', { name: '查看 kit 详情', exact: true }).click();
-  await expect(page.locator('.install-components')).toContainText('附带技能（2）'); await expect(page.locator('.plugin-skill-list')).toContainText('kit-skill');
+  await expect(page.locator('.install-components')).toContainText('附带技能（3）'); await expect(page.locator('.plugin-skill-list')).toContainText('kit-skill');
 });
 
 test('large plugin catalogs render in batches while search covers all results', async ({ page }) => {

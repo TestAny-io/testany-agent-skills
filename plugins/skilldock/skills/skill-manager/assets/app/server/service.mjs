@@ -25,7 +25,7 @@ import { projectCatalog, createProjectIntegration } from './projects.mjs';
 import { inspectPlugin, directLocation, writeDirectMarketplace, decorateDirectCatalog, inspectClaudePlugin, claudeDirectLocation, writeClaudeDirectMarketplace, decorateClaudeDirect, ownClaudeDirect, claudeDirectRoot, directSourceInfo } from './direct-plugins.mjs';
 import { localSettingsExposure, excludeLocalSettings } from './local-settings.mjs';
 import { pluginContents } from './plugin-contents.mjs';
-import { officialAppUrl } from './app-directory.mjs';
+import { officialAppUrl, savedDirectory } from './app-directory.mjs';
 import { createDirectoryIcons } from './directory-icons.mjs';
 import { createAgentLayer, readManagement, writeManagement, AGENT_NAME } from './agents.mjs';
 import { claudeCatalog, claudeIds, claudeLists } from './claude-catalog.mjs';
@@ -149,7 +149,10 @@ export async function createService(options = {}) {
     env.cacheBoundary = await captureDirectoryRoot(pluginCacheRoot(env.codexHome));
     env.skillLinks = new Map();
   }
-  const adapter = options.adapter || new CodexAdapter({ codexHome, codexBin: options.codexBin || process.env.SKILLDOCK_CODEX_BIN, timeout: options.cliTimeout });
+  // The service keeps its last app directory read for its next run (HLD 7.1); data a newer release
+  // manages is not written to (DEC-SDX-009).
+  const adapter = options.adapter || new CodexAdapter({ codexHome, codexBin: options.codexBin || process.env.SKILLDOCK_CODEX_BIN, timeout: options.cliTimeout,
+    savedDirectory: savedDirectory(path.join(stateDir, 'cache/app-directory.json'), { codexHome, writable: async () => await readGeneration(stateDir) <= generation }) });
   const appDir = options.appSource ?? process.env.SKILLDOCK_APP_SOURCE ?? fileURLToPath(new URL('..', import.meta.url));
   const agentEnv = options.env ?? process.env;
   const agentLayer = createAgentLayer({ stateDir, home, codexHome, appDir, env: agentEnv, claudeCli: options.claudeCli,
@@ -2299,7 +2302,11 @@ export async function createService(options = {}) {
   }
   async function action(input, internal = false) {
     const request = validateAction(input); environment(request.mode);
-    if (request.action.startsWith('agent.') || request.action.startsWith('settings.')) return withOperation(() => agentAction(request));
+    if (request.action.startsWith('agent.') || request.action.startsWith('settings.')) {
+      // Once closing, the process ends within a bound (index.mjs): nothing new is started.
+      if (closing) fail(409, 'APP_RESTARTING', 'SkillDock 正在准备重启，请等待界面自动重连。');
+      return withOperation(() => agentAction(request));
+    }
     if (internal || request.action !== 'schedule.configure') return dispatchRequest(request, internal);
     // Configuration has its own short lock so disabling remains possible while
     // an update owns the operation lock, but a concurrent enable cannot erase it.

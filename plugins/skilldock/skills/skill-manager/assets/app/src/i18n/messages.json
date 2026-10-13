@@ -2570,5 +2570,9 @@
   "可用更新": {
     "en": "Available updates",
     "ja": "利用可能な更新"
+  },
+  "随插件": {
+    "en": "With plugin",
+    "ja": "プラグインに連動"
   }
 }

@@ -302,10 +302,14 @@ function Empty({
     </div>
   );
 }
+// A Claude plugin's skill has no switch of its own: it is on or off with its plugin. A Codex plugin's skill
+// has one, so a lock on it has another cause.
+const followsPlugin = (skill: Skill) => !!skill.pluginId && !!skill.agents?.length && skill.agents.every(agent => agent === "claude");
 function Toggle({
   checked,
   disabled,
   locked,
+  lockNote,
   label,
   reason,
   busy,
@@ -315,6 +319,8 @@ function Toggle({
   disabled?: boolean;
   /** Never this item's to switch (its owner's), as against unavailable while something else runs. */
   locked?: boolean;
+  /** A word beside a locked switch for whose it is to turn, where the row does not already say. */
+  lockNote?: string;
   label: string;
   reason?: string;
   busy?: boolean;
@@ -327,24 +333,22 @@ function Toggle({
         {t("未核实")}
       </span>
     );
-  return (
+  const hint = disabled ? (reason ? t(reason) : undefined) || t("此项目由原管理器维护") : label;
+  const control = (
     <button
       type="button"
       role="switch"
       aria-checked={checked}
       aria-label={label}
-      title={
-        disabled
-          ? (reason ? t(reason) : undefined) || t("此项目由原管理器维护")
-          : label
-      }
+      title={hint}
       disabled={disabled || busy}
       className={classNames("toggle", checked && "is-on", busy && "is-busy", locked && "is-locked")}
       onClick={onChange}
     >
-      <span>{busy && <Loader2 size={10} className="spin" />}</span>
+      <span>{busy ? <Loader2 size={10} className="spin" /> : locked ? <LockKeyhole size={8} aria-hidden="true" /> : null}</span>
     </button>
   );
+  return locked && lockNote ? <span className="toggle-with-note"><span className="toggle-note" title={hint}>{lockNote}</span>{control}</span> : control;
 }
 
 export default function App() {
@@ -1058,7 +1062,7 @@ export default function App() {
                                 )}
                                 <Toggle
                                   checked={skill.enabled}
-                                  disabled={!skill.canToggle || !!busy} locked={!skill.canToggle}
+                                  disabled={!skill.canToggle || !!busy} locked={!skill.canToggle} lockNote={followsPlugin(skill) ? t("随插件") : undefined}
                                   busy={busy === `skill.toggle:${skill.id}`}
                                   label={`${skill.enabled ? t("禁用") : t("启用")} ${skill.name}`}
                                   reason={
@@ -1762,7 +1766,7 @@ function SkillDetail({
           </div>
           <Toggle
             checked={skill.enabled}
-            disabled={!skill.canToggle || !!busy} locked={!skill.canToggle}
+            disabled={!skill.canToggle || !!busy} locked={!skill.canToggle} lockNote={followsPlugin(skill) ? t("随插件") : undefined}
             busy={busy === `skill.toggle:${skill.id}`}
             reason={skill.reason ? t(skill.reason) : undefined}
             label={`${skill.enabled ? t("禁用") : t("启用")} ${skill.name}`}

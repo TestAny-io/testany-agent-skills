@@ -41,7 +41,8 @@ export const RETRY_BASE_MS = 60000;
 export const RETRY_MAX_MS = 30 * 60000;
 
 export function createSelfUpdater({ service, codexHome, pollMs = 1000, startTimer = true,
-  worker = startWorker, runtime = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..'), now = Date.now, appSource = process.env.SKILLDOCK_APP_SOURCE }) {
+  worker = startWorker, runtime = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..'), now = Date.now, appSource = process.env.SKILLDOCK_APP_SOURCE,
+  sourceDigest: ownDigest = process.env.SKILLDOCK_SOURCE_DIGEST }) {
   let pending = false; let closed = false; let task; let workerRunning = false; let timer;
   // 0.10.3 (API-SDX-001 36b §7.3): back off after a failed restart so a refused migration
   // is not retried, with a full inventory refresh, on every poll.
@@ -157,6 +158,11 @@ export function createSelfUpdater({ service, codexHome, pollMs = 1000, startTime
     if (!record || !['preparing', 'restarting', 'ready', 'failed'].includes(record.status)) return undefined;
     if (['preparing', 'restarting'].includes(record.status) && record.executor && !(await executorRunning(record.executor)))
       return record.source === appSource ? { id: record.id, status: 'ready' } : { id: record.id, status: 'failed', message: '重启任务未完成。' };
+    // A job recorded as failed whose source this instance nevertheless runs got there another way: its
+    // launcher gave up on the old service, and a later start brought the version up. It is ready, not
+    // a failure for every page to show until the next restart (real machine, 2026-10-13).
+    if (record.status === 'failed' && appSource && record.source === appSource && (!record.sourceDigest || !ownDigest || record.sourceDigest === ownDigest))
+      return { id: record.id, status: 'ready' };
     return { id: record.id, status: record.status, ...(record.message ? { message: redact(record.message) } : {}), ...(record.restored ? { restored: true } : {}) };
   }
   if (startTimer) { timer = setInterval(() => { tick().catch(() => {}); }, pollMs); timer.unref(); }

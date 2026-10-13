@@ -1,4 +1,5 @@
 import test from 'node:test';
+import http from 'node:http';
 import assert from 'node:assert/strict';
 import fs from 'node:fs/promises';
 import os from 'node:os';
@@ -78,4 +79,49 @@ test('malformed retired sandbox state cannot prevent production startup', async 
   await fs.writeFile(path.join(retired, 'updates.json'), '{not-valid-json');
   const service = await createService(options); t.after(() => service.close()); await service.tickScheduler();
   assert.equal(service.defaultMode, 'local'); assert.equal(await fs.readFile(path.join(retired, 'updates.json'), 'utf8'), '{not-valid-json');
+});
+
+// A closing service ends within a bound, so nothing may start once it closes: the actions on an Agent's
+// management and on settings are refused like every other.
+test('once closing, the service starts nothing new: agent and settings actions are refused like the rest', async t => {
+  const { options } = await fixture(t); const service = await createService(options); await service.close();
+  for (const request of [{ action: 'agent.setManagement', agent: 'codex', management: 'read-only' }, { action: 'settings.setClaudeRoot', claudeRoot: { configDir: options.home, pluginCacheDir: options.home } }])
+    await assert.rejects(service.action({ mode: 'local', ...request }), { code: 'APP_RESTARTING' });
+});
+
+// A service told to stop used to wait for its connections without limit: one slow read under way kept its
+// connection open, the page's health checks then went on over that connection, and the process stayed,
+// its listener closed, in the way of every start (real machine, 2026-10-13; HLD 3.7).
+test('a closing service ends in bounded time: responses end their connections, and what is still open after the grace is cut', { timeout: 30000 }, async t => {
+  const { options } = await fixture(t);
+  const slow = closeGraceMs => {
+    let release; const held = new Promise(resolve => { release = resolve; });
+    const adapter = { list: async () => { await held; return { plugins: [], marketplaces: [], diagnostics: [], cli: { available: false, error: 'isolated test adapter' } }; } };
+    return createApp({ ...options, adapter, closeGraceMs }).then(async app => {
+      await new Promise(resolve => app.server.listen(0, '127.0.0.1', resolve)); const port = app.server.address().port;
+      // One connection kept open, as a page's requests share one.
+      const agent = new http.Agent({ keepAlive: true, maxSockets: 1 }); t.after(() => agent.destroy());
+      const get = pathname => new Promise((resolve, reject) => {
+        http.get({ host: '127.0.0.1', port, path: pathname, agent, headers: { host: `127.0.0.1:${port}` } }, response => { response.resume(); response.on('end', () => resolve({ status: response.statusCode, connection: response.headers.connection })); }).on('error', reject);
+      });
+      return { app, get, release };
+    });
+  };
+  const settled = promise => promise.then(value => ({ value }), error => ({ error }));
+  const pause = ms => new Promise(resolve => setTimeout(resolve, ms));
+
+  // The read ends while the service closes: its response ends the connection, so the next check cannot ride on it.
+  const first = await slow(20000); assert.equal((await first.get('/api/health')).connection, 'keep-alive');
+  const reading = first.get('/api/state?mode=local'); await pause(100);
+  let at = Date.now(); const closed = first.app.close(); await pause(100); first.release();
+  assert.deepEqual(await reading, { status: 200, connection: 'close' });
+  assert.match((await settled(first.get('/api/health'))).error?.code ?? '', /ECONNREFUSED|ECONNRESET/);
+  await closed; assert.ok(Date.now() - at < 5000, 'closed long before the grace');
+
+  // The read never ends: the grace cuts it.
+  const second = await slow(300); const stuck = settled(second.get('/api/state?mode=local')); await pause(100);
+  at = Date.now(); await second.app.close(); const took = Date.now() - at;
+  assert.ok(took >= 250 && took < 5000, `closed after the grace (${took} ms)`);
+  assert.ok((await stuck).error, 'the read under way was cut');
+  second.release();
 });
