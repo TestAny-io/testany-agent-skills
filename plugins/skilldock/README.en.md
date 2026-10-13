@@ -215,7 +215,7 @@ Include your SkillDock version, your Codex or Claude version, and reproduction s
 
 ## Version, license, and development
 
-Distributed through this GitHub repository. Current version: **0.11.2**. [Changelog](../../CHANGELOG.md) · [AGPL-3.0-only](LICENSE) · [Third-party notices](skills/skill-manager/THIRD_PARTY_NOTICES.md). Other plugins follow their respective licenses.
+Distributed through this GitHub repository. Current version: **0.11.3**. [Changelog](../../CHANGELOG.md) · [AGPL-3.0-only](LICENSE) · [Third-party notices](skills/skill-manager/THIRD_PARTY_NOTICES.md). Other plugins follow their respective licenses.
 
 See the [application README](skills/skill-manager/assets/app/README.md) for development, launch, and verification commands.
 

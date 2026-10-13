@@ -3,7 +3,8 @@ import assert from 'node:assert/strict';
 import { promises as fs } from 'node:fs';
 import path from 'node:path';
 import net from 'node:net';
-import { fingerprint, launch, probe } from '../../../scripts/launch.mjs';
+import http from 'node:http';
+import { fingerprint, launch, probe, processCommand as readCommand } from '../../../scripts/launch.mjs';
 import { fixture, listen, installedVersion, installedClaudeVersion } from './helpers/launcher-fixture.mjs';
 import { acquireFileLock, operationLock } from '../server/process-lock.mjs';
 
@@ -94,6 +95,57 @@ test('stop waits for graceful process exit before allowing another instance to u
   const running = await launch('start', { ...options, port });
   await launch('stop', options);
   assert.throws(() => process.kill(running.pid, 0), { code: 'ESRCH' });
+});
+
+// A service of 0.11.2 or before, told to stop, could close its listener and stay: a connection a page kept
+// using held it (real machine, 2026-10-13). The stand-in closes its listener and never exits.
+const staysAfterClosing = async options => {
+  const entry = path.join(options.appDir, 'server/index.mjs');
+  await fs.writeFile(entry, (await fs.readFile(entry, 'utf8')).replace('server.close(()=>process.exit(0))', '(server.close(),setInterval(()=>{},1000))'));
+};
+const alive = pid => { try { process.kill(pid, 0); return true; } catch { return false; } };
+const until = async condition => { for (let i = 0; i < 100; i++) { if (await condition()) return; await new Promise(resolve => setTimeout(resolve, 50)); } assert.fail('condition not reached'); };
+
+test('a verified service that closed its listener and stayed is ended by the stop that told it to; one that still answers is left to finish', async t => {
+  const options = await fixture(t); await staysAfterClosing(options);
+  const first = await launch('start', { ...options, port: await freePort() });
+  t.after(() => { try { process.kill(first.pid, 'SIGKILL'); } catch { /* gone */ } });
+  assert.equal((await launch('stop', { ...options, stopWait: 10 })).status, 'stopped');
+  assert.equal(alive(first.pid), false); assert.equal((await readRecordFile(first.state)).status, 'stopped');
+  // Still answering after ten seconds (here one): it is finishing a write, and nothing is forced.
+  const entry = path.join(options.appDir, 'server/index.mjs');
+  await fs.writeFile(entry, (await fs.readFile(entry, 'utf8')).replace('(server.close(),setInterval(()=>{},1000))', '0'));
+  const second = await launch('start', { ...options, port: await freePort() });
+  t.after(() => { try { process.kill(second.pid, 'SIGKILL'); } catch { /* gone */ } });
+  await assert.rejects(launch('stop', { ...options, stopWait: 10 }), /服务尚未停止/);
+  assert.equal(alive(second.pid), true); assert.equal((await probe(second.url)).pid, second.pid); assert.equal((await readRecordFile(second.state)).status, 'running');
+});
+
+test('a start finds the record\'s service alive and answering nobody: known by what it runs, it is ended; anything else is refused with what to do', async t => {
+  const options = await fixture(t); await staysAfterClosing(options); const port = await freePort();
+  const first = await launch('start', { ...options, port }); const record = await readRecordFile(first.state);
+  t.after(() => { try { process.kill(first.pid, 'SIGKILL'); } catch { /* gone */ } });
+  // What a launcher of 0.11.2 left: told to stop, the listener closed, the process and the record as they were.
+  process.kill(first.pid, 'SIGTERM'); await until(async () => !(await probe(first.url)));
+  assert.equal(alive(first.pid), true);
+  const serving = `${process.execPath} ${path.join(record.runtime, 'server/index.mjs')}`;
+  // The process table cannot be asked (a sandbox, Windows), or names something else: refused, nothing ended.
+  for (const processCommand of [async () => null, async () => { throw new Error('no ps'); }, async () => '/usr/bin/node /somewhere/else/server/index.mjs', async () => `${serving} --more`]) {
+    await assert.rejects(launch('start', { ...options, port, processCommand }), /无法核实记录中的进程属于此 SkillDock 实例；未停止任何进程。若刚更新过 SkillDock/);
+    assert.equal(alive(first.pid), true);
+  }
+  // Something answers at its address that is not it: not this case either.
+  const other = http.createServer((request, response) => { response.setHeader('Connection', 'close'); response.end('{"app":"other"}'); });
+  await new Promise(resolve => other.listen(port, '127.0.0.1', resolve));
+  try { await assert.rejects(launch('start', { ...options, port, processCommand: async () => serving }), /无法核实/); assert.equal(alive(first.pid), true); }
+  finally { other.closeAllConnections(); await new Promise(resolve => other.close(resolve)); }
+  // It is the record's runtime serving, and nothing answers: ended, and the start goes on.
+  const asked = []; const processCommand = async pid => { asked.push(pid); return serving; };
+  const next = await launch('start', { ...options, port, processCommand });
+  t.after(() => launch('stop', { ...options, stopWait: 10 }).catch(() => {}));
+  assert.deepEqual([asked, alive(first.pid), next.pid !== first.pid, (await probe(next.url)).pid], [[first.pid], false, true, next.pid]);
+  // The reader itself: this process's own command line where the process table can be asked, null where it cannot.
+  const own = await readCommand(process.pid); assert.ok(own === null || own.includes(path.basename(process.execPath)), String(own));
 });
 
 test('start rebuilds a corrupted generated runtime instead of serving mismatched source', async t => {
@@ -308,6 +360,13 @@ test('leftover jobs are closed as ready when the instance runs their source; a c
     last = await launch('restart', { ...options, restartJob: 'j1' });
     const ran = JSON.parse(await fs.readFile(restartFile, 'utf8'));
     assert.deepEqual([ran.status, ran.pid, typeof ran.executor.pid], ['ready', last.pid, 'number']);
+    // A job that failed while its target runs after all is ready too; one that failed for another source stays failed
+    // (real machine, 2026-10-13: the notice of a failed restart stayed on a page the new version itself served).
+    const failed = { id: 'j2', source: appDir, sourceDigest: 'x', previousPid: 1, url: first.url, status: 'failed', message: '服务尚未停止；保留启动记录，请稍后检查状态。' };
+    await fs.writeFile(restartFile, JSON.stringify(failed)); await launch('start', options);
+    assert.deepEqual([JSON.parse(await fs.readFile(restartFile, 'utf8'))].map(job => [job.status, job.pid]), [['ready', last.pid]]);
+    await fs.writeFile(restartFile, JSON.stringify({ ...failed, source: `${appDir}-other` })); await launch('start', options);
+    assert.equal(JSON.parse(await fs.readFile(restartFile, 'utf8')).status, 'failed');
   } finally { await launch('stop', options); }
 });
 

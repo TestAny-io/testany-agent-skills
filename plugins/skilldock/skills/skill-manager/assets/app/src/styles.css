@@ -809,11 +809,29 @@ main {
 .toggle:disabled {
   opacity: 0.5;
 }
-/* Its owner's to switch, not the user's: grey, on or off still told apart by the knob and the shade. */
+/* Its owner's to switch, not the user's: a lock in the knob. On, it keeps its colour, since it is on;
+   off, it is grey. A skill that follows its plugin says so beside the switch. */
 .toggle.is-locked {
+  opacity: 0.85;
+  cursor: not-allowed;
+}
+.toggle.is-locked:not(.is-on) {
   filter: grayscale(1);
   opacity: 0.6;
-  cursor: not-allowed;
+}
+.toggle.is-locked > span {
+  color: light-dark(#6b7280, #4b5563);
+}
+.toggle-with-note {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  flex-shrink: 0;
+}
+.toggle-note {
+  font-size: 10px;
+  color: var(--muted);
+  white-space: nowrap;
 }
 .unknown-state {
   display: flex;

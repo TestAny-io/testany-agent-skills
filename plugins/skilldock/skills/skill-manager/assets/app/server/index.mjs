@@ -12,6 +12,10 @@ import { restoreMissingRecord } from './launcher-record.mjs';
 
 const currentDirectory = path.dirname(fileURLToPath(import.meta.url));
 const MIME = { '.html': 'text/html; charset=utf-8', '.js': 'text/javascript; charset=utf-8', '.css': 'text/css; charset=utf-8', '.svg': 'image/svg+xml', '.png': 'image/png', '.ico': 'image/x-icon', '.woff2': 'font/woff2' };
+// How long a closing service leaves the connections still in use. With the launcher's ten seconds for a
+// service to stop, well inside them.
+export const CLOSE_GRACE_MS = 2000;
+
 export async function createApp(options = {}) {
   let updater;
   const service = await createService({ ...options, onInstallationChange: () => { updater?.request(); options.onInstallationChange?.(); } });
@@ -52,7 +56,10 @@ export async function createApp(options = {}) {
   function send(response, status, data) {
     response.writeHead(status, { 'Content-Type': 'application/json; charset=utf-8' }); response.end(JSON.stringify(data));
   }
+  let closing = false; const closeGraceMs = options.closeGraceMs ?? CLOSE_GRACE_MS; const answering = new Set();
   const server = http.createServer(async (request, response) => {
+    if (closing) response.setHeader('Connection', 'close');
+    answering.add(response); response.once('close', () => answering.delete(response));
     response.setHeader('X-Content-Type-Options', 'nosniff'); response.setHeader('Cache-Control', 'no-store');
     response.setHeader('Referrer-Policy', 'no-referrer'); response.setHeader('X-Frame-Options', 'DENY');
     response.setHeader('Content-Security-Policy', "default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline'; img-src 'self' data:; font-src 'self'; connect-src 'self'; object-src 'none'; base-uri 'none'; frame-ancestors 'none'");
@@ -105,7 +112,17 @@ export async function createApp(options = {}) {
     }
   });
   server.requestTimeout = 60000; server.headersTimeout = 10000;
-  return { server, token, service, updater, close: async () => { clearInterval(keeper); clearInterval(summaryTimer); await keeping; await summarizing; await updater.close(); await service.close(); await new Promise((resolve, reject) => { if (!server.listening) return resolve(); server.close(error => error ? reject(error) : resolve()); server.closeIdleConnections(); }); } };
+  // Closing ends within a bound once the writes are done (real machine, 2026-10-13: a page asking for
+  // health every second and a half over one connection kept a closed service alive for eight minutes, and
+  // every start refused). From then on each response ends its connection; what is still open after
+  // `closeGraceMs`, a slow read included, is cut.
+  return { server, token, service, updater, close: async () => { clearInterval(keeper); clearInterval(summaryTimer); await keeping; await summarizing; await updater.close(); await service.close(); closing = true;
+    for (const response of answering) if (!response.headersSent) response.setHeader('Connection', 'close');
+    await new Promise((resolve, reject) => {
+      if (!server.listening) return resolve();
+      const cut = setTimeout(() => server.closeAllConnections(), closeGraceMs);
+      server.close(error => { clearTimeout(cut); if (error) reject(error); else resolve(); }); server.closeIdleConnections();
+    }); } };
 }
 
 if (process.argv[1] && path.resolve(process.argv[1]) === fileURLToPath(import.meta.url)) {
