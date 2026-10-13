@@ -302,6 +302,9 @@ function Empty({
     </div>
   );
 }
+// A Claude plugin's skill has no switch of its own: it is on or off with its plugin. A Codex plugin's skill
+// has one, so a lock on it has another cause.
+const followsPlugin = (skill: Skill) => !!skill.pluginId && !!skill.agents?.length && skill.agents.every(agent => agent === "claude");
 function Toggle({
   checked,
   disabled,
@@ -1059,7 +1062,7 @@ export default function App() {
                                 )}
                                 <Toggle
                                   checked={skill.enabled}
-                                  disabled={!skill.canToggle || !!busy} locked={!skill.canToggle} lockNote={skill.pluginId ? t("随插件") : undefined}
+                                  disabled={!skill.canToggle || !!busy} locked={!skill.canToggle} lockNote={followsPlugin(skill) ? t("随插件") : undefined}
                                   busy={busy === `skill.toggle:${skill.id}`}
                                   label={`${skill.enabled ? t("禁用") : t("启用")} ${skill.name}`}
                                   reason={
@@ -1763,7 +1766,7 @@ function SkillDetail({
           </div>
           <Toggle
             checked={skill.enabled}
-            disabled={!skill.canToggle || !!busy} locked={!skill.canToggle} lockNote={skill.pluginId ? t("随插件") : undefined}
+            disabled={!skill.canToggle || !!busy} locked={!skill.canToggle} lockNote={followsPlugin(skill) ? t("随插件") : undefined}
             busy={busy === `skill.toggle:${skill.id}`}
             reason={skill.reason ? t(skill.reason) : undefined}
             label={`${skill.enabled ? t("禁用") : t("启用")} ${skill.name}`}

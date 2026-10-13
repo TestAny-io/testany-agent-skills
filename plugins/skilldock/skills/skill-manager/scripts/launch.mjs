@@ -2,6 +2,7 @@
 import { promises as fs, openSync, closeSync } from 'node:fs';
 import path from 'node:path';
 import os from 'node:os';
+import net from 'node:net';
 import { fileURLToPath } from 'node:url';
 import { spawn, execFile } from 'node:child_process';
 import { captureSource } from '../assets/app/scripts/source-bundle.mjs';
@@ -39,6 +40,22 @@ export async function probe(url) {
   } catch { return null; }
 }
 
+/**
+ * Whether nothing listens at the url. Only a refused connection says so: one that is accepted and then
+ * answers late, badly or not at all is a listener, and a connection that cannot be tried says nothing.
+ */
+export function refused(url) {
+  return new Promise(resolve => {
+    let target; try { target = new URL(url); } catch { return resolve(false); }
+    if (!net.isIP(target.hostname) || !target.port) return resolve(false);
+    const socket = net.connect({ host: target.hostname, port: Number(target.port) });
+    const done = value => { socket.destroy(); resolve(value); };
+    socket.setTimeout(1500, () => done(false));
+    socket.once('connect', () => done(false));
+    socket.once('error', error => done(error.code === 'ECONNREFUSED'));
+  });
+}
+
 // 0.10.x records carry the launch project; 0.11 records carry the fixed legacy
 // directory there (API-SDX-001 36a §5.2), so they are tied to the instance by pid,
 // state and source digest only.
@@ -67,6 +84,8 @@ async function settle(record, recordFile, codexHome, { locked = false } = {}) {
 }
 
 const processAlive = pid => { try { process.kill(pid, 0); return true; } catch (error) { if (error.code === 'ESRCH') return false; throw error; } };
+// Signals a process; one that went meanwhile needs none.
+const signal = (pid, name) => { try { process.kill(pid, name); } catch (error) { if (error.code !== 'ESRCH') throw error; } };
 // Whether the process is gone within `tenths` tenths of a second.
 async function gone(pid, tenths) {
   for (let i = 0; i < tenths; i++) { await new Promise(resolve => setTimeout(resolve, 100)); if (!processAlive(pid)) return true; }
@@ -77,16 +96,20 @@ export function processCommand(pid) {
   return new Promise(resolve => {
     if (process.platform === 'win32') return resolve(null);
     // A sandbox may refuse to run it at all (it is set-user-ID on macOS): that is "cannot be asked", not a failure.
-    try { execFile('/bin/ps', ['-ww', '-p', String(pid), '-o', 'args='], { timeout: 2000 }, (error, stdout) => resolve(error ? null : String(stdout).trim() || null)); }
+    // Asked in a UTF-8 locale: without one, ps writes the bytes of a non-ASCII path as escapes.
+    try { execFile('/bin/ps', ['-ww', '-p', String(pid), '-o', 'args='], { timeout: 2000, env: { ...process.env, LC_ALL: 'en_US.UTF-8' } }, (error, stdout) => resolve(error ? null : String(stdout).trim() || null)); }
     catch { resolve(null); }
   });
 }
-// A 0.11 record's process is this state's service when it is what the launcher started for that record:
-// the record's runtime serving (startRuntime). Asked only where health cannot tell.
+// A 0.11 record's process is this state's service when its command line is the one the launcher started
+// for that record (startRuntime): the record's Node running the record's runtime, and nothing else.
+// Asked only where health cannot tell.
 async function recordedService(record, commandOf) {
-  if (!isCurrentRecord(record) || typeof record.runtime !== 'string' || !path.isAbsolute(record.runtime)) return false;
+  if (!isCurrentRecord(record)) return false;
+  const node = record.execution?.node;
+  if (![node, record.runtime].every(value => typeof value === 'string' && path.isAbsolute(value))) return false;
   const command = await commandOf(record.pid).catch(() => null);
-  return typeof command === 'string' && command.endsWith(` ${path.join(record.runtime, 'server/index.mjs')}`);
+  return command === `${node} ${path.join(record.runtime, 'server/index.mjs')}`;
 }
 
 // `wait`: tenths of a second a service told to stop is given. `commandOf`: see processCommand.
@@ -99,25 +122,27 @@ async function stop(record, recordFile, codexHome, { locked = false, wait = 100,
     try { process.kill(record.pid, 0); alive = true; } catch {}
     // A service told to stop closes its listener last, and one of 0.11.2 or before then stays for as long
     // as a client keeps a connection in use: alive, answering nobody new, and in the way of every start
-    // (real machine, 2026-10-13). Nothing answers at its address and the process is the record's runtime
-    // serving: it is that service, past its writes, and is ended here.
-    if (alive && !health && await recordedService(record, commandOf)) {
-      process.kill(record.pid, 'SIGTERM');
-      if (!await gone(record.pid, 30)) { process.kill(record.pid, 'SIGKILL'); await gone(record.pid, 30); }
+    // (real machine, 2026-10-13). Nothing listens at its address and the process is the record's runtime
+    // serving: it is that service, past its writes, and is ended here. A listener that is slow, or is
+    // something else, is not this case.
+    if (alive && await refused(record.url) && await recordedService(record, commandOf)) {
+      signal(record.pid, 'SIGTERM');
+      if (!await gone(record.pid, 30)) { signal(record.pid, 'SIGKILL'); await gone(record.pid, 30); }
       alive = processAlive(record.pid);
     }
     if (alive) throw new Error('无法核实记录中的进程属于此 SkillDock 实例；未停止任何进程。若刚更新过 SkillDock，可能是上一版本的服务没有退出：关闭所有打开着的 SkillDock 页面（包括 Codex 里的）等几秒再试，或在确认后手动结束该进程。');
     await settle(record, recordFile, codexHome, { locked });
     return { status: 'stopped', message: '此实例已停止。' };
   }
-  process.kill(record.pid, 'SIGTERM');
+  signal(record.pid, 'SIGTERM');
   if (!await gone(record.pid, wait)) {
-    // Verified a moment ago, told to stop, still there. While it answers it is finishing a write and is
-    // left to it, as before. A 0.11 service that no longer answers has closed its listener, which it does
-    // after its writes: what keeps it is a connection a client goes on using (0.11.2 and before set no
-    // limit to that), and it is ended here. A 0.10.x service is not presumed to close in that order.
-    if (!isCurrentRecord(record) || matches(await probe(record.url), record)) throw new Error('服务尚未停止；保留启动记录，请稍后检查状态。');
-    process.kill(record.pid, 'SIGKILL');
+    // Verified a moment ago, told to stop, still there. While it listens it is finishing a write, however
+    // slowly it answers, and is left to it, as before. A 0.11 service closes its listener after its
+    // writes: once nothing listens at its address, what keeps it is a connection a client goes on using
+    // (0.11.2 and before set no limit to that), and it is ended here. A 0.10.x service is not presumed to
+    // close in that order.
+    if (!isCurrentRecord(record) || !await refused(record.url)) throw new Error('服务尚未停止；保留启动记录，请稍后检查状态。');
+    signal(record.pid, 'SIGKILL');
     if (!await gone(record.pid, 30)) throw new Error('服务尚未停止；保留启动记录，请稍后检查状态。');
   }
   await settle(record, recordFile, codexHome, { locked });
@@ -318,9 +343,11 @@ export async function launch(action = 'start', options = {}) {
   const closeLeftoverJob = async (pid, runningAppPath) => {
     const leftover = await readRestart(state).catch(() => null);
     const ready = leftover?.source === runningAppPath; const completedAt = new Date().toISOString();
-    // A job that failed and whose target runs after all (brought up by this start) is ready too (0.11.3).
+    // A job that failed and whose target runs after all (brought up by this start) is ready too, without
+    // what it failed with (0.11.3).
     if (!leftover || !(['preparing', 'restarting'].includes(leftover.status) || leftover.status === 'failed' && ready)) return;
-    await writeRestart(state, ready ? { ...leftover, status: 'ready', pid, completedAt } : { ...leftover, status: 'failed', message: '重启任务未完成。', completedAt });
+    const { message, ...settled } = leftover;
+    await writeRestart(state, ready ? { ...settled, status: 'ready', pid, completedAt } : { ...leftover, status: 'failed', message: '重启任务未完成。', completedAt });
   };
   try {
     await options.onLocked?.();

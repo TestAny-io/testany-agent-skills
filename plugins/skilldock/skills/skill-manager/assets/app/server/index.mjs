@@ -56,9 +56,8 @@ export async function createApp(options = {}) {
   function send(response, status, data) {
     response.writeHead(status, { 'Content-Type': 'application/json; charset=utf-8' }); response.end(JSON.stringify(data));
   }
-  let closing = false; const closeGraceMs = options.closeGraceMs ?? CLOSE_GRACE_MS; const answering = new Set();
+  const closeGraceMs = options.closeGraceMs ?? CLOSE_GRACE_MS; const answering = new Set();
   const server = http.createServer(async (request, response) => {
-    if (closing) response.setHeader('Connection', 'close');
     answering.add(response); response.once('close', () => answering.delete(response));
     response.setHeader('X-Content-Type-Options', 'nosniff'); response.setHeader('Cache-Control', 'no-store');
     response.setHeader('Referrer-Policy', 'no-referrer'); response.setHeader('X-Frame-Options', 'DENY');
@@ -112,11 +111,11 @@ export async function createApp(options = {}) {
     }
   });
   server.requestTimeout = 60000; server.headersTimeout = 10000;
-  // Closing ends within a bound once the writes are done (real machine, 2026-10-13: a page asking for
-  // health every second and a half over one connection kept a closed service alive for eight minutes, and
-  // every start refused). From then on each response ends its connection; what is still open after
-  // `closeGraceMs`, a slow read included, is cut.
-  return { server, token, service, updater, close: async () => { clearInterval(keeper); clearInterval(summaryTimer); await keeping; await summarizing; await updater.close(); await service.close(); closing = true;
+  // Closing ends within a bound once the writes are done (real machine, 2026-10-13: a closed service
+  // stayed for eight minutes and every start refused; a connection the page went on using is what a
+  // service closing this way waits for). The responses under way end their connections; what is still
+  // open after `closeGraceMs`, a slow read included, is cut.
+  return { server, token, service, updater, close: async () => { clearInterval(keeper); clearInterval(summaryTimer); await keeping; await summarizing; await updater.close(); await service.close();
     for (const response of answering) if (!response.headersSent) response.setHeader('Connection', 'close');
     await new Promise((resolve, reject) => {
       if (!server.listening) return resolve();

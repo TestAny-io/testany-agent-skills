@@ -2299,7 +2299,11 @@ export async function createService(options = {}) {
   }
   async function action(input, internal = false) {
     const request = validateAction(input); environment(request.mode);
-    if (request.action.startsWith('agent.') || request.action.startsWith('settings.')) return withOperation(() => agentAction(request));
+    if (request.action.startsWith('agent.') || request.action.startsWith('settings.')) {
+      // Once closing, the process ends within a bound (index.mjs): nothing new is started.
+      if (closing) fail(409, 'APP_RESTARTING', 'SkillDock 正在准备重启，请等待界面自动重连。');
+      return withOperation(() => agentAction(request));
+    }
     if (internal || request.action !== 'schedule.configure') return dispatchRequest(request, internal);
     // Configuration has its own short lock so disabling remains possible while
     // an update owns the operation lock, but a concurrent enable cannot erase it.

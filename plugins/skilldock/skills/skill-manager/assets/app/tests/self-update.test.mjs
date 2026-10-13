@@ -79,6 +79,13 @@ test('a restart recorded as failed is ready for the instance that runs its targe
   assert.deepEqual(await as({ appSource: f.versions['2.4.0'], sourceDigest: 'other' }), shown);
   assert.deepEqual(await as({ appSource: target, sourceDigest: 'other' }), shown);
   assert.deepEqual(await as({ appSource: undefined, sourceDigest: digest }), shown);
+  assert.deepEqual(await as({ appSource: f.versions['2.4.0'], sourceDigest: digest }), shown);
+  // Where either has no digest (a 0.10.x job; an instance started without one) the path alone decides.
+  await writeRestart(f.stateDir, { ...job, sourceDigest: undefined });
+  assert.deepEqual(await as({ appSource: target, sourceDigest: 'other' }), { id: 'job-1', status: 'ready' });
+  assert.deepEqual(await as({ appSource: f.versions['2.4.0'], sourceDigest: 'other' }), shown);
+  await writeRestart(f.stateDir, job);
+  assert.deepEqual(await as({ appSource: target, sourceDigest: '' }), { id: 'job-1', status: 'ready' });
 });
 
 test('unchanged installations and foreign ownership records never trigger a restart', async t => {

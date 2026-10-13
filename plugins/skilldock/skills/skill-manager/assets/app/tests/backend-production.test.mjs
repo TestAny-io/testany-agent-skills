@@ -81,6 +81,14 @@ test('malformed retired sandbox state cannot prevent production startup', async 
   assert.equal(service.defaultMode, 'local'); assert.equal(await fs.readFile(path.join(retired, 'updates.json'), 'utf8'), '{not-valid-json');
 });
 
+// A closing service ends within a bound, so nothing may start once it closes: the actions on an Agent's
+// management and on settings are refused like every other.
+test('once closing, the service starts nothing new: agent and settings actions are refused like the rest', async t => {
+  const { options } = await fixture(t); const service = await createService(options); await service.close();
+  for (const request of [{ action: 'agent.setManagement', agent: 'codex', management: 'read-only' }, { action: 'settings.setClaudeRoot', claudeRoot: { configDir: options.home, pluginCacheDir: options.home } }])
+    await assert.rejects(service.action({ mode: 'local', ...request }), { code: 'APP_RESTARTING' });
+});
+
 // A service told to stop used to wait for its connections without limit: one slow read under way kept its
 // connection open, the page's health checks then went on over that connection, and the process stayed,
 // its listener closed, in the way of every start (real machine, 2026-10-13; HLD 3.7).
