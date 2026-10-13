@@ -1,6 +1,8 @@
 // SPDX-License-Identifier: AGPL-3.0-only
 import { spawn } from 'node:child_process';
+import fs from 'node:fs/promises';
 import { AppError } from './files.mjs';
+import { writeAtomic } from './generation.mjs';
 
 // Use the app metadata API only. The plugin/* app-server methods are explicitly
 // not ready for production clients; installation remains a Codex CLI operation.
@@ -58,20 +60,68 @@ export function officialAppUrl(value) {
   } catch { return undefined; }
 }
 
+// What SkillDock uses of an app, and so all that is kept of one: in memory and in the saved file alike.
+const text = value => typeof value === 'string' ? value : undefined;
+function kept(app) {
+  return { id: app.id, name: app.name, description: text(app.description), installUrl: text(app.installUrl), isAccessible: app.isAccessible === true,
+    pluginDisplayNames: Array.isArray(app.pluginDisplayNames) ? app.pluginDisplayNames.filter(value => typeof value === 'string') : undefined,
+    iconAssets: { '256_square': text(app.iconAssets?.['256_square']), '256_circle': text(app.iconAssets?.['256_circle']) }, logoUrl: text(app.logoUrl),
+    iconDarkAssets: { '256_square': text(app.iconDarkAssets?.['256_square']) }, logoUrlDark: text(app.logoUrlDark) };
+}
+function directoryOf(apps) {
+  const map = new Map();
+  for (const app of apps) if (typeof app?.id === 'string' && typeof app.name === 'string') map.set(`plugin_${app.id}`, kept(app));
+  return map;
+}
+
+const SAVED_FORMAT = 1, SAVED_LIMIT = 8 * 1024 * 1024;
+/**
+ * The last app directory read, kept in a file between runs of the service (HLD 7.1). It is what was read
+ * for this Codex home, and nothing Codex or 0.10.x reads. `writable`: asked before each write.
+ */
+export function savedDirectory(file, { codexHome, writable = async () => true } = {}) {
+  return {
+    async read() {
+      try {
+        const stat = await fs.lstat(file);
+        if (!stat.isFile() || stat.size > SAVED_LIMIT) return null;
+        const saved = JSON.parse(await fs.readFile(file, 'utf8'));
+        return saved?.format === SAVED_FORMAT && saved.codexHome === codexHome && Number.isFinite(saved.readAt) && Array.isArray(saved.apps) ? { readAt: saved.readAt, apps: saved.apps } : null;
+      } catch { return null; }
+    },
+    async write({ readAt, apps }) {
+      if (!await writable()) return;
+      const content = `${JSON.stringify({ format: SAVED_FORMAT, codexHome, readAt, apps })}\n`;
+      if (Buffer.byteLength(content) <= SAVED_LIMIT) await writeAtomic(file, content);
+    },
+  };
+}
+
 export class AppDirectory {
-  constructor({ binary, env, request = withAppDirectory, ttl = 10 * 60000, now = Date.now } = {}) {
-    Object.assign(this, { binary, env, request, ttl, now }); this.cached = null; this.expires = 0; this.failed = false;
+  /** `saved`: where the last read is kept between runs (savedDirectory); `maxAge`: how old a read may be and still be served while the next is read. */
+  constructor({ binary, env, request = withAppDirectory, ttl = 10 * 60000, maxAge = 7 * 24 * 3600000, now = Date.now, saved } = {}) {
+    Object.assign(this, { binary, env, request, ttl, maxAge, now, saved }); this.cached = null; this.expires = 0; this.readAt = 0; this.failed = false;
   }
   /** `stale: false`: an expired list will not do (what is said to the user depends on it); the read is waited for, as before 0.11.2. */
   async list(force = false, { stale = true } = {}) {
+    if (!force) await this.restore();
     if (!force && this.cached && this.now() < this.expires) return this.cached;
     if (!force && this.failureUntil > this.now()) throw this.lastError;
     // Reading the list takes 20 to 30 s on a real machine, and every snapshot waited for it once the
-    // ten minutes were over (HLD 9.3 V26). Once read, an expired list is served, however old, while the
-    // next one is read behind it, so only a process's first read waits. A read that fails ends that
-    // until one succeeds: the failure shows as it did.
-    if (!force && stale && this.cached && !this.failed) { this.load(false).catch(() => {}); return this.cached; }
+    // ten minutes were over (HLD 9.3 V26). Once read, an expired list is served while the next one is
+    // read behind it; the last read of an earlier run of the service counts (0.11.3), so only a first
+    // read ever, or one after a week without any, waits. A read that fails ends that until one
+    // succeeds: the failure shows as it did.
+    if (!force && stale && this.cached && !this.failed && this.now() - this.readAt < this.maxAge) { this.load(false).catch(() => {}); return this.cached; }
     return this.load(force);
+  }
+  // Takes up the saved read, once, where this run has read nothing yet. One dated after now is not believed.
+  restore() {
+    return this.restoring ||= (async () => {
+      const saved = this.cached ? null : await this.saved?.read();
+      if (!saved || this.cached || saved.readAt > this.now()) return;
+      this.cached = directoryOf(saved.apps); this.readAt = saved.readAt; this.expires = saved.readAt + this.ttl;
+    })();
   }
   load(force) {
     // A forced read does not ride on one under way that was not forced, now that one is under way
@@ -88,9 +138,12 @@ export class AppDirectory {
         if (cursor && (typeof cursor !== 'string' || cursors.has(cursor) || cursors.size >= 100)) throw new Error('Codex 应用目录分页无效。');
         if (cursor) cursors.add(cursor);
       } while (cursor);
-      const map = new Map();
-      for (const app of apps) if (typeof app.id === 'string' && typeof app.name === 'string') map.set(`plugin_${app.id}`, app);
-      this.cached = map; this.expires = this.now() + this.ttl; this.failureUntil = 0; this.failed = false; return map;
+      const map = directoryOf(apps);
+      this.cached = map; this.readAt = this.now(); this.expires = this.readAt + this.ttl; this.failureUntil = 0; this.failed = false; return map;
+    }).then(async map => {
+      // Kept for the next run. Not being able to keep it is no failure of the read.
+      await this.saved?.write({ readAt: this.readAt, apps: [...map.values()] }).catch(() => {});
+      return map;
     }).catch(error => { this.lastError = error; this.failureUntil = this.now() + 60000; this.failed = true; throw error; }).finally(() => { this.loading = null; });
     return this.loading;
   }

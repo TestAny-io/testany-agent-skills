@@ -80,7 +80,7 @@ test('a restart recorded as failed is ready for the instance that runs its targe
   assert.deepEqual(await as({ appSource: target, sourceDigest: 'other' }), shown);
   assert.deepEqual(await as({ appSource: undefined, sourceDigest: digest }), shown);
   assert.deepEqual(await as({ appSource: f.versions['2.4.0'], sourceDigest: digest }), shown);
-  // Where either has no digest (a 0.10.x job; an instance started without one) the path alone decides.
+  // Where either has no digest (a job written without one; an instance started without one) the path alone decides.
   await writeRestart(f.stateDir, { ...job, sourceDigest: undefined });
   assert.deepEqual(await as({ appSource: target, sourceDigest: 'other' }), { id: 'job-1', status: 'ready' });
   assert.deepEqual(await as({ appSource: f.versions['2.4.0'], sourceDigest: 'other' }), shown);

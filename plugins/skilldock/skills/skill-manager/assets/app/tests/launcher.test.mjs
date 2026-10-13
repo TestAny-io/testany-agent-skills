@@ -132,6 +132,12 @@ test('nothing listens at an address only when a connection there is refused', as
   assert.equal(await refused(`http://127.0.0.1:${port}`), false);
   // An address that cannot be tried says nothing.
   for (const url of ['not a url', 'http://localhost', 'http://skilldock.invalid:1', 'http://127.0.0.1']) assert.equal(await refused(url), false, url);
+  // Nor does a connection that gets no answer in time, or fails in any other way (a sandbox that lets
+  // nothing connect answers with a permission error): only the refusal itself counts.
+  const failing = code => () => { const socket = new net.Socket(); setImmediate(() => socket.emit('error', Object.assign(new Error(code), { code }))); return socket; };
+  assert.equal(await refused('http://127.0.0.1:9', { connect: () => new net.Socket(), wait: 50 }), false);
+  for (const [code, expected] of [['EPERM', false], ['EACCES', false], ['ETIMEDOUT', false], ['EHOSTUNREACH', false], ['ECONNREFUSED', true]])
+    assert.equal(await refused('http://127.0.0.1:9', { connect: failing(code) }), expected, code);
 });
 
 test('a verified service that closed its listener and stayed is ended by the stop that told it to; one that still answers is left to finish', async t => {
@@ -193,6 +199,11 @@ test('a start finds the record\'s service alive and answering nobody: known by w
     await assert.rejects(launch('start', { ...options, port, processCommand }), /无法核实记录中的进程属于此 SkillDock 实例；未停止任何进程。若刚更新过 SkillDock/);
     assert.equal(alive(first.pid), true);
   }
+  // The Node is the record's, not the launcher's own: a record that names another one does not match this command line.
+  const recordFile = path.join(first.state, 'launcher.json');
+  await fs.writeFile(recordFile, JSON.stringify({ ...record, execution: { ...record.execution, node: '/somewhere/else/bin/node' } }));
+  await assert.rejects(launch('start', { ...options, port, processCommand: async () => serving }), /无法核实/); assert.equal(alive(first.pid), true);
+  await fs.writeFile(recordFile, JSON.stringify(record));
   // Something else listens at its address, whatever it answers: not this case either.
   for (const answer of [response => response.end('{"app":"other"}'), response => { response.statusCode = 404; response.end('not found'); }, response => response.end('<html>')]) {
     const other = http.createServer((request, response) => { response.setHeader('Connection', 'close'); answer(response); });

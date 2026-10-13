@@ -44,13 +44,13 @@ export async function probe(url) {
  * Whether nothing listens at the url. Only a refused connection says so: one that is accepted and then
  * answers late, badly or not at all is a listener, and a connection that cannot be tried says nothing.
  */
-export function refused(url) {
+export function refused(url, { connect = net.connect, wait = 1500 } = {}) {
   return new Promise(resolve => {
     let target; try { target = new URL(url); } catch { return resolve(false); }
     if (!net.isIP(target.hostname) || !target.port) return resolve(false);
-    const socket = net.connect({ host: target.hostname, port: Number(target.port) });
+    const socket = connect({ host: target.hostname, port: Number(target.port) });
     const done = value => { socket.destroy(); resolve(value); };
-    socket.setTimeout(1500, () => done(false));
+    socket.setTimeout(wait, () => done(false));
     socket.once('connect', () => done(false));
     socket.once('error', error => done(error.code === 'ECONNREFUSED'));
   });

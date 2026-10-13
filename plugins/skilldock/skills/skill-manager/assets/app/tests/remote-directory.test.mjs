@@ -3,7 +3,7 @@ import assert from 'node:assert/strict';
 import fs from 'node:fs/promises';
 import path from 'node:path';
 import os from 'node:os';
-import { AppDirectory, officialAppUrl, withAppDirectory } from '../server/app-directory.mjs';
+import { AppDirectory, officialAppUrl, savedDirectory, withAppDirectory } from '../server/app-directory.mjs';
 import { CodexAdapter } from '../server/cli.mjs';
 import { createService } from '../server/service.mjs';
 import { createDirectoryIcons } from '../server/directory-icons.mjs';
@@ -96,6 +96,140 @@ test('an expired app directory is served while the next is read behind it; a rea
   // The unforced read failing does not stop the forced one that follows it.
   expire(); down = true; await directory.list(); const after = directory.list(true); await settle(); open(); await settle(); down = false; open();
   assert.deepEqual([(await after).get(key).name, connections], ['read 10', 10]);
+});
+
+// The last read is kept in a file for the service's next run, so only a machine's first read waits
+// (real machine, 2026-10-13: 30 s on the first open after every restart; HLD 7.1).
+test('a later run of the service takes up the saved app directory: served while the next is read, unless it is too old or not this one\'s', { timeout: 30000 }, async t => {
+  const root = await fs.mkdtemp(path.join(os.tmpdir(), 'skilldock-saved-directory-')); t.after(() => fs.rm(root, { recursive: true, force: true }));
+  const file = path.join(root, 'cache/app-directory.json'), key = `plugin_${app.id}`, minute = 60000, day = 24 * 60 * minute;
+  let time = 1000 * day, connections = 0; const gates = [];
+  const run = (options = {}) => new AppDirectory({ now: () => time, saved: savedDirectory(file, { codexHome: '/codex' }), request: async (_b, _o, operation) => {
+    const number = ++connections; await new Promise(resolve => gates.push(resolve));
+    return operation(async () => ({ data: [{ ...app, name: `read ${number}`, tools: [{ secret: 'not kept' }], isAccessible: number === 1 }, { id: 7, name: 'no id' }], nextCursor: null }));
+  }, ...options });
+  // A read has reached Codex and waits there; `open` lets it answer, and `kept` waits until what it brought is saved.
+  const asked = async () => { for (let turn = 0; turn < 200 && !gates.length; turn += 1) await new Promise(resolve => setTimeout(resolve, 10)); assert.equal(gates.length, 1, 'one read reached Codex'); };
+  const open = () => gates.shift()(), kept = async directory => { open(); await directory.loading; };
+  const pending = promise => { const state = { done: false }; promise.then(() => { state.done = true; }, () => { state.done = true; }); return state; };
+  const stored = async () => JSON.parse(await fs.readFile(file, 'utf8'));
+
+  // The first run reads, and waits; what it read is kept, and only what SkillDock uses of an app.
+  const first = run().list(), waiting = pending(first); await asked(); assert.equal(waiting.done, false);
+  open(); assert.equal((await first).get(key).name, 'read 1');
+  const saved = await stored();
+  assert.deepEqual([saved.format, saved.codexHome, saved.readAt, saved.apps.length], [1, '/codex', time, 1]);
+  assert.deepEqual(saved.apps[0], { id: app.id, name: 'read 1', description: app.description, installUrl: app.installUrl, isAccessible: true, iconAssets: { '256_square': app.iconAssets['256_square'] }, iconDarkAssets: {} });
+  assert.equal((await fs.stat(file)).mode & 0o777, 0o600);
+
+  // The next run, within the ten minutes: the saved read is the list, and Codex is not asked.
+  time += 5 * minute; const within = await run().list();
+  assert.deepEqual([within.get(key).name, within.get(key).isAccessible, connections], ['read 1', true, 1]);
+  // A run after them: served at once, the next read behind it, which is kept in its turn.
+  time += 3 * day; const later = run();
+  assert.deepEqual([(await later.list()).get(key).name, connections], ['read 1', 2]);
+  await kept(later);
+  assert.deepEqual([(await later.list()).get(key).name, (await stored()).apps[0].name, (await stored()).readAt], ['read 2', 'read 2', time]);
+  // A caller for whom an expired list will not do waits, saved read or not.
+  time += day; const fresh = run().list(false, { stale: false }), unstale = pending(fresh); await asked(); assert.deepEqual([unstale.done, connections], [false, 3]);
+  open(); assert.equal((await fresh).get(key).name, 'read 3');
+  // A read a week old or more is not served, in the run that made it or in a later one: the read is waited for.
+  const same = run(); time += 2 * day; assert.deepEqual([(await same.list()).get(key).name, connections], ['read 3', 4]); await kept(same);
+  time += 7 * day - 1; assert.deepEqual([(await same.list()).get(key).name, connections], ['read 4', 5]); await kept(same);
+  time += 7 * day; const old = same.list(), aged = pending(old); await asked(); assert.deepEqual([aged.done, connections], [false, 6]);
+  open(); assert.equal((await old).get(key).name, 'read 6');
+  time += 7 * day; const older = run().list(), stale = pending(older); await asked(); assert.deepEqual([stale.done, connections], [false, 7]);
+  open(); assert.equal((await older).get(key).name, 'read 7');
+
+  // Not this Codex home's, dated after now, of another format, unreadable, not a file, too large: none is
+  // taken up (each would be the list at once if it were: it is a minute old), and the read is waited for.
+  const good = JSON.parse(await fs.readFile(file, 'utf8')); time += minute;
+  const notTaken = async (prepare, options) => {
+    await fs.rm(file, { recursive: true, force: true }); await prepare();
+    const reading = run(options).list(), state = pending(reading); await asked(); assert.equal(state.done, false);
+    open(); assert.equal((await reading).get(key).name, `read ${connections}`);
+  };
+  const write = value => fs.writeFile(file, typeof value === 'string' ? value : JSON.stringify(value));
+  await notTaken(() => write(good), { saved: savedDirectory(file, { codexHome: '/another' }) });
+  await notTaken(() => write({ ...good, readAt: time + 1 }));
+  await notTaken(() => write({ ...good, format: 2 }));
+  await notTaken(() => write({ ...good, apps: 'none' }));
+  await notTaken(() => write('{not json'));
+  await notTaken(() => fs.mkdir(file));
+  await notTaken(async () => { await fs.writeFile(path.join(root, 'elsewhere.json'), JSON.stringify(good)); await fs.symlink(path.join(root, 'elsewhere.json'), file); });
+  await notTaken(() => write({ ...good, padding: 'x'.repeat(8 * 1024 * 1024) }));
+  // The same file as it was is taken up; entries that are not apps are dropped on the way in, as on the way out.
+  await fs.rm(file, { recursive: true, force: true }); await write({ ...good, apps: [null, 'x', { id: 1, name: 'n' }, { id: 'kept', name: 'Kept', description: 5, extra: 'dropped' }] });
+  const before = connections, taken = await run().list();
+  assert.deepEqual([[...taken.entries()].map(([name, value]) => [name, value.name, value.description, 'extra' in value]), connections], [[['plugin_kept', 'Kept', undefined, false]], before]);
+
+  // Where the data is no longer this service's to write, nothing is written; a write that fails does not fail the read.
+  await fs.rm(file, { force: true });
+  const answer = async (_b, _o, operation) => operation(async () => ({ data: [app], nextCursor: null }));
+  const guarded = new AppDirectory({ now: () => time, saved: savedDirectory(file, { codexHome: '/codex', writable: async () => false }), request: answer });
+  assert.equal((await guarded.list()).get(key).name, app.name); await assert.rejects(fs.stat(file), { code: 'ENOENT' });
+  const failing = new AppDirectory({ now: () => time, saved: { read: async () => null, write: async () => { throw new Error('disk full'); } }, request: answer });
+  assert.equal((await failing.list()).get(key).name, app.name);
+});
+
+// The whole way, with a stand-in Codex: the service that reads the directory keeps it under its data
+// directory, and the service started next on that directory answers with it before Codex has.
+test('the service keeps the app directory it read for its next run, and writes none once a newer release manages the data', { timeout: 90000 }, async t => {
+  const root = await fs.realpath(await fs.mkdtemp(path.join(os.tmpdir(), 'skilldock-saved-service-'))); const services = [];
+  t.after(async () => { for (const service of services) await service.close().catch(() => {}); await fs.rm(root, { recursive: true, force: true }); });
+  const home = path.join(root, 'home'), codexHome = path.join(home, '.codex'), stateDir = path.join(root, 'state'), binary = path.join(root, 'codex');
+  const control = path.join(root, 'stand-in.json'), answered = path.join(root, 'answered'), file = path.join(stateDir, 'cache/app-directory.json');
+  await fs.mkdir(codexHome, { recursive: true }); await fs.writeFile(answered, '');
+  const stand = value => fs.writeFile(control, JSON.stringify(value));
+  await fs.writeFile(binary, `#!${process.execPath}
+import fs from 'node:fs';
+import readline from 'node:readline';
+const args = process.argv.slice(2); const state = () => JSON.parse(fs.readFileSync(${JSON.stringify(control)}, 'utf8'));
+const record = { pluginId: ${JSON.stringify(id)}, name: 'app-opaque-board', marketplaceName: 'openai-curated-remote', version: '2.0.1', enabled: false, installPolicy: 'AVAILABLE', authPolicy: 'ON_INSTALL', source: { source: 'remote', id: 'plugin_asdk_app_board' } };
+if (args[0] === '--version') console.log('codex-cli stand-in');
+else if (args.includes('--help')) console.log('list add remove marketplace');
+else if (args[0] === 'plugin' && args[1] === 'list') console.log(JSON.stringify({ installed: [], available: [record] }));
+else if (args[0] === 'plugin' && args[1] === 'marketplace') console.log(JSON.stringify({ marketplaces: [] }));
+else if (args[0] === 'app-server') {
+  for await (const line of readline.createInterface({ input: process.stdin })) {
+    const message = JSON.parse(line); if (!message.id) continue;
+    if (message.method !== 'app/list') { console.log(JSON.stringify({ id: message.id, result: {} })); continue; }
+    const { name, delay } = state();
+    setTimeout(() => { fs.appendFileSync(${JSON.stringify(answered)}, 'x'); console.log(JSON.stringify({ id: message.id, result: { data: [{ ...${JSON.stringify(app)}, name }], nextCursor: null } })); }, delay);
+  }
+} else { console.error('unexpected arguments'); process.exit(3); }
+`, { mode: 0o755 });
+  const start = async () => {
+    const service = await createService({ home, codexHome, projectDir: home, stateDir, codexBin: binary, scheduler: false, background: false, env: { HOME: home },
+      claudeCli: async () => ({ available: false, error: 'stand-in: none' }), claudeCatalog: { managedDir: path.join(root, 'no-managed'), listPlugins: async () => [], listMarketplaces: async () => [] } });
+    services.push(service);
+    return { service, shown: async () => (await service.snapshot('local')).plugins.find(plugin => plugin.id === id)?.displayName };
+  };
+  const answers = async () => (await fs.readFile(answered, 'utf8')).length;
+  const until = async condition => { for (let turn = 0; turn < 600; turn += 1) { if (await condition()) return; await new Promise(resolve => setTimeout(resolve, 50)); } assert.fail('condition not reached'); };
+  const stored = async () => JSON.parse(await fs.readFile(file, 'utf8'));
+  const age = async ms => { const saved = await stored(); await fs.writeFile(file, JSON.stringify({ ...saved, readAt: saved.readAt - ms })); };
+
+  // The first run waits for Codex and keeps what it read, readable by this user only.
+  await stand({ name: 'First name', delay: 0 }); const first = await start();
+  assert.equal(await first.shown(), 'First name'); await first.service.close();
+  assert.deepEqual([(await stored()).apps.map(item => item.name), (await stored()).codexHome, (await fs.stat(file)).mode & 0o777, await answers()], [['First name'], codexHome, 0o600, 1]);
+
+  // An hour on, the next run: its first list has the saved names before Codex has answered, and the read behind it is kept.
+  await age(3600000); await stand({ name: 'Second name', delay: 8000 }); const second = await start();
+  assert.deepEqual([await second.shown(), await answers()], ['First name', 1]);
+  await until(async () => (await stored()).apps[0].name === 'Second name'); assert.equal(await answers(), 2); await second.service.close();
+
+  // Eight days on: too old to show, and the list waits for Codex as a first read does.
+  await age(8 * 24 * 3600000); await stand({ name: 'Third name', delay: 300 }); const third = await start();
+  assert.deepEqual([await third.shown(), await answers()], ['Third name', 3]); await third.service.close();
+
+  // The data passes to a newer release while a read is under way: what that read brings is not written.
+  await age(3600000); await stand({ name: 'Fourth name', delay: 8000 }); const fourth = await start();
+  assert.deepEqual([await fourth.shown(), await answers()], ['Third name', 3]); const before = await fs.readFile(file, 'utf8');
+  await fs.writeFile(path.join(stateDir, 'generation.json'), JSON.stringify({ format: 1, generation: 3, minimumCompatibleGeneration: 3 }));
+  await until(async () => await answers() === 4); await new Promise(resolve => setTimeout(resolve, 500));
+  assert.equal(await fs.readFile(file, 'utf8'), before);
 });
 
 test('opaque remote identity gets real branding while installation uses the original identity and policy', async () => {

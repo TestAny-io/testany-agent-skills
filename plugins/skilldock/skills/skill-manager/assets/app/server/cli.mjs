@@ -74,11 +74,11 @@ export async function checkoutGit(source, ref, destination, options = {}) {
 }
 
 export class CodexAdapter {
-  constructor({ codexHome, codexBin, timeout = 20000, env = process.env, appDirectory }) { this.codexHome = codexHome; this.explicit = codexBin; this.timeout = timeout; this.env = env; this.info = { available: false }; this.probePromise = null; this.appDirectory = appDirectory; }
+  constructor({ codexHome, codexBin, timeout = 20000, env = process.env, appDirectory, savedDirectory }) { this.codexHome = codexHome; this.explicit = codexBin; this.timeout = timeout; this.env = env; this.info = { available: false }; this.probePromise = null; this.appDirectory = appDirectory; this.savedDirectory = savedDirectory; }
   async directory() {
     await this.probe();
     if (!this.info.available) fail(422, 'CLI_UNAVAILABLE', this.info.error);
-    return this.appDirectory ||= new AppDirectory({ binary: this.info.path, env: { ...this.env, CODEX_HOME: this.codexHome } });
+    return this.appDirectory ||= new AppDirectory({ binary: this.info.path, env: { ...this.env, CODEX_HOME: this.codexHome }, saved: this.savedDirectory });
   }
   async remoteDetails(plugin) {
     if (!plugin.directory?.appId) fail(422, 'DIRECTORY_UNAVAILABLE', '无法核实这个插件的官方应用身份。');
