@@ -122,7 +122,10 @@ export class CodexAdapter {
       const label = [...identities, record?.pluginId, record?.name].map(value => typeof value === 'string' ? value.replace(/\p{C}/gu, '').trim() : '').find(Boolean);
       diagnostics.push(label ? `CLI 返回了无法安全使用的插件记录 ${redact(label.slice(0, 80))}，已忽略。` : 'CLI 返回了一条没有插件身份的记录，已忽略。');
     };
-    const results = await Promise.allSettled([this.command(['plugin', 'list', '--available', '--json']), this.command(['plugin', 'marketplace', 'list', '--json'])]);
+    // How long each of the three reads took, for the log of a slow snapshot (UAT 2026-10-13: 20 to 54 s, not told apart).
+    const timing = {}; this.timing = timing;
+    const clock = async (part, work) => { const at = performance.now(); try { return await work(); } finally { timing[part] = Math.round(performance.now() - at); } };
+    const results = await Promise.allSettled([clock('plugin-list', () => this.command(['plugin', 'list', '--available', '--json'])), clock('marketplace-list', () => this.command(['plugin', 'marketplace', 'list', '--json']))]);
     if (results[0].status === 'fulfilled') {
       const data = results[0].value;
       if (!Array.isArray(data.installed) || !Array.isArray(data.available)) diagnostics.push('CLI 插件清单形状不受支持。');
@@ -158,7 +161,7 @@ export class CodexAdapter {
     // Match that exact identity, never a fuzzy display name or a hardcoded brand.
     if (plugins.some(plugin => typeof plugin._remote?.id === 'string' && plugin._remote.id.startsWith('plugin_'))) {
       try {
-        const apps = await (await this.directory()).list();
+        const apps = await clock('app-directory', async () => (await this.directory()).list());
         for (const plugin of plugins) {
           const remote = plugin._remote, app = remote && apps.get(remote.id);
           if (!app) continue;

@@ -133,20 +133,27 @@ test('a plugin\'s skills are the ones Claude loads: the default directory and wh
     { name: 'file', source: './', strict: false, skills: ['./skills/x/SKILL.md'] },
     // Not a root source here, whatever a marketplace file inside its own directory says (71 M9).
     { name: 'mixed', source: './plugins/mixed' },
+    // A folder reached twice goes by the name of the first time; a name of blanks is no name; a listed
+    // directory outside the installation is none, and the default applies (73 IF4-P3-04: N10, N12, N13).
+    { name: 'childfirst', source: './plugins/sub', strict: false, skills: ['./tools', './tools/onedir'] }, { name: 'directfirst', source: './plugins/sub', strict: false, skills: ['./tools/onedir', './tools'] },
+    { name: 'blank', source: './', strict: false, skills: ['./named/blank'] }, { name: 'out', source: './', strict: false, skills: ['./../outside'] },
   ];
   const named = (directory, name) => write(path.join(directory, 'SKILL.md'), name ? `---\nname: ${name}\ndescription: ${name} skill.\n---\n` : '---\ndescription: No name.\n---\n');
   const root = async directory => {
     for (const name of ['x', 'y', 'z']) await skill(path.join(directory, 'skills'), name);
     await named(path.join(directory, 'named/dirname'), 'fm-direct'); await named(path.join(directory, 'named/nameless')); await named(directory, 'root-skill');
+    await write(path.join(directory, 'named/blank/SKILL.md'), '---\nname: "  "\ndescription: A name of blanks.\n---\n');
     await write(path.join(directory, '.claude-plugin/marketplace.json'), { name: 'd', plugins: entries });
   };
   const sub = async directory => { await skill(path.join(directory, 'skills'), 's1'); await skill(path.join(directory, 'tools'), 't1'); await skill(path.join(directory, 'tools'), 't2'); await named(path.join(directory, 'tools/onedir'), 'fm-subdirect'); };
   await root(marketDir);
-  for (const name of ['one', 'two', 'rootall', 'gone', 'whole', 'direct', 'single', 'file']) await root(path.join(cache, name, '1'));
-  for (const name of ['sub', 'subone', 'subdirect']) await sub(path.join(cache, name, '1'));
+  for (const name of ['one', 'two', 'rootall', 'gone', 'whole', 'direct', 'single', 'file', 'blank', 'out']) await root(path.join(cache, name, '1'));
+  for (const name of ['sub', 'subone', 'subdirect', 'childfirst', 'directfirst']) await sub(path.join(cache, name, '1'));
+  await skill(path.join(cache, 'out/outside'), 'stray');
   await named(path.join(cache, 'singledot/1'), 'fm-rootdot'); await skill(path.join(cache, 'singledot/1/skills'), 'inner');
   await skill(path.join(cache, 'mixed/1/skills'), 'a'); await skill(path.join(cache, 'mixed/1/skills'), 'b');
-  await write(path.join(cache, 'mixed/1/.claude-plugin/marketplace.json'), { name: 'other', plugins: [{ name: 'mixed', source: './', skills: ['./skills/a'] }] });
+  await skill(path.join(cache, 'mixed/1/extra'), 'c');
+  await write(path.join(cache, 'mixed/1/.claude-plugin/marketplace.json'), { name: 'other', plugins: [{ name: 'mixed', source: './', skills: ['./skills/a', './extra'] }] });
   // A skills-directory plugin comes from no marketplace: a marketplace file in it does not narrow what it ships (71 IF3-P3-02).
   await skill(path.join(w.configDir, 'skills/sd/skills'), 'second');
   await write(path.join(w.configDir, 'skills/sd/.claude-plugin/marketplace.json'), { name: 'own', plugins: [{ name: 'sd', source: './', skills: ['./skills/inner'] }] });
@@ -164,15 +171,57 @@ test('a plugin\'s skills are the ones Claude loads: the default directory and wh
   assert.deepEqual(Object.fromEntries(names.map(name => [name, shipped(name)])), {
     one: ['x'], two: ['y'], rootall: ['x', 'y', 'z'], gone: ['x', 'y', 'z'], whole: ['x', 'y', 'z'],
     sub: ['onedir', 's1', 't1', 't2'], subone: ['s1', 't1'], man: ['c1', 'm1'], elsewhere: ['e1', 'e2'],
-    direct: ['fm-direct', 'nameless', 'x'], subdirect: ['fm-subdirect', 's1'], single: ['root-skill', 'x', 'y', 'z'], singledot: ['fm-rootdot', 'inner'], file: ['x', 'y', 'z'], mixed: ['a', 'b'], removed: ['r1'] });
+    direct: ['fm-direct', 'nameless', 'x'], subdirect: ['fm-subdirect', 's1'], single: ['root-skill', 'x', 'y', 'z'], singledot: ['fm-rootdot', 'inner'], file: ['x', 'y', 'z'], mixed: ['a', 'b'],
+    childfirst: ['onedir', 's1', 't1', 't2'], directfirst: ['fm-subdirect', 's1', 't1', 't2'], blank: ['blank'], out: ['x', 'y', 'z'], removed: ['r1'] });
   assert.deepEqual(shipped('sd'), ['inner', 'second']);
-  assert.deepEqual(catalog.skills.filter(item => item.name === 't1').map(item => path.relative(cache, item.path)).sort(), ['sub/1/tools/t1/SKILL.md', 'subone/1/tools/t1/SKILL.md']);
+  assert.deepEqual(catalog.skills.filter(item => item.name === 't1').map(item => path.relative(cache, item.path)).sort(), ['childfirst/1/tools/t1/SKILL.md', 'directfirst/1/tools/t1/SKILL.md', 'sub/1/tools/t1/SKILL.md', 'subone/1/tools/t1/SKILL.md']);
   assert.deepEqual(catalog.diagnostics.filter(line => line.includes('越出插件目录')).map(line => path.relative(cache, line)), ['sub/1/skills/stray：技能链接越出插件目录，未列出。']);
   // What the installed version ships is what its own copy of the marketplace file says, whatever the marketplace lists now.
   await write(path.join(marketDir, '.claude-plugin/marketplace.json'), { name: 'd', plugins: entries.map(entry => entry.name === 'one' ? { ...entry, skills: ['./skills/x', './skills/z'] } : entry).filter(entry => entry.name !== 'two') });
   const later = await claudeCatalog({ ...w.base, listPlugins: async () => ['one', 'two'].map(name => ({ id: `${name}@d`, scope: 'user', enabled: true, version: '1', installPath: path.join(cache, name, '1') })),
     listMarketplaces: async () => [{ name: 'd', source: 'github', repo: 'o/d', installLocation: marketDir }] });
   assert.deepEqual(['one', 'two'].map(name => later.skills.filter(item => item.pluginId === later.plugins.find(plugin => plugin.name === name && plugin.installed).id).map(item => item.name)), [['x'], ['y']]);
+});
+
+test('a root with its own manifest: an entry listing a directory that exists leaves the manifest\'s out, and the default stays only beside the root itself (73 IF4-P3-01; 9.3 V23)', async t => {
+  const w = await world(t); const cache = path.join(w.configDir, 'plugins/cache/r'); const marketDir = path.join(w.configDir, 'plugins/marketplaces/r');
+  // The second marketplace of tests/claude-plugin-skills-smoke.mjs.
+  const entries = [
+    { name: 'r-skills', source: './', skills: ['./skills/'] }, { name: 'r-bare', source: './', skills: ['./skills'] }, { name: 'r-root', source: './', skills: ['./'] },
+    { name: 'r-both', source: './', skills: ['./skills/', './extra'] }, { name: 'r-extra', source: './', skills: ['./extra'] },
+    { name: 'r-absent', source: './', skills: ['./skills/absent'] }, { name: 'r-none', source: './' },
+  ];
+  const root = async directory => {
+    for (const name of ['x', 'y', 'z']) await skill(path.join(directory, 'skills'), name);
+    await skill(path.join(directory, 'more'), 'm1'); await skill(path.join(directory, 'more'), 'm2'); await skill(path.join(directory, 'extra'), 'e1');
+    await write(path.join(directory, 'SKILL.md'), '---\nname: root-skill\ndescription: The root.\n---\n');
+    await write(path.join(directory, '.claude-plugin/plugin.json'), { name: 'rooted', skills: './more' });
+    await write(path.join(directory, '.claude-plugin/marketplace.json'), { name: 'r', plugins: entries });
+  };
+  await root(marketDir); for (const { name } of entries) await root(path.join(cache, name, '1'));
+  const catalog = await claudeCatalog({ ...w.base,
+    listPlugins: async () => entries.map(({ name }) => ({ id: `${name}@r`, scope: 'user', enabled: true, version: '1', installPath: path.join(cache, name, '1') })),
+    listMarketplaces: async () => [{ name: 'r', source: 'github', repo: 'o/r', installLocation: marketDir }] });
+  const shipped = name => catalog.skills.filter(item => item.pluginId === catalog.plugins.find(plugin => plugin.name === name && plugin.installed).id).map(item => item.name).sort().join(' ');
+  assert.deepEqual(entries.map(({ name }) => shipped(name)), ['x y z', 'x y z', 'root-skill x y z', 'e1 x y z', 'e1', 'm1 m2 x y z', 'm1 m2 x y z']);
+});
+
+test('what Claude reports about loading a plugin is shown with the plugin and its skills, which stay listed (73 IF4-P3-03; 9.3 V24)', async t => {
+  const w = await world(t); const cache = path.join(w.configDir, 'plugins/cache/m');
+  for (const name of ['broken', 'fine', 'empty', 'off']) await skill(path.join(cache, name, '1/skills'), `${name}-skill`);
+  const item = (name, more = {}) => ({ id: `${name}@m`, scope: 'user', enabled: true, version: '1', installPath: path.join(cache, name, '1'), ...more });
+  // The shape `claude plugin list --json` gives (2.1.295): text in `errors`, a kind in `errorDetails`.
+  const conflict = 'Plugin broken has conflicting manifests:\u0007 both plugin.json and marketplace entry specify components.';
+  const catalog = await claudeCatalog({ ...w.base, listMarketplaces: async () => [], listPlugins: async () => [
+    item('broken', { errors: [conflict, 7, '', 'second', 'third', 'fourth'], errorDetails: [{ type: 'generic-error' }] }), item('fine'), item('empty', { errors: [] }), item('off', { enabled: false, errors: ['x'] })] });
+  const reported = 'Plugin broken has conflicting manifests:  both plugin.json and marketplace entry specify components.';
+  const plugin = name => catalog.plugins.find(entry => entry.name === name); const shipped = name => catalog.skills.find(entry => entry.name === `${name}-skill`);
+  assert.deepEqual(plugin('broken').warnings, [reported, 'second', 'third'].map(text => `Claude 报告这个插件有加载问题：${text}`));
+  assert.deepEqual([plugin('broken').enabled, plugin('broken').skillCount, plugin('broken').canToggle, plugin('broken').canRemove], [true, 1, true, true]);
+  assert.deepEqual([plugin('fine').warnings, plugin('empty').warnings], [undefined, undefined]);
+  assert.match(shipped('broken').reason, /^Claude 报告所属插件有加载问题/); assert.match(shipped('fine').reason, /^Claude 插件自带的技能/); assert.match(shipped('empty').reason, /^Claude 插件自带的技能/);
+  assert.match(shipped('off').reason, /^所属插件已停用/, '停用的插件先说停用');
+  assert.deepEqual(catalog.diagnostics.filter(line => line.includes('加载问题')), [`插件 broken@m：Claude 报告了加载问题，其中的技能是否可用以 Claude 为准。${reported}`, '插件 off@m：Claude 报告了加载问题，其中的技能是否可用以 Claude 为准。x']);
 });
 
 test('a skill\'s text is read as it is; its frontmatter is required only of a skill that must have one (71 T2)', async t => {

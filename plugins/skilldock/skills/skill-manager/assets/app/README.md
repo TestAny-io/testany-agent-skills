@@ -2,7 +2,7 @@
 
 一个在 Codex 原生主内容区、Codex 或 Claude 的浏览器面板、或普通浏览器中运行的本地技能管理器，同时管理本机 Codex 与 Claude 的技能、插件和 marketplace。支持中文、英文、日文，以及浅色、深色和跟随系统外观；包含技能库、插件、市场来源、更新、操作记录与 Agent 环境。打开即加载本机技能库，直接查看与管理自己的安装。
 
-此目录是可复现的 app 源码，随独立 `skilldock` 插件分发，包含 `skill-manager` skill 与 Codex 原生 MCP 应用入口。当前版本为 0.11.1（跨 Agent 版本）：同一个本地实例同时管理 Codex 与 Claude，在两边都能打开；Claude 一侧的技能、插件与 marketplace 支持安装、启停、移除恢复、更新和后台计划，改动经 Claude 命令行执行并读回；“Agent 环境”页显示两侧状态，并决定 SkillDock 是否修改某一侧；SkillDock 自身可一键更新较旧的一侧。要点见下文[跨 Agent（0.11.0）](#跨-agent0110)。此前版本的能力继续保留：第三方 marketplace 的重复版本兼容与 strict 校验、Miro 等官方应用插件的真实名称搜索与安装预览、完整主页面与按需启动、重复技能筛选、安装前的技能清单与逐项启用、从本地目录或 Git 链接安装单个插件、项目选择、macOS 独立后台定时更新、逐行 diff、私仓认证、CLI 回退、自定义目录兼容性与同名技能按路径移除。
+此目录是可复现的 app 源码，随独立 `skilldock` 插件分发，包含 `skill-manager` skill 与 Codex 原生 MCP 应用入口。当前版本为 0.11.2（跨 Agent 版本）：同一个本地实例同时管理 Codex 与 Claude，在两边都能打开；Claude 一侧的技能、插件与 marketplace 支持安装、启停、移除恢复、更新和后台计划，改动经 Claude 命令行执行并读回；“Agent 环境”页显示两侧状态，并决定 SkillDock 是否修改某一侧；SkillDock 自身可一键更新较旧的一侧。要点见下文[跨 Agent（0.11.0）](#跨-agent0110)。此前版本的能力继续保留：第三方 marketplace 的重复版本兼容与 strict 校验、Miro 等官方应用插件的真实名称搜索与安装预览、完整主页面与按需启动、重复技能筛选、安装前的技能清单与逐项启用、从本地目录或 Git 链接安装单个插件、项目选择、macOS 独立后台定时更新、逐行 diff、私仓认证、CLI 回退、自定义目录兼容性与同名技能按路径移除。
 
 ## 安装技能与插件
 
@@ -66,7 +66,7 @@ printf 'Using Codex CLI: %s\n' "$CODEX_CLI"
 
 开启新的 Codex 任务，用 `$skill-manager 打开技能管理面板` 启动。这只安装独立 SkillDock 应用，不会安装 testany-eng 研发工具集。CLI 版本缺少 `plugin add` 时，可在 Codex 插件页面从同名市场安装。
 
-在 Claude 中安装：桌面应用插件页（Customize → Plugins）**+ Add ▾** → **Add marketplace** 填 `TestAny-io/testany-agent-skills` 并 **Sync**，再在 **Discover** 中对 **Skilldock** 点 **Add**；Claude Code 中也可运行 `/plugin marketplace add TestAny-io/testany-agent-skills` 与 `/plugin install skilldock@testany-agent-skills`。之后用 `/skilldock:skill-manager` 打开（已打开的 Claude Code 会话中没有出现时 `/reload-plugins`）。更新：在 SkillDock 的“更新”页对 Claude 中的 skilldock 点“检查更新”（先刷新 marketplace，再经 Claude 命令行更新）。自 0.11.1 起 marketplace 条目声明版本号（与 Codex manifest 相同），Claude 命令行按它识别新版本，也只在它变化时更新（`tests/claude-upgrade-smoke.mjs`）；最终 UAT 中桌面应用的 Update 没有识别出 0.11.0（以提交摘要作版本）之后的提交，声明版本后是否可用尚未确认。Claude Code 中也可 `/plugin` → **Marketplaces** → **Update marketplace**，或在终端用 `claude plugin marketplace update testany-agent-skills` 与 `claude plugin update skilldock@testany-agent-skills`。更新后新会话生效。Claude 不加载 Codex 原生入口，打开的是同一个网页面板。
+在 Claude 中安装：桌面应用插件页（Customize → Plugins）**+ Add ▾** → **Add marketplace** 填 `TestAny-io/testany-agent-skills` 并 **Sync**，再在 **Discover** 中对 **Skilldock** 点 **Add**；Claude Code 中也可运行 `/plugin marketplace add TestAny-io/testany-agent-skills` 与 `/plugin install skilldock@testany-agent-skills`。之后用 `/skilldock:skill-manager` 打开（已打开的 Claude Code 会话中没有出现时 `/reload-plugins`）。更新：在 SkillDock 的“更新”页对 Claude 中的 skilldock 点“检查更新”（先刷新 marketplace，再经 Claude 命令行更新）。自 0.11.1 起 marketplace 条目声明版本号（与 Codex manifest 相同），Claude 命令行按它识别新版本，也只在它变化时更新（`tests/claude-upgrade-smoke.mjs`）；最终 UAT 中桌面应用的 Update 没有识别出 0.11.0（以提交摘要作版本）之后的提交；声明版本后，0.11.0 到 0.11.1 这一次更新在一台机器上实测可用（2026-10-13：**Check for updates** 之后 **Update** 可以点击，更新到 0.11.1）。Claude Code 中也可 `/plugin` → **Marketplaces** → **Update marketplace**，或在终端用 `claude plugin marketplace update testany-agent-skills` 与 `claude plugin update skilldock@testany-agent-skills`。更新后新会话生效。Claude 不加载 Codex 原生入口，打开的是同一个网页面板。
 
 获取新版本先执行 `"$CODEX_CLI" plugin marketplace upgrade testany-agent-skills`，再执行同一条 `"$CODEX_CLI" plugin add` 更新安装副本，之后在新任务调用 `$skill-manager`。源码、市场目录和已安装副本各有自己的生命周期；只执行 `git pull` 不保证已安装缓存同步。源码包下载是 AGPL 对应源码，不能当 marketplace 注册包直接安装。
 
@@ -116,7 +116,7 @@ printf 'Using Codex CLI: %s\n' "$CODEX_CLI"
 ## 使用范围
 
 - **技能库**：扫描已知用户、当前项目、系统与插件来源；搜索、过滤、重名提示、详情及状态证据。不会声称扫描磁盘上所有目录。
-- **个人与项目技能**：按技能目录管理，与按整个包管理的插件附带技能区分。本地目录或 Git 来源可预览安装；已有技能可关联来源，再检查更新及文件变化；移除进入隔离备份，可在操作记录恢复。已有本地修改或恢复位置被占用时拒绝覆盖。
+- **个人与项目技能**：按技能目录管理，与按整个包管理的插件附带技能区分。本地目录或 Git 来源可预览安装；已有技能可关联来源，再检查更新及文件变化；移除进入隔离备份，可在操作记录恢复。已有本地修改或恢复位置被占用时拒绝覆盖。访达在文件夹里写入的 `.DS_Store` 不算技能的内容（0.11.2 起，无论它随来源装入还是之后才出现，来源目录里的也一样）：不算本地修改、不产生更新、不挡恢复，也不影响定时计划。
 - **启用状态**：受支持技能按 `SKILL.md` 路径更新 Codex 配置，包括插件内可核实的单个技能；插件页的总开关控制整个插件。配置读回成功与已运行 Codex 会话生效分开；可能需要重启 Codex。
 - **插件和市场**：本机操作复用检测到的 CLI。支持的来源可添加、移除、刷新以及安装插件；有已核实本地包来源的插件可通过 Codex 再次安装更新，并恢复原有禁用状态。远程平台或系统内置项展示所属管理器与具体更新渠道，不能以覆写内置文件代替宿主更新。
 
@@ -247,6 +247,8 @@ node tests/background-launchd-smoke.mjs
 ### 外部同步后的基线恢复（0.4.2）
 
 插件在外部同步后，即使版本号相同，只要安装版本和完整内容与已核实来源一致，检查就能恢复旧基线；不会覆盖安装文件。来源、插件与安装目录身份均保持一致时，原定时计划的内容绑定也会恢复，无需清空计划或历史。恢复会记入操作记录。
+
+0.11.2 起，Codex 自己把插件更新到更高版本时也一样（Codex 把每个版本装进各自的目录，此前计划会把它当成新对象并要求重新选择）：来源没有变、新版本号能证明更高、装入的版本和内容与本机 marketplace 副本逐文件一致，原计划就继续生效，并记入操作记录。同一版本的目录被替换、来源换了、版本更低或比不出先后、装入内容与来源不一致（包括来源副本又往前走了一版）时，仍然跳过并要求重新选择。
 
 来源已变化到其他内容、安装有独有修改或目录被替换时，继续保留保护并要求核实；不会通过删除基线来强制更新。实现边界和回归证据见 [0.4.2 外部同步恢复记录](../../references/26-baseline-recovery.md)。
 

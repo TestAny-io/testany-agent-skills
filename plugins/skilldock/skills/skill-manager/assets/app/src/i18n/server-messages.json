@@ -319,6 +319,10 @@
     "en": "The externally synchronized plugin was verified and its existing schedule binding was restored.",
     "ja": "外部で同期されたプラグインを検証し、既存の更新スケジュールの関連付けを復元しました。"
   },
+  "插件已由 Codex 自行更新，装入的版本和内容与来源一致；原定时计划继续生效。": {
+    "en": "Codex updated this plugin itself, and the installed version and content match the source. The existing schedule stays in effect.",
+    "ja": "Codex がこのプラグインを更新しました。インストールされたバージョンと内容は配布元と一致しており、既存のスケジュールは引き続き有効です。"
+  },
   "已核实插件外部同步，安装版本和内容与来源一致；已恢复检查基线，未修改安装文件。": {
     "en": "External synchronization was verified: the installed version and contents match the source. The check baseline was restored without changing installed files.",
     "ja": "外部同期を検証しました。インストール済みのバージョンと内容が更新元と一致しています。ファイルを変更せず、確認用の基準を復元しました。"

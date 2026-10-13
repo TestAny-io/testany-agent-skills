@@ -95,16 +95,14 @@ export async function inspectTree(root, { skip } = {}) {
 }
 
 /**
- * A tree without the `.DS_Store` files its record did not have. Finder writes one into a folder it
- * has shown; hidden as it is, the user could not find what SkillDock called a local change (HLD 3.3A;
- * Owner 2026-10-12). One the record has is content like any other.
+ * A file list without `.DS_Store`. Finder writes one into every folder it has shown and rewrites it as it
+ * likes; hidden as it is, the user could not find what SkillDock called a local change or an update. For a
+ * standalone skill it is never content (HLD 3.3A; Owner 2026-10-12, widened in 0.11.2), whether it came
+ * with the source or appeared later. `inspectTree` itself still counts every file.
  */
-export function withoutFinderFiles(tree, recorded = {}) {
-  const dropped = Object.keys(tree.entries).filter(file => (file === '.DS_Store' || file.endsWith('/.DS_Store')) && !Object.hasOwn(recorded, file));
-  if (!dropped.length) return tree;
-  const entries = Object.fromEntries(Object.entries(tree.entries).filter(([file]) => !dropped.includes(file)));
-  return { ...tree, entries, files: tree.files - dropped.length, fingerprint: hash(JSON.stringify(entries)) };
-}
+export const withoutFinderFiles = entries => Object.fromEntries(Object.entries(entries).filter(([file]) => file !== '.DS_Store' && !file.endsWith('/.DS_Store')));
+/** The fingerprint of a file list without `.DS_Store`: a tree's own fingerprint when it has none. */
+export const contentFingerprint = entries => hash(JSON.stringify(withoutFinderFiles(entries)));
 
 /** `skip`: top-level entries left out of the copy and its fingerprint, as `inspectTree` does. */
 export async function copySkill(source, destination, { skip } = {}) {

@@ -305,6 +305,7 @@ function Empty({
 function Toggle({
   checked,
   disabled,
+  locked,
   label,
   reason,
   busy,
@@ -312,6 +313,8 @@ function Toggle({
 }: {
   checked: boolean | null;
   disabled?: boolean;
+  /** Never this item's to switch (its owner's), as against unavailable while something else runs. */
+  locked?: boolean;
   label: string;
   reason?: string;
   busy?: boolean;
@@ -336,7 +339,7 @@ function Toggle({
           : label
       }
       disabled={disabled || busy}
-      className={classNames("toggle", checked && "is-on", busy && "is-busy")}
+      className={classNames("toggle", checked && "is-on", busy && "is-busy", locked && "is-locked")}
       onClick={onChange}
     >
       <span>{busy && <Loader2 size={10} className="spin" />}</span>
@@ -1055,7 +1058,7 @@ export default function App() {
                                 )}
                                 <Toggle
                                   checked={skill.enabled}
-                                  disabled={!skill.canToggle || !!busy}
+                                  disabled={!skill.canToggle || !!busy} locked={!skill.canToggle}
                                   busy={busy === `skill.toggle:${skill.id}`}
                                   label={`${skill.enabled ? t("禁用") : t("启用")} ${skill.name}`}
                                   reason={
@@ -1569,7 +1572,7 @@ function PluginCard({ plugin, busy, onToggle, onInstall, onDetails, onEditTags, 
     {plugin.enabled === null && plugin.installed && <div className="skill-reason skill-reason-attention"><CircleAlert size={13} /><span>{t("安装或启用状态尚未核实。")}</span></div>}
     {!plugin.installed && !plugin.canInstall && plugin.reason && sideManaged && <div className="skill-reason"><LockKeyhole size={13} /><span><ServiceMessage value={plugin.reason} /></span></div>}
     <div className="skill-card-footer"><span className="source-tag" title={plugin.marketplace}><Globe2 size={12} />{plugin.directSource ? t("单插件来源") : plugin.marketplace}</span><div className="card-status">
-      {plugin.installed ? <Toggle checked={plugin.enabled} disabled={!plugin.canToggle || !!busy} busy={busy === `plugin.toggle:${plugin.id}`} label={`${plugin.enabled ? t("禁用") : t("启用")} ${pluginTitle(plugin)}`} reason={plugin.reason ? t(plugin.reason) : undefined} onChange={onToggle} /> : <Button variant="ghost" disabled={!plugin.canInstall || !!busy} onClick={onInstall}><Plus size={14} />{t("安装插件")}</Button>}
+      {plugin.installed ? <Toggle checked={plugin.enabled} disabled={!plugin.canToggle || !!busy} locked={!plugin.canToggle} busy={busy === `plugin.toggle:${plugin.id}`} label={`${plugin.enabled ? t("禁用") : t("启用")} ${pluginTitle(plugin)}`} reason={plugin.reason ? t(plugin.reason) : undefined} onChange={onToggle} /> : <Button variant="ghost" disabled={!plugin.canInstall || !!busy} onClick={onInstall}><Plus size={14} />{t("安装插件")}</Button>}
       <button className="icon-button row-more" aria-label={t("{v0} 的更多操作", { v0: pluginTitle(plugin) })} aria-haspopup="menu" onClick={onMenu}><MoreHorizontal size={17} /></button>
     </div></div>
   </article>;
@@ -1579,7 +1582,7 @@ function PluginDetail({ plugin, skills, busy, onClose, onToggle, onRemove, onIns
     <div className="modal-body"><ProviderIcon icon={plugin.icon} className="skill-icon tone-2 inspector-provider-icon" large><Blocks size={26} /></ProviderIcon><h3 className="inspector-object-name">{pluginTitle(plugin)}</h3><p className="dialog-description">{plugin.description || t("未提供描述")}</p><dl className="preview-paths"><dt>{t("版本")}</dt><dd>{plugin.version || t("版本未提供")}</dd><dt>{t("来自")}</dt><dd><code>{plugin.directSource?.source || plugin.marketplace}</code></dd><dt>ID</dt><dd><code>{plugin.id}</code></dd>{plugin.sourcePath && <><dt>{t("来源路径")}</dt><dd><code>{plugin.sourcePath}</code></dd></>}{plugin.installedPath && <><dt>{t("安装路径")}</dt><dd><code>{plugin.installedPath}</code></dd></>}{plugin.realPath && plugin.realPath !== plugin.installedPath && <><dt>{t("实际路径")}</dt><dd><code>{plugin.realPath}</code></dd></>}</dl>
       <CompatibilityWarnings warnings={plugin.warnings} />
       {plugin.directSource && <ResolvedGitSource source={plugin.directSource} />}
-      {plugin.installed && <div className="inline-toggle"><Toggle checked={plugin.enabled} disabled={!plugin.canToggle || !!busy} label={`${plugin.enabled ? t("禁用") : t("启用")} ${pluginTitle(plugin)}`} onChange={onToggle} /><span>{t(plugin.enabled === null ? "状态待确认" : plugin.enabled ? "已启用" : "已禁用")}</span></div>}
+      {plugin.installed && <div className="inline-toggle"><Toggle checked={plugin.enabled} disabled={!plugin.canToggle || !!busy} locked={!plugin.canToggle} label={`${plugin.enabled ? t("禁用") : t("启用")} ${pluginTitle(plugin)}`} onChange={onToggle} /><span>{t(plugin.enabled === null ? "状态待确认" : plugin.enabled ? "已启用" : "已禁用")}</span></div>}
       {plugin.reason && <div className="dialog-note"><ServiceMessage value={plugin.reason} /></div>}
       {plugin.directory?.installUrl && plugin.installed && <div className="dialog-note"><ExternalLink href={plugin.directory.installUrl} target="_blank" rel="noopener noreferrer">{t('查看官方详情与授权')}</ExternalLink><span>{t(plugin.directory.connected ? '应用连接可用' : '请完成或核实账号授权')}</span></div>}
       {plugin.installed && <div className="install-components"><strong>{t("附带技能（{v0}）", { v0: skills.length })}</strong><div className="plugin-skill-list">{skills.map(skill => <button className="text-button" key={skill.id} onClick={() => onSkill(skill)}><ProviderIcon icon={skill.icon}><Sparkles size={15} /></ProviderIcon>{skill.name}<ChevronRight size={14} /></button>)}</div></div>}
@@ -1759,7 +1762,7 @@ function SkillDetail({
           </div>
           <Toggle
             checked={skill.enabled}
-            disabled={!skill.canToggle || !!busy}
+            disabled={!skill.canToggle || !!busy} locked={!skill.canToggle}
             busy={busy === `skill.toggle:${skill.id}`}
             reason={skill.reason ? t(skill.reason) : undefined}
             label={`${skill.enabled ? t("禁用") : t("启用")} ${skill.name}`}

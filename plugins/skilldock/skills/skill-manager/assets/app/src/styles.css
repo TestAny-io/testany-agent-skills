@@ -809,6 +809,12 @@ main {
 .toggle:disabled {
   opacity: 0.5;
 }
+/* Its owner's to switch, not the user's: grey, on or off still told apart by the knob and the shade. */
+.toggle.is-locked {
+  filter: grayscale(1);
+  opacity: 0.6;
+  cursor: not-allowed;
+}
 .unknown-state {
   display: flex;
   gap: 4px;
