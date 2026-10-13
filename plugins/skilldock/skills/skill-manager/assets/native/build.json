@@ -1,7 +1,7 @@
 {
   "inputs": {
-    "package-lock.json": "d9ac3ffb4f2ff7849ffb99789a5ae6833f8e3665ec6c5e9c022bbedfb18ed7a2",
-    "package.json": "691b4914cced42ec5f8acdf4c06e2528adcf248b6a7fa9f136b5c82cdcb640c2",
+    "package-lock.json": "4e568fdc68209c90033acc1fd60bad364444e8e703f54e9d54ecf34aef6453e7",
+    "package.json": "0d83e8c5b21a7914d8812c546f1124f0148629a50da3d39e6e43ab5a5f92de59",
     "scripts/native-bundle.mjs": "122d7fe7b48c71f0b27892bdc97f152cbff9acf23886d1387619134c45a9e80c",
     "server/cache-paths.mjs": "8b1afee122352a7e8a0cb977f5f56cd712da1c87700ed945d695fb87535c90ff",
     "server/claude-cli.mjs": "e45b0a6d787f0c5c0920967f9e1aa820732b09905a497271aba1a1e0794700fc",
@@ -27,7 +27,7 @@
     "src/AgentEnvironments.tsx": "264b0a688c3f14a1a8ecb1e0beba3f861578a32a20d611ced0111356a4de5263",
     "src/AgentUI.css": "a66b408ab48d5383c0e650439d3e82229fb051cf2012fa82c76cb5bd601d5867",
     "src/AgentUI.tsx": "136f0f83baec5f04ad2ff87a8b1509e46190ac25a1e1cca14d7aa4eea7c9de6a",
-    "src/App.tsx": "b09fee2c364ec0d12a40dfd832f839aacbc3264ec1ab4e435bba459494b27b1d",
+    "src/App.tsx": "dc773a26c4e140df65cc1e7cd05b51b8b0d190009a2f81924226dd85d2db9b9a",
     "src/CompatibilityWarnings.tsx": "dc7f57da6a06829e5e24fc6149535f69bd6128bd0cbae93e10ee423a623d1f62",
     "src/ConfirmDialog.tsx": "cf838a952b8c17690d1e54ad1538326a372890f5ca921efffe18635b04a790bc",
     "src/DesktopUI.tsx": "a827ba36401fa368b332297efea7dc1d0a8151844b4179e0d7eae189fb99d063",
@@ -59,12 +59,12 @@
     "src/i18n.tsx": "dc09254cbb69d72741c0975ce96e70e8b3bf0c56332757833f6effbab0d51a7b",
     "src/i18n/errors.json": "ca75384e819ed5402148ee5c06b5d0eb9d0ebdd667474baab299605378215c7e",
     "src/i18n/messages.json": "18c39c09d8be320904017d9367780746fcc7c7c18f9f96788b33d9c03304635c",
-    "src/i18n/server-messages.json": "872b8603c6c40367486cae11edab60edb1d7fb5620890aa468dead007092b49c",
+    "src/i18n/server-messages.json": "24ca67953514ed9e2da627d9bfafd50ef96cbf464a628a63b9aa3e3e58149a19",
     "src/main.tsx": "0b17df37f3ddac17ba356b85184252cd545e0afa93a2246a8202b30b8a879fff",
     "src/native-icon.svg": "9b7d7c19189c56b43fe691c0cb01e19b1f88abc61d1d130c974c5f5411b7288c",
     "src/plugin-presentation.ts": "f221117671d3b93250a16e6e54326879e6ae1a6aaf3e50dea401e8fdfb86dadf",
     "src/preferences.ts": "0f94a2be73291630c4850c968c63e13f266bbace44a1b206da409ef2a619e37d",
-    "src/styles.css": "6e66900719ce298cd9b8b3533662986321b0ae4f1615fe4ed9634c9190e81bb3",
+    "src/styles.css": "4c98660ce3567424489ea437ac3df3642f9ac32ae6b9a3c56b107e52b1d92bad",
     "src/tokens.css": "888015760af0a8e6c574abd1aa9ed8fc348997267e9890e2df5cad5920dfb36a",
     "src/transport.ts": "6bccae2d9677b886320a433786c1eaae99065c0f6b3130ec842d66a097efefa9",
     "src/useRuntimeConnection.ts": "bd737e6d902e778bdcb2a9258a57a99f5dac4541d990b0aee776919c9932522e",
@@ -72,7 +72,7 @@
   },
   "artifacts": {
     "server.mjs": "952873b18b656dcc75483e6e20f4278f3e2cd9463b9667f489020ed6bec9cff2",
-    "ui.html": "76cc4fefdb07c8941c8368aac4d535d23b28bbb063756e12e5319be7d9c4aaf9",
+    "ui.html": "60bc0cec045421191784df2d72ebfba9ede23e839b7ca509c739f4a414e064ed",
     "icon.svg": "9b7d7c19189c56b43fe691c0cb01e19b1f88abc61d1d130c974c5f5411b7288c",
     "THIRD_PARTY_NOTICES.txt": "0580c525bbaf94d006050bf773e482a470c9f983971e23b26e8048505e11bd4f"
   }

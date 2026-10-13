@@ -189,6 +189,34 @@
   - `testany-llm` 的命令列表和 plugin 描述改为仅保留 `prompt-optimizer`
   - 根 README、`AGENTS.md`、`CLAUDE.md` 不再引用已删除的 `skill-creator` 脚本与路径
 
+## [skilldock 0.11.2] - 2026-10-13
+
+补丁版本：处理 0.11.1 发布后在一台真机上确认时发现的问题，以及发布前最后两份复核留给下一版的意见。数据格式不变，不需要迁移。
+
+### 修复
+
+- **Codex 自己更新插件之后，定时计划不再停下**：Codex 把插件的每个版本装进各自的目录，此前计划把换了目录的插件当成新对象，每轮以“来源、所有者、安装目录或内容已变化”跳过并要求重新选择——Codex 抢在计划之前更新一次，这个插件的自动更新就停了。现在版本更高、来源没有变、装入的版本和内容与本机 marketplace 副本逐文件一致时，原计划继续生效并记一条操作记录；手动检查同样会恢复。同一版本的目录被替换、来源换了、版本更低或比不出先后、装入内容与来源不一致（包括本机 marketplace 副本又往前走了一版）时，仍然要求重新选择。
+- **访达的 `.DS_Store` 不再算技能的内容**：对两侧的独立技能与 Claude 的技能目录插件，检查更新（本地修改与差异）、恢复一次更新、定时计划的绑定、关联来源的预览都不看它，不论它随来源装入还是之后才出现，来源文件夹里的也一样。0.11.1 只放宽了“安装之后才出现的那一份”：随来源装入的被访达改写后仍算本地修改，更新之后才出现的会挡住恢复，来源文件夹被访达打开过会带来一次只含它的更新，计划会跳过并要求重新选择——这四种都不再发生；0.11.2 之前保存的计划照常沿用。检查（或关联来源的预览）之后、应用之前才出现或被改写的那一份仍会让应用停下并提示重新检查；Codex 插件不在这次放宽之内。
+- **Claude 插件自带技能多列**：来源为 marketplace 根目录、根目录自己的 manifest 又声明了技能路径的插件，条目列的是 `./`、`./skills` 或其他存在的目录时，不再把 manifest 声明的路径下的技能也列出来（Claude 不加载它们）；默认目录里的某个技能同时被条目单独列出时，名称与 Claude 一致。
+- **Claude 报告的加载问题有了说明**：Claude 的插件清单对加载有问题的插件给出的原因，现在显示在该插件的提示里（技能目录插件同样），它的技能条目的说明与诊断也写明，有英文、日文译文。技能仍然列出：同一个报告既用于整个插件没有加载的情形，也用于某个声明路径失败而其余照常加载的情形，SkillDock 不去猜是哪一种。
+- **只读开关显示为灰色**：不能由用户开关的条目（例如 Claude 插件自带的技能），开关不再是半透明的蓝色。
+- **隔一阵再打开，多数时候不再等半分钟**：读取清单时要向 Codex 读一次官方应用目录，在一台真机上它要 25～30 秒（从日志的计时推断），结果只保留 10 分钟，过期后的每一次读取都要等它。现在读过一次之后，过期时先用上一次的结果、在后面重读，只有服务进程启动后的第一次读取要等；读取失败时照旧提示。先用的那份结果可能是很久以前的（官方目录插件的名称、图标、是否已连接等），后面那次读取结束之后再读即更正；“核对连接状态”总是等一次新的读取，安装官方目录插件之后的结果在目录过期时也等。服务刚启动后的第一次打开仍然慢；日志里也有几次慢在 Codex 的清单命令本身，这一版没有处理。
+
+### 变更
+
+- **慢读取的日志多三项计时**：一次清单读取达到 5 秒时写进 `server.log` 的那一行，末尾另列 Codex 目录读取的三段（插件清单、marketplace 清单、官方应用目录）各用了多久。
+
+### 文档、分发与验证
+
+- SkillDock 从 0.11.1 升至 0.11.2：Codex manifest、应用版本与 lockfile、marketplace 条目、中英文 README、应用 README 与 Codex 原生构建产物。
+- README：0.11.0 到 0.11.1 这一次更新，Claude 桌面应用在刷新 marketplace 之后 **Update** 可用（一台机器实测），取代“尚未确认”的说法；应用 README 写明计划沿用与 `.DS_Store` 的规则。
+- 设计与契约：HLD v1.38、API 契约 0.38（36c 0.37，只增供显示的内容）；PRD 没有改。真机确认的结果见 HLD 9.3 V25，实施进展见 [37](plugins/skilldock/skills/skill-manager/references/37-cross-agent-implementation-plan.md)“0.11.2 进展”。其中两项做法（计划沿用、`.DS_Store` 的范围）改动了早先定下的规则，Owner 2026-10-13 已同意（HLD 第 10 节 DG-0112-1、2）；`.DS_Store` 一项，Owner 同意的是检查更新、恢复与定时计划，关联来源的预览是之后按评审意见补的，Owner 随后也已同意；这条放宽与“不覆盖本地修改”的关系不在 PRD 另行登记（Owner 的决定）。
+- 单元测试 649 项、浏览器端到端测试 89 项在隔离沙箱中全部通过（本机 Chrome，临时配置）。沙箱不是 CI 等价环境。新增的规则逐条做了变异检查（改错即有用例失败）。
+- 真实 Claude 命令行 2.1.295，临时配置目录、禁网：插件技能冒烟（`tests/claude-plugin-skills-smoke.mjs`）扩到三个 marketplace 的 23 个插件与一个技能目录插件——前两个 marketplace 的 22 个，SkillDock 列出的技能与 `claude plugin details` 相同；另外核对了 Claude 的清单对四个插件的加载报告（其中一个 Claude 没有加载）与 SkillDock 的转述。分发冒烟与升级冒烟（从 0.11.0 更新到 0.11.2）通过。
+- 独立评审：第一批改动的代码见 [75](plugins/skilldock/skills/skill-manager/references/75-0112-code-review.md)（APPROVED，P3 6），设计文档见 [76](plugins/skilldock/skills/skill-manager/references/76-0112-hld-contract-delta-review.md)（带条件 APPROVED，P3 7）；处理之后的复核见 [77](plugins/skilldock/skills/skill-manager/references/77-0112-code-review-r2.md)（APPROVED，P3 3）与 [78](plugins/skilldock/skills/skill-manager/references/78-0112-hld-contract-delta-review-r2.md)（带条件 APPROVED，P3 6；条件是合并前告知 Owner 两点）。最后一轮见 [79](plugins/skilldock/skills/skill-manager/references/79-0112-code-review-r3.md)（APPROVED，没有新发现）与 [80](plugins/skilldock/skills/skill-manager/references/80-0112-hld-contract-delta-review-r3.md)（带条件 APPROVED，P3 3，证书绑定到 HLD v1.38）。六份报告都没有 P2 及以上的意见；意见除登记为留给以后的几条外都已处理。
+- 没有验证的：计划沿用的规则只有隔离用例（用替身模拟 Codex 换版本目录），没有在真实 Codex 上跑过；“慢的是官方应用目录”是从日志的计时行与代码推断的，没有直接量过，改动的效果也没有在真机上看过；0.11.2 没有装进真实的 Claude 或 Codex 试过。
+- 没有做的：直接声明的技能说明头不规范时名称与 Claude 不同（已知差异）；服务启动后第一次打开的等待（要界面配合的“先显示、后刷新”）；界面清单 [41](plugins/skilldock/skills/skill-manager/references/41-ui-redesign-backlog.md) 的 UI-01、UI-08、UI-09。
+
 ## [skilldock 0.11.1] - 2026-10-13
 
 补丁版本：SkillDock 在 Claude 一侧也声明版本号，Agent 标识换成官方标志，并处理最终 UAT 与界面清单（[41](plugins/skilldock/skills/skill-manager/references/41-ui-redesign-backlog.md)）里记录的具体问题。数据格式不变，不需要迁移。

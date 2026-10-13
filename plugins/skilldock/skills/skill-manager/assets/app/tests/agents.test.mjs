@@ -104,6 +104,11 @@ test('turning management on or off is listed with the other changes, for a multi
   assert.equal((await w.service.snapshot('local', true, { multiAgent: true })).activity.filter(item => item.action === 'agent.setManagement' && item.agent === 'codex').length, 2);
   assert.equal((await w.service.snapshot('local', true)).activity.some(item => item.action.startsWith('agent.')), false, '1 版客户端不认识 Agent 环境的操作');
   assert.match(lines.findLast(line => line.includes('claude-list')), /读取清单用时 \d+ ms：codex-list \d+，scan \d+，agents \d+，claude-list \d+，其余 -?\d+。$/);
+  // The Codex list's own reads are named when this read made them, not when it came from the cache (UAT 2026-10-13).
+  const parts = []; const own = { list: async () => { own.timing = { 'plugin-list': 12, 'marketplace-list': 3, 'app-directory': 45 }; return { plugins: [], marketplaces: [], diagnostics: [], cli: { available: true, version: 'codex-cli 0.200.0', path: '/stand-in/codex' } }; } };
+  const v = await world(t, { log: line => parts.push(line), slowSnapshotMs: 0, adapter: own });
+  await v.service.snapshot('local', true); assert.match(parts.at(-1), /，其余 -?\d+。codex-list 之内：plugin-list 12，marketplace-list 3，app-directory 45。$/);
+  await v.service.snapshot('local'); assert.match(parts.at(-1), /，其余 -?\d+。$/);
 });
 
 test('an Agent that is not installed cannot be enabled; one enabled before stays listed with its state', async t => {

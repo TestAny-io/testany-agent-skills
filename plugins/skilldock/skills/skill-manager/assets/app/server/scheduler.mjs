@@ -3,6 +3,7 @@ import crypto from 'node:crypto';
 import { AppError, fail, readJson, writeJson, verifyDirectoryRoot, redact } from './files.mjs';
 import { buildUpdateItems, applyObservations, targetKey } from './sources.mjs';
 import { defaultSchedule, defaultUpdateState } from './update-state.mjs';
+import { compareVersions } from './versions.mjs';
 
 export { defaultSchedule, defaultUpdateState };
 
@@ -26,11 +27,17 @@ export function validateSchedule(schedule) {
   return schedule;
 }
 
-function sameBindingIdentity(before, after) {
-  if (!before || !after || typeof before.fingerprint !== 'string' || typeof after.fingerprint !== 'string') return false;
-  const { fingerprint: oldContent, ...oldIdentity } = before;
-  const { fingerprint: newContent, ...newIdentity } = after;
-  return JSON.stringify(oldIdentity) === JSON.stringify(newIdentity);
+// What a binding names besides content: 'same' when nothing else differs. 'upgraded' when only the
+// version's directory does, under the same plugin cache directory and named by a higher version: Codex
+// installs each version of a plugin into its own directory, so it updating a plugin itself is not a
+// new object (HLD 3.8, v1.36). Anything else, a directory replaced at the same version included, is null.
+function bindingIdentity(before, after) {
+  if (!before || !after || typeof before.fingerprint !== 'string' || typeof after.fingerprint !== 'string') return null;
+  const { fingerprint: oldContent, real: oldReal, ino: oldIno, ...oldRest } = before;
+  const { fingerprint: newContent, real: newReal, ino: newIno, ...newRest } = after;
+  if (JSON.stringify(oldRest) !== JSON.stringify(newRest) || typeof oldReal !== 'string' || typeof newReal !== 'string') return null;
+  if (oldReal === newReal) return oldIno === newIno ? 'same' : null;
+  return path.dirname(oldReal) === path.dirname(newReal) && compareVersions(path.basename(newReal), path.basename(oldReal)) === 1 ? 'upgraded' : null;
 }
 
 
@@ -183,21 +190,34 @@ export async function createScheduler({ environments, snapshot, perform, signatu
   async function observeError(mode, target, error) {
     states[mode].observations[targetKey(target)] = { status: 'error', canApply: false, message: redact(error.message), reasonCode: error.code || 'UPDATE_FAILED', checkedAt: timestamp() }; await persist(mode);
   }
+  // Whether what is there now is what the plan bound. A binding saved before 0.11.2 counted Finder's
+  // files in a skill's content (HLD 3.3A): the same directory with the same files, counted that way,
+  // is the same binding, and is kept from here on as it is written now.
+  async function bound(mode, target, actual) {
+    const state = states[mode], key = targetKey(target), expected = state.bindings[key];
+    if (JSON.stringify(actual) === JSON.stringify(expected)) return true;
+    if (bindingIdentity(expected, actual) !== 'same') return false;
+    let counted; try { counted = await signature(mode, target, undefined, { finderFiles: true }); } catch { return false; }
+    if (JSON.stringify(counted) !== JSON.stringify(expected)) return false;
+    state.bindings[key] = actual;
+    return true;
+  }
   async function reconcileBinding(mode, target, actual) {
     const state = states[mode], key = targetKey(target), expected = state.bindings[key];
     if (!expected) return false;
     try { actual ||= await signature(mode, target); } catch { return false; }
-    if (JSON.stringify(actual) === JSON.stringify(expected)) return true;
-    // Only content drift can be reconciled. Changing owner, source, path,
-    // directory identity or generation still requires explicit selection.
-    if (!state.schedule.enabled || target.kind !== 'plugin' || !verifySynchronized || !sameBindingIdentity(expected, actual)) return false;
+    if (await bound(mode, target, actual)) return true;
+    // Only content drift and a higher version installed by Codex itself can be reconciled. Changing
+    // owner, source, path, directory identity or generation still requires explicit selection.
+    const identity = bindingIdentity(expected, actual);
+    if (!state.schedule.enabled || target.kind !== 'plugin' || !verifySynchronized || !identity) return false;
     try {
       if (!await verifySynchronized(mode, target, actual)) return false;
       if (JSON.stringify(await signature(mode, target)) !== JSON.stringify(actual)) return false;
     } catch { return false; }
     if (await disabledSchedule(mode) || JSON.stringify(state.bindings[key]) !== JSON.stringify(expected)) return false;
     state.bindings[key] = actual;
-    state.activity.unshift({ id: crypto.randomUUID(), action: 'schedule.reconcile', target: target.id, ...(target.agent ? { agent: target.agent } : {}), createdAt: timestamp(), status: 'success', message: '已核实插件外部同步，已恢复原定时计划绑定。', canRestore: false });
+    state.activity.unshift({ id: crypto.randomUUID(), action: 'schedule.reconcile', target: target.id, ...(target.agent ? { agent: target.agent } : {}), createdAt: timestamp(), status: 'success', message: identity === 'upgraded' ? '插件已由 Codex 自行更新，装入的版本和内容与来源一致；原定时计划继续生效。' : '已核实插件外部同步，已恢复原定时计划绑定。', canRestore: false });
     state.activity = state.activity.slice(0, 100);
     await persist(mode);
     return true;
@@ -205,7 +225,7 @@ export async function createScheduler({ environments, snapshot, perform, signatu
   async function beforeOwnUpdate(mode, target) {
     const binding = states[mode].bindings[targetKey(target)];
     if (!binding) return null;
-    try { const actual = await signature(mode, target); return JSON.stringify(actual) === JSON.stringify(binding) ? binding : null; } catch { return null; }
+    try { return await bound(mode, target, await signature(mode, target)) ? states[mode].bindings[targetKey(target)] : null; } catch { return null; }
   }
   async function afterOwnUpdate(mode, target, originalBinding) {
     // The update has landed: a binding that cannot be read again now is left to the next run, which

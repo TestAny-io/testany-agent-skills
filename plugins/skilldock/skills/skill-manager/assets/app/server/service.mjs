@@ -4,7 +4,7 @@ import os from 'node:os';
 import { createIconCatalog } from './provider-icons.mjs';
 import crypto from 'node:crypto';
 import { fileURLToPath } from 'node:url';
-import { AppError, fail, exists, inside, identity, hash, now, metadata, skillText, inspectTree, withoutFinderFiles, copySkill, objectFingerprint, diffFiles, readJson, writeJson, safeName, safeSegment, redact, captureDirectoryRoot, verifyDirectoryRoot, verifyDescendantDirectory, publicSource } from './files.mjs';
+import { AppError, fail, exists, inside, identity, hash, now, metadata, skillText, inspectTree, withoutFinderFiles, contentFingerprint, copySkill, objectFingerprint, diffFiles, readJson, writeJson, safeName, safeSegment, redact, captureDirectoryRoot, verifyDirectoryRoot, verifyDescendantDirectory, publicSource } from './files.mjs';
 import { toggleConfig, toggleSkillConfigs, readConfig } from './config.mjs';
 import { CodexAdapter, listCovers, validateSource, validateSubpath, validateRef, checkoutGit, readMarketplace, readComponentEntry, readPluginManifest, readPluginDefinition, discoverSkillRoots } from './cli.mjs';
 import { initializeSandbox, emptyRegistry } from './fixtures.mjs';
@@ -161,7 +161,7 @@ export async function createService(options = {}) {
   const directoryIcons = options.directoryIcons || createDirectoryIcons();
   const projectIntegration = options.projectIntegration || createProjectIntegration();
   const projects = () => projectCatalog({ codexHome, stateDir, current: project, integration: projectIntegration });
-  const defaultMode = options.enableTestSandbox === true ? 'sandbox' : 'local'; const previews = new Map(); let busy = false; let cachedCatalog; let catalogTime = 0; let scheduler;
+  const defaultMode = options.enableTestSandbox === true ? 'sandbox' : 'local'; const previews = new Map(); let busy = false; let cachedCatalog; let catalogTime = 0; let catalogParts; let scheduler;
   const removalPreviews = new Map(); const pluginCatalogPreviews = new Map();
   const background = options.background === false || options.scheduler === false || options.enableTestSandbox === true ? null
     : options.backgroundManager || createBackgroundManager({ stateDir, home, codexHome, project: () => project });
@@ -217,7 +217,7 @@ export async function createService(options = {}) {
   const registryFor = env => readJson(env.registryFile, emptyRegistry());
   async function catalogFor(env, registry, force = false) {
     if (env.mode === 'sandbox') return decorateDirectCatalog(await sandboxCatalog(env, registry), registry, env);
-    if (!cachedCatalog || force || Date.now() - catalogTime > 15000) { cachedCatalog = await adapter.list(); catalogTime = Date.now(); }
+    if (!cachedCatalog || force || Date.now() - catalogTime > 15000) { cachedCatalog = await adapter.list(); catalogTime = Date.now(); catalogParts = adapter.timing; }
     return decorateDirectCatalog(structuredClone(cachedCatalog), registry, env);
   }
   async function removeStaging(env, directory) {
@@ -260,7 +260,7 @@ export async function createService(options = {}) {
     }
     // A slow read names its slow part in server.log (UAT 2026-10-10: a first read took 27 s).
     const timing = {}; const timed = async (part, work) => { const at = performance.now(); try { return await work(); } finally { timing[part] = Math.round(performance.now() - at); } };
-    const catalog = await timed('codex-list', () => catalogFor(env, registry, force));
+    const listedAt = catalogTime; const catalog = await timed('codex-list', () => catalogFor(env, registry, force));
     const result = await timed('scan', async () => enrichSources(await scan(env, registry, catalog), env, registry));
     enrichTags(result, registry);
     // A version-1 snapshot keeps 0.10.2 semantics: Claude's activity is not Codex's, and it does not
@@ -323,7 +323,7 @@ export async function createService(options = {}) {
       mergeClaude(result, { skills: [], plugins: [], marketplaces: [], diagnostics: [] }); result.agents = [];
     }
     result.durationMs = Math.round(performance.now() - started);
-    if (result.durationMs >= (options.slowSnapshotMs ?? SLOW_SNAPSHOT_MS)) log(`${now()} 读取清单用时 ${result.durationMs} ms：${Object.entries(timing).map(([part, ms]) => `${part} ${ms}`).join('，')}，其余 ${result.durationMs - Object.values(timing).reduce((sum, ms) => sum + ms, 0)}。`);
+    if (result.durationMs >= (options.slowSnapshotMs ?? SLOW_SNAPSHOT_MS)) log(`${now()} 读取清单用时 ${result.durationMs} ms：${Object.entries(timing).map(([part, ms]) => `${part} ${ms}`).join('，')}，其余 ${result.durationMs - Object.values(timing).reduce((sum, ms) => sum + ms, 0)}。${catalogTime !== listedAt && catalogParts ? `codex-list 之内：${Object.entries(catalogParts).map(([part, ms]) => `${part} ${ms}`).join('，')}。` : ''}`);
     return result;
   }
   // The Claude catalog for multi-agent snapshots, kept for 15 seconds like the Codex one.
@@ -590,7 +590,7 @@ export async function createService(options = {}) {
         if ((await fs.lstat(directory)).isSymbolicLink() || await exists(path.join(directory, '.git'))) fail(422, 'GIT_OWNER_MANAGED', '链接或 Git 仓库根由原所有者管理；请选择独立技能副本关联来源。');
         const current = await inspectTree(directory); const staged = await stageSource(env, request); const id = crypto.randomUUID();
         previews.set(id, { ...staged, id, mode: env.mode, kind: 'source-link', ...side.tag, target: directory, skillId: record.id, baseline: current.fingerprint, installedFiles: current.entries, targetBoundary: await captureDirectoryRoot(directory), created: previewNow() });
-        return { early: { message: '请确认来源与本机差异；关联本身不会替换内容。', ...side.tag, sourcePreview: { id, skillId: record.id, name: record.name, source: staged.source, subpath: staged.subpath, ref: staged.ref, commit: staged.commit, target: record.path, matchesInstalled: current.fingerprint === staged.tree.fingerprint, changes: diffFiles(current.entries, staged.tree.entries) } } };
+        return { early: { message: '请确认来源与本机差异；关联本身不会替换内容。', ...side.tag, sourcePreview: { id, skillId: record.id, name: record.name, source: staged.source, subpath: staged.subpath, ref: staged.ref, commit: staged.commit, target: record.path, matchesInstalled: contentFingerprint(current.entries) === contentFingerprint(staged.tree.entries), changes: diffFiles(withoutFinderFiles(current.entries), withoutFinderFiles(staged.tree.entries)) } } };
       }
       case 'skill.connectSource': {
         const preview = await assertPreview(env, request.previewId, 'source-link', side.agent);
@@ -619,14 +619,13 @@ export async function createService(options = {}) {
       }
       case 'skill.checkUpdate': {
         const { record, directory, key } = await side.record(request.id, 'canUpdate'); const source = sources[key];
-        // Compared with the record, and with the source, without Finder's files the record did not have;
+        // Compared with the record, and with the source, without Finder's files on any side (HLD 3.3A);
         // the preview still binds what is on disk, so the update and its restore see every file.
         // A record without its file list is compared as it is: there is no telling which files it had (71 IF3-P3-03).
-        const onDisk = await inspectTree(directory); const current = source.files ? withoutFinderFiles(onDisk, source.files) : onDisk;
-        if (current.fingerprint !== source.fingerprint) fail(409, 'LOCAL_CHANGES', '已安装技能有本地修改；请先保留或整理修改，不能自动覆盖。');
+        const onDisk = await inspectTree(directory);
+        if (source.files ? contentFingerprint(onDisk.entries) !== contentFingerprint(source.files) : onDisk.fingerprint !== source.fingerprint) fail(409, 'LOCAL_CHANGES', '已安装技能有本地修改；请先保留或整理修改，不能自动覆盖。');
         // A skills-directory plugin's source is a plugin directory, not a skill (phase 5a).
-        // Nothing to update either when the source holds exactly what is on disk, Finder's file included.
-        const staged = await stageSource(env, source, record.plugin ? 'claude-plugin' : 'skill'); const changes = staged.tree.fingerprint === onDisk.fingerprint ? [] : diffFiles(current.entries, staged.tree.entries); const id = crypto.randomUUID();
+        const staged = await stageSource(env, source, record.plugin ? 'claude-plugin' : 'skill'); const changes = diffFiles(withoutFinderFiles(onDisk.entries), withoutFinderFiles(staged.tree.entries)); const id = crypto.randomUUID();
         if (changes.length) previews.set(id, { ...staged, id, mode: env.mode, kind: 'update', ...side.tag, target: directory, skillId: record.id, baseline: onDisk.fingerprint, sourceIdentity: JSON.stringify(source), targetBoundary: await captureDirectoryRoot(directory), created: previewNow() });
         else await removeStaging(env, staged.staging);
         return { early: { message: changes.length ? '发现来源变化，请检查文件列表。' : '当前内容与来源一致。', ...side.tag, update: { id, skillId: record.id, name: record.name, available: changes.length > 0, changes, message: changes.length ? `${changes.length} 个文件有变化；更新前会保留旧版本。` : '当前内容与来源一致。' } } };
@@ -680,7 +679,12 @@ export async function createService(options = {}) {
           await move(entry.backup, entry.directory, boundaries); undo.push(async () => { await move(entry.directory, entry.backup, boundaries); });
         } else {
           boundaries = await side.restorePlace(entry);
-          if (!(await exists(entry.directory)) || await objectFingerprint(entry.directory) !== entry.expectedFingerprint) fail(409, 'LOCAL_CHANGES', '更新后的技能有新的修改，不能覆盖恢复。');
+          // What the update installed, Finder's files apart: by the file list of the record that update wrote (HLD 3.3A).
+          const written = sources[await side.restoreKey(entry)];
+          const unchanged = await exists(entry.directory) && (await objectFingerprint(entry.directory) === entry.expectedFingerprint
+            || !!written?.files && written.fingerprint === entry.expectedFingerprint && !(await fs.lstat(entry.directory)).isSymbolicLink()
+              && contentFingerprint((await inspectTree(entry.directory)).entries) === contentFingerprint(written.files));
+          if (!unchanged) fail(409, 'LOCAL_CHANGES', '更新后的技能有新的修改，不能覆盖恢复。');
           const discarded = path.join(env.root, 'quarantine', `${activityId}-replaced`);
           await move(entry.directory, discarded, boundaries); undo.push(async () => { if (!(await exists(entry.directory))) await move(discarded, entry.directory, boundaries); });
           await move(entry.backup, entry.directory, boundaries); undo.push(async () => { await move(entry.directory, entry.backup, boundaries); });
@@ -1701,7 +1705,8 @@ export async function createService(options = {}) {
             target = plugin.displayName || plugin.name;
             try { await adapter.command(['plugin', 'add', plugin.id, '--json'], { mutation: true }); }
             catch (error) { throw new AppError(error.status || 502, 'REMOTE_INSTALL_UNCONFIRMED', '安装结果尚未确认。请先刷新安装状态，必要时完成官方授权，再决定是否重试。'); }
-            const readback = await adapter.list(); cachedCatalog = readback; catalogTime = Date.now();
+            // The result says whether the app is connected: not from an expired app directory (77 C13-P3-02).
+            const readback = await adapter.list({ fresh: true }); cachedCatalog = readback; catalogTime = Date.now();
             const installed = readback.plugins.find(item => item.id === plugin.id);
             if (!listCovers(readback, 'plugins', plugin.id) || !installed?.directory) fail(502, 'READBACK_FAILED', 'CLI 操作已返回，但无法确认安装终态；请刷新官方清单后再操作。');
             pluginCatalogPreviews.delete(request.previewId);
@@ -1822,7 +1827,14 @@ export async function createService(options = {}) {
     const urls = plugin._remoteIcon;
     return { data: await directoryIcons.get(theme === 'dark' ? urls?.dark || urls?.light : urls?.light || urls?.dark) };
   }
-  async function targetSignature(mode, target, current) {
+  // The content a plan binds: a skill's, and a skills-directory plugin's, without Finder's files (HLD 3.3A);
+  // a Codex plugin's as it is, like its baseline. `finderFiles` counts them, as bindings before 0.11.2 did.
+  async function boundContent(route, directory, finderFiles) {
+    if (!['plugin-reinstall', 'skill-source', 'plugin-files'].includes(route)) return {};
+    const tree = await inspectTree(directory);
+    return { fingerprint: route === 'plugin-reinstall' || finderFiles ? tree.fingerprint : contentFingerprint(tree.entries) };
+  }
+  async function targetSignature(mode, target, current, { finderFiles = false } = {}) {
     const env = environment(mode); current ||= await schedulerSnapshot(mode); const registry = await registryFor(env);
     const item = current.updates.find(candidate => targetKey(candidate.target) === targetKey(target));
     if (!item) fail(404, 'NOT_FOUND', '更新目标不存在。');
@@ -1870,7 +1882,7 @@ export async function createService(options = {}) {
     }
     // Bind content by the supported update route, not whether today's check
     // found an applicable version. A "current" result must not change identity.
-    return { target, sourceIdentity, real, dev: String(stat.dev), ino: String(stat.ino), ...(generation ? { generation } : {}), ...(['plugin-reinstall', 'skill-source', 'plugin-files'].includes(item.route) ? { fingerprint: (await inspectTree(directory)).fingerprint } : {}) };
+    return { target, sourceIdentity, real, dev: String(stat.dev), ino: String(stat.ino), ...(generation ? { generation } : {}), ...(await boundContent(item.route, directory, finderFiles)) };
   }
   // Plans see Claude's objects while Claude is managed; otherwise the 0.10.2 snapshot (MR-SDX-001),
   // where a Claude target pauses before it is looked up (HLD 3.8).

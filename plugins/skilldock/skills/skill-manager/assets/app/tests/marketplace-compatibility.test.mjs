@@ -170,6 +170,8 @@ test('a Codex marketplace pinned to a ref says so, cleaned and bounded; one that
   const refs = (await adapter.list()).marketplaces.map(market => [Object.hasOwn(market, 'ref'), market.ref]);
   assert.deepEqual(refs.slice(0, 4), [[true, 'feature/x'], [false, undefined], [false, undefined], [false, undefined]]);
   assert.deepEqual([refs[4][1].length, refs[4][1].startsWith('abccc')], [200, true], '去掉控制字符并限长');
+  // Each read of the list is timed for the log of a slow snapshot; the app directory only when it is asked.
+  assert.deepEqual([Object.keys(adapter.timing), Object.values(adapter.timing).every(ms => Number.isInteger(ms) && ms >= 0)], [['plugin-list', 'marketplace-list'], true]);
 });
 
 test('CLI catalog rediscovery retains nonfatal warnings for both available and installed plugins', async t => {

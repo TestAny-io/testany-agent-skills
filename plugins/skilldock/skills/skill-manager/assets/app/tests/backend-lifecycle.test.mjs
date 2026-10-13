@@ -77,51 +77,99 @@ test('updates reject local changes and recovery rejects occupied targets and mod
   assert.equal((await service.snapshot('sandbox')).activity[0].status, 'error');
 });
 
-test('Finder\'s .DS_Store beside a recorded skill is not a local change; one the record has, or any other file, still is (HLD 3.3A; Owner 2026-10-12)', async t => {
-  const { service } = await fixture(t); const state = await service.snapshot('sandbox'); const writing = state.skills.find(s => s.canUpdate);
+test('a restore is checked against the record its own update wrote: a source linked later does not vouch for the edits before it', async t => {
+  const { service } = await fixture(t); const state = await service.snapshot('sandbox'); const writing = state.skills.find(s => s.canUpdate); const directory = path.dirname(writing.path);
+  await act(service, 'skill.update', { id: writing.id, previewId: (await act(service, 'skill.checkUpdate', { id: writing.id })).update.id });
+  const applied = (await service.snapshot('sandbox')).activity.find(entry => entry.action === 'skill.update' && entry.status === 'success');
+  await fs.writeFile(path.join(directory, 'mine.txt'), 'mine'); await fs.writeFile(path.join(directory, '.DS_Store'), 'finder');
+  const linked = (await act(service, 'skill.previewSource', { id: writing.id, sourceType: 'local', source: state.examples.legacySource })).sourcePreview;
+  await act(service, 'skill.connectSource', { id: writing.id, previewId: linked.id });
+  await assert.rejects(act(service, 'activity.restore', { id: applied.id }), { code: 'LOCAL_CHANGES' });
+  assert.equal(await fs.readFile(path.join(directory, 'mine.txt'), 'utf8'), 'mine');
+});
+
+test('a restore does not take a link to the same content for what the update installed (75 C12-P3-06 R2)', async t => {
+  const { service } = await fixture(t); const state = await service.snapshot('sandbox'); const writing = state.skills.find(s => s.canUpdate); const directory = path.dirname(writing.path);
+  await act(service, 'skill.update', { id: writing.id, previewId: (await act(service, 'skill.checkUpdate', { id: writing.id })).update.id });
+  const applied = (await service.snapshot('sandbox')).activity.find(entry => entry.action === 'skill.update' && entry.status === 'success');
+  const held = `${directory}-held`; await fs.rename(directory, held); await fs.symlink(held, directory);
+  await assert.rejects(act(service, 'activity.restore', { id: applied.id }), { code: 'LOCAL_CHANGES' });
+  assert.equal((await fs.lstat(directory)).isSymbolicLink(), true);
+});
+
+test('.DS_Store is never a standalone skill\'s content: no local change, no update, no bar to a restore; any other file still is (HLD 3.3A; Owner 2026-10-12, widened in 0.11.2)', async t => {
+  const { service, root } = await fixture(t); const state = await service.snapshot('sandbox'); const writing = state.skills.find(s => s.canUpdate);
   const directory = path.dirname(writing.path);
-  const clean = (await act(service, 'skill.checkUpdate', { id: writing.id })).update;
+  const check = async id => (await act(service, 'skill.checkUpdate', { id })).update;
+  const clean = await check(writing.id);
   assert.ok(clean.available);
   // Finder showed the folder and one inside it.
   await fs.writeFile(path.join(directory, '.DS_Store'), 'finder'); await fs.mkdir(path.join(directory, 'shown')); await fs.writeFile(path.join(directory, 'shown/.DS_Store'), 'finder');
-  const offered = (await act(service, 'skill.checkUpdate', { id: writing.id })).update;
+  const offered = await check(writing.id);
   assert.deepEqual(offered.changes, clean.changes, '访达的文件不进差异');
   // The update applies to what is on disk, and its restore brings every file back.
   await act(service, 'skill.update', { id: writing.id, previewId: offered.id });
   assert.equal(await fs.stat(path.join(directory, '.DS_Store')).catch(() => null), null);
-  assert.equal((await act(service, 'skill.checkUpdate', { id: writing.id })).update.available, false);
-  await fs.writeFile(path.join(directory, '.DS_Store'), 'finder again');
-  assert.equal((await act(service, 'skill.checkUpdate', { id: writing.id })).update.available, false, '来源没有变化时不产生只为删掉它的更新');
-  await fs.rm(path.join(directory, '.DS_Store'));
+  assert.equal((await check(writing.id)).available, false);
   const applied = (await service.snapshot('sandbox')).activity.find(entry => entry.action === 'skill.update' && entry.status === 'success');
+  // A file of the user's after the update bars the restore; Finder's does not (72 D29-P3-02).
+  await fs.writeFile(path.join(directory, 'mine.txt'), 'mine');
+  await assert.rejects(act(service, 'activity.restore', { id: applied.id }), { code: 'LOCAL_CHANGES' });
+  await fs.rm(path.join(directory, 'mine.txt'));
+  await fs.writeFile(path.join(directory, '.DS_Store'), 'finder again');
+  assert.equal((await check(writing.id)).available, false, '来源没有变化时不产生只为删掉它的更新');
   await act(service, 'activity.restore', { id: applied.id });
   assert.deepEqual([await fs.readFile(path.join(directory, '.DS_Store'), 'utf8'), await fs.readFile(path.join(directory, 'shown/.DS_Store'), 'utf8')], ['finder', 'finder']);
-  assert.ok((await act(service, 'skill.checkUpdate', { id: writing.id })).update.available, '恢复后仍按记录比较');
+  assert.ok((await check(writing.id)).available, '恢复后仍按记录比较');
   // Anything else beside it is a local change as before.
   await fs.writeFile(path.join(directory, 'mine.txt'), 'mine');
-  await assert.rejects(act(service, 'skill.checkUpdate', { id: writing.id }), { code: 'LOCAL_CHANGES' });
+  await assert.rejects(check(writing.id), { code: 'LOCAL_CHANGES' });
   await fs.rm(path.join(directory, 'mine.txt'));
-  // Only Finder's own file: one whose name merely ends alike, or a folder of that name, is content (71 F3, F9).
-  for (const stray of ['x.DS_Store', 'kept/.DS_Store/inside.txt']) {
+  // Only Finder's own file: one whose name merely ends or begins alike, or a folder of that name, is content (71 F3, F9; 73 F9b).
+  for (const stray of ['x.DS_Store', 'kept/.DS_Store/inside.txt', '.DS_Store-kept', '.DS_Store-kept-too/inside.txt']) {
     await fs.mkdir(path.dirname(path.join(directory, stray)), { recursive: true }); await fs.writeFile(path.join(directory, stray), 'mine');
-    await assert.rejects(act(service, 'skill.checkUpdate', { id: writing.id }), { code: 'LOCAL_CHANGES' }, stray);
+    await assert.rejects(check(writing.id), { code: 'LOCAL_CHANGES' }, stray);
     await fs.rm(path.join(directory, stray.split('/')[0]), { recursive: true });
   }
-  // A `.DS_Store` that came with the source is recorded content: changing or removing it is a local change.
+  // One that came with the source is in the record, and is no more content than the others: rewritten or
+  // removed in the installation, it is neither a local change nor an update.
   const source = state.examples.skillSource; await fs.writeFile(path.join(source, '.DS_Store'), 'from the source');
   const preview = (await act(service, 'skill.previewInstall', { sourceType: 'local', source })).preview;
   await act(service, 'skill.install', { previewId: preview.id });
   const installed = (await service.snapshot('sandbox')).skills.find(skill => skill.path === path.join(preview.target, 'SKILL.md'));
-  assert.equal((await act(service, 'skill.checkUpdate', { id: installed.id })).update.available, false);
+  assert.equal((await check(installed.id)).available, false);
   await fs.writeFile(path.join(preview.target, '.DS_Store'), 'rewritten');
-  await assert.rejects(act(service, 'skill.checkUpdate', { id: installed.id }), { code: 'LOCAL_CHANGES' });
+  assert.equal((await check(installed.id)).available, false);
   await fs.rm(path.join(preview.target, '.DS_Store'));
-  await assert.rejects(act(service, 'skill.checkUpdate', { id: installed.id }), { code: 'LOCAL_CHANGES' });
-  // The source and the installation each gained the same Finder file: nothing to update, rather than an update that
-  // applying then refuses (71 IF3-P3-03).
-  await fs.writeFile(path.join(preview.target, '.DS_Store'), 'from the source'); await fs.mkdir(path.join(source, 'shown')); await fs.mkdir(path.join(preview.target, 'shown'));
-  await fs.writeFile(path.join(source, 'shown/.DS_Store'), 'same bytes'); await fs.writeFile(path.join(preview.target, 'shown/.DS_Store'), 'same bytes');
-  assert.equal((await act(service, 'skill.checkUpdate', { id: installed.id })).update.available, false);
+  assert.equal((await check(installed.id)).available, false);
+  // Finder showing the source folder is not a new version of the skill (74 D30-P3-03).
+  await fs.writeFile(path.join(source, '.DS_Store'), 'rewritten in the source'); await fs.mkdir(path.join(source, 'shown')); await fs.writeFile(path.join(source, 'shown/.DS_Store'), 'finder');
+  assert.equal((await check(installed.id)).available, false);
+  // A real change in the source is offered without them.
+  await fs.writeFile(path.join(source, 'added.md'), 'new');
+  assert.deepEqual((await check(installed.id)).changes, [{ path: 'added.md', type: 'added' }]);
+  // A record without its file list is compared as it is: there is no telling which files it had (71 IF3-P3-03; 73 N8).
+  // The one it counted, untouched, is no change; another appearing is one, Finder's or not.
+  const file = path.join(root, 'state/sandbox/registry.json'); const registry = JSON.parse(await fs.readFile(file, 'utf8'));
+  assert.ok(registry.sources[installed.id].files['.DS_Store']); delete registry.sources[installed.id].files; await fs.writeFile(file, JSON.stringify(registry));
+  await fs.writeFile(path.join(preview.target, '.DS_Store'), 'from the source');
+  assert.deepEqual((await check(installed.id)).changes, [{ path: 'added.md', type: 'added' }]);
+  await fs.mkdir(path.join(preview.target, 'shown')); await fs.writeFile(path.join(preview.target, 'shown/.DS_Store'), 'finder');
+  await assert.rejects(check(installed.id), { code: 'LOCAL_CHANGES' });
+});
+
+test('linking a source compares content without .DS_Store, as the check after it does; what appears after the preview still stops it (75 C12-P3-04)', async t => {
+  const { service } = await fixture(t); const state = await service.snapshot('sandbox'); const plain = state.skills.find(skill => skill.name === 'api-notes'); const directory = path.dirname(plain.path);
+  const same = path.join(service.environments.sandbox.root, 'sources/same-as-installed'); await fs.cp(directory, same, { recursive: true });
+  await fs.writeFile(path.join(directory, '.DS_Store'), 'finder'); await fs.mkdir(path.join(same, 'shown')); await fs.writeFile(path.join(same, 'shown/.DS_Store'), 'finder');
+  const preview = async () => (await act(service, 'skill.previewSource', { id: plain.id, sourceType: 'local', source: same })).sourcePreview;
+  let linked = await preview(); assert.deepEqual([linked.matchesInstalled, linked.changes], [true, []]);
+  await fs.writeFile(path.join(same, 'more.md'), 'new'); linked = await preview();
+  assert.deepEqual([linked.matchesInstalled, linked.changes], [false, [{ path: 'more.md', type: 'added' }]]);
+  await fs.writeFile(path.join(directory, '.DS_Store'), 'finder again');
+  await assert.rejects(act(service, 'skill.connectSource', { id: plain.id, previewId: linked.id }), { code: 'LOCAL_CHANGES' });
+  await act(service, 'skill.connectSource', { id: plain.id, previewId: (await preview()).id });
+  assert.deepEqual((await act(service, 'skill.checkUpdate', { id: plain.id })).update.changes, [{ path: 'more.md', type: 'added' }]);
 });
 
 test('Git source installs a resolved commit from an isolated local repository', async t => {

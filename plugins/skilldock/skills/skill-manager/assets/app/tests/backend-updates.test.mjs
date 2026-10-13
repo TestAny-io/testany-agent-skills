@@ -110,6 +110,38 @@ test('scheduler persists static bindings, runs while no browser exists, skips re
   assert.equal(state.schedule.targets.length, 1);
 });
 
+test('Finder\'s .DS_Store does not unbind a planned skill, a binding saved while it was counted is kept, and other content still unbinds (HLD 3.3A, 0.11.2)', async t => {
+  let time = Date.parse('2026-09-14T00:00:00Z'); const { service, options, root } = await fixture(t, { now: () => time });
+  const writing = (await service.snapshot('sandbox')).skills.find(s => s.name === 'writing-assistant'); const directory = path.dirname(writing.path);
+  const file = path.join(root, 'state/sandbox/updates.json'), key = `skill:${writing.id}`; let running = service;
+  const due = async () => { time += 16 * 60000; await running.tickScheduler(); return (await running.snapshot('sandbox')).updateRuns[0].items[0]; };
+  await act(service, 'schedule.configure', { schedule: schedule([skillTarget(writing)], { autoApply: false }) });
+  const saved = (await readJson(file)).bindings[key];
+  // Finder shows the folder after the plan was saved: the plan goes on.
+  await fs.writeFile(path.join(directory, '.DS_Store'), 'finder');
+  assert.equal((await due()).status, 'available'); assert.deepEqual((await readJson(file)).bindings[key], saved);
+  // A plan saved before 0.11.2 while the file was there counted it: same directory, same files, same binding.
+  await service.close(); const state = await readJson(file);
+  state.bindings[key] = { ...saved, fingerprint: (await inspectTree(directory)).fingerprint }; assert.notEqual(state.bindings[key].fingerprint, saved.fingerprint); await writeJson(file, state);
+  running = await createService(options); t.after(() => running.close());
+  assert.equal((await due()).status, 'available'); assert.deepEqual((await readJson(file)).bindings[key], saved, '此后按不计访达文件的写法保存');
+  await fs.mkdir(path.join(directory, 'shown')); await fs.writeFile(path.join(directory, 'shown/.DS_Store'), 'finder');
+  assert.equal((await due()).status, 'available');
+  // A binding that counted one Finder file does not cover another's content.
+  state.bindings[key] = { ...saved, fingerprint: 'another' }; await running.close(); await writeJson(file, state); running = await createService(options); t.after(() => running.close());
+  assert.equal((await due()).reasonCode, 'TARGET_BINDING_CHANGED');
+  await act(running, 'schedule.configure', { schedule: schedule([skillTarget(writing)], { autoApply: false }) });
+  assert.deepEqual((await readJson(file)).bindings[key], saved, '重新选择后按新写法绑定');
+  await fs.writeFile(path.join(directory, 'mine.txt'), 'mine');
+  assert.equal((await due()).reasonCode, 'TARGET_BINDING_CHANGED');
+  // An update by hand keeps the plan of a binding that counted Finder's files, as a run does (75 C12-P3-06 S12).
+  await fs.rm(path.join(directory, 'mine.txt'));
+  state.bindings[key] = { ...saved, fingerprint: (await inspectTree(directory)).fingerprint }; await running.close(); await writeJson(file, state); running = await createService(options); t.after(() => running.close());
+  const checked = (await act(running, 'update.check', { target: skillTarget(writing) })).updateItem; assert.equal(checked.status, 'available');
+  await act(running, 'update.apply', { target: skillTarget(writing), previewId: checked.previewId });
+  assert.equal((await due()).status, 'current');
+});
+
 test('failed schedule persistence cannot enable a latent plan when the obstacle is removed', async t => {
   let time = Date.now(); const { service } = await fixture(t, { now: () => time }); const env = service.environments.sandbox;
   const writing = (await service.snapshot('sandbox')).skills.find(s => s.canUpdate); const before = await inspectTree(path.dirname(writing.path));

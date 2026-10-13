@@ -319,6 +319,10 @@
     "en": "The externally synchronized plugin was verified and its existing schedule binding was restored.",
     "ja": "外部で同期されたプラグインを検証し、既存の更新スケジュールの関連付けを復元しました。"
   },
+  "插件已由 Codex 自行更新，装入的版本和内容与来源一致；原定时计划继续生效。": {
+    "en": "Codex updated this plugin itself, and the installed version and content match the source. The existing schedule stays in effect.",
+    "ja": "Codex がこのプラグインを更新しました。インストールされたバージョンと内容は配布元と一致しており、既存のスケジュールは引き続き有効です。"
+  },
   "已核实插件外部同步，安装版本和内容与来源一致；已恢复检查基线，未修改安装文件。": {
     "en": "External synchronization was verified: the installed version and contents match the source. The check baseline was restored without changing installed files.",
     "ja": "外部同期を検証しました。インストール済みのバージョンと内容が更新元と一致しています。ファイルを変更せず、確認用の基準を復元しました。"
@@ -1134,6 +1138,18 @@
   "所属插件的启用状态尚未核实；这个技能随所属插件一起启用或停用。": {
     "en": "The parent plugin's enabled state is not verified yet; this skill is enabled or disabled with its plugin.",
     "ja": "親プラグインの有効状態はまだ確認できていません。このスキルはプラグインと一緒に有効・無効になります。"
+  },
+  "Claude 报告所属插件有加载问题（见插件详情），这个技能是否可用以 Claude 为准；它随所属插件一起启用或停用。": {
+    "en": "Claude reports a problem loading the plugin this skill belongs to (see the plugin's details). Whether the skill is available is up to Claude; it is enabled or disabled together with its plugin.",
+    "ja": "Claude はこのスキルが属するプラグインの読み込みに問題があると報告しています（プラグインの詳細を参照）。このスキルが使えるかどうかは Claude の判断によります。有効・無効はプラグインと一緒に切り替わります。"
+  },
+  "Claude 报告这个插件有加载问题：{v0}": {
+    "en": "Claude reports a problem loading this plugin: {v0}",
+    "ja": "Claude はこのプラグインの読み込みに問題があると報告しています：{v0}"
+  },
+  "Claude 报告了加载问题，其中的技能是否可用以 Claude 为准。{v0}": {
+    "en": "Claude reports a problem loading it; whether its skills are available is up to Claude. {v0}",
+    "ja": "Claude は読み込みに問題があると報告しています。含まれるスキルが使えるかどうかは Claude の判断によります。{v0}"
   },
   "所属插件已停用；启用插件后其中的技能才可用。": {
     "en": "The parent plugin is disabled; its skills are available once the plugin is enabled.",

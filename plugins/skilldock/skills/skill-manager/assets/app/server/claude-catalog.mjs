@@ -136,6 +136,21 @@ async function readManifest(directory) {
 const PLUGIN_SKILL = 'Claude 插件自带的技能随所属插件一起启用或停用，不能单独开关；更新和卸载按所属插件进行。';
 const PLUGIN_OFF = '所属插件已停用；启用插件后其中的技能才可用。';
 const PLUGIN_UNKNOWN = '所属插件的启用状态尚未核实；这个技能随所属插件一起启用或停用。';
+const PLUGIN_ISSUE = 'Claude 报告所属插件有加载问题（见插件详情），这个技能是否可用以 Claude 为准；它随所属插件一起启用或停用。';
+
+/**
+ * What Claude's list says went wrong loading a plugin, in its words (`errors`; 2.1.295), as the plugin's
+ * warnings. It does not tell a plugin that loaded nothing (its manifests conflict) from one that loaded
+ * the rest (a declared path failed), and neither does this: skills stay listed, with the report beside
+ * them (73 IF4-P3-03; 9.3 V24).
+ */
+function loadIssues(item, diagnostics) {
+  const issues = (Array.isArray(item?.errors) ? item.errors : []).filter(value => typeof value === 'string' && value.trim()).slice(0, 3)
+    .map(value => redact(value.replace(/\p{C}/gu, ' ').trim().slice(0, 300)));
+  if (!issues.length) return {};
+  diagnostics.push(`插件 ${item.id}：Claude 报告了加载问题，其中的技能是否可用以 Claude 为准。${issues[0]}`);
+  return { warnings: issues.map(issue => `Claude 报告这个插件有加载问题：${issue}`) };
+}
 
 /** Skill paths a manifest or an entry declares: `.` or `./…`, one or several; anything else is not a path Claude takes. */
 const declaredPaths = value => (typeof value === 'string' ? [value] : Array.isArray(value) ? value : []).filter(item => typeof item === 'string' && (item === '.' || item.startsWith('./')));
@@ -145,22 +160,27 @@ const rootSource = entry => typeof entry?.source === 'string' && path.normalize(
 /**
  * Where Claude looks for an installed plugin's skills (Plugins reference; 9.3 V23): the default
  * `skills/`, and besides it what the Claude manifest and the marketplace entry declare. One exception:
- * an entry whose source is the marketplace root and which lists particular directories that exist
- * ships exactly those. A root is a skill, or a directory of skills; nothing outside the installation counts.
+ * an entry whose source is the marketplace root and which lists at least one directory that exists
+ * ships exactly those it lists, whatever the root's own manifest declares, with the default directory
+ * only beside the root itself. A root is a skill, or a directory of skills; nothing outside the installation counts.
  */
 async function skillFolders(directory, manifest, entry, atMarketRoot, diagnostics) {
   const base = await fs.realpath(directory);
   const within = async location => { try { return inside(base, await fs.realpath(location)); } catch { return false; } };
   const listed = declaredPaths(entry.skills);
   let paths = ['skills', ...declaredPaths(manifest?.skills), ...listed];
-  if (atMarketRoot && listed.length && !listed.some(value => ['.', './skills'].includes(value.replace(/\/+$/, '') || '.'))) {
+  if (atMarketRoot && listed.length) {
     // Directories only: an entry that lists a file names no directory, and the default applies (71 IF3-P3-02).
     const existing = [];
     for (const value of listed) {
       const location = path.resolve(base, value);
       if (inside(base, location) && await within(location) && (await fs.stat(location).catch(() => null))?.isDirectory()) existing.push(value);
     }
-    if (existing.length) paths = existing;
+    // Then the root's own manifest adds nothing; the default directory stays only beside the root itself
+    // (73 IF4-P3-01). Listed itself or kept beside the root, Claude reads it before the rest, so a skill
+    // inside it that is also listed goes by its folder's name (75 C12-P3-01).
+    const first = [base, path.join(base, 'skills')];
+    if (existing.length) paths = [...(existing.some(value => first.includes(path.resolve(base, value))) ? ['skills'] : []), ...existing];
   }
   const folders = [];
   // A skill is a folder whose SKILL.md lies inside the installation, also by its real path. `direct`: the
@@ -214,7 +234,7 @@ async function pluginSkills(plugin, directory, diagnostics, listed, read) {
     }
     read.set(key, found);
   }
-  const reason = plugin.enabled === false ? PLUGIN_OFF : plugin.enabled === null ? PLUGIN_UNKNOWN : PLUGIN_SKILL;
+  const reason = plugin.enabled === false ? PLUGIN_OFF : plugin.enabled === null ? PLUGIN_UNKNOWN : plugin.warnings?.length ? PLUGIN_ISSUE : PLUGIN_SKILL;
   // Listed whatever its frontmatter holds, as Claude loads it (9.3 V23).
   const skills = read.get(key).map(({ folder, name, real, isLink, updatedAt, description }) => ({
     agents: ['claude'], id: claudeIds.pluginSkill(plugin.id, folder), name, description, path: path.join(folder, 'SKILL.md'), realPath: real,
@@ -356,6 +376,7 @@ export async function claudeCatalog({ claudeRoot, project, cli, env = process.en
       installation, enablement: source, manifests, ...(synced ? { protection: 'synced' } : source.locked || item.scope === 'managed' ? { protection: 'managed' } : {}),
       canInstall: false, canRemove: !blocked, canToggle: !toggleReason,
       ...(blocked ?? toggleReason ? { reason: blocked ?? toggleReason } : {}),
+      ...loadIssues(item, diagnostics),
       revision: revision({ id: item.id, scope: item.scope, projectPath, version: item.version, enabled, source }),
     });
   }
@@ -378,7 +399,8 @@ export async function claudeCatalog({ claudeRoot, project, cli, env = process.en
       version: typeof manifest.version === 'string' ? manifest.version : undefined, installed: true, enabled: listed ? listed.enabled : null, skillCount: 0,
       installedPath: directory, realPath: await fs.realpath(directory).catch(() => directory), installation: { scope, skillsDir: path.dirname(directory) }, enablement: source,
       manifests: ['claude', ...(await exists(path.join(directory, '.codex-plugin/plugin.json')) ? ['codex'] : [])].sort(),
-      canInstall: false, canRemove: removable, canToggle: !toggleReason, ...(toggleReason ?? (removable ? undefined : SKILLS_DIR_REMOVAL) ? { reason: toggleReason ?? SKILLS_DIR_REMOVAL } : {}), revision: revision({ id, directory, enabled: listed?.enabled, source }) });
+      canInstall: false, canRemove: removable, canToggle: !toggleReason, ...(toggleReason ?? (removable ? undefined : SKILLS_DIR_REMOVAL) ? { reason: toggleReason ?? SKILLS_DIR_REMOVAL } : {}),
+      ...loadIssues(listed, diagnostics), revision: revision({ id, directory, enabled: listed?.enabled, source }) });
   }
   const marketplaces = []; const available = []; const copies = {}; const entries = new Map();
   // Installed in any scope, by the command line or Claude's own record (which also lists

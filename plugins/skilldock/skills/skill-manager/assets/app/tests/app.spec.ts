@@ -254,6 +254,12 @@ test('with two Agents, every page counts what the filter shows, and a side that 
   await counts('技能', 2); await expect(category('全部技能')).toHaveText(/全部技能\s*2$/);
   await expect(page.locator('.skill-card')).toHaveCount(2);
   await expect(page.getByRole('switch', { name: '禁用 kit-skill', exact: true })).toBeDisabled();
+  // Not the user's to switch: grey, which a switch merely waiting for another action is not (UAT 2026-10-13).
+  await expect(page.getByRole('switch', { name: '禁用 kit-skill', exact: true })).toHaveClass(/is-locked/);
+  await expect(page.getByRole('switch', { name: '禁用 kit-skill', exact: true })).toHaveCSS('filter', 'grayscale(1)');
+  await filter('全部').click();
+  await expect(page.getByRole('switch', { name: '禁用 design-review', exact: true })).not.toHaveClass(/is-locked/);
+  await filter('Claude').click();
   // Neither is a standalone skill, and neither needs attention of its own.
   await expect(category('状态待确认')).toHaveText(/状态待确认\s*0$/); await expect(page.locator('.skill-reason-attention')).toHaveCount(0);
   await category('个人与项目').click();
@@ -282,6 +288,8 @@ test('with two Agents, every page counts what the filter shows, and a side that 
   await page.getByRole('button', { name: /^已安装/ }).click();
   await expect(card('kit')).toHaveCount(1); await expect(card('kit').locator('.skill-reason')).toHaveCount(0);
   await expect(card('held')).toHaveCount(1); await expect(card('held').locator('.skill-reason')).toHaveCount(0);
+  // Its switch is not the user's to turn either: grey on the plugin's card as on a skill's (75 C12-P3-06 U2).
+  await expect(card('held').getByRole('switch')).toHaveClass(/is-locked/);
   // The plugin's details list the skill it ships, as the library does.
   await page.getByRole('button', { name: '查看 kit 详情', exact: true }).click();
   await expect(page.locator('.install-components')).toContainText('附带技能（2）'); await expect(page.locator('.plugin-skill-list')).toContainText('kit-skill');

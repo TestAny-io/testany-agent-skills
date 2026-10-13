@@ -141,6 +141,69 @@ test('equal source content does not authorize a replaced installation directory'
   assert.deepEqual((await f.state()).bindings[f.key], binding);
 });
 
+// What Codex does when it updates a plugin itself: the source has moved on and the new version lands in
+// its own directory beside the old one (HLD 3.8, v1.36).
+async function codexInstalls(f, version, { keepOld = false } = {}) {
+  await writeJson(path.join(f.source, '.codex-plugin/plugin.json'), { name: 'example', version });
+  await fs.writeFile(path.join(f.source, 'tests/change.py'), `# ${version}\n`);
+  const next = path.join(path.dirname(f.installed), version); await fs.cp(f.source, next, { recursive: true });
+  if (!keepOld) await fs.rm(f.installed, { recursive: true });
+  Object.assign(f.plugin, { version, sourcePath: next });
+  return next;
+}
+
+for (const keepOld of [false, true]) test(`a plugin Codex itself moved to a higher version keeps its plan once it equals the source${keepOld ? ' (old directory kept)' : ''}`, async t => {
+  const f = await fixture(t, { git: true }); await f.configure(); const before = await f.state();
+  const next = await codexInstalls(f, '2.4.2', { keepOld }); await f.restart();
+  const run = await f.tick(); assert.equal(run.status, 'success'); assert.deepEqual([run.items[0].status, run.items[0].installedVersion], ['current', '2.4.2']);
+  const after = await f.state(), stat = await fs.stat(next), fingerprint = (await inspectTree(next)).fingerprint;
+  assert.deepEqual(after.bindings[f.key], { ...before.bindings[f.key], real: next, ino: String(stat.ino), fingerprint }, 'only the version directory and its content moved');
+  assert.deepEqual((await f.registry()).pluginBaselines[f.target.id], { version: '2.4.2', fingerprint });
+  const kept = ({ enabled, autoApply, intervalMinutes, timezone, targets }) => ({ enabled, autoApply, intervalMinutes, timezone, targets });
+  assert.deepEqual(kept(after.schedule), kept(before.schedule));
+  assert.deepEqual(after.activity.filter(item => item.action === 'schedule.reconcile').map(item => item.message), ['插件已由 Codex 自行更新，装入的版本和内容与来源一致；原定时计划继续生效。']);
+  assert.equal(f.commands.length, 1, 'verification reads the marketplace copy before any refresh');
+  const again = await f.tick(); assert.deepEqual([again.status, again.items[0].status], ['success', 'current']);
+});
+
+test('a manual check also repairs the plan of a plugin Codex itself moved to a higher version', async t => {
+  const f = await fixture(t); await f.configure(); const next = await codexInstalls(f, '2.4.2');
+  assert.equal((await f.check()).status, 'current');
+  assert.equal((await f.state()).bindings[f.key].real, next);
+  assert.deepEqual([(await f.tick()).items[0].status, f.commands.length], ['current', 0]);
+});
+
+test('a Codex plugin\'s binding counts every file, Finder\'s included, as its baseline does (HLD 3.3A; 75 C12-P3-06 B1)', async t => {
+  const f = await fixture(t, { git: true }); await f.configure(); const binding = (await f.state()).bindings[f.key];
+  await fs.writeFile(path.join(f.installed, '.DS_Store'), 'finder');
+  assert.equal((await f.tick()).items[0].reasonCode, 'TARGET_BINDING_CHANGED'); assert.deepEqual((await f.state()).bindings[f.key], binding);
+  await fs.rm(path.join(f.installed, '.DS_Store')); assert.equal((await f.tick()).items[0].status, 'current');
+});
+
+// Each of these leaves the plan asking for the target to be selected again, with nothing run or saved.
+for (const [name, change] of Object.entries({
+  'a lower version': async f => { await codexInstalls(f, '2.4.0'); },
+  'a version whose order cannot be shown': async f => { await codexInstalls(f, 'nightly'); },
+  'content that differs from the source': async f => { await fs.appendFile(path.join(await codexInstalls(f, '2.4.2'), 'tests/change.py'), '# local edit\n'); },
+  'a source that has moved further': async f => { await codexInstalls(f, '2.4.2'); await writeJson(path.join(f.source, '.codex-plugin/plugin.json'), { name: 'example', version: '2.4.3' }); },
+  'another marketplace source': async f => { await codexInstalls(f, '2.4.2'); f.market.source = 'https://example.invalid/replacement.git'; },
+  'a cache directory linked elsewhere': async f => {
+    const held = `${path.dirname(f.installed)}-elsewhere`; await fs.rename(path.dirname(f.installed), held); await fs.symlink(held, path.dirname(f.installed));
+    await codexInstalls(f, '2.4.2');
+  },
+  'another Codex directory': async f => {
+    const moved = `${f.codexHome}-moved`; await fs.rename(f.codexHome, moved);
+    f.installed = path.join(moved, path.relative(f.codexHome, f.installed)); f.options.codexHome = moved;
+    await codexInstalls(f, '2.4.2'); await f.restart();
+  },
+})) test(`a higher or different version does not keep the plan with ${name}`, async t => {
+  const f = await fixture(t, { git: true }); await f.configure(); const binding = (await f.state()).bindings[f.key], baseline = (await f.registry()).pluginBaselines[f.target.id];
+  await change(f);
+  assert.equal((await f.tick()).items[0].reasonCode, 'TARGET_BINDING_CHANGED'); assert.deepEqual(f.commands, []);
+  assert.deepEqual((await f.state()).bindings[f.key], binding); assert.deepEqual((await f.registry()).pluginBaselines[f.target.id], baseline);
+  assert.ok(!(await f.state()).activity.some(item => item.action === 'schedule.reconcile'));
+});
+
 for (const changed of ['source', 'installed']) test(`reconciliation stops if ${changed} content changes while equality is being verified`, async t => {
   const f = await fixture(t); await f.configure(); const baseline = (await f.registry()).pluginBaselines[f.target.id], binding = (await f.state()).bindings[f.key];
   await f.synchronize(); let raced = false;
