@@ -189,6 +189,14 @@
   - `testany-llm` 的命令列表和 plugin 描述改为仅保留 `prompt-optimizer`
   - 根 README、`AGENTS.md`、`CLAUDE.md` 不再引用已删除的 `skill-creator` 脚本与路径
 
+## [testany-eng 2.8.2] - 2026-10-23
+
+### 修复
+
+- code-writer / guide 区分已有 CLI/API/SOP 操作与真实源码/工具交付；普通排障交付事实与限制，不制造 reader、Candidate 或读取方法评审；真正源码修改保留原独立评审及授权边界。
+- 同步技能描述、命令与 UI 入口、README 和既有行为评估说明；公共包检查仅在使用公共脚本时触发，刷新 workflow-package 资源清单。
+- 本地独立源码评审及有限 A/B 行为验证通过；旧版也能正确执行普通查询和源码修复，不宣称总体提速、安装或真实 QA 验收。
+
 ## [skilldock 0.11.3] - 2026-10-13
 
 补丁版本：处理 0.11.2 发布当天在一台真机上遇到的一次故障，以及真机确认中发现的问题。数据格式不变，不需要迁移。

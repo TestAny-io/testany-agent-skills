@@ -3,4 +3,4 @@ interface:
   short_description: "Recommend the next project workflow skill"
   icon_small: "./assets/testany-logo-small.png"
   icon_large: "./assets/testany-logo.svg"
-  default_prompt: "Use $guide to distinguish formal design, bounded repair and implementation review, verify the scope authority, and recommend the smallest appropriate next step."
+  default_prompt: "Use $guide to distinguish existing-tool operations from design, implementation and review, verify the authorized scope, and recommend the smallest appropriate next step."

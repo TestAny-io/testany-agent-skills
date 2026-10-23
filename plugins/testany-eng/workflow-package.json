@@ -1,7 +1,7 @@
 {
   "schema_version": 1,
   "files": {
-    ".claude-plugin/plugin.json": "9439e8c452b1c9dae4fa13b333a490fb090c36898b7d7be4981fec207f5d1dc0",
+    ".claude-plugin/plugin.json": "fda0b3e3319d3baea7066b00b8ed0bd742a70ed19997fd91a02425b1a93021f8",
     "references/browser-context.md": "69247ccad5cad70bc43755e112a0414267137a59f90cdd1e842cc86ea352c0c8",
     "references/workflow-runtime.md": "56d71b5f4b49dbb01e8daa8d6a71cf98cffa73434d4f27faefa8e60db2927b50",
     "scripts/browser_context.js": "9a8482c7ea7fd4860fe33e4d516bc19948f2a0194c7471522c86be18048ae17a",
@@ -17,7 +17,7 @@
     "skills/code-reviewer/scripts/terminal_artifact_envelope.py": "f0a84d2e6f42b7b93172695e71e2e40b57a5ba01acb6c04b7d2651d5e53ca22f",
     "skills/code-reviewer/scripts/verify_candidate_binding.py": "4f5cb1911bc5d92e57795fad94bf4c33228e4138f75ff22179441c71bd28076a",
     "skills/code-reviewer/scripts/verify_review_evidence.py": "8cb07c4ee9be335bea2b0d4aef575450f17a7dfb216bc33e76316fedee6edc16",
-    "skills/code-writer/SKILL.md": "2aac9f8b054ac1f38886bd4fe76ee179885d5ef5de77c0e96e41234fe38c878f",
+    "skills/code-writer/SKILL.md": "eed706ef9300afbfceaa0a0d7c7a2e63592c2cf6ba41bad2cfa08589678aabb4",
     "skills/delivery-secretary/SKILL.md": "80e74b1cbb6ff4a2f29728b65b029356e9c78ab953618e6e8aa4eb57bf3817a0"
   }
 }

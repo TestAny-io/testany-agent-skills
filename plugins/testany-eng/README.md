@@ -4,7 +4,7 @@
 
 研发流程工具集：从业务需求、设计到源码评审、测试设计与运维准备的完整链路。
 
-SkillDock 已迁移为独立的 [skilldock 插件](../skilldock/README.md)。`testany-eng 2.8.1` 包含 24 个研发与协作 skills。2.8.0 新增 ui-designer，并把 prototype-designer 收窄为在沙箱中验证流程、状态和数据；两者共用设计指南和沙箱规则。2.8.1 只改仓库校验脚本：只带 Codex manifest 的插件可以在 marketplace 条目中重复同一版本。需要图形管理器时单独安装 SkillDock。发布版本以 plugin.json 和 CHANGELOG 为准；使用新版需要更新完整插件，发布不表示本机已安装或在线线程已采用。
+SkillDock 已迁移为独立的 [skilldock 插件](../skilldock/README.md)。`testany-eng 2.8.2` 包含 24 个研发与协作 skills。2.8.0 新增 ui-designer，并把 prototype-designer 收窄为在沙箱中验证流程、状态和数据；两者共用设计指南和沙箱规则。2.8.1 只改仓库校验脚本：只带 Codex manifest 的插件可以在 marketplace 条目中重复同一版本。2.8.2 明确普通原生操作与源码/工具交付的分流，操作结果不自动制造 Candidate 或读取方法评审。需要图形管理器时单独安装 SkillDock。发布版本以 plugin.json 和 CHANGELOG 为准；使用新版需要更新完整插件，发布不表示本机已安装或在线线程已采用。
 
 ## 概述
 
@@ -635,8 +635,9 @@ flowchart TD
 
 ### code-writer
 
-**用途**：在明确请求/批准范围内实现、排障、补必要测试和整改，形成精确 Candidate。
+**用途**：在明确请求/批准范围内操作、排障、实现、补必要测试和整改；已有工具操作交付实际结果，源码/工具交付形成精确 Candidate。
 
+- 先分操作与实现：现有 CLI/API/SOP 能完成的普通排障直接推进，不先开发读取器或排方法评审；真实可复用工具交付仍走原源码审查。
 - 从真实入口定位根因，保留反证、未执行测试、失败与必要验证；不以节省上下文降低质量。
 - 工程恢复位置留在原 Record；小入口显式绑定当前任务，切换/返回不默用旧状态。
 - 与 Reviewer 使用同包公共工具，支持有界 JSON/浏览器读取、依赖自检及可信证据复用；不依赖本机源仓库或固定缓存版本。

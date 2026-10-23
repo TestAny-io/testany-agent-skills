@@ -213,7 +213,7 @@ GitHub 来源更新：先执行 `"$CODEX_CLI" plugin marketplace upgrade testany
 | `/testany-eng:test-strategy-reviewer` | 测试策略评审门禁，检查风险覆盖、分层、环境和入口/出口标准 |
 | `/testany-eng:lld-writer` | LLD 写作技能，将 HLD 和 Contract 细化为可实现的详细设计 |
 | `/testany-eng:lld-reviewer` | 正式 LLD / 已批准范围内有限工程设计评审；局部修复不强制全套 Manifest |
-| `/testany-eng:code-writer` | 在已授权范围内实现、排障、验证与工程续接，形成精确 Candidate |
+| `/testany-eng:code-writer` | 已授权普通操作交付事实；真实源码/工具修改完成验证并形成精确 Candidate |
 | `/testany-eng:code-reviewer` | 可溯源批准范围内的源码评审：核验生产语义、管理入口及整改整链；保留有限漏审规则，拒绝循环自证授权 |
 | `/testany-eng:test-spec-writer` | 测试规格与测试用例包写作助手，输出完整 test case package |
 | `/testany-eng:test-reviewer` | 测试评审门禁，检查测试包覆盖、证据与残余风险 |

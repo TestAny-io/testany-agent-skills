@@ -5,9 +5,9 @@ argument-hint: <仓库路径或工程请求> [批准基线] [已登记 workflow 
 
 # Code Writer
 
-以 `${CLAUDE_PLUGIN_ROOT}/skills/code-writer/SKILL.md` 为入口，完成当前授权范围内的实现和验证。
+以 `${CLAUDE_PLUGIN_ROOT}/skills/code-writer/SKILL.md` 为入口，先区分既有工具操作与真实源码/工具交付，完成当前授权范围内的工作和验证；普通排障不制造源码 Candidate，真实实现仍走原审查。
 
-首次先取得 skill 规则与小入口；不要把工程状态/历史全文读取排进加载 skill 的同一批工具调用。随后用同包恢复工具取得当前任务字段。
+首次先取得 skill 规则；需要工程续接时再取小入口和当前任务字段，不为一次普通操作创建恢复位置。不要把工程状态/历史全文读取排进加载 skill 的同一批工具调用。
 
 $ARGUMENTS
 
