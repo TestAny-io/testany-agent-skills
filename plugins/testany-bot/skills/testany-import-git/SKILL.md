@@ -50,7 +50,8 @@ argument-hint: "[操作] [描述]，如：连接 GitHub、从 owner/repo 建一�
 | 列可访问仓库 | `testany_list_git_repositories`（必填 `installation_id`） |
 | 选分支 / commit | `testany_list_git_branches` / `testany_list_git_commits` |
 | 看仓库目录 / 预览文件 | `testany_browse_git_tree` / `testany_preview_git_file` |
-| 列 / 查 / 删 import | `testany_list_git_imports` / `testany_get_git_import` / `testany_delete_git_import` |
+| 列 / 查 import | `testany_list_git_imports` / `testany_get_git_import` |
+| 删 import（**两步，不是一步**） | `testany_delete_git_import({import_history_id})`（默认 `action=prepare`，**什么都不删**，返回 `operation_id` 和哪些 Case 会删、哪些会留）→ 给用户看 → 用户同意后 `testany_delete_git_import({import_history_id, action:"confirm", operation_id})` 才真正删；`action=cancel` 放弃，`action=status` 读回。默认一个 Case 都不留（整个 import 删掉）；要留的用 `retain_case_keys`（留下的 Case 变成本地 Case）；准备 15 分钟内不确认会过期，要重新 prepare。**Git V1 的 import 留 Case 时匿名读仓库**：读不了（需要凭据、不存在或已删除）就失败，`reason_code=V1_PRIVATE_REPOSITORY`，来源不删，只能全删或先重新导入成 V2 |
 | 新建导入 | `testany_create_git_import` |
 | 看 / 清 bindings | `testany_list_git_import_file_bindings` / `testany_delete_git_import_file_bindings` |
 | 周期同步（**managed_import 专属**） | `testany_preview_git_sync` → `testany_confirm_git_sync`（sync_link 在 current phase **不支持** confirm_sync；改走 addFiles/sourceDeleted） |
